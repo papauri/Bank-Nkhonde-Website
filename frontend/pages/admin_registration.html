@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Registration</title>
+  <link rel="stylesheet" href="../styles/registration.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Admin Registration</h1>
+    <form id="registrationForm">
+      <input type="text" id="name" placeholder="Full Name" required>
+      <input type="tel" id="phone" placeholder="Phone Number" required>
+      <input type="email" id="email" placeholder="Email Address" required>
+      <input type="password" id="password" placeholder="Password" required>
+      <input type="text" id="invitationCode" placeholder="Invitation Code" readonly>
+      <label>
+        <input type="checkbox" id="createGroup"> Create a Group Now
+      </label>
+      <div id="groupDetails" class="hidden">
+        <input type="text" id="groupName" placeholder="Group Name">
+        <input type="number" id="seedMoney" placeholder="Seed Money (MWK)">
+        <input type="number" id="interestRate" placeholder="Interest Rate (%)">
+        <input type="number" id="monthlyContribution" placeholder="Monthly Contribution (MWK)">
+        <input type="number" id="loanPenalty" placeholder="Loan Penalty (%)">
+        <input type="number" id="monthlyPenalty" placeholder="Monthly Penalty (%)">
+      </div>
+      <button type="submit">Register</button>
+    </form>
+    <p id="errorMessage" class="error"></p>
+    <div id="loading" class="hidden">Processing... Please wait.</div>
+  </div>
+
+  <script type="module" src="../scripts/registration.js"></script>
+  <script type="module" src="../scripts/invitation_code.js"></script>
+
+</body>
+</html>

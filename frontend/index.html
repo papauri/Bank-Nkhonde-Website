@@ -3,93 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Welcome to My App</title>
+  <title>Bank Nkhonde</title>
   <link rel="stylesheet" href="styles/styles.css">
 </head>
 <body>
-  <header>
-    <div class="container">
-      <nav>
-        <a href="#" class="logo">MyApp</a>
-        <ul class="nav-links">
-          <li><a href="#features">Features</a></li>
-          <li><a href="#about">About</a></li>
-          <li><a href="#contact">Contact</a></li>
-          <li><a href="login.html" class="btn">Login</a></li>
-        </ul>
-        <div class="hamburger">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-      </nav>
+  <div class="container">
+    <div class="form-container" id="loginForm">
+      <h1>Welcome to Bank Nkhonde</h1>
+      <p>Admin Login</p>
+      <input type="email" id="email" placeholder="Email Address" required>
+      <input type="password" id="password" placeholder="Password" required>
+      <button id="loginBtn">Login</button>
+      <p id="errorMessage"></p>
+      <p>
+        Don't have an admin account? <a href="pages/admin_registration.html" id="showRegister">Register</a>
+      </p>
     </div>
-  </header>
+  </div>
 
-  <main>
-    <!-- Hero Section -->
-    <section class="hero">
-      <div class="container">
-        <h1>Welcome to <span>MyApp</span></h1>
-        <p>The perfect platform for managing your goals and collaboration.</p>
-        <a href="#features" class="btn">Get Started</a>
-      </div>
-    </section>
-
-    <!-- Features Section -->
-    <section id="features" class="features">
-      <div class="container">
-        <h2>Features</h2>
-        <div class="feature-cards">
-          <div class="feature-card">
-            <h3>Easy Collaboration</h3>
-            <p>Connect with your team and manage tasks efficiently.</p>
-          </div>
-          <div class="feature-card">
-            <h3>Secure Storage</h3>
-            <p>Keep your data safe with our state-of-the-art security.</p>
-          </div>
-          <div class="feature-card">
-            <h3>Accessible Anywhere</h3>
-            <p>Access your data from any device, anytime, anywhere.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- About Section -->
-    <section id="about" class="about">
-      <div class="container">
-        <h2>About Us</h2>
-        <p>
-          At <span>MyApp</span>, we are committed to providing tools that empower
-          individuals and teams to achieve their goals with ease and efficiency.
-        </p>
-      </div>
-    </section>
-
-    <!-- Contact Section -->
-    <section id="contact" class="contact">
-      <div class="container">
-        <h2>Contact Us</h2>
-        <p>Have questions? Get in touch with us.</p>
-        <form>
-          <input type="text" placeholder="Your Name" required>
-          <input type="email" placeholder="Your Email" required>
-          <textarea placeholder="Your Message" required></textarea>
-          <button type="submit">Send</button>
-        </form>
-      </div>
-    </section>
-  </main>
-
-  <footer>
-    <div class="container">
-      <p>&copy; 2025 MyApp. All rights reserved.</p>
-    </div>
-  </footer>
-
-  <script src="scripts/main.js"></script>
-  <script src="scripts/hamburger.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+  <script type="module" src="scripts/main.js"></script>
 </body>
 </html>
