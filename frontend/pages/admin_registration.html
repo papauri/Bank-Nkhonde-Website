@@ -1,39 +1,85 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Registration</title>
+
+  <!-- Intl-Tel-Input Styles and Script -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/css/intlTelInput.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/intlTelInput.min.js"></script>
+
+  <!-- Custom Styles -->
   <link rel="stylesheet" href="../styles/registration.css">
 </head>
+
 <body>
   <div class="container">
     <h1>Admin Registration</h1>
     <form id="registrationForm">
-      <input type="text" id="name" placeholder="Full Name" required>
-      <input type="tel" id="phone" placeholder="Phone Number" required>
-      <input type="email" id="email" placeholder="Email Address" required>
-      <input type="password" id="password" placeholder="Password" required>
-      <input type="text" id="invitationCode" placeholder="Invitation Code" readonly>
-      <label>
-        <input type="checkbox" id="createGroup"> Create a Group Now
-      </label>
-      <div id="groupDetails" class="hidden">
-        <input type="text" id="groupName" placeholder="Group Name">
-        <input type="number" id="seedMoney" placeholder="Seed Money (MWK)">
-        <input type="number" id="interestRate" placeholder="Interest Rate (%)">
-        <input type="number" id="monthlyContribution" placeholder="Monthly Contribution (MWK)">
-        <input type="number" id="loanPenalty" placeholder="Loan Penalty (%)">
-        <input type="number" id="monthlyPenalty" placeholder="Monthly Penalty (%)">
-      </div>
-      <button type="submit">Register</button>
+      <!-- User Details -->
+      <label for="name">Full Name</label>
+      <input type="text" id="name" name="name" placeholder="Full Name" required aria-label="Full Name">
+
+      <label for="phone">Phone Number</label>
+      <input type="tel" id="phone" name="phone" placeholder="Enter your phone number" required aria-label="Phone Number">
+
+      <label for="email">Email Address</label>
+      <input type="email" id="email" name="email" placeholder="Email Address" required aria-label="Email Address">
+
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" placeholder="Password" required aria-label="Password">
+
+      <!-- Group Creation Section -->
+      <h2>Group Details</h2>
+      <label for="groupName">Group Name</label>
+      <input type="text" id="groupName" name="groupName" placeholder="Group Name" required aria-label="Group Name">
+
+      <label for="seedMoney">Seed Money (MWK)</label>
+      <input type="number" id="seedMoney" name="seedMoney" placeholder="0.00" step="0.01" required
+        aria-label="Seed Money in MWK">
+
+      <label for="interestRate">Interest Rate (%)</label>
+      <input type="number" id="interestRate" name="interestRate" placeholder="Interest Rate (%)" required
+        aria-label="Interest Rate in Percentage">
+
+      <label for="monthlyContribution">Monthly Contribution (MWK)</label>
+      <input type="number" id="monthlyContribution" name="monthlyContribution" placeholder="0.00" step="0.01" required
+        aria-label="Monthly Contribution in MWK">
+
+      <label for="loanPenalty">Loan Penalty (%)</label>
+      <input type="number" id="loanPenalty" name="loanPenalty" placeholder="Loan Penalty (%)" required
+        aria-label="Loan Penalty in Percentage">
+
+      <label for="monthlyPenalty">Monthly Penalty (%)</label>
+      <input type="number" id="monthlyPenalty" name="monthlyPenalty" placeholder="Monthly Penalty (%)" required
+        aria-label="Monthly Penalty in Percentage">
+
+      <!-- Invitation Code -->
+      <label for="invitationCode">Invitation Code</label>
+      <input type="text" id="invitationCode" name="invitationCode" placeholder="Invitation Code" readonly
+        class="disabled-input" aria-label="Invitation Code">
+
+      <!-- Submit Button -->
+      <button type="submit" aria-label="Register Button">Register</button>
+
+      <!-- Error Message -->
+      <p id="errorMessage" class="error"></p>
     </form>
-    <p id="errorMessage" class="error"></p>
-    <div id="loading" class="hidden">Processing... Please wait.</div>
   </div>
 
-  <script type="module" src="../scripts/registration.js"></script>
-  <script type="module" src="../scripts/invitation_code.js"></script>
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="hidden">
+    <div class="content">
+      <p id="loadingMessage">Processing... Please wait.</p>
+      <div class="loader"></div>
+    </div>
+  </div>
 
+  <!-- Custom Scripts -->
+  <script type="module" src="../scripts/registration.js"></script>
+  <script type="module" src="../scripts/loans.js"></script>
 </body>
+
 </html>

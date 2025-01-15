@@ -68,7 +68,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         alert("Login successful! Redirecting...");
         console.log("User:", userCredential.user);
-        window.location.href = "dashboard/admin_dashboard.html"; // Redirect after login
+        window.location.href = "../frontend/pages/admin_dashboard.html"; // Redirect after login
       } catch (error) {
         console.error("Login Error:", error.message);
         errorMessage.textContent = "Login failed. Please check your credentials.";

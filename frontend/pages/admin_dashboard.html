@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="../styles/admin_dashboard.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header Section -->
+    <header class="header">
+      <h1 id="dashboardTitle">Admin Dashboard</h1>
+      <button id="logoutButton" class="button logout">Logout</button>
+    </header>
+
+    <!-- Welcome Message -->
+    <div class="welcome">
+      <div class="welcome-details">
+        <h2 id="welcomeMessage">Welcome, <span id="adminName">Admin</span></h2>
+        <p class="info-text">
+          You are logged in as an <strong>Administrator</strong>. Click on a group below to view its details.
+        </p>
+      </div>
+    </div>
+
+    <!-- Groups Section -->
+    <section class="groups">
+      <h2>Your Managed Groups</h2>
+      <ul id="groupList" class="group-list">
+        <li>Loading your groups...</li>
+      </ul>
+    </section>
+
+    <!-- Footer Navigation -->
+    <footer class="footer">
+      <button id="switchViewButton" class="button">Switch to User View</button>
+      <button id="createGroupButton" class="button">Create Group</button>
+      <button id="settingsButton" class="button">Settings</button>
+    </footer>
+  </div>
+
+  <script type="module" src="../scripts/admin_dashboard.js"></script>
+</body>
+</html>
