@@ -1,11 +1,18 @@
 const express = require('express');
-const app = express();
-const port = 5000;
+const path = require('path');
 
+const app = express();
+
+// Serve static files from the root directory
+app.use(express.static(path.join(__dirname)));
+
+// Root route (optional)
 app.get('/', (req, res) => {
-  res.send('Hello from the backend!');
+  res.send('Backend is running now.');
 });
 
-app.listen(port, () => {
-  console.log(`Backend is running on http://localhost:${port}`);
+// Start the server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });

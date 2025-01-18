@@ -4,14 +4,12 @@ import {
     getFirestore,
     collection,
     doc,
-    addDoc,
     setDoc,
     getDoc,
-    query,
-    getDocs
+    updateDoc,
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-// Firebase configuration
+// Firebase Configuration
 const firebaseConfig = {
     apiKey: "AIzaSyClJfGFoc1WZ_qYi5ImQJXyurQtqXgOqfA",
     authDomain: "banknkonde.firebaseapp.com",
@@ -21,101 +19,150 @@ const firebaseConfig = {
     appId: "1:698749180404:web:7e8483cae4abd7555101a1",
 };
 
-// Initialize Firebase and Firestore
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // Export the db instance for use in other modules
 export { db };
 
-// Initialize loans structure
-export async function initializeLoansStructure(groupId, currentYear, months) {
+/**
+ * Initialize loans structure for a group.
+ * Ensures the `loans` subcollection is ready to accept loan records.
+ * @param {string} groupId - ID of the group.
+ */
+export async function initializeLoansStructure(groupId) {
     try {
-        for (const month of months) {
-            const loansMonthRef = doc(db, `groups/${groupId}/loans/${currentYear}/${month}/initialized`);
-            await setDoc(loansMonthRef, { initialized: true });
+        const groupRef = doc(db, "groups", groupId);
+        const groupSnapshot = await getDoc(groupRef);
+
+        if (!groupSnapshot.exists()) {
+            throw new Error(`Group with ID ${groupId} does not exist.`);
         }
+
+        console.log(`Loans structure initialized for Group ID: ${groupId}`);
     } catch (error) {
-        console.error("Error initializing loans structure:", { groupId, currentYear, error });
+        console.error("Error initializing loans structure:", error);
         throw error;
     }
 }
 
-// Create a new loan record
-export async function createLoanRecord(groupId, currentYear, currentMonth, userFullName, loanAmount, repaymentAmount) {
+/**
+ * Create a new loan record for a user within a group.
+ * @param {string} groupId - The ID of the group.
+ * @param {string} userId - The ID of the user.
+ * @param {string} userFullName - The full name of the user.
+ * @param {number} loanAmount - The loan amount (placeholder).
+ * @param {string} date - The date when the loan structure is created (month_day_year format).
+ */
+export async function createLoanRecord(groupId, userId, userFullName, loanAmount = 0, date) {
     try {
-        const loansRef = collection(db, `groups/${groupId}/loans/${currentYear}/${currentMonth}/members/${userFullName}`);
+        // Fetch group details for dynamic fields like loan penalties
+        const groupRef = doc(db, "groups", groupId);
+        const groupSnapshot = await getDoc(groupRef);
+
+        if (!groupSnapshot.exists()) {
+            throw new Error(`Group with ID ${groupId} does not exist.`);
+        }
+
+        const groupData = groupSnapshot.data();
+        const latePaymentRate = parseFloat(groupData.loanPenalty || 0); // Loan penalty rate
+
+        // Unique Loan ID based on user and date
+        const loanId = `Loan_${userFullName.replace(/\s+/g, "_")}`;
 
         const loanRecord = {
-            loanId: `Loan-${Date.now()}`,
+            loanId, // Unique identifier for the loan
+            userId,
             fullName: userFullName,
-            loanAmount: formatToTwoDecimals(loanAmount),
-            repaymentAmount: formatToTwoDecimals(repaymentAmount),
-            loanTakenDate: new Date(),
-            repaymentStatus: "ongoing",
-            totalLoansTaken: 0, // Track cumulative loans for the user
-            loanRank: null, // User's ranking compared to others
+            loanAmount: formatToTwoDecimals(loanAmount), // Placeholder
+            repaymentAmount: "0.00", // Placeholder
+            penaltyAmount: "0.00", // Placeholder for late payment penalty
+            latePaymentRate, // Penalty rate (percentage)
+            loanTakenDate: null, // Placeholder until loan is applied
+            dueDate: null, // Placeholder for due date
+            repaymentStatus: "not-started", // Default status
+            totalOutstanding: "0.00", // Placeholder for balance
+            totalPenaltiesIncurred: "0.00", // Placeholder for penalties
+            payments: [], // Array to track payment history
+            loanReferenceNumber: generateLoanReference(userId), // User-specific loan reference
+            createdAt: new Date(),
+            updatedAt: null,
         };
 
-        await addDoc(loansRef, loanRecord);
+        // Save the loan record in the subcollection under the date collection
+        const loansCollectionRef = collection(db, `groups/${groupId}/loans/${loanId}/${date}`);
+        await setDoc(doc(loansCollectionRef), loanRecord);
+
+        console.log(`Loan record structure created for User: ${userFullName} in Group: ${groupId} on ${date}`);
     } catch (error) {
-        console.error("Error creating loan record:", { groupId, userFullName, error });
+        console.error("Error creating loan record:", error);
         throw error;
     }
 }
 
-// Update loan summary
-export async function updateLoanSummary(groupId, currentYear, userFullName, loanAmount) {
+/**
+ * Update the loan repayment details for a specific loan within a group.
+ * @param {string} groupId - The ID of the group.
+ * @param {string} loanId - The unique loan ID.
+ * @param {string} date - The specific loan date (month_day_year).
+ * @param {number} repaymentAmount - The amount repaid by the user.
+ */
+export async function updateLoanRepayment(groupId, loanId, date, repaymentAmount) {
     try {
-        const loanSummaryDoc = doc(db, `groups/${groupId}/loanSummary/${currentYear}/members/${userFullName}`);
-        const existingData = (await getDoc(loanSummaryDoc)).data() || {};
+        const loanRef = doc(db, `groups/${groupId}/loans/${loanId}/${date}`);
+        const loanSnapshot = await getDoc(loanRef);
 
-        const updatedSummary = {
-            fullName: userFullName,
-            totalLoans: formatToTwoDecimals(
-                parseFloat(existingData.totalLoans || 0) + parseFloat(loanAmount)
-            ),
-        };
-
-        await setDoc(loanSummaryDoc, updatedSummary, { merge: true });
-
-        // Optionally calculate rankings
-        await calculateLoanRankings(groupId, currentYear);
-        console.log(`Loan summary updated for user: ${userFullName}`);
-    } catch (error) {
-        console.error("Error updating loan summary:", { groupId, userFullName, error });
-        throw error;
-    }
-}
-
-// Calculate loan rankings
-async function calculateLoanRankings(groupId, currentYear) {
-    try {
-        const loanSummaryCollection = collection(db, `groups/${groupId}/loanSummary/${currentYear}/members`);
-        const loanDocs = await getDocs(query(loanSummaryCollection));
-
-        const loanData = [];
-        loanDocs.forEach((doc) => {
-            const data = doc.data();
-            if (data.totalLoans) loanData.push(data);
-        });
-
-        // Sort by totalLoans in descending order and assign ranks
-        loanData.sort((a, b) => b.totalLoans - a.totalLoans);
-        for (let i = 0; i < loanData.length; i++) {
-            const userDocRef = doc(db, `groups/${groupId}/loanSummary/${currentYear}/members/${loanData[i].fullName}`);
-            await setDoc(userDocRef, { loanRank: i + 1 }, { merge: true });
+        if (!loanSnapshot.exists()) {
+            throw new Error(`Loan with ID ${loanId} on ${date} does not exist.`);
         }
 
-        console.log("Loan rankings updated.");
+        const loanData = loanSnapshot.data();
+        const newTotalPaid = parseFloat(loanData.repaymentAmount) + repaymentAmount;
+        const totalOutstanding = Math.max(parseFloat(loanData.loanAmount) - newTotalPaid, 0);
+        const arrears = totalOutstanding > 0 ? totalOutstanding : 0;
+
+        // Create a payment record
+        const paymentRecord = {
+            amount: formatToTwoDecimals(repaymentAmount),
+            date: new Date().toISOString(),
+            balance: formatToTwoDecimals(totalOutstanding),
+            arrears: formatToTwoDecimals(arrears),
+        };
+
+        // Update repayment status
+        const repaymentStatus = totalOutstanding === 0 ? "completed" : "ongoing";
+
+        // Update the loan document
+        await updateDoc(loanRef, {
+            repaymentAmount: formatToTwoDecimals(newTotalPaid),
+            totalOutstanding: formatToTwoDecimals(totalOutstanding),
+            repaymentStatus,
+            updatedAt: new Date(),
+            payments: [...(loanData.payments || []), paymentRecord], // Append new payment
+        });
+
+        console.log(`Loan repayment updated for Loan ID: ${loanId} on ${date}`);
     } catch (error) {
-        console.error("Error calculating loan rankings:", { groupId, currentYear, error });
+        console.error("Error updating loan repayment:", error);
         throw error;
     }
 }
 
-// Utility to format numbers to two decimals
+/**
+ * Generate a unique loan reference number.
+ * @param {string} userId - The user ID.
+ * @returns {string} - A unique loan reference number.
+ */
+function generateLoanReference(userId) {
+    return `REF_${userId}_${Date.now()}`;
+}
+
+/**
+ * Utility to format numbers to two decimals.
+ * @param {number} value - The value to format.
+ * @returns {string} - The formatted value as a string.
+ */
 function formatToTwoDecimals(value) {
-    if (!value || isNaN(value)) return "0.00";
-    return parseFloat(value).toFixed(2);
+    return value ? parseFloat(value).toFixed(2) : "0.00";
 }

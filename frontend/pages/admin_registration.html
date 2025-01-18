@@ -23,7 +23,8 @@
       <input type="text" id="name" name="name" placeholder="Full Name" required aria-label="Full Name">
 
       <label for="phone">Phone Number</label>
-      <input type="tel" id="phone" name="phone" placeholder="Enter your phone number" required aria-label="Phone Number">
+      <input type="tel" id="phone" name="phone" placeholder="Enter your phone number" required
+        aria-label="Phone Number">
 
       <label for="email">Email Address</label>
       <input type="email" id="email" name="email" placeholder="Email Address" required aria-label="Email Address">
@@ -40,21 +41,36 @@
       <input type="number" id="seedMoney" name="seedMoney" placeholder="0.00" step="0.01" required
         aria-label="Seed Money in MWK">
 
+      <label for="seedMoneyDueDate">Seed Money Due Date</label>
+      <input type="date" id="seedMoneyDueDate" name="seedMoneyDueDate" required aria-label="Seed Money Due Date">
+
       <label for="interestRate">Interest Rate (%)</label>
-      <input type="number" id="interestRate" name="interestRate" placeholder="Interest Rate (%)" required
-        aria-label="Interest Rate in Percentage">
+      <div class="input-with-suffix">
+        <input type="number" id="interestRate" name="interestRate" placeholder="0.00" step="0.01" required
+          aria-label="Interest Rate">
+        <span>%</span>
+      </div>
 
       <label for="monthlyContribution">Monthly Contribution (MWK)</label>
       <input type="number" id="monthlyContribution" name="monthlyContribution" placeholder="0.00" step="0.01" required
         aria-label="Monthly Contribution in MWK">
 
       <label for="loanPenalty">Loan Penalty (%)</label>
-      <input type="number" id="loanPenalty" name="loanPenalty" placeholder="Loan Penalty (%)" required
-        aria-label="Loan Penalty in Percentage">
+      <div class="input-with-suffix">
+        <input type="number" id="loanPenalty" name="loanPenalty" placeholder="0.00" step="0.01" required
+          aria-label="Loan Penalty">
+        <span>%</span>
+      </div>
 
       <label for="monthlyPenalty">Monthly Penalty (%)</label>
-      <input type="number" id="monthlyPenalty" name="monthlyPenalty" placeholder="Monthly Penalty (%)" required
-        aria-label="Monthly Penalty in Percentage">
+      <div class="input-with-suffix">
+        <input type="number" id="monthlyPenalty" name="monthlyPenalty" placeholder="0.00" step="0.01" required
+          aria-label="Monthly Penalty">
+        <span>%</span>
+      </div>
+
+      <label for="cycleStartDate">Cycle Start Date:</label>
+      <input type="date" id="cycleStartDate" name="cycleStartDate" required aria-label="Cycle Start Date">
 
       <!-- Invitation Code -->
       <label for="invitationCode">Invitation Code</label>
@@ -79,6 +95,30 @@
 
   <!-- Custom Scripts -->
   <script type="module" src="../scripts/registration.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const decimalFields = document.querySelectorAll("#seedMoney, #monthlyContribution");
+      const percentageFields = document.querySelectorAll("#interestRate, #loanPenalty, #monthlyPenalty");
+
+      // Auto-format decimals to two places
+      function formatDecimals(field) {
+        let value = field.value.trim();
+        if (value && !isNaN(value)) {
+          field.value = parseFloat(value).toFixed(2); // Format to two decimal places
+        }
+      }
+
+      // Attach blur event to decimal fields
+      decimalFields.forEach((field) => {
+        field.addEventListener("blur", () => formatDecimals(field));
+      });
+
+      // Attach blur event to percentage fields (No % modification needed now)
+      percentageFields.forEach((field) => {
+        field.addEventListener("blur", () => formatDecimals(field));
+      });
+    });
+  </script>
   <script type="module" src="../scripts/loans.js"></script>
 </body>
 

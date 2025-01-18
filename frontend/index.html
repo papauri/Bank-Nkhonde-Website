@@ -8,16 +8,41 @@
 </head>
 <body>
   <div class="container">
-    <div class="form-container" id="loginForm">
+    <!-- Welcome Section -->
+    <div class="form-container" id="loginSection">
       <h1>Welcome to Bank Nkhonde</h1>
-      <p>Admin Login</p>
-      <input type="email" id="email" placeholder="Email Address" required>
-      <input type="password" id="password" placeholder="Password" required>
-      <button id="loginBtn">Login</button>
-      <p id="errorMessage"></p>
+
+      <!-- User Login Form -->
+      <div id="userLoginForm" class="login-form active">
+        <h2>User Login</h2>
+        <input type="email" id="userEmail" placeholder="User Email Address" required>
+        <input type="password" id="userPassword" placeholder="Password" required>
+        <button id="userLoginBtn" class="login-btn">Login</button>
+        <p id="userErrorMessage" class="error-message" aria-live="polite"></p>
+      </div>
+
+      <!-- Admin Login Form -->
+      <div id="adminLoginForm" class="login-form hidden">
+        <h2>Admin Login</h2>
+        <input type="email" id="adminEmail" placeholder="Admin Email Address" required>
+        <input type="password" id="adminPassword" placeholder="Password" required>
+        <button id="adminLoginBtn" class="login-btn">Login</button>
+        <p id="adminErrorMessage" class="error-message" aria-live="polite"></p>
+      </div>
+
+      <div class="login-switcher">
+        <button id="userLoginToggle" class="toggle-btn active">User Login</button>
+        <button id="adminLoginToggle" class="toggle-btn">Admin Login</button>
+      </div>
+
       <p>
-        Don't have an admin account? <a href="pages/admin_registration.html" id="showRegister">Register</a>
+        Don't have an account? <a href="pages/admin_registration.html" id="registerLink">Register</a>
       </p>
+    </div>
+
+    <!-- Spinner -->
+    <div class="spinner-container hidden" id="spinner">
+      <div class="spinner"></div>
     </div>
   </div>
 

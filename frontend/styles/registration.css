@@ -150,6 +150,25 @@ button:disabled {
   border-bottom: 2px solid #ddd;
 }
 
+.input-with-suffix {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-with-suffix input {
+  flex-grow: 1;
+  padding-right: 2rem; /* Leave space for suffix */
+}
+
+.input-with-suffix span {
+  position: absolute;
+  right: 10px;
+  font-size: 0.9rem;
+  color: #888;
+}
+
+
 /* Responsive Design */
 @media (max-width: 480px) {
   .container {

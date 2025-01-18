@@ -56,7 +56,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       await signOut(auth);
       alert("You have been logged out.");
-      window.location.href = "../pages/login.html";
+      window.location.href = "/frontend/pages/login.html";
     } catch (error) {
       console.error("Error signing out:", error.message);
       alert("An error occurred while logging out. Please try again.");
@@ -67,38 +67,27 @@ document.addEventListener("DOMContentLoaded", () => {
   async function loadGroups(user) {
     groupList.innerHTML = "<li>Loading your groups...</li>";
     try {
-      const groupsRef = collection(db, "groups");
-      const querySnapshot = await getDocs(groupsRef);
+      const q = query(collection(db, "groups"), where("adminId", "==", user.uid));
+      const querySnapshot = await getDocs(q);
 
       groupList.innerHTML = "";
 
-      let isAdminOfAnyGroup = false;
-
-      querySnapshot.forEach((docSnapshot) => {
-        const groupData = docSnapshot.data();
-        const groupId = docSnapshot.id;
-
-        // Check if the current user is an admin in the group
-        const isAdmin = groupData.adminDetails.some(
-          (admin) => admin.uid === user.uid
-        );
-
-        if (isAdmin) {
-          isAdminOfAnyGroup = true;
+      if (querySnapshot.empty) {
+        groupList.innerHTML = "<li>You have no groups yet.</li>";
+      } else {
+        querySnapshot.forEach((doc) => {
+          const group = doc.data();
+          const groupId = doc.id;
 
           // Create clickable list item for group
           const groupItem = document.createElement("li");
           groupItem.classList.add("group-item");
 
           groupItem.innerHTML = `
-            <a href="../pages/group_page.html?groupId=${groupId}" class="group-link">
+            <a href="/frontend/pages/group_page.html?groupId=${groupId}" class="group-link">
               <div class="group-details">
-                <h3>${groupData.groupName}</h3>
-                <p>Created: ${
-                  groupData.createdAt?.toDate
-                    ? new Date(groupData.createdAt.toDate()).toLocaleDateString()
-                    : "N/A"
-                }</p>
+                <h3>${group.groupName}</h3>
+                <p>Created: ${new Date(group.createdAt.toDate()).toLocaleDateString()}</p>
                 <p>Members: Loading...</p>
               </div>
             </a>
@@ -107,27 +96,11 @@ document.addEventListener("DOMContentLoaded", () => {
           groupList.appendChild(groupItem);
 
           // Fetch member count dynamically
-          getDocs(collection(db, `groups/${groupId}/members`))
-            .then((membersSnapshot) => {
-              const memberCount = membersSnapshot.size;
-              groupItem.querySelector(
-                ".group-details p:nth-child(3)"
-              ).textContent = `Members: ${memberCount}`;
-            })
-            .catch((error) => {
-              console.error(
-                `Error fetching members for group ${groupId}:`,
-                error.message
-              );
-              groupItem.querySelector(
-                ".group-details p:nth-child(3)"
-              ).textContent = `Members: Error`;
-            });
-        }
-      });
-
-      if (!isAdminOfAnyGroup) {
-        groupList.innerHTML = "<li>You are not an admin of any groups.</li>";
+          getDocs(collection(db, "groups", groupId, "members")).then((membersSnapshot) => {
+            const memberCount = membersSnapshot.size;
+            groupItem.querySelector(".group-details p:nth-child(3)").textContent = `Members: ${memberCount}`;
+          });
+        });
       }
     } catch (error) {
       console.error("Error loading groups:", error.message);
@@ -159,18 +132,18 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isAdminView) {
       loadGroups(auth.currentUser); // Reload groups for admin view
     } else {
-      window.location.href = "../pages/user_dashboard.html"; // Navigate to user dashboard
+      groupList.innerHTML = "<li>User Dashboard view is currently under development.</li>";
     }
   });
 
   // Navigate to Create Group
   createGroupButton.addEventListener("click", () => {
-    window.location.href = "../pages/create_group.html";
+    window.location.href = "/frontend/pages/create_group.html";
   });
 
   // Navigate to Settings
   settingsButton.addEventListener("click", () => {
-    window.location.href = "../pages/settings.html";
+    window.location.href = "/frontend/pages/settings.html";
   });
 
   // Listen for authentication state
@@ -183,7 +156,7 @@ document.addEventListener("DOMContentLoaded", () => {
       resetSessionTimer();
     } else {
       alert("No user is currently logged in. Redirecting to login...");
-      window.location.href = "../index.html";
+      window.location.href = "/frontend/pages/login.html";
     }
   });
 

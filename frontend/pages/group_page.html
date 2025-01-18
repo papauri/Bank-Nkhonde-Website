@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
   <title>Group Details</title>
   <link rel="stylesheet" href="../styles/group_details.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@12.3.1/dist/handsontable.full.min.css">
 </head>
 <body>
   <div class="container">
@@ -106,8 +107,16 @@
         </div>
       </div>
     </section>
+
+    <!-- Interactive Table Section -->
+<section class="interactive-table">
+  <h2>Group Data Overview</h2>
+  <div id="spreadsheetContainer">Loading table...</div>
+</section>
   </div>
 
   <script type="module" src="../scripts/group_details.js"></script>
+  <script type="module" src="../scripts/group_table.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/handsontable@12.3.1/dist/handsontable.full.min.js"></script>
 </body>
 </html>
