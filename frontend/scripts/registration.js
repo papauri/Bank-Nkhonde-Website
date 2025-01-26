@@ -263,12 +263,6 @@ async function trackApprovalStatus(invitationDocId, name, email, password, group
           },
         });
 
-        // Initialize loans for the group
-        await initializeLoansStructure(groupId, cycleDates.map((date) => date.month));
-
-        // Create a default loan record for the admin
-        await createLoanRecord(groupId, userId, name, 0, cycleStartDate);
-
         // Add the user to the `members` subcollection
         const memberDocId = `${name.replace(/\s+/g, "_")}_admin_${userId}`;
         const memberRef = doc(db, `groups/${groupId}/members`, memberDocId);
@@ -347,7 +341,7 @@ async function createPayment(userFullName, paymentType, totalAmount, paidAmount,
   const surplus = Math.max(paidAmount - totalAmount, 0);
   const status = arrears > 0 ? "pending" : "completed";
 
-  const paymentId = `${paymentType.replace(/\s+/g, "_")}_${userFullName.replace(/\s+/g, "_")}_${month}_${year}`;
+  const paymentId = `${year}_${month}_${paymentType.replace(/\s+/g, "_")}_${userId}`;
 
   const paymentRef = doc(db, `groups/${groupId}/payments`, paymentId);
 
@@ -359,11 +353,10 @@ async function createPayment(userFullName, paymentType, totalAmount, paidAmount,
     paymentType,
     paymentCategory: paymentType.includes("Loan") ? "loan" : "contribution",
     totalAmount: formatToTwoDecimals(totalAmount),
-    paidAmount: formatToTwoDecimals(paidAmount),
+    paid: [],
     arrears: formatToTwoDecimals(arrears),
     surplus: formatToTwoDecimals(surplus),
     status,
-    paymentDate: null, // No payment has been made yet
     dueDate: dueDate,
     month,
     year,
@@ -371,6 +364,7 @@ async function createPayment(userFullName, paymentType, totalAmount, paidAmount,
     approvedBy: null,
     paymentMethod: null,
     notes: null,
+    auditLogs: [],
     createdAt: new Date(),
     updatedAt: null,
   });
@@ -378,6 +372,7 @@ async function createPayment(userFullName, paymentType, totalAmount, paidAmount,
   console.log("Payment record created with ID:", paymentRef.id);
   return paymentRef.id;
 }
+
 
 
   // Utility Functions

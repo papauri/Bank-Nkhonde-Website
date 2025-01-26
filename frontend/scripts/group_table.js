@@ -66,22 +66,9 @@ function formatFriendlyDate(date) {
   });
 }
 
-// Helper Function: Check if Today is the 1st of January
-function isFirstDayOfYear() {
-  const today = new Date();
-  return today.getDate() === 1 && today.getMonth() === 0;
-}
-
-// Delete Payments Data (for yearly reset)
-async function deletePaymentsData(groupId) {
-  const paymentsRef = collection(db, `groups/${groupId}/payments`);
-  const snapshot = await getDocs(paymentsRef);
-  const deletePromises = snapshot.docs.map((doc) => deleteDoc(doc.ref));
-  await Promise.all(deletePromises);
-}
-
 async function displayMonthlyContributions(groupId) {
   try {
+    // Fetch group details
     const groupRef = doc(db, "groups", groupId);
     const groupSnapshot = await getDoc(groupRef);
 
@@ -92,6 +79,7 @@ async function displayMonthlyContributions(groupId) {
     const groupData = groupSnapshot.data();
     const monthlyPenaltyRate = parseFloat(groupData.monthlyPenalty || 0);
 
+    // Fetch members and payments
     const membersRef = collection(db, `groups/${groupId}/members`);
     const paymentsRef = collection(db, `groups/${groupId}/payments`);
     const members = await fetchCollectionData(membersRef);
@@ -104,6 +92,7 @@ async function displayMonthlyContributions(groupId) {
     const membersListContainer = document.getElementById("membersList");
     membersListContainer.innerHTML = ""; // Clear existing content
 
+    // Generate member list buttons
     members.forEach((member) => {
       const memberButton = document.createElement("button");
       memberButton.textContent = member.fullName || "Unknown";
@@ -126,10 +115,18 @@ async function displayMemberData(member, payments, monthlyPenaltyRate, groupId) 
     const manualPaymentContainer = document.getElementById("manualPaymentContainer");
     const memberNameElement = document.getElementById("memberName");
 
+    // Toggle visibility: If already visible and same member clicked, close the container
+    if (memberDataContainer.dataset.activeMember === member.uid) {
+      memberDataContainer.style.display = memberDataContainer.style.display === "block" ? "none" : "block";
+      return;
+    }
+
+    // Store the active member's UID
+    memberDataContainer.dataset.activeMember = member.uid;
+
     // Clear previous data
     memberTableContainer.innerHTML = "";
     manualPaymentContainer.innerHTML = "";
-
     memberNameElement.textContent = member.fullName || "Unknown";
     memberDataContainer.style.display = "block";
 
@@ -145,39 +142,39 @@ async function displayMemberData(member, payments, monthlyPenaltyRate, groupId) 
 
     let totalArrears = 0;
     let totalPenalties = 0;
-    let totalDue = 0;
     let totalPaid = 0;
+    let totalSurplus = 0;
 
     // Prepare table data
     const tableData = memberPayments.map((payment) => {
       const dueDate = payment.dueDate ? new Date(payment.dueDate) : null;
       const now = new Date();
 
-      const arrears = parseFloat(payment.totalAmount || 0) - (parseFloat(payment.paidAmount || 0) || 0);
-      const paid = Array.isArray(payment.paid) ? payment.paid : [];
-      const totalPaidRow = paid.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+      const totalPaidRow = Array.isArray(payment.paid)
+        ? payment.paid.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0)
+        : 0;
 
-      // Penalty applies only if due date has passed and arrears exist
+      const arrears = Math.max(payment.totalAmount - totalPaidRow, 0);
       const penalty = arrears > 0 && dueDate && now > dueDate ? arrears * (monthlyPenaltyRate / 100) : 0;
-
-      const balance = Math.max(arrears + penalty - totalPaidRow, 0); // Balance ensures it doesn't go negative
+      const totalDue = arrears + penalty;
+      const surplus = Math.max(totalPaidRow - payment.totalAmount - penalty, 0);
 
       // Accumulate totals
       totalArrears += arrears;
       totalPenalties += penalty;
-      totalDue += balance;
       totalPaid += totalPaidRow;
+      totalSurplus += surplus;
 
       return {
         month: dueDate ? dueDate.toLocaleString("default", { month: "long", year: "numeric" }) : "Unknown",
         dueDate: dueDate ? dueDate.toLocaleDateString("en-US") : "",
         arrears: formatToTwoDecimals(arrears),
         penalties: formatToTwoDecimals(penalty),
-        totalDue: formatToTwoDecimals(balance),
-        paid: formatToTwoDecimals(totalPaidRow),
-        paymentDetails: formatPaymentDetails(paid),
-        paymentMethod: formatPaymentMethods(paid),
-        status: balance > 0 ? "Pending" : "Completed",
+        surplus: formatToTwoDecimals(surplus),
+        totalPaid: formatToTwoDecimals(totalPaidRow),
+        totalDue: formatToTwoDecimals(totalDue), // Total Due for the manual payment form
+        paymentDetails: formatPaymentDetails(payment.paid || []),
+        status: arrears > 0 ? "Pending" : "Completed",
         paymentId: payment.paymentId,
       };
     });
@@ -188,14 +185,14 @@ async function displayMemberData(member, payments, monthlyPenaltyRate, groupId) 
       dueDate: "",
       arrears: formatToTwoDecimals(totalArrears),
       penalties: formatToTwoDecimals(totalPenalties),
-      totalDue: formatToTwoDecimals(totalDue),
-      paid: formatToTwoDecimals(totalPaid),
+      surplus: formatToTwoDecimals(totalSurplus),
+      totalPaid: formatToTwoDecimals(totalPaid),
+      totalDue: "", // Not needed for totals
       paymentDetails: "",
-      paymentMethod: "",
       status: "",
     });
 
-    // Render Handsontable
+    // Render Handsontable with filtering and collapsing options
     new Handsontable(memberTableContainer, {
       data: tableData,
       colHeaders: [
@@ -203,30 +200,33 @@ async function displayMemberData(member, payments, monthlyPenaltyRate, groupId) 
         "Due Date",
         "Arrears (MK)",
         "Penalties (MK)",
-        "Total Due (MK)",
+        "Surplus (MK)",
         "Total Paid (MK)",
         "Payment Details",
-        "Payment Method",
         "Payment Status",
+      ],
+      nestedHeaders: [
+        [{ label: "Payment Summary", colspan: 8 }],
+        [
+          "Month",
+          "Due Date",
+          "Arrears (MK)",
+          "Penalties (MK)",
+          "Surplus (MK)",
+          "Total Paid (MK)",
+          "Payment Details",
+          "Payment Status",
+        ],
       ],
       columns: [
         { data: "month", type: "text", readOnly: true },
         { data: "dueDate", type: "text", readOnly: true },
         { data: "arrears", type: "numeric", format: "0,0.00", readOnly: true },
         { data: "penalties", type: "numeric", format: "0,0.00", readOnly: true },
-        { data: "totalDue", type: "numeric", format: "0,0.00", readOnly: true },
-        { data: "paid", type: "numeric", format: "0,0.00", readOnly: true },
+        { data: "surplus", type: "numeric", format: "0,0.00", readOnly: true },
+        { data: "totalPaid", type: "numeric", format: "0,0.00", readOnly: true },
         {
           data: "paymentDetails",
-          type: "text",
-          readOnly: true,
-          renderer: (instance, td, row, col, prop, value) => {
-            td.innerHTML = value.replace(/\n/g, "<br>");
-            td.style.whiteSpace = "pre-wrap";
-          },
-        },
-        {
-          data: "paymentMethod",
           type: "text",
           readOnly: true,
           renderer: (instance, td, row, col, prop, value) => {
@@ -239,6 +239,11 @@ async function displayMemberData(member, payments, monthlyPenaltyRate, groupId) 
           type: "dropdown",
           source: ["Pending", "Completed"],
         },
+      ],
+      dropdownMenu: true, // Enable column filtering
+      filters: true, // Enable row filtering
+      collapsibleColumns: [
+        { row: 0, col: 2, collapsible: true }, // Example: Collapse arrears and penalties
       ],
       afterChange: async (changes, source) => {
         if (source === "loadData" || !changes) return;
@@ -258,7 +263,7 @@ async function displayMemberData(member, payments, monthlyPenaltyRate, groupId) 
           }
         }
       },
-      colWidths: [100, 120, 90, 90, 90, 90, 180, 150, 120],
+      colWidths: [120, 120, 100, 100, 120, 120, 250, 120],
       height: 'auto',
       width: '100%',
       stretchH: "all",
@@ -277,39 +282,6 @@ async function displayMemberData(member, payments, monthlyPenaltyRate, groupId) 
 
 
 
-// Format Payment Methods for Readability
-function formatPaymentMethods(payments) {
-  return payments
-    .map((p, i) => `${getOrdinal(i + 1)}: ${p.method || "Not Specified"}`)
-    .join("\n");
-}
-
-
-// Format Payment Details with Payment Date and Method
-function formatPaymentDetails(payments) {
-  if (!Array.isArray(payments) || payments.length === 0) return "No payments recorded.";
-
-  return payments
-    .map((payment, index) => {
-      const ordinal = getOrdinal(index + 1);
-      const method = payment.method || "Not Specified";
-      const paymentDate = payment.paymentDate
-        ? formatFriendlyDate(payment.paymentDate)
-        : "Not Provided";
-      return `${ordinal} Payment: Paid ${formatToTwoDecimals(payment.amount)} on ${paymentDate} (${method})`;
-    })
-    .join("\n");
-}
-
-
-// Helper Function: Get Ordinal Indicator (1st, 2nd, etc.)
-function getOrdinal(n) {
-  const suffixes = ["th", "st", "nd", "rd"];
-  const value = n % 100;
-  return n + (suffixes[(value - 20) % 10] || suffixes[value] || suffixes[0]);
-}
-
-
 // Create Manual Payment Form
 function createPaymentForm(container, member, groupId, tableData, reloadTable) {
   const form = document.createElement("form");
@@ -323,7 +295,7 @@ function createPaymentForm(container, member, groupId, tableData, reloadTable) {
 
   const instructions = document.createElement("p");
   instructions.textContent =
-    "Use this form to record a manual payment. Ensure the payment amount matches the proof of payment.";
+    "Use this form to record a manual payment. Ensure the payment amount matches the proof of payment and is approved.";
   instructions.className = "manual-payment-instructions";
 
   // Monthly Contribution Selection
@@ -339,6 +311,7 @@ function createPaymentForm(container, member, groupId, tableData, reloadTable) {
       const option = document.createElement("option");
       option.value = row.month;
       option.textContent = row.month;
+      option.dataset.paymentId = row.paymentId || "";
       option.dataset.totalDue = row.totalDue || "0.00"; // Attach total due to each option
       monthSelect.appendChild(option);
     }
@@ -422,75 +395,108 @@ function createPaymentForm(container, member, groupId, tableData, reloadTable) {
   });
 
   // Add submit event listener
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-  
-    const selectedMonth = monthSelect.value;
-    const amount = parseFloat(paymentAmountInput.value) || parseFloat(totalDueDisplay.value);
-    const method = paymentMethodSelect.value;
-    const proofFile = proofInput.files[0];
-  
-    if (!selectedMonth || !amount || !method || !proofFile) {
-      alert("Please fill all fields and upload proof of payment.");
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const selectedMonth = monthSelect.value;
+  const paymentId = monthSelect.options[monthSelect.selectedIndex]?.dataset.paymentId;
+  const amount = parseFloat(paymentAmountInput.value) || parseFloat(totalDueDisplay.value);
+  const method = paymentMethodSelect.value;
+  const proofFile = proofInput.files[0];
+
+  // Validate inputs
+  if (!selectedMonth || !amount || !method || !proofFile || !paymentId) {
+    alert("Please fill all fields, select a valid month, and upload proof of payment.");
+    return;
+  }
+
+  try {
+    // Show spinner during submission
+    showSpinner();
+    submitButton.disabled = true;
+
+    // Upload proof of payment
+    const proofFileName = `${member.uid}-${Date.now()}`;
+    const proofStorageRef = ref(storage, `proofs/${proofFileName}`);
+    await uploadBytes(proofStorageRef, proofFile);
+    const proofURL = await getDownloadURL(proofStorageRef);
+
+    // Get Firestore payment reference
+    const paymentRef = doc(db, `groups/${groupId}/payments`, paymentId);
+    const paymentDoc = await getDoc(paymentRef);
+
+    if (!paymentDoc.exists()) {
+      alert("Payment record not found. Please refresh the page and try again.");
       return;
     }
-  
-    // Show spinner during submission
-    spinner.style.display = "inline-block";
-    submitButton.disabled = true;
-  
-    try {
-      // Upload proof of payment
-      const proofFileName = `${member.uid}-${new Date().getTime()}`;
-      const proofStorageRef = ref(storage, `proofs/${proofFileName}`);
-      await uploadBytes(proofStorageRef, proofFile);
-      const proofURL = await getDownloadURL(proofStorageRef);
-  
-      // Find the payment entry for the selected month
-      const paymentRow = tableData.find((row) => row.month === selectedMonth);
-      if (!paymentRow || !paymentRow.paymentId) {
-        alert(`No payment entry found for the month: ${selectedMonth}.`);
-        return;
-      }
-  
-      const paymentRef = doc(db, `groups/${groupId}/payments`, paymentRow.paymentId);
-  
-      const arrears = parseFloat(paymentRow.arrears || 0);
-      const penalty = parseFloat(paymentRow.penalties || 0);
-      const totalDue = arrears + penalty;
-  
-      const newArrears = Math.max(totalDue - amount, 0); // Remaining unpaid amount
-      const newSurplus = Math.max(amount - totalDue, 0); // Payment excess
-      const newStatus = newArrears === 0 ? "Completed" : "Pending";
-  
-      // Update Firestore with new payment details
-      await updateDoc(paymentRef, {
-        paid: arrayUnion({
-          amount,
-          paymentDate: new Date().toISOString(),
-          approvedBy: "admin@example.com", // Replace with actual admin user info
-          method,
-          proofURL,
-          balance: formatToTwoDecimals(newSurplus),
-        }),
-        arrears: formatToTwoDecimals(newArrears),
-        penalties: formatToTwoDecimals(penalty), // Recalculate penalty if necessary
+
+    const paymentData = paymentDoc.data();
+
+    // Calculate new arrears, penalties, surplus, and status
+    const arrears = parseFloat(paymentData.arrears || 0);
+    const penalty = parseFloat(paymentData.penalties || 0);
+    const totalDue = arrears + penalty;
+
+    const newArrears = Math.max(totalDue - amount, 0);
+    const newSurplus = Math.max(amount - totalDue, 0);
+    const newStatus = newArrears === 0 ? "Completed" : "Pending";
+
+    // Update Firestore with new payment details
+    await updateDoc(paymentRef, {
+      paid: arrayUnion({
+        amount: formatToTwoDecimals(amount),
+        paymentDate: new Date().toISOString(),
+        approvedBy: "admin@example.com", // Replace with actual admin user info
+        method,
+        proofURL,
         balance: formatToTwoDecimals(newSurplus),
-        status: newStatus,
-      });
-  
-      alert("Payment submitted successfully!");
-  
-      // Refresh the table
-      reloadTable();
-    } catch (error) {
-      alert(`Error submitting payment: ${error.message}`);
-    } finally {
-      // Restore submit button state
-      spinner.style.display = "none";
-      submitButton.disabled = false;
-    }
-  });
+      }),
+      arrears: formatToTwoDecimals(newArrears),
+      penalties: formatToTwoDecimals(penalty),
+      balance: formatToTwoDecimals(newSurplus),
+      status: newStatus,
+      updatedAt: new Date(),
+    });
+
+    alert("Payment submitted successfully!");
+
+    // Refresh the table
+    reloadTable();
+  } catch (error) {
+    console.error("Error submitting payment:", error);
+    alert(`Error submitting payment: ${error.message}`);
+  } finally {
+    // Hide spinner and restore button state
+    hideSpinner();
+    submitButton.disabled = false;
+  }
+});
+}
+
+// Format Payment Details with Payment Date and Method
+function formatPaymentDetails(payments) {
+  if (!Array.isArray(payments) || payments.length === 0) {
+    return "No payments recorded.";
+  }
+
+  return payments
+    .map((payment, index) => {
+      const ordinal = getOrdinal(index + 1); // 1st, 2nd, etc.
+      const amount = formatToTwoDecimals(payment.amount || 0);
+      const paymentDate = payment.paymentDate
+        ? formatFriendlyDate(payment.paymentDate)
+        : "Not Provided";
+      const method = payment.method || "Not Specified";
+      return `${ordinal}: Paid ${amount} on ${paymentDate} via ${method}`;
+    })
+    .join("\n");
+}
+
+// Helper Function: Get Ordinal Indicator (1st, 2nd, etc.)
+function getOrdinal(n) {
+  const suffixes = ["th", "st", "nd", "rd"];
+  const value = n % 100;
+  return n + (suffixes[(value - 20) % 10] || suffixes[value] || suffixes[0]);
 }
 
 
@@ -571,15 +577,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  if (isFirstDayOfYear()) {
-    if (confirm("It's the start of a new year. Do you want to reset the table data?")) {
-      await deletePaymentsData(groupId); // Clear existing payments data
-    }
-  }
-
   await displayMonthlyContributions(groupId);
   await displaySeedMoney(groupId);
 });
 
 
 
+// Show Spinner
+function showSpinner() {
+  const spinnerOverlay = document.getElementById("spinnerOverlay");
+  if (spinnerOverlay) {
+    spinnerOverlay.style.display = "flex";
+  }
+}
+
+// Hide Spinner
+function hideSpinner() {
+  const spinnerOverlay = document.getElementById("spinnerOverlay");
+  if (spinnerOverlay) {
+    spinnerOverlay.style.display = "none";
+  }
+}

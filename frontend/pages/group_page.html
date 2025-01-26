@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,6 +13,7 @@
   <link rel="stylesheet" href="../styles/group_table.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@12.3.1/dist/handsontable.full.min.css">
 </head>
+
 <body>
   <div class="container">
     <!-- Header Section -->
@@ -58,7 +60,7 @@
         </div>
       </div>
     </section>
-    
+
     <!-- Loan Section -->
     <section class="loans">
       <h2>Loan Details</h2>
@@ -113,7 +115,7 @@
     <section class="interactive-table">
       <h2>Group Members</h2>
       <div id="membersList">Loading group members...</div>
-    
+
       <h2>Member Data</h2>
       <div id="memberDataContainer" style="display: none;">
         <h3 id="memberName"></h3>
@@ -123,6 +125,11 @@
       <h2>Seed Money Overview</h2>
       <div id="seedMoneyContainer">Loading seed money...</div>
     </section>
+
+    <!-- Spinner Overlay -->
+    <div id="spinnerOverlay" class="spinner-overlay" style="display: none;">
+      <div class="spinner"></div>
+    </div>
   </div>
 
   <!-- Include JavaScript Files -->
@@ -130,4 +137,5 @@
   <script type="module" src="../scripts/group_table.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/handsontable@12.3.1/dist/handsontable.full.min.js"></script>
 </body>
+
 </html>
