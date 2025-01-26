@@ -1,3 +1,5 @@
 node_modules/
 .env
 *.log
+backend/banknkhondewebapp-backend.tar
+backend/banknkhondewebapp-frontend.tar
