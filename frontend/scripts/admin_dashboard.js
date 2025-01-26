@@ -7,8 +7,6 @@ import {
 import {
   getFirestore,
   collection,
-  query,
-  where,
   getDocs,
   doc,
   getDoc,
@@ -26,8 +24,19 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getFirestore(app);
+const auth = getAuth();
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    console.log("User is signed in:", user.email);
+    if (!user) {
+      alert("You must be signed in to access this page.");
+      window.location.href = "/login.html"; // Replace with your login page URL
+    }
+  } else {
+    console.log("No user is signed in.");
+  }
+});
 
 document.addEventListener("DOMContentLoaded", () => {
   const groupList = document.getElementById("groupList");
@@ -94,11 +103,10 @@ document.addEventListener("DOMContentLoaded", () => {
             <a href="../pages/group_page.html?groupId=${groupId}" class="group-link">
               <div class="group-details">
                 <h3>${groupData.groupName}</h3>
-                <p>Created: ${
-                  groupData.createdAt?.toDate
-                    ? new Date(groupData.createdAt.toDate()).toLocaleDateString()
-                    : "N/A"
-                }</p>
+                <p>Created: ${groupData.createdAt?.toDate
+              ? new Date(groupData.createdAt.toDate()).toLocaleDateString()
+              : "N/A"
+            }</p>
                 <p>Members: Loading...</p>
               </div>
             </a>

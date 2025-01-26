@@ -13,7 +13,7 @@ import {
   onSnapshot,
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { initializeLoansStructure, createLoanRecord, updateLoanRepayment } from "./loans.js";
-import { updateDoc} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { updateDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 
 // Firebase Configuration
@@ -116,11 +116,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return parseFloat(value).toFixed(2);
   }
 
-  // Normalize and validate phone number using intl-tel-input
-  function normalizePhoneNumber() {
-    return iti.isValidNumber() ? iti.getNumber() : null; // Return international number or null if invalid
-  }
-
   // Validate phone input and display error messages dynamically
   function validatePhoneInput() {
     const errorElementId = "phoneError";
@@ -148,233 +143,241 @@ document.addEventListener("DOMContentLoaded", () => {
   phoneInput.addEventListener("blur", validatePhoneInput);
   phoneInput.addEventListener("input", validatePhoneInput);
 
-  // Tracking approval status for registration
-  async function trackApprovalStatus(invitationDocId, name, email, password, groupData) {
-    let userCreated = false;
-    let groupId = null;
-    let userId = null;
+// Tracking approval status for registration
+async function trackApprovalStatus(invitationDocId, name, email, password, groupData) {
+  let userCreated = false;
+  let groupId = null;
+  let userId = null;
 
-    showLoadingOverlay("Waiting for admin approval...");
+  showLoadingOverlay("Waiting for admin approval...");
 
-    const docRef = doc(db, "invitationCodes", invitationDocId);
+  const docRef = doc(db, "invitationCodes", invitationDocId);
 
-    onSnapshot(docRef, async (snapshot) => {
-        if (!snapshot.exists()) {
-            alert("The invitation code no longer exists. Please contact support for assistance.");
-            enableFormFields();
-            hideLoadingOverlay();
-            return;
+  onSnapshot(docRef, async (snapshot) => {
+    if (!snapshot.exists()) {
+      alert("The invitation code no longer exists. Please contact support for assistance.");
+      enableFormFields();
+      hideLoadingOverlay();
+      return;
+    }
+
+    const data = snapshot.data();
+    if (data.approved) {
+      try {
+        showLoadingOverlay("Finalizing registration...");
+
+        // Validate input data
+        if (!name || !email || !password) {
+          throw new Error("Missing user information. Ensure all required fields are filled correctly.");
         }
 
-        const data = snapshot.data();
-        if (data.approved) {
-            try {
-                showLoadingOverlay("Finalizing registration...");
-
-                // Step 1: Validate input data
-                if (!name || !email || !password) {
-                    throw new Error("Missing user information. Ensure all required fields are filled correctly.");
-                }
-
-                if (
-                    !groupData.groupName ||
-                    !groupData.seedMoney ||
-                    !groupData.seedMoneyDueDate ||
-                    !groupData.monthlyContribution ||
-                    !groupData.loanPenalty ||
-                    !groupData.monthlyPenalty ||
-                    !groupData.cycleStartDate
-                ) {
-                    throw new Error("Missing group information. Verify that all fields in the group creation form are complete.");
-                }
-
-                const currentYear = new Date().getFullYear().toString();
-                const cycleStartDate = new Date(groupData.cycleStartDate);
-
-                // Generate cycle dates
-                const cycleDates = Array.from({ length: 12 }, (_, i) => {
-                    const date = new Date(cycleStartDate);
-                    date.setMonth(cycleStartDate.getMonth() + i);
-                    return date.toISOString();
-                });
-
-                // Step 2: Create the user in Firebase Authentication
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                const user = userCredential.user;
-                userCreated = true;
-                userId = user.uid;
-
-                // Step 3: Create the group document
-                groupId = `${groupData.groupName}_${Date.now()}`;
-                const groupRef = doc(db, "groups", groupId);
-                await setDoc(groupRef, {
-                    groupId,
-                    groupName: groupData.groupName,
-                    seedMoney: formatToTwoDecimals(groupData.seedMoney),
-                    seedMoneyDueDate: groupData.seedMoneyDueDate,
-                    interestRate: formatToTwoDecimals(groupData.interestRate),
-                    monthlyContribution: formatToTwoDecimals(groupData.monthlyContribution),
-                    loanPenalty: formatToTwoDecimals(groupData.loanPenalty),
-                    monthlyPenalty: formatToTwoDecimals(groupData.monthlyPenalty),
-                    cycleStartDate: groupData.cycleStartDate,
-                    cycleDates,
-                    createdAt: new Date(),
-                    adminDetails: [{ uid: userId, fullName: name, email }],
-                    members: [
-                        {
-                            uid: userId,
-                            fullName: name,
-                            email,
-                            phone: groupData.phone,
-                            role: "admin",
-                            joinedAt: new Date(),
-                            collateral: null,
-                            balances: [],
-                        },
-                    ],
-                    paymentSummary: {
-                        totalDue: 0,
-                        totalPaid: 0,
-                        totalArrears: 0,
-                    },
-                });
-
-                // Step 4: Initialize loans for the group
-                const months = cycleDates.map((date) =>
-                    new Date(date).toLocaleString("en-us", { month: "long" })
-                );
-                await initializeLoansStructure(groupId, months);
-
-                // Create a default loan record for the admin
-                const loanAmount = 0; // Default loan amount for initialization
-                const dueDate = new Date(cycleStartDate); // First cycle date as the due date
-                await createLoanRecord(groupId, userId, name, loanAmount, dueDate);
-
-                // Step 5: Add the user to the `members` subcollection
-                const memberDocId = `${name.replace(/\s+/g, "_")}_admin_${userId}`;
-                const memberRef = doc(db, `groups/${groupId}/members`, memberDocId);
-                await setDoc(memberRef, {
-                    uid: userId,
-                    fullName: name,
-                    email,
-                    phone: groupData.phone,
-                    role: "admin",
-                    joinedAt: new Date(),
-                    collateral: null,
-                    balances: [],
-                });
-
-                // Step 6: Save the user document in Firestore
-                const userRef = doc(db, "users", userId);
-                await setDoc(userRef, {
-                    uid: userId,
-                    fullName: name,
-                    email,
-                    phone: groupData.phone,
-                    roles: ["admin", "user"],
-                    createdAt: new Date(),
-                    groupMemberships: [groupId],
-                });
-
-                // Step 7: Initialize payments for the admin
-                const seedMoneyPaymentId = await createPayment(
-                    name,
-                    "Seed Money",
-                    groupData.seedMoney,
-                    0,
-                    groupId,
-                    userId,
-                    currentYear,
-                    null,
-                    groupData.seedMoneyDueDate
-                );
-
-                for (let i = 0; i < cycleDates.length; i++) {
-                    const monthlyContributionPaymentId = await createPayment(
-                        name,
-                        "Monthly Contribution",
-                        groupData.monthlyContribution,
-                        0,
-                        groupId,
-                        userId,
-                        currentYear,
-                        new Date(cycleDates[i]).toLocaleString("en-us", { month: "long" }),
-                        cycleDates[i]
-                    );
-                }
-
-                // Update group's members array balances
-                await updateDoc(groupRef, {
-                    [`members.0.balances`]: [
-                        { type: "Seed Money", amount: -groupData.seedMoney, date: new Date() },
-                        { type: "Monthly Contribution", amount: -groupData.monthlyContribution, date: new Date() },
-                    ],
-                });
-
-                hideLoadingOverlay();
-                alert("Your registration and group creation are complete.");
-                window.location.href = "../pages/admin_dashboard.html";
-            } catch (error) {
-                console.error("Error during registration:", error.message);
-                hideLoadingOverlay();
-                enableFormFields();
-
-                alert(`Registration failed: ${error.message}`);
-            }
+        if (
+          !groupData.groupName?.trim() ||
+          !groupData.seedMoney ||
+          !groupData.seedMoneyDueDate ||
+          !groupData.monthlyContribution ||
+          !groupData.loanPenalty ||
+          !groupData.monthlyPenalty ||
+          !groupData.cycleStartDate
+        ) {
+          throw new Error("Missing group information. Verify that all fields in the group creation form are complete.");
         }
-    });
+
+        // Validate and format dates
+        const cycleStartDate = new Date(groupData.cycleStartDate);
+        const seedMoneyDueDate = new Date(groupData.seedMoneyDueDate);
+        if (isNaN(cycleStartDate) || isNaN(seedMoneyDueDate)) {
+          throw new Error("Invalid date format. Ensure all dates are valid.");
+        }
+
+        const currentYear = cycleStartDate.getFullYear();
+
+        // Generate cycle dates
+        const cycleDates = Array.from({ length: 12 }, (_, i) => {
+          const date = new Date(cycleStartDate);
+          date.setMonth(cycleStartDate.getMonth() + i);
+
+          return {
+            iso: date.toISOString(),
+            friendly: date.toLocaleDateString("default", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            }),
+            month: date.toLocaleString("default", { month: "long" }),
+            year: date.getFullYear(),
+          };
+        });
+
+        // Create the user in Firebase Authentication
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        userCreated = true;
+        userId = user.uid;
+
+        // Create the group document
+        groupId = `${groupData.groupName}_${Date.now()}`;
+        const groupRef = doc(db, "groups", groupId);
+
+        await setDoc(groupRef, {
+          groupId,
+          groupName: groupData.groupName,
+          seedMoney: formatToTwoDecimals(groupData.seedMoney),
+          seedMoneyDueDate: seedMoneyDueDate.toLocaleDateString("default", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          }),
+          interestRate: formatToTwoDecimals(groupData.interestRate),
+          monthlyContribution: formatToTwoDecimals(groupData.monthlyContribution),
+          loanPenalty: formatToTwoDecimals(groupData.loanPenalty),
+          monthlyPenalty: formatToTwoDecimals(groupData.monthlyPenalty),
+          cycleStartDate: cycleStartDate.toLocaleDateString("default", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          }),
+          cycleDates: cycleDates.map((date) => date.iso),
+          displayCycleDates: cycleDates.map((date) => date.friendly),
+          createdAt: new Date(),
+          adminDetails: [{ uid: userId, fullName: name, email }],
+          members: [
+            {
+              uid: userId,
+              fullName: name,
+              email,
+              phone: groupData.phone,
+              role: "admin",
+              joinedAt: new Date(),
+              collateral: null,
+              balances: [],
+            },
+          ],
+          paymentSummary: {
+            totalDue: formatToTwoDecimals(groupData.seedMoney),
+            totalPaid: 0,
+            totalArrears: formatToTwoDecimals(groupData.seedMoney),
+          },
+        });
+
+        // Initialize loans for the group
+        await initializeLoansStructure(groupId, cycleDates.map((date) => date.month));
+
+        // Create a default loan record for the admin
+        await createLoanRecord(groupId, userId, name, 0, cycleStartDate);
+
+        // Add the user to the `members` subcollection
+        const memberDocId = `${name.replace(/\s+/g, "_")}_admin_${userId}`;
+        const memberRef = doc(db, `groups/${groupId}/members`, memberDocId);
+
+        await setDoc(memberRef, {
+          uid: userId,
+          fullName: name,
+          email,
+          phone: groupData.phone,
+          role: "admin",
+          joinedAt: new Date(),
+          collateral: null,
+          balances: [],
+        });
+
+        // Save the user document in Firestore
+        const userRef = doc(db, "users", userId);
+        await setDoc(userRef, {
+          uid: userId,
+          fullName: name,
+          email,
+          phone: groupData.phone,
+          roles: ["admin", "user"],
+          createdAt: new Date(),
+          groupMemberships: [groupId],
+        });
+
+        // Initialize payments for the admin
+        await createPayment(
+          name,
+          "Seed Money",
+          groupData.seedMoney,
+          0,
+          groupId,
+          userId,
+          currentYear,
+          null,
+          seedMoneyDueDate.toLocaleDateString("default", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        );
+
+        for (const date of cycleDates) {
+          await createPayment(
+            name,
+            "Monthly Contribution",
+            groupData.monthlyContribution,
+            0,
+            groupId,
+            userId,
+            date.year,
+            date.month,
+            date.friendly
+          );
+        }
+
+        hideLoadingOverlay();
+        alert("Your registration and group creation are complete.");
+        window.location.href = "../pages/admin_dashboard.html";
+      } catch (error) {
+        console.error("Error during registration:", error.message);
+        hideLoadingOverlay();
+        enableFormFields();
+        alert(`Registration failed: ${error.message}`);
+      }
+    }
+  });
 }
 
+// Helper Function: Create a payment record
+async function createPayment(userFullName, paymentType, totalAmount, paidAmount, groupId, userId, year, month, dueDate) {
+  const arrears = Math.max(totalAmount - paidAmount, 0);
+  const surplus = Math.max(paidAmount - totalAmount, 0);
+  const status = arrears > 0 ? "pending" : "completed";
 
+  const paymentId = `${paymentType.replace(/\s+/g, "_")}_${userFullName.replace(/\s+/g, "_")}_${month}_${year}`;
 
-  // Helper Function: Create a payment record
-  async function createPayment(
-    userFullName,
-    paymentType,
-    totalAmount,
-    paidAmount,
-    groupId,
+  const paymentRef = doc(db, `groups/${groupId}/payments`, paymentId);
+
+  await setDoc(paymentRef, {
+    paymentId,
     userId,
+    groupId,
+    fullName: userFullName,
+    paymentType,
+    paymentCategory: paymentType.includes("Loan") ? "loan" : "contribution",
+    totalAmount: formatToTwoDecimals(totalAmount),
+    paidAmount: formatToTwoDecimals(paidAmount),
+    arrears: formatToTwoDecimals(arrears),
+    surplus: formatToTwoDecimals(surplus),
+    status,
+    paymentDate: null, // No payment has been made yet
+    dueDate: dueDate,
+    month,
     year,
-    month = null,
-    dueDate = null
-  ) {
-    const arrears = totalAmount - paidAmount;
-    const balance = Math.max(paidAmount - totalAmount, 0);
-    const status = arrears > 0 ? "pending" : "completed";
+    approvalStatus: "pending",
+    approvedBy: null,
+    paymentMethod: null,
+    notes: null,
+    createdAt: new Date(),
+    updatedAt: null,
+  });
 
-    const paymentId =
-      paymentType === "Seed Money"
-        ? `${paymentType.replace(/\s+/g, "_")}_${userFullName.replace(/\s+/g, "_")}_${year}`
-        : `${paymentType.replace(/\s+/g, "_")}_${userFullName.replace(/\s+/g, "_")}_${month}_${year}`;
-
-    const paymentRef = doc(db, `groups/${groupId}/payments`, paymentId);
-
-    await setDoc(paymentRef, {
-      paymentId,
-      userId,
-      groupId,
-      fullName: userFullName,
-      paymentType,
-      paymentCategory: paymentType.includes("Loan") ? "loan" : "contribution",
-      totalAmount: formatToTwoDecimals(totalAmount),
-      paidAmount: formatToTwoDecimals(paidAmount),
-      arrears: formatToTwoDecimals(arrears),
-      balance: formatToTwoDecimals(balance),
-      status,
-      paymentDate: new Date(),
-      dueDate: dueDate ? new Date(dueDate) : null,
-      approvalStatus: "pending",
-      approvedBy: null,
-      paymentMethod: null,
-      notes: null,
-      createdAt: new Date(),
-      updatedAt: null,
-    });
-
-    console.log("Payment record created with ID:", paymentRef.id);
-    return paymentRef.id;
-  }
+  console.log("Payment record created with ID:", paymentRef.id);
+  return paymentRef.id;
+}
 
 
   // Utility Functions
