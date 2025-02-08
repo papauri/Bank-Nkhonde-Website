@@ -1,23 +1,13 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js";
-import { getFirestore, collection, addDoc, Timestamp, query, where, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import {
+  db,
+  collection,
+  addDoc,
+  query,
+  where,
+  getDocs,
+  updateDoc,
+} from "./firebaseConfig.js";
 
-// Firebase Configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyClJfGFoc1WZ_qYi5ImQJXyurQtqXgOqfA",
-  authDomain: "banknkonde.firebaseapp.com",
-  databaseURL: "https://banknkonde-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "banknkonde",
-  storageBucket: "banknkonde.appspot.com",
-  messagingSenderId: "698749180404",
-  appId: "1:698749180404:web:7e8483cae4abd7555101a1",
-  measurementId: "G-MC7PDS90FR",
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-const db = getFirestore(app);
 
 // Generate a random 8-character code
 function generateInvitationCode() {

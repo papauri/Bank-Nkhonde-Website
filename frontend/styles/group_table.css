@@ -1,187 +1,171 @@
 
-  /* Container Styling */
-  #memberDataContainer {
-    max-width: 1200px;
-    margin: 20px auto;
-    background: #ffffff;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    border-radius: 8px;
-    padding: 20px;
-  }
-  
-  /* Group Members Button */
-  .member-button {
-    display: inline-block;
-    margin: 10px;
-    padding: 10px 15px;
-    font-size: 1rem;
-    font-weight: bold;
-    text-align: center;
-    text-transform: capitalize;
-    color: #fff;
-    background: linear-gradient(90deg, #007bff, #0056b3);
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background 0.3s;
-  }
-  
-  .member-button:hover {
-    background: linear-gradient(90deg, #0056b3, #003f87);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  }
-  
-  .member-button:active {
-    transform: scale(0.95);
-  }
-  
-  /* Handsontable Styling (Default for Desktop) */
-  #memberTableContainer {
-    overflow-x: auto;
-  }
-  
-  /* Manual Payment Form */
-  .manual-payment-form {
-    margin: 20px 0;
-    padding: 20px;
-    background: #ffffff;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-  
-  .manual-payment-heading {
-    font-size: 1.25rem;
-    margin-bottom: 10px;
-    color: #343a40;
-  }
-  
-  .manual-payment-instructions {
-    font-size: 0.9rem;
-    margin-bottom: 20px;
-    color: #6c757d;
-  }
-  
-  .manual-payment-form label {
-    display: block;
-    font-weight: bold;
-    margin-bottom: 5px;
-    color: #343a40;
-  }
-  
-  .manual-payment-form input,
-  .manual-payment-form select {
-    width: 100%;
-    padding: 10px;
-    margin-bottom: 15px;
-    border: 1px solid #dee2e6;
-    border-radius: 5px;
-    font-size: 1rem;
-    transition: border-color 0.3s;
-  }
-  
-  .manual-payment-form input:focus,
-  .manual-payment-form select:focus {
-    border-color: #007bff;
-    outline: none;
-  }
-  
-  .manual-payment-submit {
-    display: inline-block;
-    width: 100%;
-    padding: 10px 15px;
-    font-size: 1rem;
-    font-weight: bold;
-    color: #fff;
-    background: linear-gradient(90deg, #28a745, #218838);
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background 0.3s, transform 0.2s;
-  }
-  
-  .manual-payment-submit:hover {
-    background: linear-gradient(90deg, #218838, #1e7e34);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  }
-  
-  .manual-payment-submit:active {
-    transform: scale(0.95);
-  }
-  
-  /* Mobile-Specific Styling for Table */
-  @media (max-width: 768px) {
-    /* Simplify Table Layout */
-    .handsontable {
-      border: none;
-      box-shadow: none;
-    }
-  
-    .handsontable td,
-    .handsontable th {
-      font-size: 0.85rem;
-      padding: 8px;
-      text-align: left;
-    }
-  
-    .handsontable .ht_clone_top {
-      font-size: 0.8rem;
-    }
-  
-    /* Hide less important columns for smaller devices */
-    .handsontable col:nth-child(3),
-    .handsontable col:nth-child(4),
-    .handsontable col:nth-child(7) {
-      display: none;
-    }
-  
-    /* Group Members Button */
-    .member-button {
-      width: 100%;
-      margin: 5px 0;
-    }
-  
-    /* Manual Payment Form */
-    .manual-payment-form {
-      padding: 15px;
-    }
-  
-    .manual-payment-submit {
-      font-size: 0.9rem;
-      padding: 10px;
-    }
-  }
-  
+/* Group Members Button */
+.member-button {
+  display: inline-block;
+  margin: 10px;
+  padding: 10px 15px;
+  font-size: 1rem;
+  font-weight: bold;
+  text-align: center;
+  text-transform: capitalize;
+  color: #fff;
+  background: linear-gradient(90deg, #007bff, #0056b3);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
 
-  /* Spinner Overlay */
+.member-button:hover {
+  background: linear-gradient(90deg, #0056b3, #003f87);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.member-button:active {
+  transform: scale(0.95);
+}
+
+/* Manual Payment Form */
+.manual-payment-form {
+  margin: 20px 0;
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.manual-payment-form label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #343a40;
+}
+
+.manual-payment-form input,
+.manual-payment-form select {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 15px;
+  border: 1px solid #dee2e6;
+  border-radius: 5px;
+  font-size: 1rem;
+  transition: border-color 0.3s;
+}
+
+.manual-payment-form input:focus,
+.manual-payment-form select:focus {
+  border-color: #007bff;
+  outline: none;
+}
+
+.manual-payment-submit {
+  display: inline-block;
+  width: 100%;
+  padding: 10px 15px;
+  font-size: 1rem;
+  font-weight: bold;
+  color: #fff;
+  background: linear-gradient(90deg, #28a745, #218838);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s, transform 0.2s;
+}
+
+.manual-payment-submit:hover {
+  background: linear-gradient(90deg, #218838, #1e7e34);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.manual-payment-submit:active {
+  transform: scale(0.95);
+}
+/* Spinner Overlay */
 .spinner-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid rgba(255, 255, 255, 0.3);
+  border-top: 5px solid #fff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
   }
-  
-  /* Spinner Animation */
-  .spinner {
-    width: 50px;
-    height: 50px;
-    border: 5px solid rgba(255, 255, 255, 0.3);
-    border-top: 5px solid #fff;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
+  100% {
+    transform: rotate(360deg);
   }
-  
-  @keyframes spin {
-    0% {
-      transform: rotate(0deg);
-    }
-    100% {
-      transform: rotate(360deg);
-    }
+}
+
+/* Payment Card Styling */
+.payment-card,
+.seed-money-card {
+  display: block;
+  background: #ffffff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  padding: 15px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.payment-card:hover,
+.seed-money-card:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.payment-card .card-header h4,
+.seed-money-card .card-header h4 {
+  margin: 0;
+  color: #007bff;
+  font-size: 1.25rem;
+}
+
+.payment-card .card-body p,
+.seed-money-card .card-body p {
+  margin: 8px 0;
+  color: #495057;
+  font-size: 1rem;
+}
+
+.payment-card .card-body strong,
+.seed-money-card .card-body strong {
+  color: #343a40;
+}
+
+/* Responsive Adjustments for Cards */
+@media (max-width: 768px) {
+  .payment-card,
+  .seed-money-card {
+    font-size: 0.9rem;
+    padding: 10px;
   }
+
+  .payment-card .card-header h4,
+  .seed-money-card .card-header h4 {
+    font-size: 1rem;
+  }
+
+  .payment-card .card-body p,
+  .seed-money-card .card-body p {
+    font-size: 0.85rem;
+  }
+}

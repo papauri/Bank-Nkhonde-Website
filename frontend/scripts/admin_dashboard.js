@@ -1,31 +1,14 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
 import {
-  getAuth,
-  onAuthStateChanged,
-  signOut,
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-import {
-  getFirestore,
+  db,
+  auth,
   collection,
   getDocs,
   doc,
   getDoc,
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+  onAuthStateChanged,
+  signOut,
+} from "./firebaseConfig.js";
 
-// Firebase Configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyClJfGFoc1WZ_qYi5ImQJXyurQtqXgOqfA",
-  authDomain: "banknkonde.firebaseapp.com",
-  projectId: "banknkonde",
-  storageBucket: "banknkonde.appspot.com",
-  messagingSenderId: "698749180404",
-  appId: "1:698749180404:web:7e8483cae4abd7555101a1",
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth();
 onAuthStateChanged(auth, (user) => {
   if (user) {
     console.log("User is signed in:", user.email);

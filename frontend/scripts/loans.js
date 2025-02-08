@@ -1,30 +1,12 @@
-// Import Firebase using CDN URLs
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
 import {
-    getFirestore,
-    collection,
+    db,
     doc,
-    setDoc,
     getDoc,
+    setDoc,
     updateDoc,
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-
-// Firebase Configuration
-const firebaseConfig = {
-    apiKey: "AIzaSyClJfGFoc1WZ_qYi5ImQJXyurQtqXgOqfA",
-    authDomain: "banknkonde.firebaseapp.com",
-    projectId: "banknkonde",
-    storageBucket: "banknkonde.appspot.com",
-    messagingSenderId: "698749180404",
-    appId: "1:698749180404:web:7e8483cae4abd7555101a1",
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-// Export the db instance for use in other modules
-export { db };
+    collection,
+  } from "./firebaseConfig.js";
+  
 
 /**
  * Initialize loans structure for a group.

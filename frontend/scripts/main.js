@@ -1,29 +1,13 @@
-// Import Firebase SDKs
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import {
-  getFirestore,
+  db,
+  auth,
+  signInWithEmailAndPassword,
   collection,
   addDoc,
   doc,
   getDoc,
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+} from "./firebaseConfig.js";
 
-// Firebase Configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyClJfGFoc1WZ_qYi5ImQJXyurQtqXgOqfA",
-  authDomain: "banknkonde.firebaseapp.com",
-  databaseURL: "https://banknkonde-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "banknkonde",
-  storageBucket: "banknkonde.appspot.com",
-  messagingSenderId: "698749180404",
-  appId: "1:698749180404:web:7e8483cae4abd7555101a1",
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
 
 document.addEventListener("DOMContentLoaded", () => {
   const userLoginForm = document.getElementById("userLoginForm");

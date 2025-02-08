@@ -1,48 +1,17 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
 import {
-  getFirestore,
-  collection,
+  db,
   doc,
-  getDocs,
   getDoc,
+  collection,
+  getDocs,
   updateDoc,
-  deleteDoc,
   arrayUnion,
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-import {
-  getStorage,
   ref,
   uploadBytes,
   getDownloadURL,
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+} from "./firebaseConfig.js";
 
-const auth = getAuth();
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    console.log("User is signed in:", user.email);
-    if (!user) {
-      alert("You must be signed in to access this page.");
-      window.location.href = "/login.html"; // Replace with your login page URL
-    }
-  } else {
-    console.log("No user is signed in.");
-  }
-});
-// Firebase Configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyClJfGFoc1WZ_qYi5ImQJXyurQtqXgOqfA",
-  authDomain: "banknkonde.firebaseapp.com",
-  projectId: "banknkonde",
-  storageBucket: "banknkonde.appspot.com",
-  messagingSenderId: "698749180404",
-  appId: "1:698749180404:web:7e8483cae4abd7555101a1",
-};
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const storage = getStorage(app); // Initialize Firebase Storage
 
 // Helper Function: Fetch All Documents from a Collection
 async function fetchCollectionData(ref) {
@@ -159,6 +128,10 @@ async function displayMemberData(member, payments, monthlyPenaltyRate, groupId) 
       const totalDue = arrears + penalty;
       const surplus = Math.max(totalPaidRow - payment.totalAmount - penalty, 0);
 
+      const paymentMethods = Array.isArray(payment.paid)
+        ? [...new Set(payment.paid.map((p) => p.method || "Unknown"))].join(", ")
+        : "No Payments";
+
       // Accumulate totals
       totalArrears += arrears;
       totalPenalties += penalty;
@@ -172,7 +145,8 @@ async function displayMemberData(member, payments, monthlyPenaltyRate, groupId) 
         penalties: formatToTwoDecimals(penalty),
         surplus: formatToTwoDecimals(surplus),
         totalPaid: formatToTwoDecimals(totalPaidRow),
-        totalDue: formatToTwoDecimals(totalDue), // Total Due for the manual payment form
+        paymentMethods,
+        totalDue: formatToTwoDecimals(totalDue),
         paymentDetails: formatPaymentDetails(payment.paid || []),
         status: arrears > 0 ? "Pending" : "Completed",
         paymentId: payment.paymentId,
@@ -187,27 +161,43 @@ async function displayMemberData(member, payments, monthlyPenaltyRate, groupId) 
       penalties: formatToTwoDecimals(totalPenalties),
       surplus: formatToTwoDecimals(totalSurplus),
       totalPaid: formatToTwoDecimals(totalPaid),
-      totalDue: "", // Not needed for totals
+      paymentMethods: "",
+      totalDue: "",
       paymentDetails: "",
       status: "",
     });
 
-    // Render Handsontable with filtering and collapsing options
-    new Handsontable(memberTableContainer, {
-      data: tableData,
-      colHeaders: [
-        "Month",
-        "Due Date",
-        "Arrears (MK)",
-        "Penalties (MK)",
-        "Surplus (MK)",
-        "Total Paid (MK)",
-        "Payment Details",
-        "Payment Status",
-      ],
-      nestedHeaders: [
-        [{ label: "Payment Summary", colspan: 8 }],
-        [
+    // Determine display mode (mobile or desktop)
+    const isMobile = window.innerWidth <= 768;
+
+    if (isMobile) {
+      // Render as cards for mobile
+      tableData.forEach((row) => {
+        if (row.month === "Total") return; // Skip totals for cards
+
+        const card = document.createElement("div");
+        card.classList.add("payment-card");
+
+        card.innerHTML = `
+          <div class="card-header">
+            <h4>${row.month}</h4>
+          </div>
+          <div class="card-body">
+            <p><strong>Due Date:</strong> ${row.dueDate || "N/A"}</p>
+            <p><strong>Arrears:</strong> ${row.arrears} MK</p>
+            <p><strong>Penalties:</strong> ${row.penalties} MK</p>
+            <p><strong>Total Paid:</strong> ${row.totalPaid} MK</p>
+            <p><strong>Payment Methods:</strong> ${row.paymentMethods || "None"}</p>
+            <p><strong>Status:</strong> ${row.status}</p>
+          </div>
+        `;
+        memberTableContainer.appendChild(card);
+      });
+    } else {
+
+      new Handsontable(memberTableContainer, {
+        data: tableData,
+        colHeaders: [
           "Month",
           "Due Date",
           "Arrears (MK)",
@@ -217,58 +207,106 @@ async function displayMemberData(member, payments, monthlyPenaltyRate, groupId) 
           "Payment Details",
           "Payment Status",
         ],
-      ],
-      columns: [
-        { data: "month", type: "text", readOnly: true },
-        { data: "dueDate", type: "text", readOnly: true },
-        { data: "arrears", type: "numeric", format: "0,0.00", readOnly: true },
-        { data: "penalties", type: "numeric", format: "0,0.00", readOnly: true },
-        { data: "surplus", type: "numeric", format: "0,0.00", readOnly: true },
-        { data: "totalPaid", type: "numeric", format: "0,0.00", readOnly: true },
-        {
-          data: "paymentDetails",
-          type: "text",
-          readOnly: true,
-          renderer: (instance, td, row, col, prop, value) => {
-            td.innerHTML = value.replace(/\n/g, "<br>");
-            td.style.whiteSpace = "pre-wrap";
+        nestedHeaders: [
+          [{ label: "Payment Summary", colspan: 8 }],
+          [
+            "Month",
+            "Due Date",
+            "Arrears (MK)",
+            "Penalties (MK)",
+            "Surplus (MK)",
+            "Total Paid (MK)",
+            "Payment Details",
+            "Payment Status",
+          ],
+        ],
+        columns: [
+          { data: "month", type: "text", readOnly: true },
+          { data: "dueDate", type: "text", readOnly: true },
+          { data: "arrears", type: "numeric", format: "0,0.00", readOnly: true },
+          { data: "penalties", type: "numeric", format: "0,0.00", readOnly: true },
+          { data: "surplus", type: "numeric", format: "0,0.00", readOnly: true },
+          { data: "totalPaid", type: "numeric", format: "0,0.00", readOnly: true },
+          {
+            data: "paymentDetails",
+            type: "text",
+            readOnly: true,
+            renderer: (instance, td, row, col, prop, value) => {
+              td.innerHTML = value.replace(/\n/g, "<br>");
+              td.style.whiteSpace = "pre-wrap";
+            },
           },
-        },
-        {
-          data: "status",
-          type: "dropdown",
-          source: ["Pending", "Completed"],
-        },
-      ],
-      dropdownMenu: true, // Enable column filtering
-      filters: true, // Enable row filtering
-      collapsibleColumns: [
-        { row: 0, col: 2, collapsible: true }, // Example: Collapse arrears and penalties
-      ],
-      afterChange: async (changes, source) => {
-        if (source === "loadData" || !changes) return;
-
-        for (const [row, prop, oldValue, newValue] of changes) {
-          const rowData = tableData[row];
-          const paymentRef = doc(db, `groups/${groupId}/payments`, rowData.paymentId);
-
-          if (prop === "status" && newValue === "Completed" && oldValue !== "Completed") {
-            try {
-              await updateDoc(paymentRef, { status: newValue });
-              alert(`Payment status updated successfully.`);
-              displayMemberData(member, payments, monthlyPenaltyRate, groupId); // Refresh the table
-            } catch (error) {
-              alert(`Failed to update payment status: ${error.message}`);
-            }
-          }
-        }
-      },
-      colWidths: [120, 120, 100, 100, 120, 120, 250, 120],
-      height: 'auto',
-      width: '100%',
-      stretchH: "all",
-      licenseKey: "non-commercial-and-evaluation",
-    });
+          {
+            data: "status",
+            type: "dropdown",
+            source: ["Pending", "Completed"],
+          },
+        ],
+      
+        // Appearance and Layout
+        colWidths: () => Math.floor(memberTableContainer.offsetWidth / 8),
+        stretchH: "all", // Stretch table to fit the container width
+        autoWrapRow: true, // Allow text wrapping
+        height: 'auto', // Adjust height automatically
+        width: '100%', // Ensure table fits the container
+        fixedColumnsLeft: 1, // Freeze the first column
+        fixedRowsTop: 1, // Freeze the header row
+      
+        // Interactivity
+        manualColumnResize: true, // Allow column resizing
+        manualRowResize: true, // Allow row resizing
+        manualColumnMove: true, // Enable column reordering
+        manualRowMove: true, // Enable row reordering
+        filters: true, // Allow filtering
+        dropdownMenu: true, // Dropdown menu for column options
+        contextMenu: true, // Right-click menu for row/column actions
+        search: true, // Enable search functionality
+        copyPaste: true, // Copy-paste support with external tools
+        multiColumnSorting: true, // Enable sorting by multiple columns
+        sortIndicator: true, // Show sort icons in headers
+      
+        // Advanced Features
+        collapsibleColumns: true, // Allow collapsing of grouped columns
+        mergeCells: true, // Allow merging cells
+        hiddenColumns: { columns: [], indicators: true }, // Option to hide columns
+        hiddenRows: { rows: [], indicators: true }, // Option to hide rows
+        trimRows: true, // Trim rows programmatically if needed
+        rowHeaders: true, // Add row headers (e.g., row numbers)
+        columnSummary: [
+          // Summarize numeric columns (e.g., totals for "Arrears")
+          {
+            sourceColumn: 2, // Index of "Arrears"
+            type: "sum",
+            destinationRow: tableData.length, // Last row
+            destinationColumn: 2,
+          },
+          {
+            sourceColumn: 3, // Index of "Penalties"
+            type: "sum",
+            destinationRow: tableData.length,
+            destinationColumn: 3,
+          },
+          {
+            sourceColumn: 4, // Index of "Surplus"
+            type: "sum",
+            destinationRow: tableData.length,
+            destinationColumn: 4,
+          },
+        ],
+      
+        // Accessibility
+        selectionMode: 'single', // Single-cell selection for clarity
+        tabMoves: { row: 0, col: 1 }, // Move right on Tab and down on Enter
+        comments: true, // Enable cell comments
+      
+        // Performance Optimizations
+        viewportColumnRenderingOffset: 5, // Render additional columns for smoother scrolling
+        viewportRowRenderingOffset: 10, // Render additional rows for smoother scrolling
+      
+        // License
+        licenseKey: "non-commercial-and-evaluation",
+      });      
+    }
 
     // Display the manual payment form
     createPaymentForm(manualPaymentContainer, member, groupId, tableData, () =>
@@ -279,8 +317,6 @@ async function displayMemberData(member, payments, monthlyPenaltyRate, groupId) 
     alert(`Error: ${error.message}`);
   }
 }
-
-
 
 // Create Manual Payment Form
 function createPaymentForm(container, member, groupId, tableData, reloadTable) {
@@ -395,84 +431,75 @@ function createPaymentForm(container, member, groupId, tableData, reloadTable) {
   });
 
   // Add submit event listener
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
 
-  const selectedMonth = monthSelect.value;
-  const paymentId = monthSelect.options[monthSelect.selectedIndex]?.dataset.paymentId;
-  const amount = parseFloat(paymentAmountInput.value) || parseFloat(totalDueDisplay.value);
-  const method = paymentMethodSelect.value;
-  const proofFile = proofInput.files[0];
+    const selectedMonth = monthSelect.value;
+    const paymentId = monthSelect.options[monthSelect.selectedIndex]?.dataset.paymentId;
+    const amount = parseFloat(paymentAmountInput.value) || parseFloat(totalDueDisplay.value);
+    const method = paymentMethodSelect.value;
+    const proofFile = proofInput.files[0];
 
-  // Validate inputs
-  if (!selectedMonth || !amount || !method || !proofFile || !paymentId) {
-    alert("Please fill all fields, select a valid month, and upload proof of payment.");
-    return;
-  }
-
-  try {
-    // Show spinner during submission
-    showSpinner();
-    submitButton.disabled = true;
-
-    // Upload proof of payment
-    const proofFileName = `${member.uid}-${Date.now()}`;
-    const proofStorageRef = ref(storage, `proofs/${proofFileName}`);
-    await uploadBytes(proofStorageRef, proofFile);
-    const proofURL = await getDownloadURL(proofStorageRef);
-
-    // Get Firestore payment reference
-    const paymentRef = doc(db, `groups/${groupId}/payments`, paymentId);
-    const paymentDoc = await getDoc(paymentRef);
-
-    if (!paymentDoc.exists()) {
-      alert("Payment record not found. Please refresh the page and try again.");
+    // Validate inputs
+    if (!selectedMonth || !amount || !method || !proofFile || !paymentId) {
+      alert("Please fill all fields, select a valid month, and upload proof of payment.");
       return;
     }
 
-    const paymentData = paymentDoc.data();
+    try {
+      // Show spinner during submission
+      spinner.style.display = "inline-block";
+      submitButton.disabled = true;
 
-    // Calculate new arrears, penalties, surplus, and status
-    const arrears = parseFloat(paymentData.arrears || 0);
-    const penalty = parseFloat(paymentData.penalties || 0);
-    const totalDue = arrears + penalty;
+      // Upload proof of payment
+      const proofFileName = `${member.uid}-${Date.now()}`;
+      const proofStorageRef = ref(storage, `proofs/${proofFileName}`);
+      await uploadBytes(proofStorageRef, proofFile);
+      const proofURL = await getDownloadURL(proofStorageRef);
 
-    const newArrears = Math.max(totalDue - amount, 0);
-    const newSurplus = Math.max(amount - totalDue, 0);
-    const newStatus = newArrears === 0 ? "Completed" : "Pending";
+      // Get Firestore payment reference
+      const paymentRef = doc(db, `groups/${groupId}/payments`, paymentId);
+      const paymentDoc = await getDoc(paymentRef);
 
-    // Update Firestore with new payment details
-    await updateDoc(paymentRef, {
-      paid: arrayUnion({
-        amount: formatToTwoDecimals(amount),
-        paymentDate: new Date().toISOString(),
-        approvedBy: "admin@example.com", // Replace with actual admin user info
-        method,
-        proofURL,
-        balance: formatToTwoDecimals(newSurplus),
-      }),
-      arrears: formatToTwoDecimals(newArrears),
-      penalties: formatToTwoDecimals(penalty),
-      balance: formatToTwoDecimals(newSurplus),
-      status: newStatus,
-      updatedAt: new Date(),
-    });
+      if (!paymentDoc.exists()) {
+        alert("Payment record not found. Please refresh the page and try again.");
+        return;
+      }
 
-    alert("Payment submitted successfully!");
+      const paymentData = paymentDoc.data();
 
-    // Refresh the table
-    reloadTable();
-  } catch (error) {
-    console.error("Error submitting payment:", error);
-    alert(`Error submitting payment: ${error.message}`);
-  } finally {
-    // Hide spinner and restore button state
-    hideSpinner();
-    submitButton.disabled = false;
-  }
-});
+      // Fetch current admin name
+      const adminDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+      const adminName = adminDoc.exists() ? adminDoc.data().fullName : "Unknown Admin";
+
+      // Update Firestore with new payment details
+      await updateDoc(paymentRef, {
+        paid: arrayUnion({
+          amount: formatToTwoDecimals(amount),
+          paymentDate: new Date().toISOString(),
+          approvedBy: adminName,
+          approvalDate: new Date().toISOString(),
+          method,
+          proofURL,
+          approvalStatus: true, // Automatically approved
+        }),
+        updatedAt: new Date(),
+      });
+
+      alert("Payment submitted successfully!");
+
+      // Refresh the table
+      reloadTable();
+    } catch (error) {
+      console.error("Error submitting payment:", error);
+      alert(`Error submitting payment: ${error.message}`);
+    } finally {
+      // Hide spinner and restore button state
+      spinner.style.display = "none";
+      submitButton.disabled = false;
+    }
+  });
 }
-
 // Format Payment Details with Payment Date and Method
 function formatPaymentDetails(payments) {
   if (!Array.isArray(payments) || payments.length === 0) {
@@ -538,33 +565,61 @@ async function displaySeedMoney(groupId) {
       });
     });
 
-    new Handsontable(seedMoneyContainer, {
-      data: seedMoneyData,
-      colHeaders: [
-        "Member Name",
-        "Paid",
-        "Arrears",
-        "Balance",
-        "Due Date",
-        "Payment Date",
-      ],
-      columns: [
-        { data: "memberName", type: "text", readOnly: true },
-        { data: "paid", type: "numeric", format: "0,0.00", readOnly: true },
-        { data: "arrears", type: "numeric", format: "0,0.00", readOnly: true },
-        { data: "balance", type: "numeric", format: "0,0.00", readOnly: true },
-        { data: "dueDate", type: "text", readOnly: true },
-        { data: "paymentDate", type: "text", readOnly: true },
-      ],
-      width: "100%",
-      height: 300,
-      licenseKey: "non-commercial-and-evaluation",
-    });
+    // Determine display mode (mobile or desktop)
+    const isMobile = window.innerWidth <= 768;
+
+    if (isMobile) {
+      // Render cards for mobile view
+      seedMoneyContainer.innerHTML = ""; // Clear existing content
+      seedMoneyData.forEach((data) => {
+        const card = document.createElement("div");
+        card.classList.add("seed-money-card");
+
+        card.innerHTML = `
+          <div class="card-header">
+            <h4>${data.memberName}</h4>
+          </div>
+          <div class="card-body">
+            <p><strong>Paid:</strong> ${data.paid} MK</p>
+            <p><strong>Arrears:</strong> ${data.arrears} MK</p>
+            <p><strong>Balance:</strong> ${data.balance} MK</p>
+            <p><strong>Due Date:</strong> ${data.dueDate || "N/A"}</p>
+            <p><strong>Payment Date:</strong> ${data.paymentDate || "N/A"}</p>
+          </div>
+        `;
+        seedMoneyContainer.appendChild(card);
+      });
+    } else {
+      // Render Handsontable for desktop view
+      new Handsontable(seedMoneyContainer, {
+        data: seedMoneyData,
+        colHeaders: [
+          "Member Name",
+          "Paid",
+          "Arrears",
+          "Balance",
+          "Due Date",
+          "Payment Date",
+        ],
+        columns: [
+          { data: "memberName", type: "text", readOnly: true },
+          { data: "paid", type: "numeric", format: "0,0.00", readOnly: true },
+          { data: "arrears", type: "numeric", format: "0,0.00", readOnly: true },
+          { data: "balance", type: "numeric", format: "0,0.00", readOnly: true },
+          { data: "dueDate", type: "text", readOnly: true },
+          { data: "paymentDate", type: "text", readOnly: true },
+        ],
+        width: "100%",
+        height: 300,
+        licenseKey: "non-commercial-and-evaluation",
+      });
+    }
   } catch (error) {
     console.error(`Error displaying Seed Money: ${error.message}`);
     alert(`Error: ${error.message}`);
   }
 }
+
 
 // Page Load Logic
 document.addEventListener("DOMContentLoaded", async () => {

@@ -1,35 +1,15 @@
-// Firebase Setup
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
 import {
-  getAuth,
+  db,
+  auth,
   createUserWithEmailAndPassword,
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-import {
-  getFirestore,
   doc,
   setDoc,
   collection,
   addDoc,
-  onSnapshot,
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-import { initializeLoansStructure, createLoanRecord, updateLoanRepayment } from "./loans.js";
-import { updateDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+  onSnapshot, // Import onSnapshot
+} from "./firebaseConfig.js";
 
 
-// Firebase Configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyClJfGFoc1WZ_qYi5ImQJXyurQtqXgOqfA",
-  authDomain: "banknkonde.firebaseapp.com",
-  projectId: "banknkonde",
-  storageBucket: "banknkonde.appspot.com",
-  messagingSenderId: "698749180404",
-  appId: "1:698749180404:web:7e8483cae4abd7555101a1",
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
 
 document.addEventListener("DOMContentLoaded", () => {
   const invitationCodeField = document.getElementById("invitationCode");
@@ -267,6 +247,8 @@ async function trackApprovalStatus(invitationDocId, name, email, password, group
         const memberDocId = `${name.replace(/\s+/g, "_")}_admin_${userId}`;
         const memberRef = doc(db, `groups/${groupId}/members`, memberDocId);
 
+        await initializeGroupData(groupId, userId, name, groupData);
+
         await setDoc(memberRef, {
           uid: userId,
           fullName: name,
@@ -361,8 +343,6 @@ async function createPayment(userFullName, paymentType, totalAmount, paidAmount,
     month,
     year,
     approvalStatus: "pending",
-    approvedBy: null,
-    paymentMethod: null,
     notes: null,
     auditLogs: [],
     createdAt: new Date(),
@@ -373,6 +353,72 @@ async function createPayment(userFullName, paymentType, totalAmount, paidAmount,
   return paymentRef.id;
 }
 
+// Helper Function to Initialize Subcollections and Payments
+async function initializeGroupData(groupId, adminUserId, adminName, groupData) {
+  try {
+    const paymentsRef = collection(db, `groups/${groupId}/payments`);
+    const pendingPaymentsRef = collection(db, `groups/${groupId}/payments/pendingPayments`);
+    const confirmedPaymentsRef = collection(db, `groups/${groupId}/payments/confirmedPayments`);
+
+    // Ensure these collections exist and initialize default entries if needed
+    const cycleDates = Array.from({ length: 12 }, (_, i) => {
+      const date = new Date(groupData.cycleStartDate);
+      date.setMonth(date.getMonth() + i);
+      return {
+        month: date.toLocaleString("default", { month: "long" }),
+        year: date.getFullYear(),
+        friendlyDate: date.toLocaleDateString("default", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        }),
+      };
+    });
+
+    // Create Seed Money Payment for Admin
+    const seedPaymentId = `${groupData.cycleStartDate.split("-")[0]}_SeedMoney_${adminUserId}`;
+    await setDoc(doc(paymentsRef, seedPaymentId), {
+      paymentId: seedPaymentId,
+      userId: adminUserId,
+      fullName: adminName,
+      paymentType: "Seed Money",
+      paymentCategory: "contribution",
+      totalAmount: parseFloat(groupData.seedMoney),
+      arrears: parseFloat(groupData.seedMoney),
+      penalties: 0,
+      paid: [],
+      approvalStatus: "pending",
+      createdAt: new Date(),
+      updatedAt: null,
+    });
+
+    // Create Monthly Contribution Payments
+    for (const date of cycleDates) {
+      const monthlyPaymentId = `${date.year}_${date.month}_MonthlyContribution_${adminUserId}`;
+      await setDoc(doc(paymentsRef, monthlyPaymentId), {
+        paymentId: monthlyPaymentId,
+        userId: adminUserId,
+        fullName: adminName,
+        paymentType: "Monthly Contribution",
+        paymentCategory: "contribution",
+        totalAmount: parseFloat(groupData.monthlyContribution),
+        arrears: parseFloat(groupData.monthlyContribution),
+        penalties: 0,
+        paid: [],
+        approvalStatus: "pending",
+        dueDate: date.friendlyDate,
+        createdAt: new Date(),
+        updatedAt: null,
+      });
+    }
+
+    console.log("Subcollections and payments initialized for group:", groupId);
+  } catch (error) {
+    console.error("Error initializing group data:", error.message);
+    throw new Error("Failed to initialize group subcollections and payments.");
+  }
+}
 
 
   // Utility Functions
