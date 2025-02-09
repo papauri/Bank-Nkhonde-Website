@@ -1,9 +1,15 @@
+/* 🔹 General Styling */
+body {
+  font-family: 'Inter', sans-serif;
+  background: #f8f9fa;
+  color: #333;
+}
 
-/* Group Members Button */
+/* 🔹 Group Members Button */
 .member-button {
   display: inline-block;
-  margin: 10px;
-  padding: 10px 15px;
+  margin: 8px;
+  padding: 12px 18px;
   font-size: 1rem;
   font-weight: bold;
   text-align: center;
@@ -11,34 +17,34 @@
   color: #fff;
   background: linear-gradient(90deg, #007bff, #0056b3);
   border: none;
-  border-radius: 5px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background 0.3s;
+  transition: all 0.3s ease-in-out;
 }
 
 .member-button:hover {
   background: linear-gradient(90deg, #0056b3, #003f87);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
 .member-button:active {
-  transform: scale(0.95);
+  transform: scale(0.97);
 }
 
-/* Manual Payment Form */
+/* 🔹 Manual Payment Form */
 .manual-payment-form {
   margin: 20px 0;
   padding: 20px;
   background: #ffffff;
   border: 1px solid #dee2e6;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
 }
 
 .manual-payment-form label {
   display: block;
   font-weight: bold;
-  margin-bottom: 5px;
+  margin-bottom: 6px;
   color: #343a40;
 }
 
@@ -46,11 +52,11 @@
 .manual-payment-form select {
   width: 100%;
   padding: 10px;
-  margin-bottom: 15px;
+  margin-bottom: 12px;
   border: 1px solid #dee2e6;
   border-radius: 5px;
   font-size: 1rem;
-  transition: border-color 0.3s;
+  transition: border-color 0.3s ease-in-out;
 }
 
 .manual-payment-form input:focus,
@@ -59,29 +65,30 @@
   outline: none;
 }
 
+/* 🔹 Payment Submit Button */
 .manual-payment-submit {
-  display: inline-block;
   width: 100%;
-  padding: 10px 15px;
+  padding: 12px;
   font-size: 1rem;
   font-weight: bold;
   color: #fff;
   background: linear-gradient(90deg, #28a745, #218838);
   border: none;
-  border-radius: 5px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background 0.3s, transform 0.2s;
+  transition: all 0.3s ease-in-out;
 }
 
 .manual-payment-submit:hover {
   background: linear-gradient(90deg, #218838, #1e7e34);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
 .manual-payment-submit:active {
-  transform: scale(0.95);
+  transform: scale(0.97);
 }
-/* Spinner Overlay */
+
+/* 🔹 Spinner Overlay */
 .spinner-overlay {
   position: fixed;
   top: 0;
@@ -96,8 +103,8 @@
 }
 
 .spinner {
-  width: 50px;
-  height: 50px;
+  width: 45px;
+  height: 45px;
   border: 5px solid rgba(255, 255, 255, 0.3);
   border-top: 5px solid #fff;
   border-radius: 50%;
@@ -113,59 +120,109 @@
   }
 }
 
-/* Payment Card Styling */
-.payment-card,
-.seed-money-card {
-  display: block;
+/* 🔹 Payment Card Styling */
+.payment-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   background: #ffffff;
-  border: 1px solid #dee2e6;
+  padding: 12px 14px;
   border-radius: 8px;
-  margin-bottom: 15px;
-  padding: 15px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s, box-shadow 0.2s;
+  border-left: 5px solid #2ecc71; /* Green for confirmed */
+  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease-in-out;
+  font-size: 14px;
+  width: 100%;
 }
 
-.payment-card:hover,
-.seed-money-card:hover {
+.payment-card:hover {
   transform: scale(1.02);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.15);
 }
 
-.payment-card .card-header h4,
-.seed-money-card .card-header h4 {
-  margin: 0;
-  color: #007bff;
-  font-size: 1.25rem;
+.payment-card span {
+  font-weight: 500;
 }
 
-.payment-card .card-body p,
-.seed-money-card .card-body p {
-  margin: 8px 0;
-  color: #495057;
-  font-size: 1rem;
+.payment-amount {
+  font-weight: 700;
+  color: #2c7b2c;
 }
 
-.payment-card .card-body strong,
-.seed-money-card .card-body strong {
-  color: #343a40;
+.payment-method {
+  font-size: 12px;
+  color: #555;
 }
 
-/* Responsive Adjustments for Cards */
+.payment-date {
+  font-size: 12px;
+  color: #777;
+}
+
+/* 🔹 Compact Payment Display */
+.payment-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 12px;
+  margin: 4px 0;
+  background-color: #f7f7f7;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.payment-row .member-name {
+  font-weight: bold;
+  flex: 2;
+}
+
+.payment-row .amount {
+  color: #2c7b2c;
+  flex: 1;
+  text-align: right;
+}
+
+.payment-row .method {
+  color: #555;
+  flex: 1;
+  text-align: center;
+}
+
+.payment-row .date {
+  color: #777;
+  flex: 1;
+  text-align: right;
+  font-size: 12px;
+}
+
+/* 🔹 Confirmed Payments Compact Display */
+.confirmed-payments-header {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.payments-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px; /* Prevents overflow */
+  overflow-y: auto;  /* Enables scrolling */
+  padding: 10px;
+}
+
+/* 🔹 Responsive Adjustments for Cards */
 @media (max-width: 768px) {
-  .payment-card,
-  .seed-money-card {
+  .payment-card {
     font-size: 0.9rem;
     padding: 10px;
   }
 
-  .payment-card .card-header h4,
-  .seed-money-card .card-header h4 {
+  .payment-card .card-header h4 {
     font-size: 1rem;
   }
 
-  .payment-card .card-body p,
-  .seed-money-card .card-body p {
+  .payment-card .card-body p {
     font-size: 0.85rem;
   }
 }

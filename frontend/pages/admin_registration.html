@@ -8,7 +8,7 @@
 
   <!-- Intl-Tel-Input Styles and Script -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/css/intlTelInput.min.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/intlTelInput.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/intlTelInput.min.js"></script>
 
   <!-- Custom Styles -->
   <link rel="stylesheet" href="../styles/registration.css">
@@ -18,74 +18,90 @@
   <div class="container">
     <h1>Admin Registration</h1>
     <form id="registrationForm">
-      <!-- User Details -->
-      <label for="name">Full Name</label>
-      <input type="text" id="name" name="name" placeholder="Full Name" required aria-label="Full Name">
 
-      <label for="phone">Phone Number</label>
-      <input type="tel" id="phone" name="phone" placeholder="Enter your phone number" required
-        aria-label="Phone Number">
+      <!-- 🔹 USER DETAILS -->
+      <fieldset>
+        <legend>User Information</legend>
 
-      <label for="email">Email Address</label>
-      <input type="email" id="email" name="email" placeholder="Email Address" required aria-label="Email Address">
+        <label for="name">Full Name</label>
+        <input type="text" id="name" name="name" placeholder="Enter your full name" required>
 
-      <label for="password">Password</label>
-      <input type="password" id="password" name="password" placeholder="Password" required aria-label="Password">
+        <label for="phone">Phone Number</label>
+        <input type="tel" id="phone" name="phone" placeholder="Enter your phone number" required>
 
-      <!-- Group Creation Section -->
-      <h2>Group Details</h2>
-      <label for="groupName">Group Name</label>
-      <input type="text" id="groupName" name="groupName" placeholder="Group Name" required aria-label="Group Name">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" name="email" placeholder="Enter your email address" required>
 
-      <label for="seedMoney">Seed Money (MWK)</label>
-      <input type="number" id="seedMoney" name="seedMoney" placeholder="0.00" step="0.01" required
-        aria-label="Seed Money in MWK">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" placeholder="Create a strong password" required>
+      </fieldset>
 
-      <label for="seedMoneyDueDate">Seed Money Due Date</label>
-      <input type="date" id="seedMoneyDueDate" name="seedMoneyDueDate" required aria-label="Seed Money Due Date">
+      <!-- 🔹 GROUP DETAILS -->
+      <fieldset>
+        <legend>Group Details</legend>
 
-      <label for="interestRate">Interest Rate (%)</label>
-      <div class="input-with-suffix">
-        <input type="number" id="interestRate" name="interestRate" placeholder="0.00" step="0.01" required
-          aria-label="Interest Rate">
-        <span>%</span>
-      </div>
+        <label for="groupName">Group Name</label>
+        <input type="text" id="groupName" name="groupName" placeholder="Choose a group name" required>
 
-      <label for="monthlyContribution">Monthly Contribution (MWK)</label>
-      <input type="number" id="monthlyContribution" name="monthlyContribution" placeholder="0.00" step="0.01" required
-        aria-label="Monthly Contribution in MWK">
+        <div class="input-pair">
+          <label for="seedMoney">Seed Money (MWK)</label>
+          <input type="number" id="seedMoney" name="seedMoney" placeholder="0.00" step="0.01" required>
+        </div>
 
-      <label for="loanPenalty">Loan Penalty (%)</label>
-      <div class="input-with-suffix">
-        <input type="number" id="loanPenalty" name="loanPenalty" placeholder="0.00" step="0.01" required
-          aria-label="Loan Penalty">
-        <span>%</span>
-      </div>
+        <div class="input-pair">
+          <label for="seedMoneyDueDate">Seed Money Due Date</label>
+          <input type="date" id="seedMoneyDueDate" name="seedMoneyDueDate" required>
+        </div>
 
-      <label for="monthlyPenalty">Monthly Penalty (%)</label>
-      <div class="input-with-suffix">
-        <input type="number" id="monthlyPenalty" name="monthlyPenalty" placeholder="0.00" step="0.01" required
-          aria-label="Monthly Penalty">
-        <span>%</span>
-      </div>
+        <div class="input-pair">
+          <label for="interestRate">Interest Rate</label>
+          <div class="input-with-suffix">
+            <input type="number" id="interestRate" name="interestRate" placeholder="0.00" step="0.01" required>
+            <span>%</span>
+          </div>
+        </div>
 
-      <label for="cycleStartDate">Cycle Start Date:</label>
-      <input type="date" id="cycleStartDate" name="cycleStartDate" required aria-label="Cycle Start Date">
+        <div class="input-pair">
+          <label for="monthlyContribution">Monthly Contribution (MWK)</label>
+          <input type="number" id="monthlyContribution" name="monthlyContribution" placeholder="0.00" step="0.01" required>
+        </div>
 
-      <!-- Invitation Code -->
-      <label for="invitationCode">Invitation Code</label>
-      <input type="text" id="invitationCode" name="invitationCode" placeholder="Invitation Code" readonly
-        class="disabled-input" aria-label="Invitation Code">
+        <div class="input-pair">
+          <label for="loanPenalty">Loan Penalty</label>
+          <div class="input-with-suffix">
+            <input type="number" id="loanPenalty" name="loanPenalty" placeholder="0.00" step="0.01" required>
+            <span>%</span>
+          </div>
+        </div>
 
-      <!-- Submit Button -->
-      <button type="submit" aria-label="Register Button">Register</button>
+        <div class="input-pair">
+          <label for="monthlyPenalty">Monthly Penalty</label>
+          <div class="input-with-suffix">
+            <input type="number" id="monthlyPenalty" name="monthlyPenalty" placeholder="0.00" step="0.01" required>
+            <span>%</span>
+          </div>
+        </div>
 
-      <!-- Error Message -->
+        <label for="cycleStartDate">Cycle Start Date</label>
+        <input type="date" id="cycleStartDate" name="cycleStartDate" required>
+      </fieldset>
+
+      <!-- 🔹 INVITATION CODE -->
+      <fieldset>
+        <legend>Security & Authentication</legend>
+        <label for="invitationCode">Invitation Code</label>
+        <input type="text" id="invitationCode" name="invitationCode" placeholder="Auto-generated" readonly class="disabled-input">
+      </fieldset>
+
+      <!-- 🔹 SUBMIT BUTTON -->
+      <button type="submit" id="registerBtn" disabled>Register</button>
+
+      <!-- 🔹 ERROR MESSAGE -->
       <p id="errorMessage" class="error"></p>
     </form>
   </div>
 
-  <!-- Loading Overlay -->
+  <!-- 🔹 LOADING OVERLAY -->
   <div id="loadingOverlay" class="hidden">
     <div class="content">
       <p id="loadingMessage">Processing... Please wait.</p>
@@ -93,33 +109,37 @@
     </div>
   </div>
 
-  <!-- Custom Scripts -->
+  <!-- 🔹 SCRIPTS -->
   <script type="module" src="../scripts/registration.js"></script>
   <script>
     document.addEventListener("DOMContentLoaded", () => {
+      const form = document.getElementById("registrationForm");
+      const submitButton = document.getElementById("registerBtn");
+      const fields = form.querySelectorAll("input[required]");
       const decimalFields = document.querySelectorAll("#seedMoney, #monthlyContribution");
       const percentageFields = document.querySelectorAll("#interestRate, #loanPenalty, #monthlyPenalty");
 
-      // Auto-format decimals to two places
+      // ✅ Auto-format decimals
       function formatDecimals(field) {
         let value = field.value.trim();
         if (value && !isNaN(value)) {
-          field.value = parseFloat(value).toFixed(2); // Format to two decimal places
+          field.value = parseFloat(value).toFixed(2);
         }
       }
 
-      // Attach blur event to decimal fields
-      decimalFields.forEach((field) => {
-        field.addEventListener("blur", () => formatDecimals(field));
-      });
+      // ✅ Check if form is complete
+      function validateForm() {
+        submitButton.disabled = !Array.from(fields).every(field => field.value.trim() !== "");
+      }
 
-      // Attach blur event to percentage fields (No % modification needed now)
-      percentageFields.forEach((field) => {
-        field.addEventListener("blur", () => formatDecimals(field));
-      });
+      // ✅ Attach blur events
+      decimalFields.forEach(field => field.addEventListener("blur", () => formatDecimals(field)));
+      percentageFields.forEach(field => field.addEventListener("blur", () => formatDecimals(field)));
+      fields.forEach(field => field.addEventListener("input", validateForm));
+
+      validateForm(); // Initial check
     });
   </script>
-  <script type="module" src="../scripts/loans.js"></script>
 </body>
 
 </html>

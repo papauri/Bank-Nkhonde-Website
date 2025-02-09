@@ -8,6 +8,7 @@ import {
   onAuthStateChanged,
 } from "./firebaseConfig.js";
 
+// ✅ Ensure the user is signed in before accessing the group page
 onAuthStateChanged(auth, (user) => {
   if (!user) {
     alert("You must be signed in to access this page.");
@@ -19,83 +20,257 @@ document.addEventListener("DOMContentLoaded", async () => {
   const urlParams = new URLSearchParams(window.location.search);
   const groupId = urlParams.get("groupId");
 
-  const paymentsContainer = document.getElementById("paymentsContainer");
-  const pendingPaymentsContainer = document.getElementById("pendingPaymentsContainer");
-  const backButton = document.getElementById("backButton");
-
   if (!groupId) {
     alert("Group ID is missing. Redirecting to the admin dashboard...");
     window.location.href = "/frontend/pages/admin_dashboard.html";
     return;
   }
 
-  async function fetchPayments(groupId) {
-    try {
-      const currentMonth = new Date().toLocaleString("default", { month: "long" });
-      const currentYear = new Date().getFullYear();
+  // ✅ Select DOM elements for group details
+  const groupNameField = document.getElementById("groupName");
+  const groupCreatedField = document.getElementById("groupCreated");
+  const seedMoneyField = document.getElementById("seedMoney");
+  const interestRateField = document.getElementById("interestRate");
+  const monthlyContributionField = document.getElementById("monthlyContribution");
+  const loanPenaltyField = document.getElementById("loanPenalty");
+  const monthlyPenaltyField = document.getElementById("monthlyPenalty");
+  const groupMembersCountField = document.getElementById("groupMembersCount");
 
+  // ✅ Select DOM elements for payments
+  const confirmedPaymentsContainer = document.getElementById("confirmedPaymentsContainer");
+  const pendingApprovalContainer = document.getElementById("pendingApprovalContainer");
+  const unpaidContributionsContainer = document.getElementById("unpaidContributionsContainer");
+  const backButton = document.getElementById("backButton");
+
+  // 🔹 Fetch Group Details
+  async function fetchGroupDetails(groupId) {
+    try {
       const groupDoc = await getDoc(doc(db, "groups", groupId));
       if (!groupDoc.exists()) {
         alert("Group not found!");
         return;
       }
 
-      const { monthlyPenalty } = groupDoc.data();
+      const groupData = groupDoc.data();
 
-      // Fetch Payments
-      const paymentsSnapshot = await getDocs(collection(db, `groups/${groupId}/payments`));
-      const pendingPaymentsSnapshot = await getDocs(collection(db, `groups/${groupId}/payments/pendingPayments`));
+      // ✅ Populate Group Information Fields
+      groupNameField.textContent = groupData.groupName || "N/A";
+      groupCreatedField.textContent = groupData.createdAt
+        ? new Date(groupData.createdAt.toDate()).toLocaleDateString()
+        : "N/A";
+      seedMoneyField.textContent = `MWK ${groupData.seedMoney?.toFixed(2) || "0.00"}`;
+      interestRateField.textContent = `${groupData.interestRate?.toFixed(2) || "0.00"}%`;
+      monthlyContributionField.textContent = `MWK ${groupData.monthlyContribution?.toFixed(2) || "0.00"}`;
+      loanPenaltyField.textContent = `${groupData.loanPenalty?.toFixed(2) || "0.00"}%`;
+      monthlyPenaltyField.textContent = `${groupData.monthlyPenalty?.toFixed(2) || "0.00"}%`;
 
-      // Filter and Display Payments
-      const filteredPendingPayments = pendingPaymentsSnapshot.docs.filter((doc) => {
-        const payment = doc.data();
-        return payment.month === currentMonth && payment.year === currentYear;
-      });
-
-      populatePaymentCards(filteredPendingPayments, pendingPaymentsContainer, true, monthlyPenalty);
+      // ✅ Fetch and Display Number of Members
+      const membersSnapshot = await getDocs(collection(db, `groups/${groupId}/members`));
+      groupMembersCountField.textContent = membersSnapshot.size || "0";
     } catch (error) {
-      console.error("Error fetching payments:", error.message);
-      alert("An error occurred while fetching payments.");
+      console.error("❌ Error fetching group details:", error.message);
+      alert("An error occurred while fetching group details.");
     }
   }
 
-  function populatePaymentCards(docs, container, isPending = false, penaltyRate = 0) {
-    container.innerHTML = ""; 
+  // ✅ Helper Function: Format Numbers to Two Decimals
+  function formatToTwoDecimals(value) {
+    return value ? parseFloat(value).toFixed(2) : "0.00";
+  }
 
-    if (!docs.length) {
-      container.innerHTML = `<p>No ${isPending ? "pending" : ""} payments available for the current month.</p>`;
+
+// 🔹 Fetch Payments for the Current Month
+// 🔹 Fetch Payments for the Current Month
+async function fetchPayments(groupId) {
+  try {
+    const currentMonth = new Date().toLocaleString("default", { month: "long" });
+    const currentYear = new Date().getFullYear();
+
+    const groupDoc = await getDoc(doc(db, "groups", groupId));
+    if (!groupDoc.exists()) {
+      alert("Group not found!");
       return;
     }
 
-    docs.forEach((doc) => {
-      const data = doc.data();
-      const arrears = Math.max(data.totalAmount - (data.paid?.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || 0), 0);
-      const penalty = arrears > 0 ? arrears * (penaltyRate / 100) : 0;
-      const totalDue = arrears + penalty;
+    const { monthlyPenalty } = groupDoc.data();
 
-      const card = document.createElement("div");
-      card.classList.add("payment-card");
+    // ✅ Fetch Members
+    const membersSnapshot = await getDocs(collection(db, `groups/${groupId}/members`));
+    const members = membersSnapshot.docs.map((doc) => ({
+      uid: doc.id,
+      fullName: doc.data().fullName.replace(/\s+/g, "_"),
+    }));
 
-      card.innerHTML = `
-        <div class="card-header">${data.fullName || "Unknown Member"}</div>
-        <div class="card-body">
-          <p><strong>Type:</strong> ${data.paymentType || "Unknown"}</p>
-          <p><strong>Amount:</strong> MWK ${data.totalAmount || 0}</p>
-          <p><strong>Due Date:</strong> ${data.dueDate || "N/A"}</p>
-          <p><strong>Arrears:</strong> MWK ${arrears.toFixed(2)}</p>
-          <p><strong>Penalty:</strong> MWK ${penalty.toFixed(2)}</p>
-          <p><strong>Total Due:</strong> MWK ${totalDue.toFixed(2)}</p>
-          <p><strong>Status:</strong> ${data.status || "Pending"}</p>
-        </div>
-      `;
-      container.appendChild(card);
-    });
+    if (members.length === 0) {
+      confirmedPaymentsContainer.innerHTML = `<p>No confirmed payments found for ${currentMonth}.</p>`;
+      return;
+    }
+
+    // ✅ Fetch and Filter Only the Confirmed Payments for the Current Month
+    const confirmedPayments = await fetchConfirmedPayments(groupId, members, currentYear, currentMonth);
+
+    // ✅ Populate the UI
+    populateConfirmedPayments(confirmedPayments, confirmedPaymentsContainer, currentMonth);
+
+  } catch (error) {
+    console.error("❌ Error fetching payments:", error.message);
+    alert("An error occurred while fetching payments.");
+  }
+}
+
+// 🔹 Fetch Confirmed Payments for the Current Month
+async function fetchConfirmedPayments(groupId, members, year, month) {
+  const confirmedPayments = [];
+
+  for (const member of members) {
+    const { uid, fullName } = member;
+
+    const monthDocRef = doc(
+      db,
+      `groups/${groupId}/payments/${year}_MonthlyContributions/${fullName}/${year}_${month}`
+    );
+    const monthDoc = await getDoc(monthDocRef);
+
+    if (monthDoc.exists()) {
+      const paymentData = monthDoc.data();
+
+      // ✅ Check if the payment is fully approved
+      if (paymentData.paymentStatus === "Completed") {
+        confirmedPayments.push({
+          fullName,
+          totalPaid: formatToTwoDecimals(paymentData.totalAmount),
+          paymentDate: paymentData.paid?.length
+            ? formatFriendlyDate(paymentData.paid[paymentData.paid.length - 1].paymentDate)
+            : "N/A",
+          method: paymentData.paid?.length ? paymentData.paid[paymentData.paid.length - 1].method : "Unknown",
+        });
+      }
+    }
   }
 
-  // Initialize Fetch
+  return confirmedPayments;
+}
+
+// 🔹 Display Confirmed Payments in a Compact One-Liner Format
+function populateConfirmedPayments(payments, container, currentMonth) {
+  container.innerHTML = `<h3 class="confirmed-payments-header">Confirmed Payments for ${currentMonth}</h3>`;
+
+  if (!payments.length) {
+    container.innerHTML += `<p>No confirmed payments recorded for this month.</p>`;
+    return;
+  }
+
+  payments.forEach((data) => {
+    const paymentRow = document.createElement("div");
+    paymentRow.classList.add("payment-card");
+
+    paymentRow.innerHTML = `
+      <span class="member-name">${data.fullName.replace(/_/g, " ")}</span> 
+      <span class="payment-amount">MWK ${data.totalPaid}</span> 
+      <span class="payment-method">(${data.method})</span> 
+      <span class="payment-date">on ${data.paymentDate}</span>
+    `;
+
+    container.appendChild(paymentRow);
+  });
+}
+
+// ✅ Helper Function: Format Numbers to Two Decimals
+function formatToTwoDecimals(value) {
+  return value ? parseFloat(value).toFixed(2) : "0.00";
+}
+
+// ✅ Helper Function: Format Dates Dynamically
+function formatFriendlyDate(date) {
+  if (!date) return "N/A";
+  const parsedDate = typeof date.toDate === "function" ? date.toDate() : new Date(date);
+  return parsedDate.toLocaleDateString("en-US", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+// ✅ Initialize Fetch
+fetchGroupDetails(groupId);
+fetchPayments(groupId);
+
+
+// 🔹 Fetch Confirmed Payments for the Current Month
+async function fetchConfirmedPayments(groupId, members, year, month) {
+  const confirmedPayments = [];
+
+  for (const member of members) {
+    const { uid, fullName } = member;
+
+    const monthDocRef = doc(
+      db,
+      `groups/${groupId}/payments/${year}_MonthlyContributions/${fullName}/${year}_${month}`
+    );
+    const monthDoc = await getDoc(monthDocRef);
+
+    if (monthDoc.exists()) {
+      const paymentData = monthDoc.data();
+
+      // ✅ Check if the payment is fully approved
+      if (paymentData.paymentStatus === "Completed") {
+        confirmedPayments.push({
+          fullName,
+          totalPaid: formatToTwoDecimals(paymentData.totalAmount),
+          paymentDate: paymentData.paid?.length
+            ? formatFriendlyDate(paymentData.paid[paymentData.paid.length - 1].paymentDate)
+            : "N/A",
+          method: paymentData.paid?.length ? paymentData.paid[paymentData.paid.length - 1].method : "Unknown",
+        });
+      }
+    }
+  }
+
+  return confirmedPayments;
+}
+
+// 🔹 Display Confirmed Payments in a Compact One-Liner Format
+function populateConfirmedPayments(payments, container, currentMonth) {
+  container.innerHTML = `<h3>Confirmed Payments for ${currentMonth}</h3>`;
+
+  if (!payments.length) {
+    container.innerHTML += `<p>No confirmed payments recorded for this month.</p>`;
+    return;
+  }
+
+  payments.forEach((data) => {
+    const paymentRow = document.createElement("div");
+    paymentRow.classList.add("payment-row");
+
+    paymentRow.innerHTML = `
+      <span class="member-name">${data.fullName.replace(/_/g, " ")}</span> 
+      <span class="amount">MWK ${data.totalPaid}</span> 
+      <span class="method">(${data.method})</span> 
+      <span class="date">on ${data.paymentDate}</span>
+    `;
+
+    container.appendChild(paymentRow);
+  });
+}
+
+// ✅ Helper Function: Format Dates Dynamically
+function formatFriendlyDate(date) {
+  if (!date) return "N/A";
+
+  const parsedDate = typeof date.toDate === "function" ? date.toDate() : new Date(date);
+  
+  return parsedDate.toLocaleDateString("en-US", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+  // ✅ Initialize Fetch
+  fetchGroupDetails(groupId);
   fetchPayments(groupId);
 
-  // Back Button Event Listener
+  // ✅ Back Button Event Listener
   backButton.addEventListener("click", () => {
     window.location.href = "/frontend/pages/admin_dashboard.html";
   });

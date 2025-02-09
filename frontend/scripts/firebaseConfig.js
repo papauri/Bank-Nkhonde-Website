@@ -12,6 +12,9 @@ import {
   where,
   onSnapshot,
   arrayUnion,
+  Timestamp,
+  writeBatch,
+  arrayRemove,
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import {
   getAuth,
@@ -24,7 +27,7 @@ import {
   getStorage,
   ref,
   uploadBytes,
-  getDownloadURL,
+  getDownloadURL, // ✅ Removed redundant `storage` declaration
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
 
 // Firebase configuration
@@ -41,14 +44,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-const storage = getStorage(app);
+const storage = getStorage(app);  // ✅ This is the only `storage` definition
 
 // Export Firebase services and commonly used functions
 export {
   app,
   db,
   auth,
-  storage,
   collection,
   doc,
   getDocs,
@@ -59,6 +61,7 @@ export {
   query,
   where,
   onSnapshot,
+  storage, // ✅ Now correctly exporting the storage instance
   arrayUnion,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -67,4 +70,7 @@ export {
   ref,
   uploadBytes,
   getDownloadURL,
+  Timestamp,
+  writeBatch,
+  arrayRemove,
 };

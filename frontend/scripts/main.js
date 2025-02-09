@@ -8,7 +8,6 @@ import {
   getDoc,
 } from "./firebaseConfig.js";
 
-
 document.addEventListener("DOMContentLoaded", () => {
   const userLoginForm = document.getElementById("userLoginForm");
   const adminLoginForm = document.getElementById("adminLoginForm");
@@ -19,6 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const adminErrorMessage = document.getElementById("adminErrorMessage");
   const userLoginToggle = document.getElementById("userLoginToggle");
   const adminLoginToggle = document.getElementById("adminLoginToggle");
+  const forgotPasswordLink = document.getElementById("forgotPasswordLink");
 
   /**
    * Show Spinner
@@ -35,51 +35,70 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /**
-   * Log User Activity
-   * @param {string} activityType - Type of activity
-   * @param {string} title - Activity title
-   * @param {string} details - Description of the activity
-   * @param {string} [groupId="global"] - Optional group ID
+   * Disable Login Buttons
    */
-  async function logUserActivity(activityType, title, details, groupId) {
-    if (!groupId) {
-      console.error("Group ID is required to log activity.");
-      return;
-    }
-  
+  function disableLoginButtons() {
+    userLoginBtn.disabled = true;
+    adminLoginBtn.disabled = true;
+  }
+
+  /**
+   * Enable Login Buttons
+   */
+  function enableLoginButtons() {
+    userLoginBtn.disabled = false;
+    adminLoginBtn.disabled = false;
+  }
+
+  /**
+   * Validate Email
+   */
+  function validateEmail(email) {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regex.test(email);
+  }
+
+  /**
+   * Validate Password
+   */
+  function validatePassword(password) {
+    return password.length >= 6;
+  }
+
+  /**
+   * Log User Activity
+   */
+  async function logUserActivity(activityType, title, details, groupId = "global") {
     try {
-      // Reference the group's activityLogs collection
       const activityLogsRef = collection(db, `groups/${groupId}/activityLogs`);
-  
-      // Add activity log document
+      const user = auth.currentUser;
+
       await addDoc(activityLogsRef, {
         type: activityType,
         title,
         timestamp: new Date(),
         details,
+        userId: user?.uid || "unknown",
+        userEmail: user?.email || "unknown",
       });
-  
+
       console.log(`Activity logged in group ${groupId}: ${title}`);
     } catch (error) {
       console.error("Error logging activity:", error.message);
     }
   }
-  
 
   /**
    * Handle Login
-   * @param {string} email - User email
-   * @param {string} password - User password
-   * @param {string} role - Either 'admin' or 'user'
    */
   async function handleLogin(email, password, role) {
     showSpinner();
+    disableLoginButtons();
 
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Fetch user data from Firestore
       const userDocRef = doc(db, "users", user.uid);
       const userDoc = await getDoc(userDocRef);
 
@@ -88,22 +107,14 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const userData = userDoc.data();
-      console.log("Fetched user data:", userData);
-
-      // Validate roles field
       const userRoles = userData.roles || [];
-      if (!Array.isArray(userRoles)) {
-        throw new Error("Roles field is not an array or is missing.");
-      }
 
       if (!userRoles.includes(role)) {
         throw new Error(`Access denied. Not authorized as ${role}.`);
       }
 
-      // Log user login activity
-      await logUserActivity("login", `${role} login`, `${user.email} logged in as ${role}`, "global");
+      await logUserActivity("login", `${role} login`, `${user.email} logged in as ${role}`);
 
-      // Redirect to appropriate dashboard
       if (role === "admin") {
         window.location.href = "/pages/admin_dashboard.html";
       } else if (role === "user") {
@@ -120,12 +131,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } finally {
       hideSpinner();
+      enableLoginButtons();
     }
   }
 
   /**
    * Switch Login Form
-   * @param {string} target - Target form ('admin' or 'user')
    */
   function switchLoginForm(target) {
     if (target === "admin") {
@@ -141,29 +152,68 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Add Event Listeners for Toggle Buttons
+  // Event Listeners
   userLoginToggle.addEventListener("click", () => switchLoginForm("user"));
   adminLoginToggle.addEventListener("click", () => switchLoginForm("admin"));
 
-  // User Login
   userLoginBtn.addEventListener("click", async () => {
     const email = document.getElementById("userEmail")?.value.trim();
     const password = document.getElementById("userPassword")?.value.trim();
+
     if (!email || !password) {
       userErrorMessage.textContent = "Please fill in all fields.";
       return;
     }
+
+    if (!validateEmail(email)) {
+      userErrorMessage.textContent = "Please enter a valid email address.";
+      return;
+    }
+
+    if (!validatePassword(password)) {
+      userErrorMessage.textContent = "Password must be at least 6 characters.";
+      return;
+    }
+
     await handleLogin(email, password, "user");
   });
 
-  // Admin Login
   adminLoginBtn.addEventListener("click", async () => {
     const email = document.getElementById("adminEmail")?.value.trim();
     const password = document.getElementById("adminPassword")?.value.trim();
+
     if (!email || !password) {
       adminErrorMessage.textContent = "Please fill in all fields.";
       return;
     }
+
+    if (!validateEmail(email)) {
+      adminErrorMessage.textContent = "Please enter a valid email address.";
+      return;
+    }
+
+    if (!validatePassword(password)) {
+      adminErrorMessage.textContent = "Password must be at least 6 characters.";
+      return;
+    }
+
     await handleLogin(email, password, "admin");
+  });
+
+  forgotPasswordLink.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const email = prompt("Please enter your email address:");
+
+    if (email && validateEmail(email)) {
+      try {
+        await auth.sendPasswordResetEmail(email);
+        alert("Password reset email sent. Please check your inbox.");
+      } catch (error) {
+        console.error("Error sending password reset email:", error.message);
+        alert("Failed to send password reset email. Please try again.");
+      }
+    } else {
+      alert("Please enter a valid email address.");
+    }
   });
 });

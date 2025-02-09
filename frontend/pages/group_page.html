@@ -16,73 +16,59 @@
 
 <body>
   <div class="container">
-    <!-- Header Section -->
+    <!-- 🔹 HEADER SECTION -->
     <header class="header">
       <h1 id="groupTitle">Group Details</h1>
       <button id="backButton" class="button back">Back to Dashboard</button>
     </header>
 
-    <!-- Group Info Section -->
+    <!-- 🔹 GROUP INFO SECTION -->
     <section class="group-info">
       <h2>Group Information</h2>
       <div class="info-grid">
-        <div class="info-item">
-          <span class="label">Group Name</span>
-          <span id="groupName" class="value">Loading...</span>
-        </div>
-        <div class="info-item">
-          <span class="label">Created On</span>
-          <span id="groupCreated" class="value">Loading...</span>
-        </div>
-        <div class="info-item">
-          <span class="label">Seed Money</span>
-          <span id="seedMoney" class="value">Loading...</span>
-        </div>
-        <div class="info-item">
-          <span class="label">Interest Rate</span>
-          <span id="interestRate" class="value">Loading...</span>
-        </div>
-        <div class="info-item">
-          <span class="label">Monthly Contribution</span>
-          <span id="monthlyContribution" class="value">Loading...</span>
-        </div>
-        <div class="info-item">
-          <span class="label">Loan Penalty</span>
-          <span id="loanPenalty" class="value">Loading...</span>
-        </div>
-        <div class="info-item">
-          <span class="label">Monthly Penalty</span>
-          <span id="monthlyPenalty" class="value">Loading...</span>
-        </div>
-        <div class="info-item">
-          <span class="label">Number of Members</span>
-          <span id="groupMembersCount" class="value">Loading...</span>
-        </div>
+        <div class="info-item"><span class="label">Group Name</span><span id="groupName" class="value">Loading...</span></div>
+        <div class="info-item"><span class="label">Created On</span><span id="groupCreated" class="value">Loading...</span></div>
+        <div class="info-item"><span class="label">Seed Money</span><span id="seedMoney" class="value">Loading...</span></div>
+        <div class="info-item"><span class="label">Interest Rate</span><span id="interestRate" class="value">Loading...</span></div>
+        <div class="info-item"><span class="label">Monthly Contribution</span><span id="monthlyContribution" class="value">Loading...</span></div>
+        <div class="info-item"><span class="label">Loan Penalty</span><span id="loanPenalty" class="value">Loading...</span></div>
+        <div class="info-item"><span class="label">Monthly Penalty</span><span id="monthlyPenalty" class="value">Loading...</span></div>
+        <div class="info-item"><span class="label">Number of Members</span><span id="groupMembersCount" class="value">Loading...</span></div>
       </div>
     </section>
 
-    <!-- Loan Section -->
+    <!-- 🔹 LOAN SECTION -->
     <section class="loans">
       <h2>Loan Details</h2>
       <ul id="loanList" class="list">Loading loan details...</ul>
     </section>
 
+    <!-- 🔹 PAYMENTS SECTION -->
     <section id="paymentsSection" class="payments-section">
-      <h2>Payments</h2>
-      <div id="paymentsContainer" class="payments-container">
-        <!-- Dynamic content will be populated here -->
+      <h2>Confirmed Payments</h2>
+      <p>These payments have been approved by the admin.</p>
+      <div id="confirmedPaymentsContainer" class="payments-container">
+        <!-- Payments dynamically populated here -->
       </div>
     </section>
-    
-    <section id="pendingPaymentsSection" class="pending-payments-section">
-      <h2>Pending Payments</h2>
-      <div id="pendingPaymentsContainer" class="payments-container">
-        <!-- Dynamic content will be populated here -->
-      </div>
-    </section>
-    
 
-    <!-- Interactive Table Section -->
+    <section id="pendingApprovalSection" class="pending-approval-section">
+      <h2>Payments Awaiting Admin Approval</h2>
+      <p>These payments have been made but are awaiting admin confirmation.</p>
+      <div id="pendingApprovalContainer" class="payments-container">
+        <!-- Pending approvals dynamically populated here -->
+      </div>
+    </section>
+
+    <section id="unpaidContributionsSection" class="unpaid-contributions-section">
+      <h2>Unpaid Contributions</h2>
+      <p>These contributions are due but have not been paid yet.</p>
+      <div id="unpaidContributionsContainer" class="payments-container">
+        <!-- Unpaid contributions dynamically populated here -->
+      </div>
+    </section>
+
+    <!-- 🔹 GROUP MEMBERS SECTION -->
     <section class="interactive-table">
       <h2>Group Members</h2>
       <div id="membersList">Loading group members...</div>
@@ -93,17 +79,18 @@
         <div id="memberTableContainer">Select a member to view their contributions.</div>
         <div id="manualPaymentContainer"></div>
       </div>
+
       <h2>Seed Money Overview</h2>
       <div id="seedMoneyContainer">Loading seed money...</div>
     </section>
 
-    <!-- Spinner Overlay -->
+    <!-- 🔹 LOADING SPINNER -->
     <div id="spinnerOverlay" class="spinner-overlay" style="display: none;">
       <div class="spinner"></div>
     </div>
   </div>
 
-  <!-- Include JavaScript Files -->
+  <!-- 🔹 INCLUDE JAVASCRIPT FILES -->
   <script type="module" src="../scripts/group_details.js"></script>
   <script type="module" src="../scripts/group_table.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/handsontable@12.3.1/dist/handsontable.full.min.js"></script>

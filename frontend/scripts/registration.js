@@ -6,10 +6,10 @@ import {
   setDoc,
   collection,
   addDoc,
-  onSnapshot, // Import onSnapshot
+  onSnapshot,
+  Timestamp,
+  writeBatch, // ✅ Import Firestore's writeBatch correctly
 } from "./firebaseConfig.js";
-
-
 
 document.addEventListener("DOMContentLoaded", () => {
   const invitationCodeField = document.getElementById("invitationCode");
@@ -20,163 +20,152 @@ document.addEventListener("DOMContentLoaded", () => {
   const formFields = document.querySelectorAll("#registrationForm input, button");
   let invitationDocRef = null;
 
-  // Initialize Intl-Tel-Input for phone validation
-  const iti = window.intlTelInput(phoneInput, {
-    initialCountry: "mw", // Set Malawi as the default country
-    preferredCountries: ["mw", "us", "gb"], // Priority countries
-    separateDialCode: true, // Display the dial code separately
-    utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.min.js", // Utility script for validation
-  });
+  // ✅ Ensure Intl-Tel-Input loads correctly
+  let iti;
+  setTimeout(() => {
+    iti = window.intlTelInput(phoneInput, {
+      initialCountry: "mw", // Default to Malawi
+      preferredCountries: ["mw", "us", "gb"], 
+      separateDialCode: true,
+      utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.min.js",
+    });
+  }, 100); // Delay to avoid initialization issues
 
-  // Show the loading overlay
-  function showLoadingOverlay(message = "Processing... Please wait.") {
+  // ✅ Loading Overlay Functions
+  function toggleLoadingOverlay(show = true, message = "Processing... Please wait.") {
     loadingMessage.textContent = message;
-    loadingOverlay.classList.add("show");
-    document.body.style.pointerEvents = "none"; // Disable user interaction
+    loadingOverlay.classList.toggle("show", show);
+    document.body.style.pointerEvents = show ? "none" : "auto";
   }
 
-
-  // Hide the loading overlay
-  function hideLoadingOverlay() {
-    loadingOverlay.classList.remove("show");
-    document.body.style.pointerEvents = "auto"; // Re-enable user interaction
+  // ✅ Enable/Disable Form Fields
+  function toggleFormFields(enable = true) {
+    formFields.forEach((field) => (field.disabled = !enable));
   }
 
-  // Disable all form fields
-  function disableFormFields() {
-    formFields.forEach((field) => (field.disabled = true));
-  }
-
-  // Enable all form fields
-  function enableFormFields() {
-    formFields.forEach((field) => (field.disabled = false));
-  }
-
-  // Validate required fields
+  // ✅ Validate Required Fields
   function validateField(value, fieldName) {
-    if (!value || value.trim() === "") {
-      return `${fieldName} is required.`;
-    }
-    return null;
+    return value && value.trim() !== "" ? null : `${fieldName} is required.`;
   }
 
-  // Validate numeric fields with auto-formatting
+  // ✅ Validate Numeric Fields
   function validateNumericField(value, fieldName, minValue = 0, maxValue = Infinity, isPercentage = false) {
-    if (!value || typeof value === "undefined") {
+    if (value === undefined || value === null || value === "") {
       return `${fieldName} is required.`;
     }
 
-    let formattedValue = value.toString().trim(); // Ensure value is a string
-    let parsedValue = parseFloat(formattedValue);
-
-    // Auto-correct values missing percentage symbol or decimals
-    if (isPercentage && !formattedValue.includes("%")) {
-      formattedValue = `${parsedValue.toFixed(2)}%`; // Add % sign if missing
-    } else if (!formattedValue.includes(".")) {
-      formattedValue = parsedValue.toFixed(2); // Format to two decimals
-    }
-
-    parsedValue = parseFloat(formattedValue.replace("%", "")); // Parse the numeric value again after formatting
-
+    let parsedValue = parseFloat(value);
     if (isNaN(parsedValue) || parsedValue < minValue || parsedValue > maxValue) {
       return `${fieldName} must be a valid ${isPercentage ? "percentage" : "amount"} between ${minValue} and ${maxValue}.`;
     }
 
-    if (!/^\d+(\.\d{1,2})?$/.test(parsedValue)) {
+    // Ensure up to two decimal places
+    if (!Number.isFinite(parsedValue) || !/^\d+(\.\d{1,2})?$/.test(parsedValue.toFixed(2))) {
       return `${fieldName} can only have up to two decimal places.`;
     }
 
     return null; // No error
   }
 
-
-  // Format numeric values to two decimal places
-  function formatToTwoDecimals(value) {
-    if (!value || isNaN(value)) return "0.00";
-    return parseFloat(value).toFixed(2);
-  }
-
-  // Validate phone input and display error messages dynamically
+  // ✅ Validate Phone Number
   function validatePhoneInput() {
     const errorElementId = "phoneError";
     let errorElement = document.getElementById(errorElementId);
-
-    // Remove existing error message
-    if (errorElement) {
-      errorElement.remove();
-    }
-
-    // Check validity of phone number
+  
+    if (errorElement) errorElement.remove(); // Remove previous error message
+  
+    if (phoneInput.value.trim() === "") return false; // Ensure input is not empty
+  
     if (!iti.isValidNumber()) {
-      errorElement = document.createElement("p");
-      errorElement.id = errorElementId;
-      errorElement.style.color = "red";
-      errorElement.textContent = "Invalid phone number. Please check your input.";
-      phoneInput.parentElement.appendChild(errorElement);
+      phoneInput.insertAdjacentHTML("afterend", `<p id="${errorElementId}" style="color: red;">Invalid phone number. Please check your input.</p>`);
       return false;
     }
-
+  
     return true;
   }
+  
 
-  // Attach validation listeners to the phone input
+  // Attach Phone Validation
   phoneInput.addEventListener("blur", validatePhoneInput);
   phoneInput.addEventListener("input", validatePhoneInput);
 
-// Tracking approval status for registration
-async function trackApprovalStatus(invitationDocId, name, email, password, groupData) {
-  let userCreated = false;
-  let groupId = null;
-  let userId = null;
+  // ✅ Generate and Save Invitation Code
+  async function generateAndSaveInvitationCode(name, phone, email) {
+    const length = 8;
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let generatedCode = "";
 
-  showLoadingOverlay("Waiting for admin approval...");
+    for (let i = 0; i < length; i++) {
+      generatedCode += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    invitationCodeField.value = generatedCode;
+
+    // Save to Firestore
+    invitationDocRef = await addDoc(collection(db, "invitationCodes"), {
+      code: generatedCode,
+      name,
+      phone,
+      email,
+      approved: false,
+      approvedBy: null,
+      used: false,
+      groupId: null,
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), 
+    });
+
+    console.log("Invitation code saved:", generatedCode);
+    return generatedCode;
+  }
+
+// 🔹 Track Approval Status & Complete Registration (Firestore Structure Fixed)
+async function trackApprovalStatus(invitationDocId, name, email, password, groupData) {
+  let userId = null;
+  let groupId = null;
+  let approvalProcessed = false; // Prevent duplicate execution
+
+  toggleLoadingOverlay(true, "Waiting for admin approval...");
 
   const docRef = doc(db, "invitationCodes", invitationDocId);
 
   onSnapshot(docRef, async (snapshot) => {
     if (!snapshot.exists()) {
       alert("The invitation code no longer exists. Please contact support for assistance.");
-      enableFormFields();
-      hideLoadingOverlay();
+      toggleFormFields(true);
+      toggleLoadingOverlay(false);
       return;
     }
 
     const data = snapshot.data();
-    if (data.approved) {
-      try {
-        showLoadingOverlay("Finalizing registration...");
+    if (data.approved && !approvalProcessed) {
+      approvalProcessed = true; // Prevent multiple executions
 
-        // Validate input data
-        if (!name || !email || !password) {
-          throw new Error("Missing user information. Ensure all required fields are filled correctly.");
-        }
+      try {
+        toggleLoadingOverlay(true, "Finalizing registration...");
+
+        // ✅ Convert and validate numeric fields
+        const seedMoney = parseFloat(groupData.seedMoney);
+        const interestRate = parseFloat(groupData.interestRate);
+        const monthlyContribution = parseFloat(groupData.monthlyContribution);
+        const loanPenalty = parseFloat(groupData.loanPenalty);
+        const monthlyPenalty = parseFloat(groupData.monthlyPenalty);
 
         if (
-          !groupData.groupName?.trim() ||
-          !groupData.seedMoney ||
-          !groupData.seedMoneyDueDate ||
-          !groupData.monthlyContribution ||
-          !groupData.loanPenalty ||
-          !groupData.monthlyPenalty ||
-          !groupData.cycleStartDate
+          isNaN(seedMoney) || isNaN(interestRate) || isNaN(monthlyContribution) ||
+          isNaN(loanPenalty) || isNaN(monthlyPenalty)
         ) {
-          throw new Error("Missing group information. Verify that all fields in the group creation form are complete.");
+          throw new Error("Invalid numeric input detected. Ensure all numeric fields have valid values.");
         }
 
-        // Validate and format dates
-        const cycleStartDate = new Date(groupData.cycleStartDate);
-        const seedMoneyDueDate = new Date(groupData.seedMoneyDueDate);
-        if (isNaN(cycleStartDate) || isNaN(seedMoneyDueDate)) {
-          throw new Error("Invalid date format. Ensure all dates are valid.");
-        }
+        // ✅ Convert dates to Firestore Timestamps
+        const cycleStartDate = Timestamp.fromDate(new Date(groupData.cycleStartDate));
+        const seedMoneyDueDate = Timestamp.fromDate(new Date(groupData.seedMoneyDueDate));
 
-        const currentYear = cycleStartDate.getFullYear();
-
-        // Generate cycle dates
+        // ✅ Generate cycle dates
         const cycleDates = Array.from({ length: 12 }, (_, i) => {
-          const date = new Date(cycleStartDate);
-          date.setMonth(cycleStartDate.getMonth() + i);
-
+          const date = new Date(groupData.cycleStartDate);
+          date.setMonth(date.getMonth() + i);
           return {
             iso: date.toISOString(),
             friendly: date.toLocaleDateString("default", {
@@ -185,369 +174,237 @@ async function trackApprovalStatus(invitationDocId, name, email, password, group
               month: "long",
               day: "numeric",
             }),
-            month: date.toLocaleString("default", { month: "long" }),
             year: date.getFullYear(),
+            month: date.toLocaleString("default", { month: "long" }),
+            timestamp: Timestamp.fromDate(date),
           };
         });
 
-        // Create the user in Firebase Authentication
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-        userCreated = true;
-        userId = user.uid;
+        // ✅ Use Firestore Batch Write for efficiency
+        const batch = writeBatch(db);
 
-        // Create the group document
-        groupId = `${groupData.groupName}_${Date.now()}`;
+        // ✅ Create the group document first
+        groupId = `${groupData.groupName.replace(/\s+/g, "_")}_${Date.now()}`;
         const groupRef = doc(db, "groups", groupId);
 
-        await setDoc(groupRef, {
+        batch.set(groupRef, {
           groupId,
           groupName: groupData.groupName,
-          seedMoney: formatToTwoDecimals(groupData.seedMoney),
-          seedMoneyDueDate: seedMoneyDueDate.toLocaleDateString("default", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          }),
-          interestRate: formatToTwoDecimals(groupData.interestRate),
-          monthlyContribution: formatToTwoDecimals(groupData.monthlyContribution),
-          loanPenalty: formatToTwoDecimals(groupData.loanPenalty),
-          monthlyPenalty: formatToTwoDecimals(groupData.monthlyPenalty),
-          cycleStartDate: cycleStartDate.toLocaleDateString("default", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          }),
-          cycleDates: cycleDates.map((date) => date.iso),
+          seedMoney,
+          seedMoneyDueDate,
+          interestRate,
+          monthlyContribution,
+          loanPenalty,
+          monthlyPenalty,
+          cycleStartDate,
+          cycleDates: cycleDates.map((date) => date.timestamp),
           displayCycleDates: cycleDates.map((date) => date.friendly),
-          createdAt: new Date(),
-          adminDetails: [{ uid: userId, fullName: name, email }],
-          members: [
-            {
-              uid: userId,
-              fullName: name,
-              email,
-              phone: groupData.phone,
-              role: "admin",
-              joinedAt: new Date(),
-              collateral: null,
-              balances: [],
-            },
-          ],
+          createdAt: Timestamp.now(),
+          status: "active",
+          adminDetails: [{ fullName: name, email, uid: userId }],
           paymentSummary: {
-            totalDue: formatToTwoDecimals(groupData.seedMoney),
+            totalDue: seedMoney,
             totalPaid: 0,
-            totalArrears: formatToTwoDecimals(groupData.seedMoney),
+            totalArrears: seedMoney,
           },
+          approvedPayments: [], // ✅ Tracks confirmed payments
+          pendingPayments: [],  // ✅ Tracks payments awaiting approval
         });
 
-        // Add the user to the `members` subcollection
-        const memberDocId = `${name.replace(/\s+/g, "_")}_admin_${userId}`;
-        const memberRef = doc(db, `groups/${groupId}/members`, memberDocId);
+        // ✅ Commit group creation first before proceeding with user creation
+        await batch.commit();
 
-        await initializeGroupData(groupId, userId, name, groupData);
+        // ✅ Now create the Firebase Auth user
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        userId = user.uid;
 
-        await setDoc(memberRef, {
+        // ✅ Reinitialize batch after group creation
+        const batch2 = writeBatch(db);
+
+        // ✅ Add Member Data
+        const memberRef = doc(db, `groups/${groupId}/members`, userId);
+        batch2.set(memberRef, {
           uid: userId,
           fullName: name,
           email,
           phone: groupData.phone,
           role: "admin",
-          joinedAt: new Date(),
+          joinedAt: Timestamp.now(),
           collateral: null,
           balances: [],
         });
 
-        // Save the user document in Firestore
+        // ✅ Add User Data
         const userRef = doc(db, "users", userId);
-        await setDoc(userRef, {
+        batch2.set(userRef, {
           uid: userId,
           fullName: name,
           email,
           phone: groupData.phone,
           roles: ["admin", "user"],
-          createdAt: new Date(),
+          createdAt: Timestamp.now(),
           groupMemberships: [groupId],
         });
 
-        // Initialize payments for the admin
-        await createPayment(
-          name,
-          "Seed Money",
-          groupData.seedMoney,
-          0,
-          groupId,
+        // ✅ Initialize Payments Documents with Proper Firestore Structure
+        const currentYear = new Date().getFullYear();
+        const sanitizedFullName = name.replace(/\s+/g, "_"); // Convert name to a valid Firestore ID
+
+        // ✅ Create Seed Money as a **Document**
+        const seedMoneyDocRef = doc(db, `groups/${groupId}/payments`, `${currentYear}_SeedMoney`);
+        batch2.set(seedMoneyDocRef, { createdAt: Timestamp.now() });
+
+        // ✅ Create User Seed Money **Collection**
+        const userSeedMoneyCollection = collection(seedMoneyDocRef, sanitizedFullName);
+        const userSeedMoneyRef = doc(userSeedMoneyCollection, "PaymentDetails");
+
+        batch2.set(userSeedMoneyRef, {
           userId,
-          currentYear,
-          null,
-          seedMoneyDueDate.toLocaleDateString("default", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })
-        );
+          fullName: name,
+          paymentType: "Seed Money",
+          paymentCategory: "contribution",
+          totalAmount: seedMoney,
+          arrears: seedMoney,
+          penalties: 0,
+          paid: [],
+          approvalStatus: "unpaid",  // ✅ Default status set to "unpaid"
+          paymentStatus: "unpaid",   // ✅ Ensures clarity in admin review
+          dueDate: seedMoneyDueDate,
+          createdAt: Timestamp.now(),
+          updatedAt: null,
+        });
 
-        for (const date of cycleDates) {
-          await createPayment(
-            name,
-            "Monthly Contribution",
-            groupData.monthlyContribution,
-            0,
-            groupId,
+        // ✅ Create Monthly Contributions as a **Document**
+        const monthlyContributionDocRef = doc(db, `groups/${groupId}/payments`, `${currentYear}_MonthlyContributions`);
+        
+        batch2.set(monthlyContributionDocRef, { createdAt: Timestamp.now() });
+
+        // ✅ Create User Monthly Contribution **Collection**
+        const userMonthlyCollection = collection(monthlyContributionDocRef, sanitizedFullName);
+
+        cycleDates.forEach((date) => {
+          const monthlyPaymentDoc = doc(userMonthlyCollection, `${date.year}_${date.month}`);
+
+          batch2.set(monthlyPaymentDoc, {
             userId,
-            date.year,
-            date.month,
-            date.friendly
-          );
-        }
+            fullName: name,
+            paymentType: "Monthly Contribution",
+            paymentCategory: "contribution",
+            totalAmount: monthlyContribution,
+            arrears: monthlyContribution,
+            penalties: 0,
+            paid: [],
+            approvalStatus: "unpaid",  // ✅ Default status set to "unpaid"
+            paymentStatus: "unpaid",   // ✅ Ensures clarity in admin review
+            dueDate: date.timestamp,
+            createdAt: Timestamp.now(),
+            updatedAt: null,
+          });
+        });
 
-        hideLoadingOverlay();
+        // ✅ Commit the second batch
+        await batch2.commit();
+
+        // ✅ Update invitation code status
+        await setDoc(docRef, { used: true, groupId, approvedBy: userId }, { merge: true });
+
+        toggleLoadingOverlay(false);
         alert("Your registration and group creation are complete.");
         window.location.href = "../pages/admin_dashboard.html";
       } catch (error) {
-        console.error("Error during registration:", error.message);
-        hideLoadingOverlay();
-        enableFormFields();
+        console.error("❌ Error during registration:", error.message);
+        toggleLoadingOverlay(false);
+        toggleFormFields(true);
         alert(`Registration failed: ${error.message}`);
       }
     }
   });
 }
 
-// Helper Function: Create a payment record
-async function createPayment(userFullName, paymentType, totalAmount, paidAmount, groupId, userId, year, month, dueDate) {
-  const arrears = Math.max(totalAmount - paidAmount, 0);
-  const surplus = Math.max(paidAmount - totalAmount, 0);
-  const status = arrears > 0 ? "pending" : "completed";
+// Handle registration form submission
+registrationForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
 
-  const paymentId = `${year}_${month}_${paymentType.replace(/\s+/g, "_")}_${userId}`;
+  // ✅ Prevent duplicate submissions
+  const submitButton = registrationForm.querySelector("button");
+  submitButton.disabled = true;
 
-  const paymentRef = doc(db, `groups/${groupId}/payments`, paymentId);
+  // ✅ Collect data from form fields
+  const name = document.getElementById("name").value.trim();
+  const phone = document.getElementById("phone").value.trim();
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
+  const groupName = document.getElementById("groupName").value.trim();
+  const seedMoney = parseFloat(document.getElementById("seedMoney").value);
+  const seedMoneyDueDate = document.getElementById("seedMoneyDueDate").value;
+  const interestRate = parseFloat(document.getElementById("interestRate").value);
+  const monthlyContribution = parseFloat(document.getElementById("monthlyContribution").value);
+  const loanPenalty = parseFloat(document.getElementById("loanPenalty").value);
+  const monthlyPenalty = parseFloat(document.getElementById("monthlyPenalty").value);
+  const cycleStartDate = document.getElementById("cycleStartDate").value;
 
-  await setDoc(paymentRef, {
-    paymentId,
-    userId,
-    groupId,
-    fullName: userFullName,
-    paymentType,
-    paymentCategory: paymentType.includes("Loan") ? "loan" : "contribution",
-    totalAmount: formatToTwoDecimals(totalAmount),
-    paid: [],
-    arrears: formatToTwoDecimals(arrears),
-    surplus: formatToTwoDecimals(surplus),
-    status,
-    dueDate: dueDate,
-    month,
-    year,
-    approvalStatus: "pending",
-    notes: null,
-    auditLogs: [],
-    createdAt: new Date(),
-    updatedAt: null,
-  });
+  // ✅ Validate input fields
+  const errors = [
+    validateField(name, "Full Name"),
+    validateField(phone, "Phone Number"),
+    validateField(email, "Email Address"),
+    validateField(password, "Password"),
+    validateField(groupName, "Group Name"),
+    validateField(seedMoneyDueDate, "Seed Money Due Date"),
+    validateNumericField(seedMoney, "Seed Money", 0),
+    validateNumericField(interestRate, "Interest Rate", 0, 100, true),
+    validateNumericField(monthlyContribution, "Monthly Contribution", 0),
+    validateNumericField(loanPenalty, "Loan Penalty", 0, 100, true),
+    validateNumericField(monthlyPenalty, "Monthly Penalty", 0, 100, true),
+    validateField(cycleStartDate, "Cycle Start Date"),
+  ].filter((error) => error !== null);
 
-  console.log("Payment record created with ID:", paymentRef.id);
-  return paymentRef.id;
-}
+  // ✅ Validate phone input separately
+  if (!validatePhoneInput() || !phone) {
+    errors.push("Phone Number is invalid.");
+  }
 
-// Helper Function to Initialize Subcollections and Payments
-async function initializeGroupData(groupId, adminUserId, adminName, groupData) {
+  // ✅ Stop submission if errors exist
+  if (errors.length > 0) {
+    alert("Please fix the following errors:\n" + errors.join("\n"));
+    submitButton.disabled = false; // Re-enable button
+    return;
+  }
+
   try {
-    const paymentsRef = collection(db, `groups/${groupId}/payments`);
-    const pendingPaymentsRef = collection(db, `groups/${groupId}/payments/pendingPayments`);
-    const confirmedPaymentsRef = collection(db, `groups/${groupId}/payments/confirmedPayments`);
+    toggleLoadingOverlay(true, "Submitting your registration...");
+    toggleFormFields(false);
 
-    // Ensure these collections exist and initialize default entries if needed
-    const cycleDates = Array.from({ length: 12 }, (_, i) => {
-      const date = new Date(groupData.cycleStartDate);
-      date.setMonth(date.getMonth() + i);
-      return {
-        month: date.toLocaleString("default", { month: "long" }),
-        year: date.getFullYear(),
-        friendlyDate: date.toLocaleDateString("default", {
-          weekday: "long",
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-        }),
-      };
-    });
-
-    // Create Seed Money Payment for Admin
-    const seedPaymentId = `${groupData.cycleStartDate.split("-")[0]}_SeedMoney_${adminUserId}`;
-    await setDoc(doc(paymentsRef, seedPaymentId), {
-      paymentId: seedPaymentId,
-      userId: adminUserId,
-      fullName: adminName,
-      paymentType: "Seed Money",
-      paymentCategory: "contribution",
-      totalAmount: parseFloat(groupData.seedMoney),
-      arrears: parseFloat(groupData.seedMoney),
-      penalties: 0,
-      paid: [],
-      approvalStatus: "pending",
-      createdAt: new Date(),
-      updatedAt: null,
-    });
-
-    // Create Monthly Contribution Payments
-    for (const date of cycleDates) {
-      const monthlyPaymentId = `${date.year}_${date.month}_MonthlyContribution_${adminUserId}`;
-      await setDoc(doc(paymentsRef, monthlyPaymentId), {
-        paymentId: monthlyPaymentId,
-        userId: adminUserId,
-        fullName: adminName,
-        paymentType: "Monthly Contribution",
-        paymentCategory: "contribution",
-        totalAmount: parseFloat(groupData.monthlyContribution),
-        arrears: parseFloat(groupData.monthlyContribution),
-        penalties: 0,
-        paid: [],
-        approvalStatus: "pending",
-        dueDate: date.friendlyDate,
-        createdAt: new Date(),
-        updatedAt: null,
-      });
-    }
-
-    console.log("Subcollections and payments initialized for group:", groupId);
-  } catch (error) {
-    console.error("Error initializing group data:", error.message);
-    throw new Error("Failed to initialize group subcollections and payments.");
-  }
-}
-
-
-  // Utility Functions
-  function showLoadingOverlay(message = "Processing... Please wait.") {
-    loadingMessage.textContent = message;
-    loadingOverlay.classList.add("show");
-    document.body.style.pointerEvents = "none"; // Disable interaction
-  }
-
-  function hideLoadingOverlay() {
-    loadingOverlay.classList.remove("show");
-    document.body.style.pointerEvents = "auto"; // Re-enable interaction
-  }
-
-  function enableFormFields() {
-    formFields.forEach((field) => {
-      field.disabled = false;
-    });
-  }
-
-  function formatToTwoDecimals(value) {
-    return value ? parseFloat(value).toFixed(2) : "0.00";
-  }
-
-  // Handle registration form submission
-  registrationForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    // Collect data from form fields
-    const name = document.getElementById("name").value.trim();
-    const phone = document.getElementById("phone").value.trim();
-    const email = document.getElementById("email").value.trim();
-    const password = document.getElementById("password").value.trim();
-    const groupName = document.getElementById("groupName").value.trim();
-    const seedMoney = parseFloat(document.getElementById("seedMoney").value);
-    const seedMoneyDueDate = document.getElementById("seedMoneyDueDate").value; // Added new field
-    const interestRate = parseFloat(document.getElementById("interestRate").value);
-    const monthlyContribution = parseFloat(document.getElementById("monthlyContribution").value);
-    const loanPenalty = parseFloat(document.getElementById("loanPenalty").value);
-    const monthlyPenalty = parseFloat(document.getElementById("monthlyPenalty").value);
-    const cycleStartDate = document.getElementById("cycleStartDate").value;
-
-    // Validate fields
-    const errors = [
-      validateField(name, "Full Name"),
-      validateField(phone, "Phone Number"),
-      validateField(email, "Email Address"),
-      validateField(password, "Password"),
-      validateField(groupName, "Group Name"),
-      validateField(seedMoneyDueDate, "Seed Money Due Date"), // Validate new field
-      validateNumericField(seedMoney, "Seed Money", 0),
-      validateNumericField(interestRate, "Interest Rate", 0, 100, true),
-      validateNumericField(monthlyContribution, "Monthly Contribution", 0),
-      validateNumericField(loanPenalty, "Loan Penalty", 0, 100, true),
-      validateNumericField(monthlyPenalty, "Monthly Penalty", 0, 100, true),
-      validateField(cycleStartDate, "Cycle Start Date"),
-    ].filter((error) => error !== null);
-
-
-    // Validate phone input separately
-    if (!validatePhoneInput() || !phone) {
-      errors.push("Phone Number is invalid.");
-    }
-
-    // If validation errors exist, display them and stop submission
-    if (errors.length > 0) {
-      alert("Please fix the following errors:\n" + errors.join("\n"));
-      return;
-    }
-
-    try {
-      showLoadingOverlay("Submitting your registration...");
-      disableFormFields();
-
-      // Prepare group data for submission
-      const groupData = {
-        groupName,
-        phone,
-        seedMoney: seedMoney.toFixed(2),
-        seedMoneyDueDate, // Include the seed money due date
-        interestRate: interestRate.toFixed(2),
-        monthlyContribution: monthlyContribution.toFixed(2),
-        loanPenalty: loanPenalty.toFixed(2),
-        monthlyPenalty: monthlyPenalty.toFixed(2),
-        cycleStartDate,
-      };
-
-      // Generate and save an invitation code
-      const generatedCode = await generateAndSaveInvitationCode(name, phone, email);
-
-      // Track approval status for the invitation code
-      if (invitationDocRef) {
-        await trackApprovalStatus(invitationDocRef.id, name, email, password, groupData);
-      }
-    } catch (error) {
-      console.error("Error during registration:", error.message);
-      alert("An error occurred. Please try again.");
-      enableFormFields();
-      hideLoadingOverlay();
-    }
-  });
-
-
-
-  // Generate and save an invitation code
-  async function generateAndSaveInvitationCode(name, phone, email) {
-    const generatedCode = generateInvitationCode();
-    invitationCodeField.value = generatedCode;
-
-    invitationDocRef = await addDoc(collection(db, "invitationCodes"), {
-      code: generatedCode,
-      name,
+    // ✅ Format group data properly
+    const groupData = {
+      groupName,
       phone,
-      email,
-      approved: false,
-      used: false,
-      createdAt: new Date(),
-    });
+      seedMoney: seedMoney.toFixed(2),
+      seedMoneyDueDate,
+      interestRate: interestRate.toFixed(2),
+      monthlyContribution: monthlyContribution.toFixed(2),
+      loanPenalty: loanPenalty.toFixed(2),
+      monthlyPenalty: monthlyPenalty.toFixed(2),
+      cycleStartDate,
+    };
 
-    console.log("Invitation code generated and saved:", generatedCode);
-    return generatedCode;
-  }
-  // Generate a random invitation code
-  function generateInvitationCode(length = 8) {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let code = "";
-    for (let i = 0; i < length; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    // ✅ Generate and save an invitation code
+    const generatedCode = await generateAndSaveInvitationCode(name, phone, email);
+
+    // ✅ Track approval status if an invitation code is generated
+    if (invitationDocRef) {
+      await trackApprovalStatus(invitationDocRef.id, name, email, password, groupData);
     }
-    return code;
+  } catch (error) {
+    console.error("❌ Error during registration:", error.message);
+    alert(`An error occurred: ${error.message}`);
+    toggleFormFields(true);
+    toggleLoadingOverlay(false);
+  } finally {
+    submitButton.disabled = false; // Re-enable button after process
   }
+});
+
+
 });

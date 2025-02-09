@@ -154,6 +154,18 @@ body {
   color: #575757;
 }
 
+.pending-badge {
+  background-color: red;
+  color: white;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: bold;
+  border-radius: 5px;
+  display: inline-block;
+  margin-left: 10px;
+}
+
+
 /* Footer Navigation */
 .footer {
   display: flex;
