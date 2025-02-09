@@ -226,3 +226,60 @@ body {
     font-size: 0.85rem;
   }
 }
+
+
+/* 🔹 Unpaid Contributions Styling */
+.payment-row.unpaid {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  margin: 4px 0;
+  background-color: #fff3cd; /* Light yellow for warning */
+  border-radius: 6px;
+  font-size: 14px;
+  border-left: 4px solid #ffa502; /* Orange for unpaid */
+}
+
+.payment-row.unpaid .member-name {
+  font-weight: bold;
+  flex: 2;
+  color: #333;
+}
+
+.payment-row.unpaid .amount {
+  color: #dc3545; /* Red for amount due */
+  flex: 1;
+  text-align: right;
+}
+
+.payment-row.unpaid .penalty {
+  color: #e67e22; /* Orange for penalties */
+  flex: 1;
+  text-align: center;
+}
+
+.payment-row.unpaid .total-due {
+  color: #c0392b; /* Darker red for total due */
+  flex: 1;
+  text-align: right;
+}
+
+.payment-row.unpaid .status {
+  color: #555;
+  flex: 1;
+  text-align: right;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* 🔹 Scrollable Unpaid Contributions */
+#unpaidContributionsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 10px;
+  background: #fef9e7;
+  border-radius: 8px;
+}

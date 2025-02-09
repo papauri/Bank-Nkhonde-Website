@@ -229,6 +229,90 @@ async function fetchConfirmedPayments(groupId, members, year, month) {
   return confirmedPayments;
 }
 
+// 🔹 Fetch Unpaid Contributions for the Current Month
+async function fetchUnpaidContributions(groupId) {
+  try {
+    const currentMonth = new Date().toLocaleString("default", { month: "long" });
+    const currentYear = new Date().getFullYear();
+
+    const groupDoc = await getDoc(doc(db, "groups", groupId));
+    if (!groupDoc.exists()) {
+      alert("Group not found!");
+      return;
+    }
+
+    const { monthlyContribution, monthlyPenalty } = groupDoc.data();
+
+    // ✅ Fetch Members
+    const membersSnapshot = await getDocs(collection(db, `groups/${groupId}/members`));
+    const members = membersSnapshot.docs.map((doc) => ({
+      uid: doc.id,
+      fullName: doc.data().fullName.replace(/\s+/g, "_"),
+    }));
+
+    if (members.length === 0) {
+      unpaidContributionsContainer.innerHTML = `<p>No unpaid contributions found for ${currentMonth}.</p>`;
+      return;
+    }
+
+    let unpaidContributions = [];
+
+    for (const member of members) {
+      const { fullName } = member;
+
+      const paymentRef = doc(db, `groups/${groupId}/payments/${currentYear}_MonthlyContributions/${fullName}/${currentYear}_${currentMonth}`);
+      const paymentDoc = await getDoc(paymentRef);
+
+      if (!paymentDoc.exists() || !paymentDoc.data().paid || paymentDoc.data().paid.length === 0) {
+        // ✅ If no payment exists OR no valid payments were recorded, mark as unpaid
+        unpaidContributions.push({
+          fullName: fullName.replace(/_/g, " "),
+          amountDue: formatToTwoDecimals(monthlyContribution),
+          penalty: formatToTwoDecimals(monthlyContribution * (monthlyPenalty / 100)),
+          totalDue: formatToTwoDecimals(monthlyContribution + (monthlyContribution * (monthlyPenalty / 100))),
+          status: "Unpaid",
+        });
+      }
+    }
+
+    // ✅ Populate the UI
+    populateUnpaidContributions(unpaidContributions, unpaidContributionsContainer, currentMonth);
+
+  } catch (error) {
+    console.error("❌ Error fetching unpaid contributions:", error.message);
+    alert("An error occurred while fetching unpaid contributions.");
+  }
+}
+
+// 🔹 Display Unpaid Contributions in a Compact One-Liner Format
+function populateUnpaidContributions(unpaidContributions, container, currentMonth) {
+  container.innerHTML = `<h3>Unpaid Contributions for ${currentMonth}</h3>`;
+
+  if (!unpaidContributions.length) {
+    container.innerHTML += `<p>All members have contributed for this month!</p>`;
+    return;
+  }
+
+  unpaidContributions.forEach((data) => {
+    const unpaidRow = document.createElement("div");
+    unpaidRow.classList.add("payment-row", "unpaid");
+
+    unpaidRow.innerHTML = `
+      <span class="member-name">${data.fullName}</span> 
+      <span class="amount">MWK ${data.amountDue}</span> 
+      <span class="penalty">Penalty: MWK ${data.penalty}</span>
+      <span class="total-due">Total Due: MWK ${data.totalDue}</span> 
+      <span class="status">${data.status}</span>
+    `;
+
+    container.appendChild(unpaidRow);
+  });
+}
+
+// ✅ Initialize Fetch
+fetchUnpaidContributions(groupId);
+
+
 // 🔹 Display Confirmed Payments in a Compact One-Liner Format
 function populateConfirmedPayments(payments, container, currentMonth) {
   container.innerHTML = `<h3>Confirmed Payments for ${currentMonth}</h3>`;
@@ -272,6 +356,6 @@ function formatFriendlyDate(date) {
 
   // ✅ Back Button Event Listener
   backButton.addEventListener("click", () => {
-    window.location.href = "/frontend/pages/admin_dashboard.html";
+    window.location.href = "/../pages/admin_dashboard.html";
   });
 });
