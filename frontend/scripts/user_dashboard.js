@@ -14,14 +14,13 @@ import {
 document.addEventListener("DOMContentLoaded", () => {
   const groupList = document.getElementById("groupList");
   const welcomeMessage = document.getElementById("welcomeMessage");
-  const adminNameSpan = document.getElementById("adminName");
+  const userNameSpan = document.getElementById("adminName"); // Reused for users
   const dashboardTitle = document.getElementById("dashboardTitle");
   const switchViewButton = document.getElementById("switchViewButton");
   const logoutButton = document.getElementById("logoutButton");
-  const createGroupButton = document.getElementById("createGroupButton");
   const settingsButton = document.getElementById("settingsButton");
 
-  let isAdminView = true;
+  let isAdminView = false; // Default to User View
   let sessionTimeout;
 
   // Set session timeout for 1 hour
@@ -38,35 +37,51 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       await signOut(auth);
       alert("You have been logged out.");
-      window.location.href = "/frontend/pages/login.html";
+      window.location.href = "/../pages/login.html";
     } catch (error) {
       console.error("Error signing out:", error.message);
       alert("An error occurred while logging out. Please try again.");
     }
   }
 
-  // Load admin groups dynamically
-  async function loadGroups(user) {
+  // Load groups where user is either an admin or a member
+  async function loadUserGroups(user) {
     groupList.innerHTML = "<li>Loading your groups...</li>";
     try {
-      const q = query(collection(db, "groups"), where("adminId", "==", user.uid));
+      const q = query(collection(db, "groups"));
       const querySnapshot = await getDocs(q);
 
       groupList.innerHTML = "";
 
-      if (querySnapshot.empty) {
-        groupList.innerHTML = "<li>You have no groups yet.</li>";
+      let userGroups = [];
+
+      querySnapshot.forEach((doc) => {
+        const group = doc.data();
+        const groupId = doc.id;
+
+        // ✅ Ensure the user is recognized as either:
+        // - A member in the `members` array
+        // - The admin (`adminId` matches `user.uid`)
+        if (
+          (Array.isArray(group.members) && group.members.includes(user.uid)) || 
+          group.adminId === user.uid
+        ) {
+          userGroups.push({ id: groupId, ...group });
+        }
+      });
+
+      if (userGroups.length === 0) {
+        groupList.innerHTML = "<li>You are not part of any groups yet.</li>";
       } else {
-        querySnapshot.forEach((doc) => {
-          const group = doc.data();
-          const groupId = doc.id;
+        userGroups.forEach((group) => {
+          const groupId = group.id;
 
           // Create clickable list item for group
           const groupItem = document.createElement("li");
           groupItem.classList.add("group-item");
 
           groupItem.innerHTML = `
-            <a href="/frontend/pages/group_page.html?groupId=${groupId}" class="group-link">
+            <a href="/../pages/group_page.html?groupId=${groupId}" class="group-link">
               <div class="group-details">
                 <h3>${group.groupName}</h3>
                 <p>Created: ${new Date(group.createdAt.toDate()).toLocaleDateString()}</p>
@@ -85,60 +100,55 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       }
     } catch (error) {
-      console.error("Error loading groups:", error.message);
+      console.error("Error loading user groups:", error.message);
       groupList.innerHTML = "<li>Error loading groups. Please try again later.</li>";
     }
   }
 
-  // Fetch admin's full name
-  async function fetchAdminName(user) {
+  // Fetch user’s name
+  async function fetchUserName(user) {
     try {
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        return userData.name || "Admin";
+        return userData.fullName || "User";
       }
-      return user.displayName || "Admin";
+      return user.displayName || "User";
     } catch (error) {
-      console.error("Error fetching admin name:", error.message);
-      return "Admin";
+      console.error("Error fetching user name:", error.message);
+      return "User";
     }
   }
 
-  // Switch between Admin and User View
-  switchViewButton.addEventListener("click", () => {
+  // Switch between User and Admin View
+  switchViewButton.addEventListener("click", async () => {
     isAdminView = !isAdminView;
     dashboardTitle.textContent = isAdminView ? "Admin Dashboard" : "User Dashboard";
     switchViewButton.textContent = isAdminView ? "Switch to User View" : "Switch to Admin View";
 
     if (isAdminView) {
-      loadGroups(auth.currentUser); // Reload groups for admin view
+      loadGroups(auth.currentUser); // Load admin groups
     } else {
-      groupList.innerHTML = "<li>User Dashboard view is currently under development.</li>";
+      await loadUserGroups(auth.currentUser); // Load user groups
     }
-  });
-
-  // Navigate to Create Group
-  createGroupButton.addEventListener("click", () => {
-    window.location.href = "/frontend/pages/create_group.html";
   });
 
   // Navigate to Settings
   settingsButton.addEventListener("click", () => {
-    window.location.href = "/frontend/pages/settings.html";
+    window.location.href = "/../pages/settings.html";
   });
 
   // Listen for authentication state
   onAuthStateChanged(auth, async (user) => {
     if (user) {
-      const adminName = await fetchAdminName(user);
-      adminNameSpan.textContent = adminName;
-      welcomeMessage.textContent = `Welcome, ${adminName}`;
-      await loadGroups(user);
+      const userName = await fetchUserName(user);
+      userNameSpan.textContent = userName;
+      welcomeMessage.textContent = `Welcome, ${userName}`;
+      await loadUserGroups(user);
       resetSessionTimer();
     } else {
       alert("No user is currently logged in. Redirecting to login...");
-      window.location.href = "/frontend/pages/login.html";
+      window.location.href = "/../pages/login.html";
     }
   });
 

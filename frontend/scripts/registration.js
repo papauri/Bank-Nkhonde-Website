@@ -119,7 +119,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return generatedCode;
   }
 
-// 🔹 Track Approval Status & Complete Registration (Firestore Structure Fixed)
+// 🔹 Track Approval Status & Complete Registration (Admin is Both Admin & User)
 async function trackApprovalStatus(invitationDocId, name, email, password, groupData) {
   let userId = null;
   let groupId = null;
@@ -201,35 +201,43 @@ async function trackApprovalStatus(invitationDocId, name, email, password, group
           displayCycleDates: cycleDates.map((date) => date.friendly),
           createdAt: Timestamp.now(),
           status: "active",
-          adminDetails: [{ fullName: name, email, uid: userId }],
+          adminDetails: [], // ❌ Don't add admin details yet (admin not created yet)
           paymentSummary: {
             totalDue: seedMoney,
             totalPaid: 0,
             totalArrears: seedMoney,
           },
-          approvedPayments: [], // ✅ Tracks confirmed payments
-          pendingPayments: [],  // ✅ Tracks payments awaiting approval
+          approvedPayments: [],
+          pendingPayments: [],
         });
 
         // ✅ Commit group creation first before proceeding with user creation
         await batch.commit();
+        console.log("✅ Group creation successful:", groupId);
 
-        // ✅ Now create the Firebase Auth user
+        // ✅ Now create the Firebase Auth user (Only after group is successfully created)
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         userId = user.uid;
 
-        // ✅ Reinitialize batch after group creation
+        console.log("✅ Admin user created successfully:", userId);
+
+        // ✅ Reinitialize batch after user creation
         const batch2 = writeBatch(db);
 
-        // ✅ Add Member Data
+        // ✅ Update Admin Details in Group Document
+        batch2.update(groupRef, {
+          adminDetails: [{ fullName: name, email, uid: userId }],
+        });
+
+        // ✅ Add Admin as a **Member** (Admins are also users in the group)
         const memberRef = doc(db, `groups/${groupId}/members`, userId);
         batch2.set(memberRef, {
           uid: userId,
           fullName: name,
           email,
           phone: groupData.phone,
-          role: "admin",
+          role: "admin", // ✅ Admin role, but still a user
           joinedAt: Timestamp.now(),
           collateral: null,
           balances: [],
@@ -242,69 +250,59 @@ async function trackApprovalStatus(invitationDocId, name, email, password, group
           fullName: name,
           email,
           phone: groupData.phone,
-          roles: ["admin", "user"],
+          roles: ["admin", "user"], // ✅ Admin is now a user too
           createdAt: Timestamp.now(),
           groupMemberships: [groupId],
         });
 
-        // ✅ Initialize Payments Documents with Proper Firestore Structure
+        // ✅ Initialize Payments Documents
         const currentYear = new Date().getFullYear();
-        const sanitizedFullName = name.replace(/\s+/g, "_"); // Convert name to a valid Firestore ID
+        const sanitizedFullName = name.replace(/\s+/g, "_");
 
-        // ✅ Create Seed Money as a **Document**
+        // ✅ Create Seed Money Document
         const seedMoneyDocRef = doc(db, `groups/${groupId}/payments`, `${currentYear}_SeedMoney`);
         batch2.set(seedMoneyDocRef, { createdAt: Timestamp.now() });
 
-        // ✅ Create User Seed Money **Collection**
-        const userSeedMoneyCollection = collection(seedMoneyDocRef, sanitizedFullName);
-        const userSeedMoneyRef = doc(userSeedMoneyCollection, "PaymentDetails");
-
+        // ✅ Create User Seed Money Document
+        const userSeedMoneyRef = doc(collection(seedMoneyDocRef, sanitizedFullName), "PaymentDetails");
         batch2.set(userSeedMoneyRef, {
           userId,
           fullName: name,
           paymentType: "Seed Money",
-          paymentCategory: "contribution",
           totalAmount: seedMoney,
           arrears: seedMoney,
-          penalties: 0,
-          paid: [],
-          approvalStatus: "unpaid",  // ✅ Default status set to "unpaid"
-          paymentStatus: "unpaid",   // ✅ Ensures clarity in admin review
+          approvalStatus: "unpaid",
+          paymentStatus: "unpaid",
           dueDate: seedMoneyDueDate,
           createdAt: Timestamp.now(),
           updatedAt: null,
         });
 
-        // ✅ Create Monthly Contributions as a **Document**
+        // ✅ Create Monthly Contributions Document
         const monthlyContributionDocRef = doc(db, `groups/${groupId}/payments`, `${currentYear}_MonthlyContributions`);
-        
         batch2.set(monthlyContributionDocRef, { createdAt: Timestamp.now() });
 
-        // ✅ Create User Monthly Contribution **Collection**
+        // ✅ Create Monthly Contribution Payments for Each Month
         const userMonthlyCollection = collection(monthlyContributionDocRef, sanitizedFullName);
-
         cycleDates.forEach((date) => {
           const monthlyPaymentDoc = doc(userMonthlyCollection, `${date.year}_${date.month}`);
-
           batch2.set(monthlyPaymentDoc, {
             userId,
             fullName: name,
             paymentType: "Monthly Contribution",
-            paymentCategory: "contribution",
             totalAmount: monthlyContribution,
             arrears: monthlyContribution,
-            penalties: 0,
-            paid: [],
-            approvalStatus: "unpaid",  // ✅ Default status set to "unpaid"
-            paymentStatus: "unpaid",   // ✅ Ensures clarity in admin review
+            approvalStatus: "unpaid",
+            paymentStatus: "unpaid",
             dueDate: date.timestamp,
             createdAt: Timestamp.now(),
             updatedAt: null,
           });
         });
 
-        // ✅ Commit the second batch
+        // ✅ Commit all changes
         await batch2.commit();
+        console.log("✅ User & payment records created successfully!");
 
         // ✅ Update invitation code status
         await setDoc(docRef, { used: true, groupId, approvedBy: userId }, { merge: true });
@@ -321,6 +319,7 @@ async function trackApprovalStatus(invitationDocId, name, email, password, group
     }
   });
 }
+
 
 // Handle registration form submission
 registrationForm.addEventListener("submit", async (e) => {
