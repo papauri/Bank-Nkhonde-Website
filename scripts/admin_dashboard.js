@@ -15,7 +15,7 @@ onAuthStateChanged(auth, (user) => {
   } else {
     console.log("No user is signed in.");
     alert("You must be signed in to access this page.");
-    window.location.href = "../pages/login.html"; // Redirect to login page
+    window.location.href = "../index.html"; // Redirect to login page
   }
 });
 
@@ -46,7 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       await signOut(auth);
       alert("You have been logged out.");
-      window.location.href = "../pages/login.html";
+      window.location.href = "../index.html";
     } catch (error) {
       console.error("❌ Error signing out:", error.message);
       alert("An error occurred while logging out. Please try again.");
@@ -128,7 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
         groupItem.classList.add("group-item");
   
         groupItem.innerHTML = `
-          <a href="../pages/group_page.html?groupId=${groupId}" class="group-link">
+          <a href="group_page.html?groupId=${groupId}" class="group-link">
             <div class="group-details">
               <h3>${groupData.groupName}</h3>
               <p>Created: ${groupData.createdAt?.toDate

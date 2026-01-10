@@ -37,7 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       await signOut(auth);
       alert("You have been logged out.");
-      window.location.href = "/../pages/login.html";
+      window.location.href = "../index.html";
     } catch (error) {
       console.error("Error signing out:", error.message);
       alert("An error occurred while logging out. Please try again.");
@@ -81,7 +81,7 @@ document.addEventListener("DOMContentLoaded", () => {
           groupItem.classList.add("group-item");
 
           groupItem.innerHTML = `
-            <a href="/../pages/group_page.html?groupId=${groupId}" class="group-link">
+            <a href="group_page.html?groupId=${groupId}" class="group-link">
               <div class="group-details">
                 <h3>${group.groupName}</h3>
                 <p>Created: ${new Date(group.createdAt.toDate()).toLocaleDateString()}</p>
@@ -135,7 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Navigate to Settings
   settingsButton.addEventListener("click", () => {
-    window.location.href = "/../pages/settings.html";
+    window.location.href = "settings.html";
   });
 
   // Listen for authentication state
@@ -148,7 +148,7 @@ document.addEventListener("DOMContentLoaded", () => {
       resetSessionTimer();
     } else {
       alert("No user is currently logged in. Redirecting to login...");
-      window.location.href = "/../pages/login.html";
+      window.location.href = "../index.html";
     }
   });
 

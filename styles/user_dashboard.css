@@ -239,3 +239,17 @@ body {
     font-size: 12px;
   }
 }
+
+/* Touch-friendly enhancements for mobile devices */
+@media (hover: none) and (pointer: coarse) {
+  .button,
+  .group-link,
+  a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .footer .button {
+    padding: 12px;
+  }
+}

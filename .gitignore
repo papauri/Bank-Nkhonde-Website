@@ -1,5 +1,33 @@
-node_modules/
+# Environment files
 .env
+.env.local
+.env.production
+
+# Logs
 *.log
-backend/banknkhondewebapp-backend.tar
-backend/banknkhondewebapp-frontend.tar
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*.backup
+
+# PHP specific
+vendor/
+composer.phar
+composer.lock
