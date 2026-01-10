@@ -184,6 +184,68 @@ if (cancelPaymentButton) {
     });
 }
 
+// ✅ Close edit modal when clicking "Cancel"
+if (closeEditModal) {
+    closeEditModal.addEventListener("click", () => {
+        if (editMemberModal) editMemberModal.style.display = "none";
+    });
+}
+
+// ✅ Handle Edit Member Form Submission
+if (editMemberForm) {
+    editMemberForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        const memberId = editMemberModal.dataset.id;
+        if (!memberId) return;
+
+        const fullName = document.getElementById("editFullName").value.trim();
+        const email = document.getElementById("editEmail").value.trim();
+        const phone = document.getElementById("editPhone").value.trim();
+        const role = document.getElementById("editRole").value;
+        const collateral = document.getElementById("editCollateral").value.trim() || null;
+
+        try {
+            // Update member in Firestore
+            await updateDoc(doc(db, `groups/${groupId}/members`, memberId), {
+                fullName,
+                email,
+                phone,
+                role,
+                collateral,
+            });
+
+            alert("Member updated successfully!");
+            editMemberModal.style.display = "none";
+            loadMembers();
+        } catch (error) {
+            alert("Failed to update member: " + error.message);
+        }
+    });
+}
+
+// ✅ Confirm and Remove Member Function
+async function confirmAndRemoveMember(memberId) {
+    if (!confirm("Are you sure you want to remove this member?")) {
+        return;
+    }
+
+    try {
+        await deleteDoc(doc(db, `groups/${groupId}/members`, memberId));
+        alert("Member removed successfully!");
+        loadMembers();
+    } catch (error) {
+        alert("Failed to remove member: " + error.message);
+    }
+}
+
+// ✅ Back Button Navigation
+if (backButton) {
+    backButton.addEventListener("click", () => {
+        window.location.href = `group_page.html?groupId=${groupId}`;
+    });
+}
+
 // ✅ Load Data on Page Load
 fetchGroupPaymentSettings();
 loadMembers();
