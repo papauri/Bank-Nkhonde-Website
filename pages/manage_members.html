@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Members</title>
+  <link rel="stylesheet" href="../styles/manage_members.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <h1>Manage Members</h1>
+      <button id="backButton" class="button back">Back to Group</button>
+    </header>
+
+    <!-- Member List Section -->
+    <section class="member-list-section">
+      <h2>Current Members</h2>
+      <ul id="memberList" class="member-list">Loading members...</ul>
+    </section>
+
+    <!-- Add New Member Section -->
+    <section class="add-member-section">
+      <h2>Add New Member</h2>
+      <form id="addMemberForm">
+        <input type="text" id="fullName" placeholder="Full Name" required>
+        <input type="email" id="email" placeholder="Email Address" required>
+        <input type="tel" id="phone" placeholder="Phone Number" required>
+        <input type="text" id="collateral" placeholder="Collateral (Optional)">
+
+        <!-- Role Selection -->
+        <label for="role">Select Role:</label>
+        <select id="role" required>
+          <option value="user" selected>Standard User</option>
+          <option value="admin">Admin</option>
+        </select>
+        
+        <button type="submit" class="button add">Add Member</button>
+      </form>
+    </section>
+
+    <!-- Edit Member Modal -->
+    <div id="editMemberModal" class="modal">
+      <div class="modal-content">
+        <h2>Edit Member</h2>
+        <form id="editMemberForm">
+          <input type="text" id="editFullName" placeholder="Full Name" required>
+          <input type="email" id="editEmail" placeholder="Email Address" required>
+          <input type="text" id="editPhone" placeholder="Phone Number" required>
+          <label for="editRole">Role:</label>
+          <select id="editRole" required>
+            <option value="user">Standard User</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button type="submit" class="button update">Update</button>
+          <button type="button" class="button cancel" id="closeEditModal">Cancel</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Payment Confirmation Modal -->
+    <div id="paymentModal" class="modal">
+      <div class="modal-content">
+        <h2>Confirm Payment Setup</h2>
+        <p>Review and confirm payment records before updating Firestore.</p>
+
+        <label for="paymentSeedMoney">Seed Money:</label>
+        <input type="number" id="paymentSeedMoney" placeholder="Amount">
+
+        <label for="paymentMonthlyContribution">Monthly Contribution:</label>
+        <input type="number" id="paymentMonthlyContribution" placeholder="Amount">
+
+        <label for="paymentLoanPenalty">Loan Penalty (%):</label>
+        <input type="number" id="paymentLoanPenalty" placeholder="Percentage">
+
+        <label for="paymentMonthlyPenalty">Monthly Penalty (%):</label>
+        <input type="number" id="paymentMonthlyPenalty" placeholder="Percentage">
+
+        <button id="confirmPaymentButton" class="button confirm">Confirm & Update</button>
+        <button id="cancelPaymentButton" class="button cancel">Cancel</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="../scripts/manage_members.js"></script>
+</body>
+</html>

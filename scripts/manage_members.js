@@ -1,0 +1,189 @@
+import { 
+    db, auth, createUserWithEmailAndPassword, 
+    doc, setDoc, updateDoc, collection, getDoc, 
+    getDocs, deleteDoc, Timestamp, sendEmailVerification 
+} from "./firebaseConfig.js";
+import { updatePaymentsForNewMember } from "./updatePayments.js";
+
+// ✅ Get DOM elements safely
+const memberList = document.getElementById("memberList");
+const addMemberForm = document.getElementById("addMemberForm");
+const backButton = document.getElementById("backButton");
+const editMemberModal = document.getElementById("editMemberModal");
+const editMemberForm = document.getElementById("editMemberForm");
+const closeEditModal = document.getElementById("closeEditModal");
+const paymentModal = document.getElementById("paymentModal");
+const confirmPaymentButton = document.getElementById("confirmPaymentButton");
+const cancelPaymentButton = document.getElementById("cancelPaymentButton");
+
+// ✅ Payment Input Fields
+const paymentSeedMoney = document.getElementById("paymentSeedMoney");
+const paymentMonthlyContribution = document.getElementById("paymentMonthlyContribution");
+const paymentLoanPenalty = document.getElementById("paymentLoanPenalty");
+const paymentMonthlyPenalty = document.getElementById("paymentMonthlyPenalty");
+
+// ✅ Ensure all modals are hidden initially
+document.addEventListener("DOMContentLoaded", () => {
+    if (editMemberModal) editMemberModal.style.display = "none";
+    if (paymentModal) paymentModal.style.display = "none";
+});
+
+// ✅ Fetch the group ID from URL parameters
+const urlParams = new URLSearchParams(window.location.search);
+const groupId = urlParams.get("groupId");
+
+let newMemberData = null;
+let groupPaymentSettings = {};
+
+if (!groupId) {
+    alert("Group ID is missing. Redirecting...");
+    window.location.href = "../pages/admin_dashboard.html";
+}
+
+// ✅ Fetch Group Payment Settings (Pre-fill Default Payment Amounts)
+async function fetchGroupPaymentSettings() {
+    try {
+        console.log("🔹 Fetching Group Payment Settings...");
+        const groupRef = doc(db, "groups", groupId);
+        const groupSnap = await getDoc(groupRef);
+
+        if (groupSnap.exists()) {
+            groupPaymentSettings = groupSnap.data();
+
+            // ✅ Pre-fill modal with correct values from Firestore
+            paymentSeedMoney.value = groupPaymentSettings.seedMoney || 0;
+            paymentMonthlyContribution.value = groupPaymentSettings.monthlyContribution || 0;
+            paymentLoanPenalty.value = groupPaymentSettings.loanPenalty || 0;
+            paymentMonthlyPenalty.value = groupPaymentSettings.monthlyPenalty || 0;
+
+            console.log("✅ Group Payment Settings Loaded:", groupPaymentSettings);
+        } else {
+            console.warn("❌ Group settings not found.");
+        }
+    } catch (error) {
+        console.error("❌ Error fetching group settings:", error);
+    }
+}
+
+// ✅ Load Members from Firestore
+async function loadMembers() {
+    memberList.innerHTML = "<li>Loading members...</li>";
+
+    try {
+        const membersRef = collection(db, `groups/${groupId}/members`);
+        const querySnapshot = await getDocs(membersRef);
+
+        memberList.innerHTML = "";
+        querySnapshot.forEach((docSnapshot) => {
+            const member = docSnapshot.data();
+            const listItem = document.createElement("li");
+            listItem.innerHTML = `
+                ${member.fullName} (${member.role})
+                <button class="edit-button" data-id="${docSnapshot.id}" 
+                    data-name="${member.fullName}" 
+                    data-email="${member.email}" 
+                    data-phone="${member.phone}" 
+                    data-role="${member.role}" 
+                    data-collateral="${member.collateral || ''}">
+                    Edit
+                </button>
+                <button class="remove-button" data-id="${docSnapshot.id}">Remove</button>
+            `;
+
+            memberList.appendChild(listItem);
+        });
+
+        // Attach event listeners for edit & remove
+        document.querySelectorAll(".edit-button").forEach((button) => {
+            button.addEventListener("click", (event) => {
+                const memberId = button.getAttribute("data-id");
+                if (!editMemberModal) return;
+
+                document.getElementById("editFullName").value = button.getAttribute("data-name");
+                document.getElementById("editEmail").value = button.getAttribute("data-email");
+                document.getElementById("editPhone").value = button.getAttribute("data-phone");
+                document.getElementById("editRole").value = button.getAttribute("data-role");
+                document.getElementById("editCollateral").value = button.getAttribute("data-collateral") || "";
+
+                editMemberModal.dataset.id = memberId;
+                editMemberModal.style.display = "block";
+            });
+        });
+
+        document.querySelectorAll(".remove-button").forEach((button) => {
+            button.addEventListener("click", async () => {
+                const memberId = button.getAttribute("data-id");
+                await confirmAndRemoveMember(memberId);
+            });
+        });
+    } catch (error) {
+        console.error("Error loading members:", error);
+        memberList.innerHTML = "<li>Error loading members.</li>";
+    }
+}
+
+// ✅ Open Payment Confirmation Modal BEFORE user creation
+addMemberForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const fullName = document.getElementById("fullName").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const phone = document.getElementById("phone").value.trim();
+    const role = document.getElementById("role").value;
+    const collateral = document.getElementById("collateral").value.trim() || null;
+
+    try {
+        newMemberData = { fullName, email, phone, role, collateral };
+
+        // ✅ Fetch default payment settings and show payment modal
+        await fetchGroupPaymentSettings();
+        paymentModal.style.display = "flex"; 
+
+    } catch (error) {
+        alert("Error opening payment modal: " + error.message);
+    }
+});
+
+// ✅ Confirm & Create User + Update Payments
+confirmPaymentButton.addEventListener("click", async () => {
+    if (!newMemberData) return;
+
+    try {
+        // ✅ Create user AFTER confirmation
+        const userCredential = await createUserWithEmailAndPassword(auth, newMemberData.email, "User@123");
+        const user = userCredential.user;
+        await sendEmailVerification(user);
+
+        // ✅ Store user details in Firestore
+        const userData = { uid: user.uid, ...newMemberData, createdAt: Timestamp.now() };
+
+        await setDoc(doc(db, "users", user.uid), { ...userData, groupMemberships: [groupId] });
+        await setDoc(doc(db, `groups/${groupId}/members`, user.uid), { ...userData, joinedAt: Timestamp.now() });
+
+        // ✅ Update Payment Collections
+        await updatePaymentsForNewMember(
+            groupId, user.uid, newMemberData.fullName,
+            parseFloat(paymentSeedMoney.value),
+            parseFloat(paymentMonthlyContribution.value),
+            parseFloat(paymentLoanPenalty.value),
+            parseFloat(paymentMonthlyPenalty.value)
+        );
+
+        alert("Member and payments added successfully!");
+        paymentModal.style.display = "none";
+        loadMembers();
+    } catch (error) {
+        alert("Failed to add member: " + error.message);
+    }
+});
+
+// ✅ Close modal when clicking "Cancel"
+if (cancelPaymentButton) {
+    cancelPaymentButton.addEventListener("click", () => {
+        if (paymentModal) paymentModal.style.display = "none";
+    });
+}
+
+// ✅ Load Data on Page Load
+fetchGroupPaymentSettings();
+loadMembers();

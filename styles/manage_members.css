@@ -1,0 +1,172 @@
+/* 🔹 Global Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+}
+
+body {
+    background: #f3f4f6;
+    color: #1e293b;
+    padding: 20px;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* 🔹 Header */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #1e293b;
+    padding: 15px 20px;
+    border-radius: 8px;
+    color: white;
+}
+
+.header h1 {
+    font-size: 22px;
+}
+
+.button {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.3s ease-in-out;
+}
+
+.back {
+    background: #3b82f6;
+    color: white;
+}
+
+.back:hover {
+    background: #2563eb;
+}
+
+/* 🔹 Member List */
+.member-list-section {
+    margin-top: 20px;
+}
+
+.member-list {
+    list-style: none;
+    padding: 0;
+}
+
+.member-list li {
+    background: #f1f5f9;
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.member-list li:hover {
+    background: #e2e8f0;
+}
+
+.remove-button {
+    background: #e11d48;
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.remove-button:hover {
+    background: #be123c;
+}
+
+/* 🔹 Add Member Section */
+.add-member-section {
+    margin-top: 30px;
+}
+
+.add-member-section form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+input, select {
+    padding: 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+}
+
+input:focus, select:focus {
+    border-color: #3b82f6;
+    outline: none;
+    box-shadow: 0 0 5px rgba(59, 130, 246, 0.3);
+}
+
+.add {
+    background: #059669;
+    color: white;
+}
+
+.add:hover {
+    background: #047857;
+}
+
+/* 🔹 Ensure modals are hidden initially */
+.modal {
+    display: none; /* Hide modal initially */
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.4); /* Dark background overlay */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 🔹 Style the modal content */
+.modal-content {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    width: 400px;
+    text-align: center;
+    z-index: 1001;
+}
+
+/* 🔹 Show modal when triggered */
+.modal.show {
+    display: flex !important;  /* Ensure modal is displayed */
+}
+
+
+/* 🔹 Responsive Adjustments */
+@media (max-width: 600px) {
+    .container {
+        width: 90%;
+        padding: 15px;
+    }
+
+    .modal-content {
+        width: 90%;
+    }
+}
