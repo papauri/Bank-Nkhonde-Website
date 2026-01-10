@@ -204,6 +204,14 @@ document.addEventListener("DOMContentLoaded", () => {
     window.location.href = "../pages/create_group.html";
   });
 
+  // ✅ Navigate to Approve Registrations
+  const approveRegistrationsButton = document.getElementById("approveRegistrationsButton");
+  if (approveRegistrationsButton) {
+    approveRegistrationsButton.addEventListener("click", () => {
+      window.location.href = "../pages/approve_registrations.html";
+    });
+  }
+
   // ✅ Navigate to Analytics
   if (analyticsButton) {
     analyticsButton.addEventListener("click", () => {

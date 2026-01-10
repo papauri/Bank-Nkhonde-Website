@@ -33,13 +33,17 @@ export async function createInvitationCode() {
       createdAt: Timestamp.now(),
     });
     console.log("Invitation code created:", code);
-    alert(`Your invitation code: ${code}`);
-    document.getElementById("invitationCode").value = code; // Autofill the code in the form
+    
+    // Only try to autofill if the element exists
+    const invitationCodeElement = document.getElementById("invitationCode");
+    if (invitationCodeElement) {
+      invitationCodeElement.value = code;
+    }
+    
     return code;
   } catch (err) {
     console.error("Error creating invitation code:", err);
-    alert("An error occurred while generating the invitation code.");
-    return null;
+    throw new Error("Failed to generate invitation code.");
   }
 }
 
@@ -157,6 +161,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Automatically create and autofill the code on form load
-  createInvitationCode();
+  // Do NOT automatically create and autofill the code on form load
+  // The code will be created when the user submits the registration form
 });

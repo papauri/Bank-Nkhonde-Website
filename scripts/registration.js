@@ -10,9 +10,11 @@ import {
   where,
   getDocs,
   setDoc,
+  signInWithEmailAndPassword,
 } from "./firebaseConfig.js";
 
 import {
+  createInvitationCode,
   validateInvitationCode,
   markCodeAsUsedAndDelete,
   pollForApproval,
@@ -162,7 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // ✅ Use Firestore Batch Write for efficiency
       const batch = writeBatch(db);
 
-      // ✅ Create the group document
+      // ✅ Create the group document with improved structure
       toggleLoadingOverlay(true, "Setting up your group...");
       groupId = `${groupData.groupName.replace(/\s+/g, "_")}_${Date.now()}`;
       const groupRef = doc(db, "groups", groupId);
@@ -170,79 +172,148 @@ document.addEventListener("DOMContentLoaded", () => {
       batch.set(groupRef, {
         groupId,
         groupName: groupData.groupName,
-        seedMoney,
-        seedMoneyDueDate,
-        interestRate,
-        monthlyContribution,
-        loanPenalty,
-        monthlyPenalty,
-        cycleStartDate,
+        description: "", // Optional group description
+        createdAt: Timestamp.now(),
+        createdBy: userId,
+        status: "active",
+        
+        // Structured rules object for flexibility
+        rules: {
+          seedMoney: {
+            amount: seedMoney,
+            dueDate: seedMoneyDueDate,
+            required: true
+          },
+          monthlyContribution: {
+            amount: monthlyContribution,
+            required: true,
+            dayOfMonth: new Date(groupData.cycleStartDate).getDate()
+          },
+          interestRate: interestRate,
+          loanPenalty: {
+            rate: loanPenalty,
+            type: "percentage"
+          },
+          monthlyPenalty: {
+            rate: monthlyPenalty,
+            type: "percentage"
+          },
+          cycleDuration: {
+            startDate: cycleStartDate,
+            endDate: null, // Can be set later
+            months: 12
+          },
+          customRules: [] // For future flexibility
+        },
+        
+        // Cycle dates for reference
         cycleDates: cycleDates.map((date) => date.timestamp),
         displayCycleDates: cycleDates.map((date) => date.friendly),
-        createdAt: Timestamp.now(),
-        status: "active",
-        adminDetails: [{ fullName: name, email, uid: userId }],
-        paymentSummary: {
-          totalDue: seedMoney,
-          totalPaid: 0,
-          totalArrears: seedMoney,
+        
+        // Group statistics
+        statistics: {
+          totalMembers: 1,
+          totalFunds: 0,
+          totalLoans: 0,
+          totalArrears: seedMoney
         },
-        approvedPayments: [],
-        pendingPayments: [],
+        
+        // Admin information
+        admins: [{ 
+          uid: userId, 
+          fullName: name, 
+          email, 
+          role: "senior_admin",
+          assignedAt: Timestamp.now()
+        }]
       });
 
-      // ✅ Add Admin as a Member (Admins are also users in the group)
+      // ✅ Add Admin as a Member with improved structure
       const memberRef = doc(db, `groups/${groupId}/members`, userId);
       batch.set(memberRef, {
         uid: userId,
         fullName: name,
         email,
         phone: groupData.phone,
-        role: "admin",
+        role: "senior_admin",
         joinedAt: Timestamp.now(),
+        status: "active",
         collateral: null,
-        balances: [],
+        customPaymentRules: {}, // Can override group defaults
+        financialSummary: {
+          totalPaid: 0,
+          totalArrears: seedMoney,
+          totalLoans: 0,
+          totalLoansPaid: 0
+        }
       });
 
-      // ✅ Add User Data (supporting multiple group memberships)
+      // ✅ Add User Data with improved structure
       const userRef = doc(db, "users", userId);
       batch.set(userRef, {
         uid: userId,
         fullName: name,
         email,
         phone: groupData.phone,
-        roles: ["admin", "user"], // User can have multiple roles across different groups
         createdAt: Timestamp.now(),
-        groupMemberships: [groupId], // Array to support multiple groups
+        updatedAt: Timestamp.now(),
+        profileImageUrl: "",
+        groupMemberships: [{
+          groupId: groupId,
+          role: "senior_admin",
+          joinedAt: Timestamp.now()
+        }]
       });
 
-      // ✅ Initialize Payments Documents
+      // ✅ Initialize Payments Documents with improved structure
       const currentYear = new Date().getFullYear();
 
-      // ✅ Create Seed Money Document
+      // ✅ Create Seed Money Payment Year Document
       const seedMoneyDocRef = doc(db, `groups/${groupId}/payments`, `${currentYear}_SeedMoney`);
-      batch.set(seedMoneyDocRef, { createdAt: Timestamp.now() });
+      batch.set(seedMoneyDocRef, { 
+        year: currentYear,
+        paymentType: "SeedMoney",
+        createdAt: Timestamp.now(),
+        totalExpected: seedMoney,
+        totalReceived: 0,
+        totalPending: 0
+      });
 
-      // ✅ Create User Seed Money Document using UID
+      // ✅ Create User Seed Money Document with improved structure
       const userSeedMoneyRef = doc(collection(seedMoneyDocRef, userId), PAYMENT_DETAILS_DOC);
       batch.set(userSeedMoneyRef, {
         userId,
         fullName: name,
         paymentType: "Seed Money",
         totalAmount: seedMoney,
+        amountPaid: 0,
         arrears: seedMoney,
         approvalStatus: "unpaid",
         paymentStatus: "unpaid",
         dueDate: seedMoneyDueDate,
+        paidAt: null,
+        approvedAt: null,
         createdAt: Timestamp.now(),
         updatedAt: null,
+        proofOfPayment: {
+          imageUrl: "",
+          uploadedAt: null,
+          verifiedBy: ""
+        }
       });
 
-      // ✅ Create Monthly Contributions Document
+      // ✅ Create Monthly Contributions Payment Year Document
       const monthlyContributionDocRef = doc(db, `groups/${groupId}/payments`, `${currentYear}_MonthlyContributions`);
-      batch.set(monthlyContributionDocRef, { createdAt: Timestamp.now() });
+      batch.set(monthlyContributionDocRef, { 
+        year: currentYear,
+        paymentType: "MonthlyContributions",
+        createdAt: Timestamp.now(),
+        totalExpected: monthlyContribution * 12, // For 12 months
+        totalReceived: 0,
+        totalPending: 0
+      });
 
-      // ✅ Create Monthly Contribution Payments for Each Month using UID
+      // ✅ Create Monthly Contribution Payments for Each Month with improved structure
       const userMonthlyCollection = collection(monthlyContributionDocRef, userId);
       cycleDates.forEach((date) => {
         const monthlyPaymentDoc = doc(userMonthlyCollection, `${date.year}_${date.month}`);
@@ -251,12 +322,20 @@ document.addEventListener("DOMContentLoaded", () => {
           fullName: name,
           paymentType: "Monthly Contribution",
           totalAmount: monthlyContribution,
+          amountPaid: 0,
           arrears: monthlyContribution,
           approvalStatus: "unpaid",
           paymentStatus: "unpaid",
           dueDate: date.timestamp,
+          paidAt: null,
+          approvedAt: null,
           createdAt: Timestamp.now(),
           updatedAt: null,
+          proofOfPayment: {
+            imageUrl: "",
+            uploadedAt: null,
+            verifiedBy: ""
+          }
         });
       });
 
@@ -266,8 +345,7 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log("✅ User, group, and payment records created successfully!");
 
       toggleLoadingOverlay(false);
-      alert("Registration complete! You can now login to your admin dashboard.");
-      window.location.href = "../index.html"; // Redirect to login
+      // Don't redirect here - let the calling function handle login and redirect
     } catch (error) {
       console.error("❌ Error during registration:", error.message);
       toggleLoadingOverlay(false);
@@ -306,7 +384,6 @@ registrationForm.addEventListener("submit", async (e) => {
   submitButton.disabled = true;
 
   // ✅ Collect data from form fields
-  const registrationKey = document.getElementById("registrationKey").value.trim();
   const name = document.getElementById("name").value.trim();
   const phone = document.getElementById("phone").value.trim();
   const email = document.getElementById("email").value.trim();
@@ -322,7 +399,6 @@ registrationForm.addEventListener("submit", async (e) => {
 
   // ✅ Validate input fields
   const errors = [
-    validateField(registrationKey, "Registration Key"),
     validateField(name, "Full Name"),
     validateField(phone, "Phone Number"),
     validateField(email, "Email Address"),
@@ -355,38 +431,43 @@ registrationForm.addEventListener("submit", async (e) => {
   }
 
   try {
-    // ✅ Validate registration key exists and check if already used
-    toggleLoadingOverlay(true, "Validating registration key...");
-    toggleFormFields(false);
-
-    const keyIsValid = await validateInvitationCode(registrationKey);
-    if (!keyIsValid) {
-      submitButton.disabled = false;
-      toggleFormFields(true);
-      toggleLoadingOverlay(false);
-      return;
-    }
-
-    // ✅ Wait for manual approval from database
-    toggleLoadingOverlay(true, "Waiting for admin approval of your registration key... This may take a few minutes.");
-    
-    try {
-      await pollForApproval(registrationKey, 300000); // Wait up to 5 minutes
-      toggleLoadingOverlay(true, "Registration key approved! Proceeding with registration...");
-    } catch (approvalError) {
-      alert(approvalError.message);
-      submitButton.disabled = false;
-      toggleFormFields(true);
-      toggleLoadingOverlay(false);
-      return;
-    }
-
     toggleLoadingOverlay(true, "Validating your information...");
+    toggleFormFields(false);
 
     // ✅ Check if email already exists
     const emailExists = await checkEmailExists(email);
     if (emailExists) {
       alert("An account with this email already exists. Please use a different email or login.");
+      submitButton.disabled = false;
+      toggleFormFields(true);
+      toggleLoadingOverlay(false);
+      return;
+    }
+
+    // ✅ Create registration code and store it in database
+    toggleLoadingOverlay(true, "Generating registration code...");
+    let registrationKey;
+    try {
+      registrationKey = await createInvitationCode();
+      // Store it in the hidden field
+      document.getElementById("registrationKey").value = registrationKey;
+      console.log("✅ Registration code generated:", registrationKey);
+    } catch (error) {
+      alert("Failed to generate registration code. Please try again.");
+      submitButton.disabled = false;
+      toggleFormFields(true);
+      toggleLoadingOverlay(false);
+      return;
+    }
+
+    // ✅ Wait for manual approval from Senior Admin
+    toggleLoadingOverlay(true, "⏳ Registration code pending approval by Senior Admin...\n\nYour code: " + registrationKey + "\n\nPlease wait while an administrator reviews your request.");
+    
+    try {
+      await pollForApproval(registrationKey, 600000); // Wait up to 10 minutes
+      toggleLoadingOverlay(true, "✅ Registration approved! Creating your account...");
+    } catch (approvalError) {
+      alert(approvalError.message);
       submitButton.disabled = false;
       toggleFormFields(true);
       toggleLoadingOverlay(false);
@@ -411,6 +492,20 @@ registrationForm.addEventListener("submit", async (e) => {
 
     // ✅ Create user and group with registration key deletion
     await createUserAndGroupWithKey(name, email, password, groupData, registrationKey);
+
+    // ✅ Auto-login the user after successful registration
+    toggleLoadingOverlay(true, "Logging you in...");
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      toggleLoadingOverlay(false);
+      alert("Registration complete! Welcome to your admin dashboard.");
+      window.location.href = "admin_dashboard.html"; // Redirect to admin dashboard
+    } catch (loginError) {
+      console.error("❌ Auto-login failed:", loginError.message);
+      toggleLoadingOverlay(false);
+      alert("Registration complete! Please login with your credentials.");
+      window.location.href = "../index.html"; // Redirect to login
+    }
 
   } catch (error) {
     console.error("❌ Error during registration:", error.message);

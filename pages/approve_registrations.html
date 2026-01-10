@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Approve Registrations</title>
+  <link rel="stylesheet" href="../styles/registration.css">
+  <style>
+    .registrations-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .registration-card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      border-left: 4px solid #3498db;
+    }
+
+    .registration-card.pending {
+      border-left-color: #f39c12;
+    }
+
+    .registration-card.approved {
+      border-left-color: #27ae60;
+    }
+
+    .registration-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .registration-code {
+      font-size: 20px;
+      font-weight: bold;
+      color: #2c3e50;
+      font-family: monospace;
+    }
+
+    .registration-status {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .status-pending {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .status-approved {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .registration-info {
+      margin-bottom: 15px;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .info-label {
+      font-weight: 600;
+      color: #7f8c8d;
+    }
+
+    .info-value {
+      color: #2c3e50;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn-approve {
+      background: #27ae60;
+      color: white;
+    }
+
+    .btn-approve:hover {
+      background: #229954;
+      transform: translateY(-2px);
+    }
+
+    .btn-reject {
+      background: #e74c3c;
+      color: white;
+    }
+
+    .btn-reject:hover {
+      background: #c0392b;
+      transform: translateY(-2px);
+    }
+
+    .btn:disabled {
+      background: #bdc3c7;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #7f8c8d;
+    }
+
+    .empty-state h2 {
+      margin-bottom: 10px;
+      color: #95a5a6;
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+
+    .filter-tab {
+      padding: 12px 24px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      color: #7f8c8d;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s ease;
+    }
+
+    .filter-tab.active {
+      color: #2c3e50;
+      border-bottom-color: #3498db;
+    }
+
+    .filter-tab:hover {
+      color: #2c3e50;
+    }
+  </style>
+</head>
+<body>
+  <div class="registrations-container">
+    <header style="text-align: center; margin-bottom: 30px;">
+      <h1>Registration Approvals</h1>
+      <p style="color: #7f8c8d;">Review and approve pending registration requests</p>
+    </header>
+
+    <div class="filter-tabs">
+      <button class="filter-tab active" data-filter="all">All</button>
+      <button class="filter-tab" data-filter="pending">Pending</button>
+      <button class="filter-tab" data-filter="approved">Approved</button>
+    </div>
+
+    <div id="registrationsList">
+      <div class="empty-state">
+        <h2>Loading registrations...</h2>
+        <p>Please wait while we fetch the registration requests.</p>
+      </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 30px;">
+      <button onclick="window.location.href='admin_dashboard.html'" class="btn" style="max-width: 300px; background: #34495e; color: white;">
+        Back to Dashboard
+      </button>
+    </div>
+  </div>
+
+  <script type="module" src="../scripts/approve_registrations.js"></script>
+</body>
+</html>
