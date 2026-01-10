@@ -239,6 +239,15 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    // Validate message length (max 500 characters)
+    if (message.length > 500) {
+      alert("Custom message must be 500 characters or less.");
+      return;
+    }
+
+    // Basic sanitization: remove any HTML-like tags
+    const sanitizedMessage = message.replace(/<[^>]*>/g, '');
+
     try {
       toggleLoading(true, "Sending invitation...");
       
@@ -253,7 +262,7 @@ document.addEventListener("DOMContentLoaded", () => {
         groupName,
         invitedBy: currentUser.uid,
         invitedByEmail: currentUser.email,
-        customMessage: message,
+        customMessage: sanitizedMessage,
         status: "pending",
         createdAt: Timestamp.now(),
       });

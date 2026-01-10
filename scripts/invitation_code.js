@@ -98,13 +98,17 @@ export async function markCodeAsUsedAndDelete(code) {
 // Poll for registration key approval using real-time listener
 export async function pollForApproval(code, maxWaitTimeMs = 300000) {
   const startTime = Date.now();
+  let resolved = false; // Flag to prevent multiple rejections
   
   return new Promise((resolve, reject) => {
     const codeQuery = query(collection(db, "invitationCodes"), where("code", "==", code));
     
     // Use real-time listener instead of polling
     const unsubscribe = onSnapshot(codeQuery, (snapshot) => {
+      if (resolved) return; // Already handled
+      
       if (snapshot.empty) {
+        resolved = true;
         unsubscribe();
         reject(new Error("Registration key not found. It may have been deleted."));
         return;
@@ -114,6 +118,7 @@ export async function pollForApproval(code, maxWaitTimeMs = 300000) {
       const invitationData = invitationDoc.data();
 
       if (invitationData.approved) {
+        resolved = true;
         unsubscribe();
         resolve(true);
         return;
@@ -121,17 +126,24 @@ export async function pollForApproval(code, maxWaitTimeMs = 300000) {
 
       // Check if we've exceeded max wait time
       if (Date.now() - startTime > maxWaitTimeMs) {
+        resolved = true;
         unsubscribe();
         reject(new Error("Registration key approval timeout. Please contact an administrator."));
       }
     }, (error) => {
-      reject(error);
+      if (!resolved) {
+        resolved = true;
+        reject(error);
+      }
     });
     
     // Set a timeout to clean up the listener
     setTimeout(() => {
-      unsubscribe();
-      reject(new Error("Registration key approval timeout. Please contact an administrator."));
+      if (!resolved) {
+        resolved = true;
+        unsubscribe();
+        reject(new Error("Registration key approval timeout. Please contact an administrator."));
+      }
     }, maxWaitTimeMs);
   });
 }
