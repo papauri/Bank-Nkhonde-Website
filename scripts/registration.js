@@ -10,10 +10,12 @@ import {
   where,
   getDocs,
   setDoc,
-  updateDoc,
 } from "./firebaseConfig.js";
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Constants
+  const PAYMENT_DETAILS_DOC = "PaymentDetails";
+  
   const registrationForm = document.getElementById("registrationForm");
   const phoneInput = document.getElementById("phone");
   const loadingOverlay = document.getElementById("loadingOverlay");
@@ -216,7 +218,7 @@ document.addEventListener("DOMContentLoaded", () => {
       batch.set(seedMoneyDocRef, { createdAt: Timestamp.now() });
 
       // ✅ Create User Seed Money Document using UID
-      const userSeedMoneyRef = doc(collection(seedMoneyDocRef, userId), "PaymentDetails");
+      const userSeedMoneyRef = doc(collection(seedMoneyDocRef, userId), PAYMENT_DETAILS_DOC);
       batch.set(userSeedMoneyRef, {
         userId,
         fullName: name,
