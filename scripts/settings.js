@@ -480,6 +480,17 @@ document.addEventListener("DOMContentLoaded", () => {
         memberInfo.appendChild(roleBadge);
         
         memberItem.appendChild(memberInfo);
+        
+        // Add Edit Profile button for admins
+        const editBtn = document.createElement("button");
+        editBtn.className = "button small primary";
+        editBtn.textContent = "Edit Profile";
+        editBtn.style.marginTop = "10px";
+        editBtn.addEventListener("click", () => {
+          openEditMemberModal(doc.id, memberData, groupId);
+        });
+        memberItem.appendChild(editBtn);
+        
         membersList.appendChild(memberItem);
       });
     } catch (error) {
@@ -489,6 +500,67 @@ document.addEventListener("DOMContentLoaded", () => {
       toggleLoading(false);
     }
   });
+
+  // Open Edit Member Modal
+  function openEditMemberModal(memberId, memberData, groupId) {
+    const editMemberModal = document.getElementById("editMemberModal");
+    const editMemberForm = document.getElementById("editMemberProfileForm");
+    
+    // Populate form fields
+    document.getElementById("editMemberFullName").value = memberData.fullName || "";
+    document.getElementById("editMemberEmail").value = memberData.email || "";
+    document.getElementById("editMemberPhone").value = memberData.phone || "";
+    document.getElementById("editMemberRole").value = memberData.role || "user";
+    document.getElementById("editMemberCollateral").value = memberData.collateral || "";
+    
+    // Show modal
+    editMemberModal.style.display = "flex";
+    
+    // Handle form submission
+    editMemberForm.onsubmit = async (e) => {
+      e.preventDefault();
+      
+      try {
+        toggleLoading(true, "Updating member profile...");
+        
+        const updatedData = {
+          fullName: document.getElementById("editMemberFullName").value.trim(),
+          phone: document.getElementById("editMemberPhone").value.trim(),
+          role: document.getElementById("editMemberRole").value,
+          collateral: document.getElementById("editMemberCollateral").value.trim() || null,
+        };
+        
+        // Update member in group
+        await updateDoc(doc(db, `groups/${groupId}/members`, memberId), updatedData);
+        
+        // Also update in users collection if it's their core profile info
+        await updateDoc(doc(db, "users", memberId), {
+          fullName: updatedData.fullName,
+          phone: updatedData.phone,
+        });
+        
+        alert("Member profile updated successfully!");
+        editMemberModal.style.display = "none";
+        
+        // Reload members list
+        manageMembersGroupSelect.dispatchEvent(new Event("change"));
+      } catch (error) {
+        console.error("Error updating member profile:", error);
+        alert("Error updating member profile. Please try again.");
+      } finally {
+        toggleLoading(false);
+      }
+    };
+  }
+  
+  // Cancel Edit Member Modal
+  const cancelEditMember = document.getElementById("cancelEditMember");
+  if (cancelEditMember) {
+    cancelEditMember.addEventListener("click", () => {
+      const editMemberModal = document.getElementById("editMemberModal");
+      editMemberModal.style.display = "none";
+    });
+  }
 
   // Save notification preferences
   saveNotificationsBtn.addEventListener("click", async () => {
