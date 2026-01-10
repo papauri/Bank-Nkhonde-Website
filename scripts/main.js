@@ -116,9 +116,9 @@ document.addEventListener("DOMContentLoaded", () => {
       await logUserActivity("login", `${role} login`, `${user.email} logged in as ${role}`);
 
       if (role === "admin") {
-        window.location.href = "/pages/admin_dashboard.html";
+        window.location.href = "pages/admin_dashboard.html";
       } else if (role === "user") {
-        window.location.href = "/pages/user_dashboard.html";
+        window.location.href = "pages/user_dashboard.html";
       } else {
         throw new Error("Unknown role specified.");
       }

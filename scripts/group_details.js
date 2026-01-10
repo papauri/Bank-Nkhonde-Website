@@ -22,7 +22,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (!groupId) {
     alert("Group ID is missing. Redirecting to the admin dashboard...");
-    window.location.href = "/frontend/pages/admin_dashboard.html";
+    window.location.href = "../index.html";
     return;
   }
 
@@ -356,6 +356,6 @@ function formatFriendlyDate(date) {
 
   // ✅ Back Button Event Listener
   backButton.addEventListener("click", () => {
-    window.location.href = "/../pages/admin_dashboard.html";
+    window.location.href = "admin_dashboard.html";
   });
 });
