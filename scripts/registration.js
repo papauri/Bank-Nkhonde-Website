@@ -3,22 +3,24 @@ import {
   auth,
   createUserWithEmailAndPassword,
   doc,
-  setDoc,
   collection,
-  addDoc,
-  onSnapshot,
   Timestamp,
-  writeBatch, // ✅ Import Firestore's writeBatch correctly
+  writeBatch,
+  query,
+  where,
+  getDocs,
+  setDoc,
 } from "./firebaseConfig.js";
 
 document.addEventListener("DOMContentLoaded", () => {
-  const invitationCodeField = document.getElementById("invitationCode");
+  // Constants
+  const PAYMENT_DETAILS_DOC = "PaymentDetails";
+  
   const registrationForm = document.getElementById("registrationForm");
   const phoneInput = document.getElementById("phone");
   const loadingOverlay = document.getElementById("loadingOverlay");
   const loadingMessage = document.getElementById("loadingMessage");
   const formFields = document.querySelectorAll("#registrationForm input, button");
-  let invitationDocRef = null;
 
   // ✅ Ensure Intl-Tel-Input loads correctly
   let iti;
@@ -83,243 +85,196 @@ document.addEventListener("DOMContentLoaded", () => {
   
     return true;
   }
+
+  // ✅ Check if email already exists in Firebase Auth
+  async function checkEmailExists(email) {
+    try {
+      // Query Firestore to check if email exists in users collection
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("email", "==", email));
+      const querySnapshot = await getDocs(q);
+      return !querySnapshot.empty;
+    } catch (error) {
+      console.error("Error checking email:", error);
+      // If Firebase is unavailable, prevent registration to avoid duplicates
+      throw new Error("Unable to verify email. Please try again later.");
+    }
+  }
+
+  // ✅ Create User and Group (Direct registration without approval)
+  async function createUserAndGroup(name, email, password, groupData) {
+    let userId = null;
+    let groupId = null;
+
+    try {
+      toggleLoadingOverlay(true, "Creating your account...");
+
+      // ✅ Convert and validate numeric fields
+      const seedMoney = parseFloat(groupData.seedMoney);
+      const interestRate = parseFloat(groupData.interestRate);
+      const monthlyContribution = parseFloat(groupData.monthlyContribution);
+      const loanPenalty = parseFloat(groupData.loanPenalty);
+      const monthlyPenalty = parseFloat(groupData.monthlyPenalty);
+
+      if (
+        isNaN(seedMoney) || isNaN(interestRate) || isNaN(monthlyContribution) ||
+        isNaN(loanPenalty) || isNaN(monthlyPenalty)
+      ) {
+        throw new Error("Invalid numeric input detected. Ensure all numeric fields have valid values.");
+      }
+
+      // ✅ Convert dates to Firestore Timestamps
+      const cycleStartDate = Timestamp.fromDate(new Date(groupData.cycleStartDate));
+      const seedMoneyDueDate = Timestamp.fromDate(new Date(groupData.seedMoneyDueDate));
+
+      // ✅ Generate cycle dates
+      const cycleDates = Array.from({ length: 12 }, (_, i) => {
+        const date = new Date(groupData.cycleStartDate);
+        date.setMonth(date.getMonth() + i);
+        return {
+          iso: date.toISOString(),
+          friendly: date.toLocaleDateString("default", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          }),
+          year: date.getFullYear(),
+          month: date.toLocaleString("default", { month: "long" }),
+          timestamp: Timestamp.fromDate(date),
+        };
+      });
+
+      // ✅ Create the Firebase Auth user first
+      toggleLoadingOverlay(true, "Creating your user account...");
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      userId = user.uid;
+
+      console.log("✅ Admin user created successfully:", userId);
+
+      // ✅ Use Firestore Batch Write for efficiency
+      const batch = writeBatch(db);
+
+      // ✅ Create the group document
+      toggleLoadingOverlay(true, "Setting up your group...");
+      groupId = `${groupData.groupName.replace(/\s+/g, "_")}_${Date.now()}`;
+      const groupRef = doc(db, "groups", groupId);
+
+      batch.set(groupRef, {
+        groupId,
+        groupName: groupData.groupName,
+        seedMoney,
+        seedMoneyDueDate,
+        interestRate,
+        monthlyContribution,
+        loanPenalty,
+        monthlyPenalty,
+        cycleStartDate,
+        cycleDates: cycleDates.map((date) => date.timestamp),
+        displayCycleDates: cycleDates.map((date) => date.friendly),
+        createdAt: Timestamp.now(),
+        status: "active",
+        adminDetails: [{ fullName: name, email, uid: userId }],
+        paymentSummary: {
+          totalDue: seedMoney,
+          totalPaid: 0,
+          totalArrears: seedMoney,
+        },
+        approvedPayments: [],
+        pendingPayments: [],
+      });
+
+      // ✅ Add Admin as a Member (Admins are also users in the group)
+      const memberRef = doc(db, `groups/${groupId}/members`, userId);
+      batch.set(memberRef, {
+        uid: userId,
+        fullName: name,
+        email,
+        phone: groupData.phone,
+        role: "admin",
+        joinedAt: Timestamp.now(),
+        collateral: null,
+        balances: [],
+      });
+
+      // ✅ Add User Data (supporting multiple group memberships)
+      const userRef = doc(db, "users", userId);
+      batch.set(userRef, {
+        uid: userId,
+        fullName: name,
+        email,
+        phone: groupData.phone,
+        roles: ["admin", "user"], // User can have multiple roles across different groups
+        createdAt: Timestamp.now(),
+        groupMemberships: [groupId], // Array to support multiple groups
+      });
+
+      // ✅ Initialize Payments Documents
+      const currentYear = new Date().getFullYear();
+
+      // ✅ Create Seed Money Document
+      const seedMoneyDocRef = doc(db, `groups/${groupId}/payments`, `${currentYear}_SeedMoney`);
+      batch.set(seedMoneyDocRef, { createdAt: Timestamp.now() });
+
+      // ✅ Create User Seed Money Document using UID
+      const userSeedMoneyRef = doc(collection(seedMoneyDocRef, userId), PAYMENT_DETAILS_DOC);
+      batch.set(userSeedMoneyRef, {
+        userId,
+        fullName: name,
+        paymentType: "Seed Money",
+        totalAmount: seedMoney,
+        arrears: seedMoney,
+        approvalStatus: "unpaid",
+        paymentStatus: "unpaid",
+        dueDate: seedMoneyDueDate,
+        createdAt: Timestamp.now(),
+        updatedAt: null,
+      });
+
+      // ✅ Create Monthly Contributions Document
+      const monthlyContributionDocRef = doc(db, `groups/${groupId}/payments`, `${currentYear}_MonthlyContributions`);
+      batch.set(monthlyContributionDocRef, { createdAt: Timestamp.now() });
+
+      // ✅ Create Monthly Contribution Payments for Each Month using UID
+      const userMonthlyCollection = collection(monthlyContributionDocRef, userId);
+      cycleDates.forEach((date) => {
+        const monthlyPaymentDoc = doc(userMonthlyCollection, `${date.year}_${date.month}`);
+        batch.set(monthlyPaymentDoc, {
+          userId,
+          fullName: name,
+          paymentType: "Monthly Contribution",
+          totalAmount: monthlyContribution,
+          arrears: monthlyContribution,
+          approvalStatus: "unpaid",
+          paymentStatus: "unpaid",
+          dueDate: date.timestamp,
+          createdAt: Timestamp.now(),
+          updatedAt: null,
+        });
+      });
+
+      // ✅ Commit all changes
+      toggleLoadingOverlay(true, "Finalizing your registration...");
+      await batch.commit();
+      console.log("✅ User, group, and payment records created successfully!");
+
+      toggleLoadingOverlay(false);
+      alert("Registration complete! You can now login to your admin dashboard.");
+      window.location.href = "../index.html"; // Redirect to login
+    } catch (error) {
+      console.error("❌ Error during registration:", error.message);
+      toggleLoadingOverlay(false);
+      toggleFormFields(true);
+      alert(`Registration failed: ${error.message}`);
+      throw error;
+    }
+  }
   
 
   // Attach Phone Validation
   phoneInput.addEventListener("blur", validatePhoneInput);
   phoneInput.addEventListener("input", validatePhoneInput);
-
-  // ✅ Generate and Save Invitation Code
-  async function generateAndSaveInvitationCode(name, phone, email) {
-    const length = 8;
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let generatedCode = "";
-
-    for (let i = 0; i < length; i++) {
-      generatedCode += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-
-    invitationCodeField.value = generatedCode;
-
-    // Save to Firestore
-    invitationDocRef = await addDoc(collection(db, "invitationCodes"), {
-      code: generatedCode,
-      name,
-      phone,
-      email,
-      approved: false,
-      approvedBy: null,
-      used: false,
-      groupId: null,
-      createdAt: new Date(),
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), 
-    });
-
-    console.log("Invitation code saved:", generatedCode);
-    return generatedCode;
-  }
-
-// 🔹 Track Approval Status & Complete Registration (Admin is Both Admin & User)
-async function trackApprovalStatus(invitationDocId, name, email, password, groupData) {
-  let userId = null;
-  let groupId = null;
-  let approvalProcessed = false; // Prevent duplicate execution
-
-  toggleLoadingOverlay(true, "Waiting for admin approval...");
-
-  const docRef = doc(db, "invitationCodes", invitationDocId);
-
-  onSnapshot(docRef, async (snapshot) => {
-    if (!snapshot.exists()) {
-      alert("The invitation code no longer exists. Please contact support for assistance.");
-      toggleFormFields(true);
-      toggleLoadingOverlay(false);
-      return;
-    }
-
-    const data = snapshot.data();
-    if (data.approved && !approvalProcessed) {
-      approvalProcessed = true; // Prevent multiple executions
-
-      try {
-        toggleLoadingOverlay(true, "Finalizing registration...");
-
-        // ✅ Convert and validate numeric fields
-        const seedMoney = parseFloat(groupData.seedMoney);
-        const interestRate = parseFloat(groupData.interestRate);
-        const monthlyContribution = parseFloat(groupData.monthlyContribution);
-        const loanPenalty = parseFloat(groupData.loanPenalty);
-        const monthlyPenalty = parseFloat(groupData.monthlyPenalty);
-
-        if (
-          isNaN(seedMoney) || isNaN(interestRate) || isNaN(monthlyContribution) ||
-          isNaN(loanPenalty) || isNaN(monthlyPenalty)
-        ) {
-          throw new Error("Invalid numeric input detected. Ensure all numeric fields have valid values.");
-        }
-
-        // ✅ Convert dates to Firestore Timestamps
-        const cycleStartDate = Timestamp.fromDate(new Date(groupData.cycleStartDate));
-        const seedMoneyDueDate = Timestamp.fromDate(new Date(groupData.seedMoneyDueDate));
-
-        // ✅ Generate cycle dates
-        const cycleDates = Array.from({ length: 12 }, (_, i) => {
-          const date = new Date(groupData.cycleStartDate);
-          date.setMonth(date.getMonth() + i);
-          return {
-            iso: date.toISOString(),
-            friendly: date.toLocaleDateString("default", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            }),
-            year: date.getFullYear(),
-            month: date.toLocaleString("default", { month: "long" }),
-            timestamp: Timestamp.fromDate(date),
-          };
-        });
-
-        // ✅ Use Firestore Batch Write for efficiency
-        const batch = writeBatch(db);
-
-        // ✅ Create the group document first
-        groupId = `${groupData.groupName.replace(/\s+/g, "_")}_${Date.now()}`;
-        const groupRef = doc(db, "groups", groupId);
-
-        batch.set(groupRef, {
-          groupId,
-          groupName: groupData.groupName,
-          seedMoney,
-          seedMoneyDueDate,
-          interestRate,
-          monthlyContribution,
-          loanPenalty,
-          monthlyPenalty,
-          cycleStartDate,
-          cycleDates: cycleDates.map((date) => date.timestamp),
-          displayCycleDates: cycleDates.map((date) => date.friendly),
-          createdAt: Timestamp.now(),
-          status: "active",
-          adminDetails: [], // ❌ Don't add admin details yet (admin not created yet)
-          paymentSummary: {
-            totalDue: seedMoney,
-            totalPaid: 0,
-            totalArrears: seedMoney,
-          },
-          approvedPayments: [],
-          pendingPayments: [],
-        });
-
-        // ✅ Commit group creation first before proceeding with user creation
-        await batch.commit();
-        console.log("✅ Group creation successful:", groupId);
-
-        // ✅ Now create the Firebase Auth user (Only after group is successfully created)
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-        userId = user.uid;
-
-        console.log("✅ Admin user created successfully:", userId);
-
-        // ✅ Reinitialize batch after user creation
-        const batch2 = writeBatch(db);
-
-        // ✅ Update Admin Details in Group Document
-        batch2.update(groupRef, {
-          adminDetails: [{ fullName: name, email, uid: userId }],
-        });
-
-        // ✅ Add Admin as a **Member** (Admins are also users in the group)
-        const memberRef = doc(db, `groups/${groupId}/members`, userId);
-        batch2.set(memberRef, {
-          uid: userId,
-          fullName: name,
-          email,
-          phone: groupData.phone,
-          role: "admin", // ✅ Admin role, but still a user
-          joinedAt: Timestamp.now(),
-          collateral: null,
-          balances: [],
-        });
-
-        // ✅ Add User Data
-        const userRef = doc(db, "users", userId);
-        batch2.set(userRef, {
-          uid: userId,
-          fullName: name,
-          email,
-          phone: groupData.phone,
-          roles: ["admin", "user"], // ✅ Admin is now a user too
-          createdAt: Timestamp.now(),
-          groupMemberships: [groupId],
-        });
-
-        // ✅ Initialize Payments Documents
-        const currentYear = new Date().getFullYear();
-        const sanitizedFullName = name.replace(/\s+/g, "_");
-
-        // ✅ Create Seed Money Document
-        const seedMoneyDocRef = doc(db, `groups/${groupId}/payments`, `${currentYear}_SeedMoney`);
-        batch2.set(seedMoneyDocRef, { createdAt: Timestamp.now() });
-
-        // ✅ Create User Seed Money Document
-        const userSeedMoneyRef = doc(collection(seedMoneyDocRef, sanitizedFullName), "PaymentDetails");
-        batch2.set(userSeedMoneyRef, {
-          userId,
-          fullName: name,
-          paymentType: "Seed Money",
-          totalAmount: seedMoney,
-          arrears: seedMoney,
-          approvalStatus: "unpaid",
-          paymentStatus: "unpaid",
-          dueDate: seedMoneyDueDate,
-          createdAt: Timestamp.now(),
-          updatedAt: null,
-        });
-
-        // ✅ Create Monthly Contributions Document
-        const monthlyContributionDocRef = doc(db, `groups/${groupId}/payments`, `${currentYear}_MonthlyContributions`);
-        batch2.set(monthlyContributionDocRef, { createdAt: Timestamp.now() });
-
-        // ✅ Create Monthly Contribution Payments for Each Month
-        const userMonthlyCollection = collection(monthlyContributionDocRef, sanitizedFullName);
-        cycleDates.forEach((date) => {
-          const monthlyPaymentDoc = doc(userMonthlyCollection, `${date.year}_${date.month}`);
-          batch2.set(monthlyPaymentDoc, {
-            userId,
-            fullName: name,
-            paymentType: "Monthly Contribution",
-            totalAmount: monthlyContribution,
-            arrears: monthlyContribution,
-            approvalStatus: "unpaid",
-            paymentStatus: "unpaid",
-            dueDate: date.timestamp,
-            createdAt: Timestamp.now(),
-            updatedAt: null,
-          });
-        });
-
-        // ✅ Commit all changes
-        await batch2.commit();
-        console.log("✅ User & payment records created successfully!");
-
-        // ✅ Update invitation code status
-        await setDoc(docRef, { used: true, groupId, approvedBy: userId }, { merge: true });
-
-        toggleLoadingOverlay(false);
-        alert("Your registration and group creation are complete.");
-        window.location.href = "../pages/admin_dashboard.html";
-      } catch (error) {
-        console.error("❌ Error during registration:", error.message);
-        toggleLoadingOverlay(false);
-        toggleFormFields(true);
-        alert(`Registration failed: ${error.message}`);
-      }
-    }
-  });
-}
-
 
 // Handle registration form submission
 registrationForm.addEventListener("submit", async (e) => {
@@ -359,6 +314,11 @@ registrationForm.addEventListener("submit", async (e) => {
     validateField(cycleStartDate, "Cycle Start Date"),
   ].filter((error) => error !== null);
 
+  // ✅ Validate password strength
+  if (password.length < 6) {
+    errors.push("Password must be at least 6 characters long.");
+  }
+
   // ✅ Validate phone input separately
   if (!validatePhoneInput() || !phone) {
     errors.push("Phone Number is invalid.");
@@ -372,8 +332,21 @@ registrationForm.addEventListener("submit", async (e) => {
   }
 
   try {
-    toggleLoadingOverlay(true, "Submitting your registration...");
+    toggleLoadingOverlay(true, "Validating your information...");
     toggleFormFields(false);
+
+    // ✅ Check if email already exists
+    const emailExists = await checkEmailExists(email);
+    if (emailExists) {
+      alert("An account with this email already exists. Please use a different email or login.");
+      submitButton.disabled = false;
+      toggleFormFields(true);
+      toggleLoadingOverlay(false);
+      return;
+    }
+
+    // ✅ All validation passed - now create user and group directly
+    toggleLoadingOverlay(true, "Creating your account and group...");
 
     // ✅ Format group data properly
     const groupData = {
@@ -388,20 +361,15 @@ registrationForm.addEventListener("submit", async (e) => {
       cycleStartDate,
     };
 
-    // ✅ Generate and save an invitation code
-    const generatedCode = await generateAndSaveInvitationCode(name, phone, email);
+    // ✅ Create user and group immediately (no approval needed for admin self-registration)
+    await createUserAndGroup(name, email, password, groupData);
 
-    // ✅ Track approval status if an invitation code is generated
-    if (invitationDocRef) {
-      await trackApprovalStatus(invitationDocRef.id, name, email, password, groupData);
-    }
   } catch (error) {
     console.error("❌ Error during registration:", error.message);
     alert(`An error occurred: ${error.message}`);
     toggleFormFields(true);
     toggleLoadingOverlay(false);
-  } finally {
-    submitButton.disabled = false; // Re-enable button after process
+    submitButton.disabled = false;
   }
 });
 

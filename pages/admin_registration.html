@@ -17,87 +17,106 @@
 <body>
   <div class="container">
     <h1>Admin Registration</h1>
+    <p class="subtitle">Create your admin account and set up your group</p>
     <form id="registrationForm">
 
       <!-- 🔹 USER DETAILS -->
       <fieldset>
         <legend>User Information</legend>
 
-        <label for="name">Full Name</label>
-        <input type="text" id="name" name="name" placeholder="Enter your full name" required>
+        <div class="form-group">
+          <label for="name">Full Name <span class="required">*</span></label>
+          <input type="text" id="name" name="name" placeholder="Enter your full name" required>
+          <span class="error-message" id="nameError"></span>
+        </div>
 
-        <label for="phone">Phone Number</label>
-        <input type="tel" id="phone" name="phone" placeholder="Enter your phone number" required>
+        <div class="form-group">
+          <label for="phone">Phone Number <span class="required">*</span></label>
+          <input type="tel" id="phone" name="phone" placeholder="Enter your phone number" required>
+          <span class="error-message" id="phoneError"></span>
+        </div>
 
-        <label for="email">Email Address</label>
-        <input type="email" id="email" name="email" placeholder="Enter your email address" required>
+        <div class="form-group">
+          <label for="email">Email Address <span class="required">*</span></label>
+          <input type="email" id="email" name="email" placeholder="Enter your email address" required>
+          <span class="error-message" id="emailError"></span>
+        </div>
 
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" placeholder="Create a strong password" required>
+        <div class="form-group">
+          <label for="password">Password <span class="required">*</span></label>
+          <input type="password" id="password" name="password" placeholder="Create a strong password (min. 6 characters)" required>
+          <span class="error-message" id="passwordError"></span>
+          <small class="helper-text">Password must be at least 6 characters long</small>
+        </div>
       </fieldset>
 
       <!-- 🔹 GROUP DETAILS -->
       <fieldset>
         <legend>Group Details</legend>
 
-        <label for="groupName">Group Name</label>
-        <input type="text" id="groupName" name="groupName" placeholder="Choose a group name" required>
-
-        <div class="input-pair">
-          <label for="seedMoney">Seed Money (MWK)</label>
-          <input type="number" id="seedMoney" name="seedMoney" placeholder="0.00" step="0.01" required>
+        <div class="form-group">
+          <label for="groupName">Group Name <span class="required">*</span></label>
+          <input type="text" id="groupName" name="groupName" placeholder="Choose a group name" required>
+          <span class="error-message" id="groupNameError"></span>
         </div>
 
-        <div class="input-pair">
-          <label for="seedMoneyDueDate">Seed Money Due Date</label>
+        <div class="form-group">
+          <label for="seedMoney">Seed Money (MWK) <span class="required">*</span></label>
+          <input type="number" id="seedMoney" name="seedMoney" placeholder="0.00" step="0.01" min="0" required>
+          <span class="error-message" id="seedMoneyError"></span>
+        </div>
+
+        <div class="form-group">
+          <label for="seedMoneyDueDate">Seed Money Due Date <span class="required">*</span></label>
           <input type="date" id="seedMoneyDueDate" name="seedMoneyDueDate" required>
+          <span class="error-message" id="seedMoneyDueDateError"></span>
         </div>
 
-        <div class="input-pair">
-          <label for="interestRate">Interest Rate</label>
+        <div class="form-group">
+          <label for="interestRate">Interest Rate (%) <span class="required">*</span></label>
           <div class="input-with-suffix">
-            <input type="number" id="interestRate" name="interestRate" placeholder="0.00" step="0.01" required>
+            <input type="number" id="interestRate" name="interestRate" placeholder="0.00" step="0.01" min="0" max="100" required>
             <span>%</span>
           </div>
+          <span class="error-message" id="interestRateError"></span>
         </div>
 
-        <div class="input-pair">
-          <label for="monthlyContribution">Monthly Contribution (MWK)</label>
-          <input type="number" id="monthlyContribution" name="monthlyContribution" placeholder="0.00" step="0.01" required>
+        <div class="form-group">
+          <label for="monthlyContribution">Monthly Contribution (MWK) <span class="required">*</span></label>
+          <input type="number" id="monthlyContribution" name="monthlyContribution" placeholder="0.00" step="0.01" min="0" required>
+          <span class="error-message" id="monthlyContributionError"></span>
         </div>
 
-        <div class="input-pair">
-          <label for="loanPenalty">Loan Penalty</label>
+        <div class="form-group">
+          <label for="loanPenalty">Loan Penalty (%) <span class="required">*</span></label>
           <div class="input-with-suffix">
-            <input type="number" id="loanPenalty" name="loanPenalty" placeholder="0.00" step="0.01" required>
+            <input type="number" id="loanPenalty" name="loanPenalty" placeholder="0.00" step="0.01" min="0" max="100" required>
             <span>%</span>
           </div>
+          <span class="error-message" id="loanPenaltyError"></span>
         </div>
 
-        <div class="input-pair">
-          <label for="monthlyPenalty">Monthly Penalty</label>
+        <div class="form-group">
+          <label for="monthlyPenalty">Monthly Penalty (%) <span class="required">*</span></label>
           <div class="input-with-suffix">
-            <input type="number" id="monthlyPenalty" name="monthlyPenalty" placeholder="0.00" step="0.01" required>
+            <input type="number" id="monthlyPenalty" name="monthlyPenalty" placeholder="0.00" step="0.01" min="0" max="100" required>
             <span>%</span>
           </div>
+          <span class="error-message" id="monthlyPenaltyError"></span>
         </div>
 
-        <label for="cycleStartDate">Cycle Start Date</label>
-        <input type="date" id="cycleStartDate" name="cycleStartDate" required>
-      </fieldset>
-
-      <!-- 🔹 INVITATION CODE -->
-      <fieldset>
-        <legend>Security & Authentication</legend>
-        <label for="invitationCode">Invitation Code</label>
-        <input type="text" id="invitationCode" name="invitationCode" placeholder="Auto-generated" readonly class="disabled-input">
+        <div class="form-group">
+          <label for="cycleStartDate">Cycle Start Date <span class="required">*</span></label>
+          <input type="date" id="cycleStartDate" name="cycleStartDate" required>
+          <span class="error-message" id="cycleStartDateError"></span>
+        </div>
       </fieldset>
 
       <!-- 🔹 SUBMIT BUTTON -->
       <button type="submit" id="registerBtn" disabled>Register</button>
 
-      <!-- 🔹 ERROR MESSAGE -->
-      <p id="errorMessage" class="error"></p>
+      <!-- 🔹 BACK TO LOGIN -->
+      <p class="login-link">Already have an account? <a href="../index.html">Login here</a></p>
     </form>
   </div>
 
@@ -119,6 +138,102 @@
       const decimalFields = document.querySelectorAll("#seedMoney, #monthlyContribution");
       const percentageFields = document.querySelectorAll("#interestRate, #loanPenalty, #monthlyPenalty");
 
+      // ✅ Validation patterns
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+      // ✅ Show error message
+      function showError(fieldId, message) {
+        const errorElement = document.getElementById(fieldId + "Error");
+        if (errorElement) {
+          errorElement.textContent = message;
+          errorElement.style.display = "block";
+        }
+        const field = document.getElementById(fieldId);
+        if (field) {
+          field.classList.add("invalid");
+          field.classList.remove("valid");
+        }
+      }
+
+      // ✅ Clear error message
+      function clearError(fieldId) {
+        const errorElement = document.getElementById(fieldId + "Error");
+        if (errorElement) {
+          errorElement.textContent = "";
+          errorElement.style.display = "none";
+        }
+        const field = document.getElementById(fieldId);
+        if (field) {
+          field.classList.remove("invalid");
+          if (field.value.trim() !== "") {
+            field.classList.add("valid");
+          }
+        }
+      }
+
+      // ✅ Validate individual field
+      function validateField(field) {
+        const fieldId = field.id;
+        const value = field.value.trim();
+
+        clearError(fieldId);
+
+        if (field.required && value === "") {
+          showError(fieldId, "This field is required");
+          return false;
+        }
+
+        switch (fieldId) {
+          case "name":
+            if (value.length < 2) {
+              showError(fieldId, "Name must be at least 2 characters long");
+              return false;
+            }
+            break;
+          case "email":
+            if (!emailPattern.test(value)) {
+              showError(fieldId, "Please enter a valid email address");
+              return false;
+            }
+            break;
+          case "password":
+            if (value.length < 6) {
+              showError(fieldId, "Password must be at least 6 characters long");
+              return false;
+            }
+            break;
+          case "seedMoney":
+          case "monthlyContribution":
+            const amount = parseFloat(value);
+            if (isNaN(amount) || amount < 0) {
+              showError(fieldId, "Please enter a valid positive amount");
+              return false;
+            }
+            break;
+          case "interestRate":
+          case "loanPenalty":
+          case "monthlyPenalty":
+            const percentage = parseFloat(value);
+            if (isNaN(percentage) || percentage < 0 || percentage > 100) {
+              showError(fieldId, "Please enter a valid percentage (0-100)");
+              return false;
+            }
+            break;
+          case "seedMoneyDueDate":
+          case "cycleStartDate":
+            const selectedDate = new Date(value);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (selectedDate < today) {
+              showError(fieldId, "Date cannot be in the past");
+              return false;
+            }
+            break;
+        }
+
+        return true;
+      }
+
       // ✅ Auto-format decimals
       function formatDecimals(field) {
         let value = field.value.trim();
@@ -127,15 +242,29 @@
         }
       }
 
-      // ✅ Check if form is complete
+      // ✅ Check if form is complete and valid
       function validateForm() {
-        submitButton.disabled = !Array.from(fields).every(field => field.value.trim() !== "");
+        let allValid = true;
+        fields.forEach(field => {
+          if (field.value.trim() === "") {
+            allValid = false;
+          }
+        });
+        submitButton.disabled = !allValid;
       }
 
-      // ✅ Attach blur events
+      // ✅ Attach blur events for validation
+      fields.forEach(field => {
+        field.addEventListener("blur", () => {
+          validateField(field);
+          validateForm();
+        });
+        field.addEventListener("input", validateForm);
+      });
+
+      // ✅ Attach decimal formatting
       decimalFields.forEach(field => field.addEventListener("blur", () => formatDecimals(field)));
       percentageFields.forEach(field => field.addEventListener("blur", () => formatDecimals(field)));
-      fields.forEach(field => field.addEventListener("input", validateForm));
 
       validateForm(); // Initial check
     });
