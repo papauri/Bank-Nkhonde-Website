@@ -27,6 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const switchViewButton = document.getElementById("switchViewButton");
   const logoutButton = document.getElementById("logoutButton");
   const createGroupButton = document.getElementById("createGroupButton");
+  const analyticsButton = document.getElementById("analyticsButton");
   const settingsButton = document.getElementById("settingsButton");
 
   let isAdminView = true;
@@ -202,6 +203,13 @@ document.addEventListener("DOMContentLoaded", () => {
   createGroupButton.addEventListener("click", () => {
     window.location.href = "../pages/create_group.html";
   });
+
+  // ✅ Navigate to Analytics
+  if (analyticsButton) {
+    analyticsButton.addEventListener("click", () => {
+      window.location.href = "../pages/analytics.html";
+    });
+  }
 
   // ✅ Navigate to Settings
   settingsButton.addEventListener("click", () => {
