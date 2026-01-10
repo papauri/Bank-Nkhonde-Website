@@ -41,6 +41,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const pendingApprovalContainer = document.getElementById("pendingApprovalContainer");
   const unpaidContributionsContainer = document.getElementById("unpaidContributionsContainer");
   const backButton = document.getElementById("backButton");
+  const manageMembersButton = document.getElementById("manageMembersButton");
 
   // 🔹 Fetch Group Details
   async function fetchGroupDetails(groupId) {
@@ -358,4 +359,11 @@ function formatFriendlyDate(date) {
   backButton.addEventListener("click", () => {
     window.location.href = "admin_dashboard.html";
   });
+
+  // ✅ Navigate to Manage Members page
+  if (manageMembersButton) {
+    manageMembersButton.addEventListener("click", () => {
+      window.location.href = `manage_members.html?groupId=${groupId}`;
+    });
+  }
 });
