@@ -8,7 +8,10 @@ import {
   addDoc,
   onSnapshot,
   Timestamp,
-  writeBatch, // ✅ Import Firestore's writeBatch correctly
+  writeBatch,
+  query,
+  where,
+  getDocs,
 } from "./firebaseConfig.js";
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -82,6 +85,20 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   
     return true;
+  }
+
+  // ✅ Check if email already exists in Firebase Auth
+  async function checkEmailExists(email) {
+    try {
+      // Query Firestore to check if email exists in users collection
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("email", "==", email));
+      const querySnapshot = await getDocs(q);
+      return !querySnapshot.empty;
+    } catch (error) {
+      console.error("Error checking email:", error);
+      return false;
+    }
   }
   
 
@@ -257,14 +274,13 @@ async function trackApprovalStatus(invitationDocId, name, email, password, group
 
         // ✅ Initialize Payments Documents
         const currentYear = new Date().getFullYear();
-        const sanitizedFullName = name.replace(/\s+/g, "_");
 
         // ✅ Create Seed Money Document
         const seedMoneyDocRef = doc(db, `groups/${groupId}/payments`, `${currentYear}_SeedMoney`);
         batch2.set(seedMoneyDocRef, { createdAt: Timestamp.now() });
 
-        // ✅ Create User Seed Money Document
-        const userSeedMoneyRef = doc(collection(seedMoneyDocRef, sanitizedFullName), "PaymentDetails");
+        // ✅ Create User Seed Money Document using UID
+        const userSeedMoneyRef = doc(collection(seedMoneyDocRef, userId), "PaymentDetails");
         batch2.set(userSeedMoneyRef, {
           userId,
           fullName: name,
@@ -282,8 +298,8 @@ async function trackApprovalStatus(invitationDocId, name, email, password, group
         const monthlyContributionDocRef = doc(db, `groups/${groupId}/payments`, `${currentYear}_MonthlyContributions`);
         batch2.set(monthlyContributionDocRef, { createdAt: Timestamp.now() });
 
-        // ✅ Create Monthly Contribution Payments for Each Month
-        const userMonthlyCollection = collection(monthlyContributionDocRef, sanitizedFullName);
+        // ✅ Create Monthly Contribution Payments for Each Month using UID
+        const userMonthlyCollection = collection(monthlyContributionDocRef, userId);
         cycleDates.forEach((date) => {
           const monthlyPaymentDoc = doc(userMonthlyCollection, `${date.year}_${date.month}`);
           batch2.set(monthlyPaymentDoc, {
@@ -359,6 +375,11 @@ registrationForm.addEventListener("submit", async (e) => {
     validateField(cycleStartDate, "Cycle Start Date"),
   ].filter((error) => error !== null);
 
+  // ✅ Validate password strength
+  if (password.length < 6) {
+    errors.push("Password must be at least 6 characters long.");
+  }
+
   // ✅ Validate phone input separately
   if (!validatePhoneInput() || !phone) {
     errors.push("Phone Number is invalid.");
@@ -372,8 +393,18 @@ registrationForm.addEventListener("submit", async (e) => {
   }
 
   try {
-    toggleLoadingOverlay(true, "Submitting your registration...");
+    toggleLoadingOverlay(true, "Validating your information...");
     toggleFormFields(false);
+
+    // ✅ Check if email already exists
+    const emailExists = await checkEmailExists(email);
+    if (emailExists) {
+      alert("An account with this email already exists. Please use a different email or login.");
+      submitButton.disabled = false;
+      toggleFormFields(true);
+      toggleLoadingOverlay(false);
+      return;
+    }
 
     // ✅ Format group data properly
     const groupData = {
@@ -389,6 +420,7 @@ registrationForm.addEventListener("submit", async (e) => {
     };
 
     // ✅ Generate and save an invitation code
+    toggleLoadingOverlay(true, "Submitting your registration...");
     const generatedCode = await generateAndSaveInvitationCode(name, phone, email);
 
     // ✅ Track approval status if an invitation code is generated
