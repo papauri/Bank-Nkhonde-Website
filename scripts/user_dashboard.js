@@ -105,6 +105,101 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Load groups where user is an admin
+  async function loadGroups(user) {
+    groupList.innerHTML = "<li>Loading your groups...</li>";
+    try {
+      const groupsRef = collection(db, "groups");
+      const querySnapshot = await getDocs(groupsRef);
+
+      groupList.innerHTML = "";
+
+      let isAdminOfAnyGroup = false;
+
+      querySnapshot.forEach((docSnapshot) => {
+        const groupData = docSnapshot.data();
+        const groupId = docSnapshot.id;
+
+        // Check if user is an admin of the group
+        const isAdmin = groupData.adminDetails?.some(
+          (admin) => admin.email === user.email || admin.uid === user.uid
+        );
+        
+        if (!isAdmin) return;
+        isAdminOfAnyGroup = true;
+
+        // Create clickable list item for group
+        const groupItem = document.createElement("li");
+        groupItem.classList.add("group-item");
+
+        const link = document.createElement("a");
+        link.href = `group_page.html?groupId=${groupId}`;
+        link.className = "group-link";
+
+        const groupDetails = document.createElement("div");
+        groupDetails.className = "group-details";
+
+        const title = document.createElement("h3");
+        title.textContent = groupData.groupName; // Use textContent to prevent XSS
+
+        const createdPara = document.createElement("p");
+        createdPara.textContent = `Created: ${
+          groupData.createdAt?.toDate
+            ? new Date(groupData.createdAt.toDate()).toLocaleDateString()
+            : "N/A"
+        }`;
+
+        const membersPara = document.createElement("p");
+        membersPara.textContent = "Members: Loading...";
+
+        groupDetails.appendChild(title);
+        groupDetails.appendChild(createdPara);
+        groupDetails.appendChild(membersPara);
+        link.appendChild(groupDetails);
+        groupItem.appendChild(link);
+
+        groupList.appendChild(groupItem);
+
+        // Fetch member count dynamically
+        getDocs(collection(db, "groups", groupId, "members")).then((membersSnapshot) => {
+          const memberCount = membersSnapshot.size;
+          membersPara.textContent = `Members: ${memberCount}`;
+        });
+      });
+
+      if (!isAdminOfAnyGroup) {
+        groupList.innerHTML = "<li>You are not an admin of any groups.</li>";
+      }
+    } catch (error) {
+      console.error("Error loading admin groups:", error.message);
+      groupList.innerHTML = "<li>Error loading groups. Please try again later.</li>";
+    }
+  }
+
+
+
+  // Check if user is admin of any group
+  async function checkIfUserIsAdmin(user) {
+    try {
+      const groupsRef = collection(db, "groups");
+      const querySnapshot = await getDocs(groupsRef);
+      
+      for (const docSnapshot of querySnapshot.docs) {
+        const groupData = docSnapshot.data();
+        const isAdmin = groupData.adminDetails?.some(
+          (admin) => admin.email === user.email || admin.uid === user.uid
+        );
+        if (isAdmin) {
+          return true;
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error("Error checking admin status:", error.message);
+      return false;
+    }
+  }
+
   // Fetch user’s name
   async function fetchUserName(user) {
     try {
@@ -144,6 +239,17 @@ document.addEventListener("DOMContentLoaded", () => {
       const userName = await fetchUserName(user);
       userNameSpan.textContent = userName;
       welcomeMessage.textContent = `Welcome, ${userName}`;
+      
+      // Check if user is an admin of any group
+      const isAdmin = await checkIfUserIsAdmin(user);
+      
+      // Show/hide switch view button based on admin status
+      if (isAdmin) {
+        switchViewButton.style.display = "block";
+      } else {
+        switchViewButton.style.display = "none";
+      }
+      
       await loadUserGroups(user);
       resetSessionTimer();
     } else {

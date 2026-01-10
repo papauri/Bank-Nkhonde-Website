@@ -6,6 +6,9 @@ import {
   where,
   getDocs,
   updateDoc,
+  deleteDoc,
+  Timestamp,
+  onSnapshot,
 } from "./firebaseConfig.js";
 
 
@@ -72,23 +75,77 @@ export async function validateInvitationCode(code) {
   }
 }
 
-// Mark the invitation code as used
-export async function markCodeAsUsed(code) {
+// Mark the invitation code as used and delete it immediately
+export async function markCodeAsUsedAndDelete(code) {
   try {
     const codeQuery = query(collection(db, "invitationCodes"), where("code", "==", code));
     const querySnapshot = await getDocs(codeQuery);
 
     if (!querySnapshot.empty) {
       const invitationDocRef = querySnapshot.docs[0].ref;
-      await updateDoc(invitationDocRef, { used: true });
-      console.log("Invitation code marked as used.");
+      // Delete the document immediately after use
+      await deleteDoc(invitationDocRef);
+      console.log("Invitation code deleted after use.");
     } else {
       console.warn("No matching invitation code found.");
     }
   } catch (err) {
-    console.error("Error marking code as used:", err);
-    alert("Failed to mark the invitation code as used. Please try again.");
+    console.error("Error deleting code:", err);
+    alert("Failed to process the invitation code. Please try again.");
   }
+}
+
+// Poll for registration key approval using real-time listener
+export async function pollForApproval(code, maxWaitTimeMs = 300000) {
+  const startTime = Date.now();
+  let resolved = false; // Flag to prevent multiple rejections
+  
+  return new Promise((resolve, reject) => {
+    const codeQuery = query(collection(db, "invitationCodes"), where("code", "==", code));
+    
+    // Use real-time listener instead of polling
+    const unsubscribe = onSnapshot(codeQuery, (snapshot) => {
+      if (resolved) return; // Already handled
+      
+      if (snapshot.empty) {
+        resolved = true;
+        unsubscribe();
+        reject(new Error("Registration key not found. It may have been deleted."));
+        return;
+      }
+
+      const invitationDoc = snapshot.docs[0];
+      const invitationData = invitationDoc.data();
+
+      if (invitationData.approved) {
+        resolved = true;
+        unsubscribe();
+        resolve(true);
+        return;
+      }
+
+      // Check if we've exceeded max wait time
+      if (Date.now() - startTime > maxWaitTimeMs) {
+        resolved = true;
+        unsubscribe();
+        reject(new Error("Registration key approval timeout. Please contact an administrator."));
+      }
+    }, (error) => {
+      if (!resolved) {
+        resolved = true;
+        reject(error);
+      }
+    });
+    
+    // Set a timeout to clean up the listener
+    setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        unsubscribe();
+        reject(new Error("Registration key approval timeout. Please contact an administrator."));
+      }
+    }, maxWaitTimeMs);
+  });
 }
 
 // Automatically create an invitation code on page load

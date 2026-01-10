@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings</title>
+  <link rel="stylesheet" href="../styles/settings.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header Section -->
+    <header class="header">
+      <h1 id="settingsTitle">Settings</h1>
+      <button id="backButton" class="button back">Back to Dashboard</button>
+    </header>
+
+    <!-- Settings Content -->
+    <div class="settings-content">
+      
+      <!-- Profile Settings -->
+      <section class="settings-section">
+        <h2>Profile Settings</h2>
+        <div class="form-group">
+          <label for="fullName">Full Name</label>
+          <input type="text" id="fullName" placeholder="Your full name">
+        </div>
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" placeholder="Your email" readonly>
+          <small>Email cannot be changed</small>
+        </div>
+        <div class="form-group">
+          <label for="phone">Phone Number</label>
+          <input type="tel" id="phone" placeholder="Your phone number">
+        </div>
+        <button id="saveProfileBtn" class="button primary">Save Profile</button>
+      </section>
+
+      <!-- Password Change -->
+      <section class="settings-section">
+        <h2>Change Password</h2>
+        <div class="form-group">
+          <label for="currentPassword">Current Password</label>
+          <input type="password" id="currentPassword" placeholder="Enter current password">
+        </div>
+        <div class="form-group">
+          <label for="newPassword">New Password</label>
+          <input type="password" id="newPassword" placeholder="Enter new password">
+        </div>
+        <div class="form-group">
+          <label for="confirmPassword">Confirm New Password</label>
+          <input type="password" id="confirmPassword" placeholder="Confirm new password">
+        </div>
+        <button id="changePasswordBtn" class="button primary">Change Password</button>
+      </section>
+
+      <!-- Admin-Only Settings -->
+      <section class="settings-section admin-only" style="display: none;">
+        <h2>Admin Settings</h2>
+        
+        <!-- Group Management -->
+        <div class="subsection">
+          <h3>Group Management</h3>
+          <div id="adminGroupsList"></div>
+        </div>
+
+        <!-- Email Invite Settings -->
+        <div class="subsection">
+          <h3>Email Invitations</h3>
+          <p>Send email invitations to new members to join your group.</p>
+          <div class="form-group">
+            <label for="inviteEmail">Member Email Address</label>
+            <input type="email" id="inviteEmail" placeholder="member@example.com">
+          </div>
+          <div class="form-group">
+            <label for="inviteGroup">Select Group</label>
+            <select id="inviteGroup">
+              <option value="">Loading groups...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="inviteMessage">Custom Message (Optional)</label>
+            <textarea id="inviteMessage" rows="4" placeholder="Add a personal message to the invitation..."></textarea>
+          </div>
+          <button id="sendInviteBtn" class="button primary">Send Invitation</button>
+        </div>
+
+        <!-- Registration Key Management -->
+        <div class="subsection">
+          <h3>Registration Keys</h3>
+          <p>Create and manage registration keys for new admin accounts.</p>
+          <button id="createRegistrationKeyBtn" class="button secondary">Create New Registration Key</button>
+          <div id="registrationKeysList" class="keys-list"></div>
+        </div>
+
+        <!-- Group Settings -->
+        <div class="subsection">
+          <h3>Update Group Settings</h3>
+          <div class="form-group">
+            <label for="editGroup">Select Group to Edit</label>
+            <select id="editGroup">
+              <option value="">Select a group...</option>
+            </select>
+          </div>
+          <div id="groupEditForm" style="display: none;">
+            <div class="form-group">
+              <label for="editSeedMoney">Seed Money (MWK)</label>
+              <input type="number" id="editSeedMoney" step="0.01" min="0">
+            </div>
+            <div class="form-group">
+              <label for="editMonthlyContribution">Monthly Contribution (MWK)</label>
+              <input type="number" id="editMonthlyContribution" step="0.01" min="0">
+            </div>
+            <div class="form-group">
+              <label for="editInterestRate">Interest Rate (%)</label>
+              <input type="number" id="editInterestRate" step="0.01" min="0" max="100">
+            </div>
+            <div class="form-group">
+              <label for="editLoanPenalty">Loan Penalty (%)</label>
+              <input type="number" id="editLoanPenalty" step="0.01" min="0" max="100">
+            </div>
+            <div class="form-group">
+              <label for="editMonthlyPenalty">Monthly Penalty (%)</label>
+              <input type="number" id="editMonthlyPenalty" step="0.01" min="0" max="100">
+            </div>
+            <button id="saveGroupSettingsBtn" class="button primary">Save Group Settings</button>
+          </div>
+        </div>
+
+        <!-- Member Management -->
+        <div class="subsection">
+          <h3>Member Management</h3>
+          <div class="form-group">
+            <label for="manageMembersGroup">Select Group</label>
+            <select id="manageMembersGroup">
+              <option value="">Select a group...</option>
+            </select>
+          </div>
+          <div id="membersList"></div>
+        </div>
+      </section>
+
+      <!-- Notification Settings -->
+      <section class="settings-section">
+        <h2>Notification Preferences</h2>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="emailNotifications" checked>
+          <label for="emailNotifications">Email Notifications</label>
+        </div>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="paymentReminders" checked>
+          <label for="paymentReminders">Payment Reminders</label>
+        </div>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="loanAlerts" checked>
+          <label for="loanAlerts">Loan Alerts</label>
+        </div>
+        <button id="saveNotificationsBtn" class="button primary">Save Preferences</button>
+      </section>
+
+      <!-- Account Actions -->
+      <section class="settings-section danger-zone">
+        <h2>Account Actions</h2>
+        <button id="logoutBtn" class="button secondary">Logout</button>
+        <button id="deleteAccountBtn" class="button danger">Delete Account</button>
+      </section>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="spinner"></div>
+    <p id="loadingMessage">Processing...</p>
+  </div>
+
+  <script type="module" src="../scripts/settings.js"></script>
+</body>
+</html>
