@@ -211,6 +211,8 @@ document.addEventListener("DOMContentLoaded", () => {
         description: "", // Optional group description
         createdAt: Timestamp.now(),
         createdBy: userId,
+        updatedAt: Timestamp.now(),
+        lastModifiedBy: userId,
         status: "active",
         
         // Structured rules object for flexibility
@@ -218,28 +220,41 @@ document.addEventListener("DOMContentLoaded", () => {
           seedMoney: {
             amount: seedMoney,
             dueDate: seedMoneyDueDate,
-            required: true
+            required: true,
+            allowPartialPayment: false
           },
           monthlyContribution: {
             amount: monthlyContribution,
             required: true,
-            dayOfMonth: new Date(groupData.cycleStartDate).getDate()
+            dayOfMonth: new Date(groupData.cycleStartDate).getDate(),
+            allowPartialPayment: true
           },
           interestRate: interestRate,
           loanPenalty: {
             rate: loanPenalty,
-            type: "percentage"
+            type: "percentage",
+            gracePeriodDays: 0
           },
           monthlyPenalty: {
             rate: monthlyPenalty,
-            type: "percentage"
+            type: "percentage",
+            gracePeriodDays: 0
           },
           cycleDuration: {
             startDate: cycleStartDate,
             endDate: null, // Can be set later
-            months: 12
+            months: 12,
+            autoRenew: false
           },
-          customRules: [] // For future flexibility
+          loanRules: {
+            maxLoanAmount: 0, // To be set by admin
+            minLoanAmount: 0,
+            maxActiveLoansByMember: 1,
+            requireCollateral: true,
+            minRepaymentMonths: 1,
+            maxRepaymentMonths: 12
+          },
+          customRules: []
         },
         
         // Cycle dates for reference
@@ -249,19 +264,72 @@ document.addEventListener("DOMContentLoaded", () => {
         // Group statistics
         statistics: {
           totalMembers: 1,
+          activeMembers: 1,
           totalFunds: 0,
-          totalLoans: 0,
-          totalArrears: seedMoney
+          totalLoansActive: 0,
+          totalLoansRepaid: 0,
+          totalArrears: seedMoney,
+          totalPenalties: 0,
+          lastUpdated: Timestamp.now()
         },
         
         // Admin information
         admins: [{ 
           uid: userId, 
           fullName: name, 
-          email, 
+          email,
+          phone: groupData.phone,
+          whatsappNumber: groupData.phone, // Default to phone number
           role: "senior_admin",
-          assignedAt: Timestamp.now()
-        }]
+          assignedAt: Timestamp.now(),
+          assignedBy: "system",
+          isContactAdmin: true,
+          canPromoteMembers: true,
+          permissions: {
+            canApprovePayments: true,
+            canApproveLoan: true,
+            canAddMembers: true,
+            canRemoveMembers: true,
+            canPromoteToAdmin: true,
+            canDemoteAdmin: true,
+            canSendBroadcasts: true,
+            canManageSettings: true,
+            canViewReports: true
+          }
+        }],
+        
+        // Contact Information
+        contactInfo: {
+          primaryAdmin: {
+            uid: userId,
+            fullName: name,
+            email,
+            phone: groupData.phone,
+            whatsappNumber: groupData.phone,
+            profileImageUrl: "",
+            role: "senior_admin",
+            availableForChat: true,
+            preferredContactMethod: "chat"
+          },
+          secondaryAdmins: [],
+          groupEmail: email,
+          groupPhone: groupData.phone,
+          officeHours: "Monday - Friday, 9:00 AM - 5:00 PM",
+          emergencyContact: {
+            name: name,
+            phone: groupData.phone,
+            relationship: "Senior Admin"
+          }
+        },
+        
+        // Activity tracking
+        activityLog: {
+          lastPaymentApproved: null,
+          lastLoanApproved: null,
+          lastMemberAdded: Timestamp.now(),
+          lastMeetingDate: null,
+          lastBadgeConfigUpdate: null
+        }
       });
 
       // ✅ Add Admin as a Member with improved structure

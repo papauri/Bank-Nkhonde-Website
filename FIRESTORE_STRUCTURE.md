@@ -162,14 +162,28 @@ Stores global user information across all groups.
   email: string,                  // User's email (unique)
   fullName: string,               // User's full name
   phone: string,                  // Phone number with country code
+  whatsappNumber: string,         // WhatsApp number (can be different from phone)
   createdAt: Timestamp,           // Account creation date
   updatedAt: Timestamp,           // Last profile update
   profileImageUrl: string,        // Optional profile picture
+  
+  // Contact preferences
+  contactPreferences: {
+    preferredContactMethod: string,  // 'chat', 'phone', 'whatsapp', 'email'
+    availableForChat: boolean,       // Whether available for in-app chat
+    showPhoneNumber: boolean,        // Show phone in "Contact Admin" page
+    showWhatsAppNumber: boolean,     // Show WhatsApp in "Contact Admin" page
+    showEmail: boolean               // Show email in "Contact Admin" page
+  },
+  
   groupMemberships: [             // Array of group IDs where user is a member
     {
       groupId: string,
       role: string,               // 'admin', 'member', 'senior_admin'
-      joinedAt: Timestamp
+      joinedAt: Timestamp,
+      promotedToAdminAt: Timestamp,  // When promoted to admin (if applicable)
+      promotedBy: string,            // Who promoted them
+      permissions: object            // Role-specific permissions
     }
   ]
 }
@@ -193,7 +207,60 @@ Stores group-level configuration and settings.
   lastModifiedBy: string,              // UID of last person to modify group
   status: string,                      // 'active', 'inactive', 'dissolved', 'suspended'
   
-  // Group Financial Rules
+  // Group Rules and Regulations Documents
+  rulesDocuments: [
+    {
+      documentId: string,              // Unique ID for document
+      fileName: string,                // Original file name
+      fileUrl: string,                 // Firebase Storage URL
+      fileType: string,                // 'pdf', 'doc', 'docx'
+      fileSize: number,                // File size in bytes
+      version: number,                 // Version number (1, 2, 3, etc.)
+      isCurrentVersion: boolean,       // Whether this is the active version
+      
+      // Metadata
+      title: string,                   // Document title (e.g., "Group Rules and Regulations 2024")
+      description: string,             // Brief description
+      effectiveDate: Timestamp,        // When these rules take effect
+      
+      // Upload information
+      uploadedBy: string,              // UID of admin who uploaded
+      uploadedByName: string,
+      uploadedAt: Timestamp,
+      
+      // Access tracking
+      viewCount: number,               // How many times viewed
+      downloadCount: number,           // How many times downloaded
+      lastViewedAt: Timestamp,
+      
+      // Acknowledgment tracking
+      requiresAcknowledgment: boolean, // Members must acknowledge reading
+      acknowledgedBy: [                // List of members who acknowledged
+        {
+          uid: string,
+          name: string,
+          acknowledgedAt: Timestamp,
+          ipAddress: string
+        }
+      ],
+      
+      // Status
+      status: string,                  // 'draft', 'published', 'archived'
+      archivedAt: Timestamp,
+      archivedReason: string
+    }
+  ],
+  
+  // Quick reference to current rules document
+  currentRulesDocument: {
+    documentId: string,
+    fileUrl: string,
+    version: number,
+    uploadedAt: Timestamp,
+    effectiveDate: Timestamp
+  },
+  
+  // Group Financial Rules (programmatic rules)
   rules: {
     seedMoney: {
       amount: number,                  // Required seed money amount
@@ -261,11 +328,158 @@ Stores group-level configuration and settings.
       uid: string,
       email: string,
       fullName: string,
+      phone: string,                   // Admin contact phone
+      whatsappNumber: string,          // Admin WhatsApp number (can be different)
       role: string,                    // 'senior_admin', 'admin'
       assignedAt: Timestamp,
-      assignedBy: string               // Who assigned this admin
+      assignedBy: string,              // Who assigned this admin
+      isContactAdmin: boolean,         // Show in "Contact Admin" page
+      canPromoteMembers: boolean,      // Permission to promote members to admin
+      permissions: {
+        canApprovePayments: boolean,
+        canApproveLoan: boolean,
+        canAddMembers: boolean,
+        canRemoveMembers: boolean,
+        canPromoteToAdmin: boolean,
+        canDemoteAdmin: boolean,
+        canSendBroadcasts: boolean,
+        canManageSettings: boolean,
+        canViewReports: boolean
+      }
     }
   ],
+  
+  // Contact Information (for "Contact Admin" page)
+  contactInfo: {
+    primaryAdmin: {
+      uid: string,
+      fullName: string,
+      email: string,
+      phone: string,
+      whatsappNumber: string,
+      profileImageUrl: string,
+      role: string,
+      availableForChat: boolean,       // Show in-app chat option
+      preferredContactMethod: string   // 'chat', 'phone', 'whatsapp', 'email'
+    },
+    secondaryAdmins: [                 // Other admins available for contact
+      {
+        uid: string,
+        fullName: string,
+        email: string,
+        phone: string,
+        whatsappNumber: string,
+        profileImageUrl: string,
+        role: string,
+        availableForChat: boolean
+      }
+    ],
+    groupEmail: string,                // General group email
+    groupPhone: string,                // General group phone
+    officeHours: string,               // E.g., "Mon-Fri 9am-5pm"
+    emergencyContact: {
+      name: string,
+      phone: string,
+      relationship: string             // E.g., "Senior Admin", "Group Secretary"
+    }
+  },
+  
+  // Bank Account Details (for group deposits/payments)
+  bankAccountDetails: {
+    // Primary account
+    primaryAccount: {
+      bankName: string,                // "National Bank of Malawi", "Standard Bank", etc.
+      accountName: string,             // Account holder name
+      accountNumber: string,           // Account number
+      accountType: string,             // 'savings', 'current', 'business'
+      branchName: string,              // Bank branch
+      branchCode: string,              // Branch code (if applicable)
+      swiftCode: string,               // For international (if applicable)
+      currency: string,                // 'MWK', 'USD', etc.
+      
+      // QR Code for mobile money
+      mobileMoneyNumber: string,       // Airtel Money, TNM Mpamba number
+      mobileMoneyProvider: string,     // 'Airtel Money', 'TNM Mpamba', 'FDH Mobile'
+      mobileMoneyQRCode: string,       // URL to QR code image
+      
+      // Status
+      isActive: boolean,
+      isPrimary: boolean,
+      addedBy: string,
+      addedAt: Timestamp,
+      verifiedBy: string,
+      verifiedAt: Timestamp
+    },
+    
+    // Alternative accounts (optional)
+    alternativeAccounts: [
+      {
+        accountId: string,
+        bankName: string,
+        accountName: string,
+        accountNumber: string,
+        accountType: string,
+        branchName: string,
+        purpose: string,               // 'loan_disbursement', 'savings', 'emergency_fund'
+        isActive: boolean,
+        addedBy: string,
+        addedAt: Timestamp
+      }
+    ],
+    
+    // Mobile Money Details
+    mobileMoney: {
+      airtelMoney: {
+        enabled: boolean,
+        number: string,
+        accountName: string,
+        qrCodeUrl: string
+      },
+      tnmMpamba: {
+        enabled: boolean,
+        number: string,
+        accountName: string,
+        qrCodeUrl: string
+      },
+      fdhMobile: {
+        enabled: boolean,
+        number: string,
+        accountName: string,
+        qrCodeUrl: string
+      }
+    },
+    
+    // Payment Instructions
+    paymentInstructions: {
+      preferredMethod: string,         // 'bank_transfer', 'mobile_money', 'cash'
+      bankTransferInstructions: string, // Step-by-step guide
+      mobileMoneyInstructions: string,
+      cashDepositInstructions: string,
+      referenceFormat: string,         // How members should format payment reference
+      proofRequired: boolean,          // Whether proof of payment is required
+      approvalTimeframe: string        // "Within 24 hours", etc.
+    },
+    
+    // Visibility Settings
+    visibility: {
+      showToAllMembers: boolean,       // Show account details to all members
+      showOnDashboard: boolean,        // Display on user dashboard
+      allowDownload: boolean,          // Allow downloading account details as PDF
+      restrictedFields: [string]       // Fields to hide from regular members
+    },
+    
+    // Update tracking
+    lastUpdatedBy: string,
+    lastUpdatedAt: Timestamp,
+    updateHistory: [
+      {
+        updatedBy: string,
+        updatedByName: string,
+        updatedAt: Timestamp,
+        changes: string                // Description of changes
+      }
+    ]
+  },
   
   // Badge and Alert Configuration
   badgeSettings: {
@@ -400,6 +614,8 @@ Stores group-level configuration and settings.
 - `messages`: Group messaging and support tickets
 - `broadcasts`: Group-wide announcements from admins
 - `badges`: Active badges for members (auto-generated and manual)
+- `adminRoleChanges`: History of member promotions/demotions
+- `monthlyReports`: Monthly financial summaries and reports
 - `meetings`: Meeting records (optional)
 - `notifications`: Group-specific notifications (deprecated - use root notifications collection)
 
@@ -422,6 +638,11 @@ Stores member-specific data within a group.
   status: string,                 // 'active', 'inactive', 'suspended', 'left'
   lastActive: Timestamp,          // Last time member was active
   
+  // Profile Information
+  profileImageUrl: string,        // Member's profile picture URL
+  profileImageUpdatedAt: Timestamp, // When profile picture was last updated
+  profileImageUpdatedBy: string,  // UID of who updated (admin or user themselves)
+  
   // Member-specific settings
   collateral: string,             // Collateral information (optional)
   customPaymentRules: {           // Override group defaults if needed
@@ -429,6 +650,95 @@ Stores member-specific data within a group.
     monthlyContribution: number,  // Custom monthly contribution
     applyPenalties: boolean,      // Whether to apply penalties to this member
     notes: string                 // Reason for custom rules
+  },
+  
+  // Guarantors and Surety
+  guarantors: [
+    {
+      guarantorId: string,        // Unique ID for guarantor
+      name: string,               // Guarantor's full name
+      phone: string,              // Guarantor's phone number
+      email: string,              // Guarantor's email
+      relationship: string,       // 'family', 'friend', 'colleague', 'other'
+      idNumber: string,           // National ID or other ID number
+      address: string,            // Physical address
+      occupation: string,         // Guarantor's occupation
+      employer: string,           // Employer name
+      
+      // Agreement details
+      agreedToGuarantee: boolean,
+      agreedAt: Timestamp,
+      maxGuaranteeAmount: number, // Maximum amount willing to guarantee
+      
+      // Contact verification
+      phoneVerified: boolean,
+      emailVerified: boolean,
+      verifiedBy: string,         // Admin who verified
+      verifiedAt: Timestamp,
+      
+      // Documents
+      documents: [
+        {
+          type: string,           // 'id_copy', 'signature', 'proof_of_income', 'other'
+          url: string,
+          uploadedAt: Timestamp,
+          uploadedBy: string
+        }
+      ],
+      
+      // Status
+      status: string,             // 'active', 'inactive', 'revoked'
+      notes: string,
+      addedBy: string,            // Admin who added guarantor
+      addedAt: Timestamp
+    }
+  ],
+  
+  surety: {
+    // Surety provided by member for the group
+    suretyType: string,           // 'property', 'cash', 'asset', 'guarantor', 'none'
+    suretyValue: number,          // Estimated value
+    description: string,          // Description of surety
+    
+    // Property details (if applicable)
+    propertyDetails: {
+      type: string,               // 'land', 'house', 'vehicle', 'other'
+      location: string,
+      titleDeedNumber: string,
+      estimatedValue: number,
+      ownershipProof: string      // Document URL
+    },
+    
+    // Asset details (if applicable)
+    assetDetails: {
+      type: string,
+      description: string,
+      serialNumber: string,
+      estimatedValue: number,
+      photos: [string]            // Array of photo URLs
+    },
+    
+    // Documents
+    documents: [
+      {
+        type: string,
+        url: string,
+        uploadedAt: Timestamp,
+        uploadedBy: string
+      }
+    ],
+    
+    // Verification
+    verified: boolean,
+    verifiedBy: string,           // Admin who verified
+    verifiedAt: Timestamp,
+    verificationNotes: string,
+    
+    // Status
+    status: string,               // 'pending_verification', 'verified', 'rejected'
+    addedBy: string,
+    addedAt: Timestamp,
+    updatedAt: Timestamp
   },
   
   // Financial Summary (frequently updated)
@@ -464,12 +774,218 @@ Stores member-specific data within a group.
     lastLoanAmount: number        // Amount of last loan
   },
   
+  // Personal Financial Overview (for user dashboard)
+  personalFinancialOverview: {
+    // Current Status Summary
+    currentStatus: {
+      memberSince: Timestamp,
+      daysAsMember: number,
+      currentBalance: number,        // Net position (contributions - loans - arrears)
+      accountStatus: string,         // 'good_standing', 'arrears', 'defaulted', 'suspended'
+      healthScore: number            // 0-100 score based on payment history and compliance
+    },
+    
+    // What I Owe
+    whatIOwe: {
+      totalOwed: number,             // Total amount currently owed
+      
+      // Breakdown by type
+      seedMoneyOwed: number,
+      monthlyContributionsOwed: number,
+      loanRepaymentsOwed: number,
+      penaltiesOwed: number,
+      otherOwed: number,
+      
+      // Upcoming payments
+      upcomingPayments: [
+        {
+          type: string,              // 'seed_money', 'monthly_contribution', 'loan_repayment'
+          amount: number,
+          dueDate: Timestamp,
+          daysUntilDue: number,
+          status: string,            // 'upcoming', 'due_soon', 'overdue'
+          paymentId: string          // Reference to payment document
+        }
+      ],
+      
+      // Overdue items
+      overduePayments: [
+        {
+          type: string,
+          amount: number,
+          originalDueDate: Timestamp,
+          daysOverdue: number,
+          penaltyAccrued: number,
+          paymentId: string
+        }
+      ]
+    },
+    
+    // What I've Paid
+    whatIvePaid: {
+      totalPaidToDate: number,       // All-time total
+      totalPaidThisYear: number,
+      totalPaidThisMonth: number,
+      totalPaidPreviousMonth: number,
+      
+      // Breakdown
+      seedMoneyPaid: number,
+      monthlyContributionsPaid: number,
+      loanRepaymentsPaid: number,
+      penaltiesPaid: number,
+      
+      // Recent payments
+      recentPayments: [
+        {
+          type: string,
+          amount: number,
+          paidDate: Timestamp,
+          approvedDate: Timestamp,
+          status: string,
+          paymentId: string
+        }
+      ],
+      
+      // Payment streak
+      consecutiveOnTimePayments: number,
+      lastOnTimePayment: Timestamp
+    },
+    
+    // My Loans
+    myLoans: {
+      activeLoanCount: number,
+      totalActiveLoanAmount: number,
+      totalLoanRepaymentsDue: number,
+      
+      // Active loans detail
+      activeLoans: [
+        {
+          loanId: string,
+          loanAmount: number,
+          interestRate: number,
+          totalRepayable: number,
+          amountPaid: number,
+          amountRemaining: number,
+          disbursedDate: Timestamp,
+          
+          // Repayment schedule
+          nextPaymentDue: {
+            amount: number,
+            dueDate: Timestamp,
+            daysUntilDue: number,
+            installmentNumber: number
+          },
+          
+          // Full schedule
+          repaymentSchedule: [
+            {
+              installmentNumber: number,
+              amount: number,
+              dueDate: Timestamp,
+              status: string,          // 'paid', 'pending', 'overdue'
+              paidDate: Timestamp,
+              amountPaid: number
+            }
+          ],
+          
+          // Loan status
+          status: string,                // 'active', 'completed', 'in_arrears', 'defaulted'
+          daysInArrears: number,
+          penaltiesOnLoan: number,
+          expectedCompletionDate: Timestamp,
+          progressPercentage: number     // How much of loan is repaid
+        }
+      ],
+      
+      // Completed loans
+      completedLoansCount: number,
+      totalCompletedLoansAmount: number,
+      averageRepaymentTime: number       // Days to repay on average
+    },
+    
+    // My Contributions to Group
+    myContributionsToGroup: {
+      totalContributed: number,          // Lifetime contributions
+      shareOfGroupFunds: number,         // Percentage of total group funds
+      eligibleForLoanAmount: number,     // Based on contributions
+      
+      // Contribution breakdown
+      contributionBreakdown: {
+        seedMoney: number,
+        monthlyContributions: number,
+        loanInterestPaid: number,
+        penalties: number,
+        otherContributions: number
+      }
+    },
+    
+    // When My Loans Will Be Paid Off
+    loanProjections: {
+      // If paying on time
+      onTimeCompletionDate: Timestamp,
+      onTimeTotalCost: number,           // Principal + interest (no penalties)
+      
+      // Current trajectory (with any delays)
+      projectedCompletionDate: Timestamp,
+      projectedTotalCost: number,        // Including current penalties
+      
+      // Early payoff option
+      earlyPayoffAmount: number,         // What to pay to clear all loans now
+      earlyPayoffSavings: number,        // Interest saved by early payoff
+      
+      // Individual loan projections
+      loanByLoanProjections: [
+        {
+          loanId: string,
+          currentDueDate: Timestamp,
+          projectedDueDate: Timestamp,
+          remainingPayments: number,
+          totalRemaining: number
+        }
+      ]
+    },
+    
+    // My Position in Group
+    myPositionInGroup: {
+      complianceRanking: number,         // 1 = best, N = worst
+      totalMembers: number,
+      percentileRanking: number,         // Top X% of members
+      
+      // Comparison to group average
+      vsGroupAverage: {
+        myPaymentRate: number,
+        groupAveragePaymentRate: number,
+        myArrears: number,
+        groupAverageArrears: number,
+        myLoans: number,
+        groupAverageLoans: number
+      }
+    },
+    
+    // Alerts and Notifications
+    financialAlerts: [
+      {
+        alertType: string,               // 'payment_due', 'overdue', 'loan_repayment', 'penalty'
+        severity: string,                // 'info', 'warning', 'urgent', 'critical'
+        message: string,
+        amount: number,
+        dueDate: Timestamp,
+        actionRequired: string
+      }
+    ],
+    
+    // Last updated
+    lastCalculated: Timestamp,
+    calculatedBy: string                 // 'system' or admin UID
+  },
+  
   // Activity tracking
   activityLog: {
     lastLogin: Timestamp,
     lastPaymentSubmitted: Timestamp,
     lastLoanRequest: Timestamp,
     lastProfileUpdate: Timestamp,
+    lastFinancialOverviewViewed: Timestamp,
     updatedBy: string             // UID of last person to update this record
   }
 }
@@ -1127,7 +1643,276 @@ Active badges for members - auto-generated based on conditions or manually creat
 
 ---
 
-### 11. **invitationCodes** (Root Collection)
+### 11. **groups/{groupId}/adminRoleChanges** (Subcollection)
+History of admin promotions and demotions for accountability.
+
+**Document ID**: Auto-generated
+**Fields**:
+```javascript
+{
+  changeId: string,               // Same as document ID
+  
+  // Who was affected
+  affectedUserId: string,         // UID of person promoted/demoted
+  affectedUserName: string,
+  affectedUserEmail: string,
+  
+  // Change details
+  changeType: string,             // 'promoted', 'demoted', 'permissions_updated', 'removed'
+  
+  // Previous and new roles
+  previousRole: string,           // 'member', 'admin', 'senior_admin', null
+  newRole: string,                // 'admin', 'senior_admin', 'member', null
+  
+  // Permissions
+  previousPermissions: object,    // Previous permission set
+  newPermissions: object,         // New permission set
+  
+  // Who made the change
+  performedBy: string,            // UID of admin who made change
+  performedByName: string,
+  performedByRole: string,        // Role of person making change
+  
+  // Reason and notes
+  reason: string,                 // Reason for promotion/demotion
+  adminNotes: string,             // Private admin notes
+  
+  // Contact info changes (if applicable)
+  contactInfoUpdated: boolean,
+  addedToContactPage: boolean,    // Added to "Contact Admin" page
+  removedFromContactPage: boolean,
+  
+  // Timing
+  effectiveDate: Timestamp,       // When change takes effect
+  createdAt: Timestamp,
+  
+  // Notification
+  notificationSent: boolean,
+  notificationSentAt: Timestamp,
+  
+  // Approval (for senior role changes)
+  requiresApproval: boolean,      // Senior admin changes may need approval
+  approvedBy: string,
+  approvedAt: Timestamp,
+  
+  // Audit
+  metadata: {
+    ipAddress: string,
+    userAgent: string,
+    changeSource: string          // 'admin_dashboard', 'api', 'system'
+  }
+}
+```
+
+---
+
+### 12. **groups/{groupId}/monthlyReports** (Subcollection)
+Monthly financial summaries and accounting reports for admin and user dashboards.
+
+**Document ID**: Format: `{YYYY}_{MM}` (e.g., "2024_01" for January 2024)
+**Fields**:
+```javascript
+{
+  reportId: string,               // Same as document ID
+  year: number,                   // Report year
+  month: number,                  // Report month (1-12)
+  monthName: string,              // "January", "February", etc.
+  
+  // Report Period
+  periodStart: Timestamp,         // First day of month
+  periodEnd: Timestamp,           // Last day of month
+  
+  // Money Received Summary
+  moneyReceived: {
+    totalReceived: number,        // Total money received this month
+    seedMoneyReceived: number,    // Seed money received
+    monthlyContributionsReceived: number,
+    loanRepaymentsReceived: number,
+    penaltiesReceived: number,
+    otherReceived: number,
+    
+    // Breakdown by source
+    byPaymentType: [
+      {
+        type: string,             // 'seed_money', 'monthly_contribution', 'loan_repayment', 'penalty'
+        amount: number,
+        count: number             // Number of transactions
+      }
+    ],
+    
+    // Member-wise breakdown
+    byMember: [
+      {
+        uid: string,
+        name: string,
+        amountPaid: number,
+        paymentsCount: number
+      }
+    ]
+  },
+  
+  // Money Loaned Out Summary
+  moneyLoanedOut: {
+    totalLoanedOut: number,       // Total money loaned this month
+    numberOfLoans: number,        // Count of loans disbursed
+    averageLoanAmount: number,
+    largestLoan: number,
+    smallestLoan: number,
+    
+    // Loan disbursements list
+    loansDisbursed: [
+      {
+        loanId: string,
+        borrowerId: string,
+        borrowerName: string,
+        amount: number,
+        interestRate: number,
+        disbursedDate: Timestamp,
+        repaymentMonths: number
+      }
+    ]
+  },
+  
+  // Loan Rotation List (Tentative/Compulsory)
+  loanRotationList: {
+    // Members eligible for loans this month
+    eligibleMembers: [
+      {
+        uid: string,
+        name: string,
+        position: number,          // Queue position
+        eligibilityStatus: string, // 'eligible', 'pending_payment', 'on_hold', 'already_has_loan'
+        maxEligibleAmount: number, // Based on contributions and group rules
+        contributionsPaid: number,
+        arrears: number,
+        creditScore: number,
+        hasActiveLoans: boolean,
+        lastLoanDate: Timestamp,
+        priority: string,          // 'high', 'medium', 'low' (based on contributions, payment history)
+        notes: string
+      }
+    ],
+    
+    // Compulsory rotation (if applicable)
+    compulsoryRotation: {
+      enabled: boolean,
+      currentPosition: number,    // Which position in rotation
+      nextInLine: [               // Next members to receive loans
+        {
+          uid: string,
+          name: string,
+          position: number,
+          scheduledMonth: string  // "2024_02"
+        }
+      ]
+    }
+  },
+  
+  // Loan Repayments Due This Month
+  loanRepaymentsDue: {
+    totalDue: number,             // Total loan repayments due
+    totalReceived: number,        // Total actually received
+    totalPending: number,         // Total still pending
+    totalOverdue: number,         // Overdue from previous months
+    
+    // Members with repayments due
+    dueThisMonth: [
+      {
+        uid: string,
+        name: string,
+        loanId: string,
+        installmentNumber: number,
+        amountDue: number,
+        amountPaid: number,
+        amountRemaining: number,
+        dueDate: Timestamp,
+        status: string,           // 'paid', 'partial', 'pending', 'overdue'
+        paidDate: Timestamp,
+        daysOverdue: number
+      }
+    ]
+  },
+  
+  // Loan Defaulters / Non-Payers
+  loanDefaulters: {
+    totalDefaulted: number,       // Total amount in default
+    numberOfDefaulters: number,
+    
+    // Members who haven't paid loans
+    defaultersList: [
+      {
+        uid: string,
+        name: string,
+        loanId: string,
+        originalLoanAmount: number,
+        amountOutstanding: number,
+        installmentsMissed: number,
+        lastPaymentDate: Timestamp,
+        daysSinceLastPayment: number,
+        totalOverdue: number,
+        penaltiesAccrued: number,
+        status: string,           // 'late', 'defaulted', 'in_arrears'
+        contactAttempts: number,
+        lastContactDate: Timestamp,
+        collateral: string,
+        guarantors: [string]      // Guarantor names
+      }
+    ]
+  },
+  
+  // Group Financial Summary
+  groupFinancials: {
+    openingBalance: number,       // Balance at start of month
+    closingBalance: number,       // Balance at end of month
+    totalIncome: number,          // All money received
+    totalExpenditure: number,     // All money loaned out + expenses
+    netChange: number,            // Closing - Opening
+    
+    // Breakdown
+    totalAssets: number,          // Money in hand + loans outstanding
+    totalLoansOutstanding: number,
+    cashInHand: number,
+    totalArrears: number,
+    totalPenalties: number
+  },
+  
+  // Member Statistics
+  memberStats: {
+    totalMembers: number,
+    activeMembers: number,
+    membersWhoPaid: number,       // Paid this month
+    membersInArrears: number,
+    membersWithLoans: number,
+    newMembersAdded: number
+  },
+  
+  // Payment Compliance
+  paymentCompliance: {
+    seedMoneyCompliance: number,  // Percentage
+    monthlyContributionCompliance: number,
+    loanRepaymentCompliance: number,
+    overallCompliance: number
+  },
+  
+  // Report Metadata
+  generatedAt: Timestamp,
+  generatedBy: string,            // UID of who generated (system or admin)
+  status: string,                 // 'draft', 'final', 'archived'
+  notes: string,                  // Admin notes for the month
+  
+  // Previous month comparison
+  comparisonToPreviousMonth: {
+    moneyReceivedChange: number,  // Percentage change
+    moneyLoanedOutChange: number,
+    balanceChange: number,
+    complianceChange: number
+  }
+}
+```
+
+---
+
+### 13. **invitationCodes** (Root Collection)
 Manages registration approval codes for new group creation.
 
 **Document ID**: Auto-generated

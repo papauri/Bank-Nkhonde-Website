@@ -200,6 +200,21 @@ service cloud.firestore {
         allow delete: if isGroupAdmin(groupId);
       }
       
+      // Monthly Reports subcollection
+      match /monthlyReports/{reportId} {
+        // All group members can read monthly reports
+        allow read: if isGroupMember(groupId);
+        
+        // Only admins can create reports
+        allow create: if isGroupAdmin(groupId);
+        
+        // Only admins can update reports
+        allow update: if isGroupAdmin(groupId);
+        
+        // Only senior admins can delete reports
+        allow delete: if isSeniorAdmin(groupId);
+      }
+      
       // Meetings subcollection (optional)
       match /meetings/{meetingId} {
         // All group members can read meetings
