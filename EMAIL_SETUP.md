@@ -4,10 +4,12 @@
 The email invitation system stores invitation requests in Firestore but requires a backend Cloud Function to actually send emails. This approach keeps SMTP credentials secure and off the client.
 
 ## SMTP Configuration
+**Note**: Replace the placeholder values below with your actual SMTP credentials. Keep these secure and never commit them to version control.
+
 - **Host**: mail.promanaged-it.com
 - **Port**: 465 (SMTP with SSL)
-- **Username**: _mainaccount@promanaged-it.com
-- **Password**: 2:p2WpmX[0YTs7
+- **Username**: YOUR_SMTP_USERNAME (e.g., _mainaccount@promanaged-it.com)
+- **Password**: YOUR_SMTP_PASSWORD (stored in environment variables)
 - **Authentication**: Required
 - **Security**: SSL/TLS
 
@@ -86,10 +88,24 @@ npm install nodemailer
 
 ### 3. Set Environment Variables
 
+**Important**: Use your actual SMTP credentials here. Never commit these to version control.
+
 ```bash
-firebase functions:config:set smtp.user="_mainaccount@promanaged-it.com"
-firebase functions:config:set smtp.pass="2:p2WpmX[0YTs7"
+firebase functions:config:set smtp.user="YOUR_SMTP_USERNAME"
+firebase functions:config:set smtp.pass="YOUR_SMTP_PASSWORD"
 ```
+
+For local development, create a `.runtimeconfig.json` file:
+```json
+{
+  "smtp": {
+    "user": "YOUR_SMTP_USERNAME",
+    "pass": "YOUR_SMTP_PASSWORD"
+  }
+}
+```
+
+**Add `.runtimeconfig.json` to `.gitignore` to prevent accidental commits!**
 
 ### 4. Deploy the Function
 
@@ -127,7 +143,7 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 const msg = {
   to: invitation.email,
-  from: '_mainaccount@promanaged-it.com',
+  from: 'YOUR_SMTP_USERNAME',  // Your verified sender email
   subject: `Invitation to join ${invitation.groupName}`,
   html: emailContent
 };

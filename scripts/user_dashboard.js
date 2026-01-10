@@ -132,25 +132,38 @@ document.addEventListener("DOMContentLoaded", () => {
         const groupItem = document.createElement("li");
         groupItem.classList.add("group-item");
 
-        groupItem.innerHTML = `
-          <a href="group_page.html?groupId=${groupId}" class="group-link">
-            <div class="group-details">
-              <h3>${groupData.groupName}</h3>
-              <p>Created: ${groupData.createdAt?.toDate
-                ? new Date(groupData.createdAt.toDate()).toLocaleDateString()
-                : "N/A"
-              }</p>
-              <p>Members: Loading...</p>
-            </div>
-          </a>
-        `;
+        const link = document.createElement("a");
+        link.href = `group_page.html?groupId=${groupId}`;
+        link.className = "group-link";
+
+        const groupDetails = document.createElement("div");
+        groupDetails.className = "group-details";
+
+        const title = document.createElement("h3");
+        title.textContent = groupData.groupName; // Use textContent to prevent XSS
+
+        const createdPara = document.createElement("p");
+        createdPara.textContent = `Created: ${
+          groupData.createdAt?.toDate
+            ? new Date(groupData.createdAt.toDate()).toLocaleDateString()
+            : "N/A"
+        }`;
+
+        const membersPara = document.createElement("p");
+        membersPara.textContent = "Members: Loading...";
+
+        groupDetails.appendChild(title);
+        groupDetails.appendChild(createdPara);
+        groupDetails.appendChild(membersPara);
+        link.appendChild(groupDetails);
+        groupItem.appendChild(link);
 
         groupList.appendChild(groupItem);
 
         // Fetch member count dynamically
         getDocs(collection(db, "groups", groupId, "members")).then((membersSnapshot) => {
           const memberCount = membersSnapshot.size;
-          groupItem.querySelector(".group-details p:nth-child(3)").textContent = `Members: ${memberCount}`;
+          membersPara.textContent = `Members: ${memberCount}`;
         });
       });
 
