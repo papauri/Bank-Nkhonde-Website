@@ -8,6 +8,7 @@ import {
   updateDoc,
   deleteDoc,
   Timestamp,
+  onSnapshot,
 } from "./firebaseConfig.js";
 
 
@@ -94,42 +95,44 @@ export async function markCodeAsUsedAndDelete(code) {
   }
 }
 
-// Poll for registration key approval
+// Poll for registration key approval using real-time listener
 export async function pollForApproval(code, maxWaitTimeMs = 300000) {
   const startTime = Date.now();
-  const pollInterval = 2000; // Check every 2 seconds
   
   return new Promise((resolve, reject) => {
-    const intervalId = setInterval(async () => {
-      try {
-        const codeQuery = query(collection(db, "invitationCodes"), where("code", "==", code));
-        const querySnapshot = await getDocs(codeQuery);
-
-        if (querySnapshot.empty) {
-          clearInterval(intervalId);
-          reject(new Error("Registration key not found. It may have been deleted."));
-          return;
-        }
-
-        const invitationDoc = querySnapshot.docs[0];
-        const invitationData = invitationDoc.data();
-
-        if (invitationData.approved) {
-          clearInterval(intervalId);
-          resolve(true);
-          return;
-        }
-
-        // Check if we've exceeded max wait time
-        if (Date.now() - startTime > maxWaitTimeMs) {
-          clearInterval(intervalId);
-          reject(new Error("Registration key approval timeout. Please contact an administrator."));
-        }
-      } catch (err) {
-        clearInterval(intervalId);
-        reject(err);
+    const codeQuery = query(collection(db, "invitationCodes"), where("code", "==", code));
+    
+    // Use real-time listener instead of polling
+    const unsubscribe = onSnapshot(codeQuery, (snapshot) => {
+      if (snapshot.empty) {
+        unsubscribe();
+        reject(new Error("Registration key not found. It may have been deleted."));
+        return;
       }
-    }, pollInterval);
+
+      const invitationDoc = snapshot.docs[0];
+      const invitationData = invitationDoc.data();
+
+      if (invitationData.approved) {
+        unsubscribe();
+        resolve(true);
+        return;
+      }
+
+      // Check if we've exceeded max wait time
+      if (Date.now() - startTime > maxWaitTimeMs) {
+        unsubscribe();
+        reject(new Error("Registration key approval timeout. Please contact an administrator."));
+      }
+    }, (error) => {
+      reject(error);
+    });
+    
+    // Set a timeout to clean up the listener
+    setTimeout(() => {
+      unsubscribe();
+      reject(new Error("Registration key approval timeout. Please contact an administrator."));
+    }, maxWaitTimeMs);
   });
 }
 

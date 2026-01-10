@@ -16,20 +16,14 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   Timestamp,
+  onSnapshot,
 } from "./firebaseConfig.js";
 
 import { createInvitationCode } from "./invitation_code.js";
 
-// SMTP Configuration for sending emails
-const SMTP_CONFIG = {
-  host: "mail.promanaged-it.com",
-  port: 465,
-  secure: true,
-  auth: {
-    user: "_mainaccount@promanaged-it.com",
-    pass: "2:p2WpmX[0YTs7"
-  }
-};
+// NOTE: In production, email sending should be handled by a Cloud Function
+// with proper server-side SMTP configuration. Client-side SMTP is not secure.
+// For now, invitations are stored in the database and need backend processing.
 
 document.addEventListener("DOMContentLoaded", () => {
   let currentUser = null;
@@ -251,7 +245,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const groupDoc = await getDoc(doc(db, "groups", groupId));
       const groupName = groupDoc.exists() ? groupDoc.data().groupName : "Unknown Group";
 
-      // Store invitation in database
+      // Store invitation in database for backend processing
       await addDoc(collection(db, "invitations"), {
         email,
         groupId,
@@ -261,18 +255,23 @@ document.addEventListener("DOMContentLoaded", () => {
         customMessage: message,
         status: "pending",
         createdAt: Timestamp.now(),
+        // SMTP credentials should be stored securely on the backend
+        emailConfig: {
+          host: "mail.promanaged-it.com",
+          port: 465,
+          from: "_mainaccount@promanaged-it.com",
+          // Password should be in environment variables on the backend
+        }
       });
 
-      // In a real implementation, you would call a Cloud Function here to send the email
-      // For now, we'll just log it
-      console.log("Invitation to send:", {
-        to: email,
-        subject: `Invitation to join ${groupName}`,
-        message: message || `You've been invited to join ${groupName}. Please contact the administrator for more details.`,
-        smtp: SMTP_CONFIG
-      });
+      // NOTE: In production, a Cloud Function should be triggered here to send the actual email
+      // The Cloud Function would:
+      // 1. Listen for new documents in the "invitations" collection
+      // 2. Use server-side SMTP configuration from environment variables
+      // 3. Send the email using nodemailer or similar
+      // 4. Update the invitation status to "sent"
 
-      alert(`Invitation sent to ${email}! They will receive instructions to join ${groupName}.`);
+      alert(`Invitation saved for ${email}! Backend processing will send the email to join ${groupName}.`);
       inviteEmailInput.value = "";
       inviteMessageInput.value = "";
     } catch (error) {
@@ -311,8 +310,8 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      querySnapshot.forEach((doc) => {
-        const keyData = doc.data();
+      querySnapshot.forEach((docSnapshot) => {
+        const keyData = docSnapshot.data();
         const keyItem = document.createElement("div");
         keyItem.className = "key-item";
         
@@ -326,8 +325,17 @@ document.addEventListener("DOMContentLoaded", () => {
             ${statusBadge}
             <small>Created: ${keyData.createdAt?.toDate().toLocaleDateString()}</small>
           </div>
-          ${!keyData.used ? `<button class="button small danger" onclick="deleteKey('${doc.id}')">Delete</button>` : ''}
         `;
+        
+        // Add delete button if not used
+        if (!keyData.used) {
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "button small danger";
+          deleteBtn.textContent = "Delete";
+          deleteBtn.addEventListener("click", () => deleteKey(docSnapshot.id));
+          keyItem.appendChild(deleteBtn);
+        }
+        
         registrationKeysList.appendChild(keyItem);
       });
     } catch (error) {
@@ -336,7 +344,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Delete registration key
-  window.deleteKey = async (keyId) => {
+  async function deleteKey(keyId) {
+  async function deleteKey(keyId) {
     if (!confirm("Are you sure you want to delete this registration key?")) {
       return;
     }
@@ -351,7 +360,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } finally {
       toggleLoading(false);
     }
-  };
+  }
 
   // Load group settings when group is selected
   editGroupSelect.addEventListener("change", async () => {
@@ -486,15 +495,58 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       toggleLoading(true, "Deleting account...");
-      // In a real implementation, you would need to handle this more carefully
-      // including removing the user from all groups, deleting user data, etc.
+      
+      // Clean up user data from all groups
+      const groupsRef = collection(db, "groups");
+      const groupsSnapshot = await getDocs(groupsRef);
+      
+      for (const groupDoc of groupsSnapshot.docs) {
+        const groupId = groupDoc.id;
+        
+        // Remove user from group members
+        const memberRef = doc(db, `groups/${groupId}/members`, currentUser.uid);
+        const memberDoc = await getDoc(memberRef);
+        if (memberDoc.exists()) {
+          await deleteDoc(memberRef);
+        }
+        
+        // Update adminDetails if user is an admin
+        const groupData = groupDoc.data();
+        if (groupData.adminDetails?.some(admin => admin.uid === currentUser.uid)) {
+          const updatedAdminDetails = groupData.adminDetails.filter(
+            admin => admin.uid !== currentUser.uid
+          );
+          await updateDoc(doc(db, "groups", groupId), {
+            adminDetails: updatedAdminDetails
+          });
+        }
+      }
+      
+      // Delete invitations sent by user
+      const invitationsQuery = query(
+        collection(db, "invitations"),
+        where("invitedBy", "==", currentUser.uid)
+      );
+      const invitationsSnapshot = await getDocs(invitationsQuery);
+      for (const inviteDoc of invitationsSnapshot.docs) {
+        await deleteDoc(inviteDoc.ref);
+      }
+      
+      // Delete user document
       await deleteDoc(doc(db, "users", currentUser.uid));
+      
+      // Delete Firebase Auth user
       await currentUser.delete();
+      
       alert("Account deleted successfully.");
       window.location.href = "../index.html";
     } catch (error) {
       console.error("Error deleting account:", error);
-      alert("Error deleting account. You may need to log in again to delete your account.");
+      if (error.code === "auth/requires-recent-login") {
+        alert("For security reasons, please log out and log back in before deleting your account.");
+      } else {
+        alert("Error deleting account. Please try again.");
+      }
     } finally {
       toggleLoading(false);
     }
