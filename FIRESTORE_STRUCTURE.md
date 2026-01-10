@@ -599,9 +599,11 @@ Stores group-level configuration and settings.
   activityLog: {
     lastPaymentApproved: Timestamp,
     lastLoanApproved: Timestamp,
+    lastLoanDisbursed: Timestamp,
     lastMemberAdded: Timestamp,
     lastMeetingDate: Timestamp,
-    lastBadgeConfigUpdate: Timestamp
+    lastBadgeConfigUpdate: Timestamp,
+    lastCycleCompleted: Timestamp
   }
 }
 ```
@@ -613,6 +615,14 @@ Stores group-level configuration and settings.
 - `transactions`: Financial transaction history
 - `messages`: Group messaging and support tickets
 - `broadcasts`: Group-wide announcements from admins
+- `badges`: Active badges for members (auto-generated and manual)
+- `adminRoleChanges`: History of member promotions/demotions
+- `monthlyReports`: Monthly financial summaries and reports
+- `yearlyReports`: Yearly/cycle-end financial summaries
+- `meetings`: Meeting records (optional)
+- `notifications`: Group-specific notifications (deprecated - use root notifications collection)
+
+---
 - `badges`: Active badges for members (auto-generated and manual)
 - `adminRoleChanges`: History of member promotions/demotions
 - `monthlyReports`: Monthly financial summaries and reports
@@ -1121,7 +1131,7 @@ Tracks loan records for the group.
   amountPaid: number,
   amountRemaining: number,
   
-  status: string,                 // 'pending', 'approved', 'active', 'paid', 'defaulted', 'cancelled'
+  status: string,                 // 'pending', 'approved', 'active', 'disbursed', 'paid', 'defaulted', 'cancelled'
   
   // Request and approval tracking
   requestedAt: Timestamp,
@@ -1134,6 +1144,36 @@ Tracks loan records for the group.
   disbursedBy: string,            // UID of admin who disbursed
   completedAt: Timestamp,         // When fully repaid
   defaultedAt: Timestamp,         // When marked as defaulted
+  
+  // Disbursement Details (for manual bank transfers)
+  disbursementDetails: {
+    method: string,               // 'bank_transfer', 'mobile_money', 'cash', 'check'
+    bankName: string,             // Bank used for transfer
+    accountNumber: string,        // Recipient account
+    transactionReference: string, // Bank transaction ID/reference
+    transferDate: Timestamp,      // When bank transfer was made
+    transferAmount: number,       // Actual amount transferred
+    transferFees: number,         // Any fees deducted
+    netAmountReceived: number,    // Amount borrower actually received
+    
+    // Proof of disbursement
+    disbursementProof: {
+      receiptUrl: string,         // Bank receipt/confirmation
+      uploadedAt: Timestamp,
+      uploadedBy: string
+    },
+    
+    // Notification to borrower
+    borrowerNotified: boolean,
+    notifiedAt: Timestamp,
+    notifiedVia: [string],        // ['app', 'sms', 'email', 'whatsapp']
+    notificationMessage: string,
+    
+    // Borrower confirmation
+    borrowerConfirmed: boolean,
+    confirmedAt: Timestamp,
+    confirmationNotes: string
+  },
   
   // Repayment tracking
   repaymentSchedule: [
@@ -1912,7 +1952,214 @@ Monthly financial summaries and accounting reports for admin and user dashboards
 
 ---
 
-### 13. **invitationCodes** (Root Collection)
+### 13. **groups/{groupId}/yearlyReports** (Subcollection)
+Yearly/cycle-end financial summaries for complete cycle accounting.
+
+**Document ID**: Format: `cycle_{N}` or `{YYYY}` (e.g., "cycle_1", "cycle_2", "2024")
+**Fields**:
+```javascript
+{
+  reportId: string,               // Same as document ID
+  reportType: string,             // 'cycle_end', 'calendar_year'
+  
+  // Cycle Information
+  cycleNumber: number,            // 1, 2, 3, etc. for the group
+  cycleDurationMonths: number,    // Actual cycle length (e.g., 11, 12, 13 months)
+  cycleStartDate: Timestamp,
+  cycleEndDate: Timestamp,
+  totalCycleDays: number,
+  
+  // Or Calendar Year
+  year: number,                   // If calendar year report
+  
+  // Total Money Movements
+  totalMoneyReceived: {
+    grandTotal: number,
+    seedMoneyTotal: number,
+    monthlyContributionsTotal: number,
+    loanRepaymentsTotal: number,
+    penaltiesTotal: number,
+    interestEarnedTotal: number,
+    otherIncomeTotal: number,
+    
+    // Month-by-month breakdown
+    byMonth: [
+      {
+        month: string,            // "2024_01"
+        total: number,
+        seedMoney: number,
+        monthlyContributions: number,
+        loanRepayments: number
+      }
+    ]
+  },
+  
+  // Total Money Loaned Out
+  totalMoneyLoanedOut: {
+    grandTotal: number,
+    numberOfLoans: number,
+    averageLoanAmount: number,
+    largestLoan: number,
+    smallestLoan: number,
+    
+    // Loan performance
+    loansFullyRepaid: number,
+    loansActiveAtEnd: number,
+    loansDefaulted: number,
+    totalInterestEarned: number,
+    totalPenaltiesCollected: number,
+    
+    // Month-by-month disbursements
+    byMonth: [
+      {
+        month: string,
+        totalDisbursed: number,
+        numberOfLoans: number
+      }
+    ]
+  },
+  
+  // Complete Member Contributions
+  memberContributions: [
+    {
+      uid: string,
+      name: string,
+      
+      // What they paid
+      totalPaid: number,
+      seedMoneyPaid: number,
+      monthlyContributionsPaid: number,
+      loanRepaymentsPaid: number,
+      penaltiesPaid: number,
+      
+      // What they received
+      loansReceived: number,
+      numberOfLoans: number,
+      
+      // Net position
+      netContribution: number,     // Paid - Received
+      
+      // Compliance
+      monthsActive: number,
+      monthsPaid: number,
+      complianceRate: number,      // Percentage
+      
+      // Ranking
+      contributionRank: number,
+      complianceRank: number
+    }
+  ],
+  
+  // Financial Summary
+  financialSummary: {
+    openingBalance: number,
+    totalIncome: number,
+    totalExpenditure: number,
+    closingBalance: number,
+    netChange: number,
+    
+    // Assets
+    cashInHand: number,
+    loansOutstanding: number,
+    totalAssets: number,
+    
+    // Liabilities  
+    arrearsOwedToGroup: number,
+    pendingWithdrawals: number,
+    
+    // Return metrics
+    returnOnContributions: number, // Percentage
+    interestIncomeRate: number
+  },
+  
+  // Member Statistics
+  memberStats: {
+    totalMembersAtStart: number,
+    totalMembersAtEnd: number,
+    newMembersAdded: number,
+    membersLeft: number,
+    memberRetentionRate: number,
+    
+    // Participation
+    averageComplianceRate: number,
+    bestPayingMember: string,
+    worstPayingMember: string,
+    
+    // Loans
+    membersWhoTookLoans: number,
+    percentageWhoTookLoans: number,
+    averageLoanAmount: number
+  },
+  
+  // Cycle Performance Metrics
+  performanceMetrics: {
+    paymentComplianceRate: number,
+    loanRepaymentRate: number,
+    defaultRate: number,
+    fundGrowthRate: number,
+    memberGrowthRate: number,
+    
+    // Efficiency
+    averageDaysToApprovePayment: number,
+    averageDaysToApproveLoan: number,
+    averageDaysToDisburse: number
+  },
+  
+  // Distributions (if any)
+  distributions: {
+    totalDistributed: number,
+    distributionDate: Timestamp,
+    distributionMethod: string,    // 'equal', 'proportional', 'profit_share'
+    
+    // Per member
+    memberDistributions: [
+      {
+        uid: string,
+        name: string,
+        amountDistributed: number,
+        distributionPercentage: number
+      }
+    ]
+  },
+  
+  // Cycle-over-Cycle Comparison (if not first cycle)
+  comparisonToPreviousCycle: {
+    previousCycleId: string,
+    
+    moneyReceivedChange: number,
+    moneyLoanedOutChange: number,
+    memberCountChange: number,
+    complianceRateChange: number,
+    fundGrowthChange: number
+  },
+  
+  // Report Metadata
+  generatedAt: Timestamp,
+  generatedBy: string,
+  approvedBy: string,             // Senior admin who approved final report
+  approvedAt: Timestamp,
+  status: string,                 // 'draft', 'final', 'distributed', 'archived'
+  
+  // Documents
+  exportedReports: [
+    {
+      format: string,             // 'pdf', 'excel', 'csv'
+      fileUrl: string,
+      generatedAt: Timestamp,
+      downloadCount: number
+    }
+  ],
+  
+  // Admin notes and conclusions
+  adminNotes: string,
+  cycleConclusions: string,
+  recommendationsForNextCycle: string
+}
+```
+
+---
+
+### 14. **invitationCodes** (Root Collection)
 Manages registration approval codes for new group creation.
 
 **Document ID**: Auto-generated
