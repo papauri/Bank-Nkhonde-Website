@@ -225,7 +225,6 @@ document.addEventListener("DOMContentLoaded", () => {
   sendInviteBtn.addEventListener("click", async () => {
     const email = inviteEmailInput.value.trim();
     const groupId = inviteGroupSelect.value;
-    const message = inviteMessageInput.value.trim();
 
     if (!email || !groupId) {
       alert("Please enter an email address and select a group.");
@@ -239,33 +238,45 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Validate message length (max 500 characters)
-    if (message.length > 500) {
-      alert("Custom message must be 500 characters or less.");
-      return;
-    }
-
-    // Basic sanitization: remove any HTML-like tags
-    const sanitizedMessage = message.replace(/<[^>]*>/g, '');
-
     try {
       toggleLoading(true, "Sending invitation...");
       
       const groupDoc = await getDoc(doc(db, "groups", groupId));
       const groupName = groupDoc.exists() ? groupDoc.data().groupName : "Unknown Group";
 
+      // Generate secure invitation token
+      const invitationToken = generateSecureToken();
+      const invitationUrl = `${window.location.origin}/pages/accept_invitation.html?token=${invitationToken}`;
+
       // Store invitation in database for backend processing
-      // NOTE: Email credentials should ONLY be on the backend (Cloud Function)
       await addDoc(collection(db, "invitations"), {
         email,
         groupId,
         groupName,
+        invitationToken,
         invitedBy: currentUser.uid,
+        invitedByName: (await getDoc(doc(db, "users", currentUser.uid))).data()?.fullName || currentUser.email,
         invitedByEmail: currentUser.email,
-        customMessage: sanitizedMessage,
         status: "pending",
         createdAt: Timestamp.now(),
+        expiresAt: Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), // 7 days
       });
+
+      // Auto-generated email content (to be sent by Cloud Function)
+      const emailTemplate = {
+        subject: `You're invited to join ${groupName} on Bank Nkhonde`,
+        body: `
+          <h2>You've been invited to join ${groupName}!</h2>
+          <p>You have been invited by ${(await getDoc(doc(db, "users", currentUser.uid))).data()?.fullName || currentUser.email} to join their savings group on Bank Nkhonde.</p>
+          <p><strong>Group:</strong> ${groupName}</p>
+          <p>Click the link below to accept the invitation and create your account:</p>
+          <p><a href="${invitationUrl}" style="background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Accept Invitation</a></p>
+          <p>This invitation will expire in 7 days.</p>
+          <p>If you did not expect this invitation, you can safely ignore this email.</p>
+          <hr>
+          <p style="color: #6b7280; font-size: 12px;">Bank Nkhonde - Digital ROSCA Management Platform</p>
+        `,
+      };
 
       // NOTE: In production, a Cloud Function should be triggered here to send the actual email
       // The Cloud Function would:
@@ -274,9 +285,8 @@ document.addEventListener("DOMContentLoaded", () => {
       // 3. Send the email using nodemailer or similar
       // 4. Update the invitation status to "sent"
 
-      alert(`Invitation saved for ${email}! Backend processing will send the email to join ${groupName}.`);
+      alert(`Invitation sent to ${email}! They will receive an email with a link to join ${groupName}.`);
       inviteEmailInput.value = "";
-      inviteMessageInput.value = "";
     } catch (error) {
       console.error("Error sending invitation:", error);
       alert("Error sending invitation. Please try again.");
@@ -284,6 +294,13 @@ document.addEventListener("DOMContentLoaded", () => {
       toggleLoading(false);
     }
   });
+
+  // Generate secure random token
+  function generateSecureToken() {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
 
   // Create registration key
   createRegistrationKeyBtn.addEventListener("click", async () => {
