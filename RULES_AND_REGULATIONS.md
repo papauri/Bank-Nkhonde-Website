@@ -1,604 +1,600 @@
-# Money Masters Saving Rules and Regulations
+# MONEY MASTERS SAVINGS CLUB - RULES AND REGULATIONS
+
+## Example Rules Document
+*This document serves as an example of the type of rules that can be configured for savings groups on the Bank Nkhonde platform. Each group may have different rules and configurations.*
+
+---
+
+## Important Note
+
+**This is an example of group-specific rules.** The Money Masters Savings Club rules documented here demonstrate the type of detailed regulations that groups can establish. The Bank Nkhonde platform is designed to be flexible and support various group configurations.
+
+### Platform Flexibility
+- Each group can set their own:
+  - Seed money amounts and due dates
+  - Interest rates
+  - Penalty structures
+  - Loan terms and limits
+  - Payment schedules
+  - Member requirements
+  - Duration and cycles
+
+### Example Group: Money Masters Savings Club
+The following rules are specific to the Money Masters Savings Club and serve as a reference for the types of policies groups may implement.
+
+---
 
 ## Table of Contents
-1. [Introduction](#introduction)
-2. [Group Formation](#group-formation)
-3. [Membership](#membership)
-4. [Financial Contributions](#financial-contributions)
-5. [Loans and Borrowing](#loans-and-borrowing)
-6. [Penalties and Fines](#penalties-and-fines)
-7. [Interest Rates](#interest-rates)
-8. [Payment Cycles](#payment-cycles)
-9. [Roles and Responsibilities](#roles-and-responsibilities)
-10. [Record Keeping](#record-keeping)
-11. [Dispute Resolution](#dispute-resolution)
-12. [Termination and Exit](#termination-and-exit)
+1. [Team Management and Leadership](#team-management-and-leadership)
+2. [Member Contributions, Loans and Interests](#member-contributions-loans-and-interests)
+3. [Guarantors, Surety and Sharing Out](#guarantors-surety-and-sharing-out)
+4. [Reporting and Treasurer Account Details](#reporting-and-treasurer-account-details)
+5. [Exiting the Group](#exiting-the-group)
+6. [Death of a Member](#death-of-a-member)
+7. [Platform Implementation Status](#platform-implementation-status)
 
 ---
 
-## 1. Introduction
+## 1. Team Management and Leadership
 
-Money Masters is a digital platform designed to facilitate Rotating Savings and Credit Associations (ROSCAs) and Village Savings and Loan Associations (VSLAs). This document outlines the rules and regulations that govern the operation of savings groups on the platform.
+### Group Structure
+- **Maximum Members**: 30 members
+- **Required Forms**: All members must fill out:
+  - Membership form
+  - Surety declaration form
 
-### Purpose
-- To promote savings culture among members
-- To provide accessible credit to members
-- To foster financial literacy and discipline
-- To create a transparent and accountable savings system
+### Leadership Team
+The group shall be led by:
+- **Chairperson**: Kwacha Makwecha
+- **Finance Director**: Peter Kayere
+- **Secretary**: Veronica Curtis
 
----
-
-## 2. Group Formation
-
-### 2.1 Registration Requirements
-- **Admin Registration**: One person must register as the group admin
-- **Group Name**: Must be unique and identifiable
-- **Minimum Members**: Groups should have a minimum number of active members (recommended: 5-30)
-- **Group Agreement**: All members must agree to the group's financial terms
-
-### 2.2 Group Configuration
-When creating a group, the admin must configure:
-- **Seed Money**: Initial capital contribution required from each member
-- **Seed Money Due Date**: Deadline for initial capital payment
-- **Interest Rate**: Annual interest rate for loans (percentage)
-- **Monthly Contribution**: Regular monthly savings amount (MWK)
-- **Loan Penalty**: Late payment penalty rate for loans (percentage)
-- **Monthly Penalty**: Penalty for late monthly contributions (percentage)
-- **Cycle Start Date**: Beginning of the savings cycle (12 months)
-
-### 2.3 Group Validation
-- All financial parameters must be agreed upon by founding members
-- Changes to group parameters require member consensus
-- Group configurations are recorded in the system with timestamps
+### Member Requirements
+- Complete registration on the platform
+- Provide valid email and phone number
+- Submit required documentation
+- Agree to all rules and regulations
 
 ---
 
-## 3. Membership
+## 2. Member Contributions, Loans and Interests
 
-### 3.1 Joining a Group
-- **Invitation System**: New members can join through approved invitation codes
-- **Admin Approval**: Group admins must approve new member applications
-- **Multiple Groups**: Users can belong to multiple savings groups
-- **Dual Roles**: Admins are also regular members and have the same financial obligations
+### A. Seed Money
+- **Amount**: MWK 1,000,000.00 (standard acceptable seed)
+- **Due Date**: 5th January
+- **Settlement Period**: Within the first month of January
+- **Status**: Non-refundable until sharing out period
 
-### 3.2 Member Information
+### B. Loan Disbursement and Repayment Schedule
+- **Disbursement Period**: 25th of the month
+- **Repayment End Date**: 5th of the next month
+- **Monthly Cycle**: Continuous from January to October
+
+#### Monthly Payment Deadlines
+
+| Month | Seed | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov |
+|-------|------|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|
+| **Loan Repayments** | 5 Jan | 5 Feb | 5 Mar | 5 Apr | 5 May | 5 Jun | 5 Jul | 5 Aug | 5 Sep | 5 Oct | 5 Nov | 5 Dec |
+
+### C. Loan Application Process
+- **Booking Deadline**: 15th of the month prior to loan requirement
+- **Example**: For loans between 5th Feb - 5th March, booking must be made by 15th February
+- **Emergency Loans**: Accepted but treated on first-come, first-served basis
+- **Allocation**: First-come, first-served basis
+
+### D. Interest Rates
+- **Base Interest Rate**: 15% per month
+- **First Month**: 15% interest on principal amount
+- **Subsequent Months**: 15% interest on carried-over loan balance
+- **Calculation**: Interest applies monthly on outstanding balance
+
+#### Interest Calculation Examples
+```
+Loan Amount: MWK 400,000
+Month 1 Interest: MWK 400,000 × 15% = MWK 60,000
+If MWK 200,000 paid:
+Month 2 Balance: MWK 200,000
+Month 2 Interest: MWK 200,000 × 15% = MWK 30,000
+```
+
+### E. Repayment History Requirements
+- **Good Standing**: Members with satisfactory repayment history have full borrowing rights
+- **Limited Borrowing**: Members with unsatisfactory repayment history are eligible for limited borrowing amounts
+- **Improvement**: Limited borrowing can be lifted by demonstrating improved repayment conduct
+
+### F. Loan Repayment Periods
+
+#### Loans Below MWK 500,000
+- **Repayment Period**: 2 months maximum
+- **Interest Structure**:
+  - Month 1: 15% interest on principal
+  - Month 2: 15% interest on remaining balance
+
+#### Loans Above MWK 500,000
+- **Repayment Period**: 3 months maximum
+- **Interest Structure**:
+  - Month 1: 15% interest on principal
+  - Month 2: 15% interest on balance
+  - Month 3: 15% interest on balance
+
+### G. Loan Rollovers
+- **Trigger**: Any balances carried beyond stated timeframes
+- **Treatment**: Treated as a new loan (rollover)
+- **Interest**: 15% interest continues on rolled-over amount
+
+### H. Late Payment Penalties
+- **Deadline**: 5th of every month
+- **Penalty Amount**: MWK 5,000.00 per day
+- **Start Date**: From 6th of the month until payment is made
+- **Additional Charges**: Penalty is IN ADDITION to the 15% interest rate
+- **Accumulation**: Daily penalties accumulate until full payment
+
+#### Late Payment Example
+```
+Loan due: 5th March
+Payment made: 10th March (5 days late)
+Late penalty: MWK 5,000 × 5 days = MWK 25,000
+Plus: 15% interest on outstanding balance
+Total due: Outstanding Balance + Interest + Late Penalty
+```
+
+### I. Surplus Distribution
+- **Encouraged**: All members are encouraged to get loans to accumulate more profits
+- **Surplus Funds**: If money remains after all loan requests are fulfilled
+- **Distribution Method**: Equitable distribution to members who:
+  - Have not taken loans before, OR
+  - Have less accumulated loans
+- **No Loan Interest**: Applies to months where no one takes loans
+
+### J. Monthly Reporting
+- **Frequency**: Monthly
+- **Report Date**: By 10th of each month
+- **Responsibility**: Treasurer/Finance Director
+- **Action**: Address all concerns raised by members
+
+---
+
+## 3. Guarantors, Surety and Sharing Out
+
+### A. Guarantor Requirements
+- **Minimum Guarantors**: At least 1 guarantor from the group
+- **Collateral**: Each member must indicate an asset with estimated value as collateral
+- **Documentation**: All guarantor and collateral information must be recorded in the system
+
+### B. Next of Kin Information
 Each member must provide:
-- Full legal name
-- Valid email address
-- Phone number (with international format)
-- Secure password (minimum 6 characters)
+- **Photo**: Recent photograph
+- **Next of Kin Contact**: Phone number of next of kin
+- **Relationship**: Nature of relationship to next of kin
 
-### 3.3 Member Roles
-- **Admin**: Manages group, approves payments, oversees operations
-- **User/Member**: Participates in savings, can access loans, makes contributions
+### C. Guarantor Limits
+- **Maximum**: A person can be a guarantor to a maximum of 2 people
+- **Responsibility**: Guarantors are financially responsible if the member defaults
 
-### 3.4 Member Rights
-- Access to personal financial records
-- View group financial status
-- Apply for loans
-- Switch between admin and user views (if admin)
-- Participate in group decisions
+### D. Default Process
+When a member fails to pay back their loans:
+1. **Primary Responsibility**: Transferred to the guarantor
+2. **Guarantor Payment**: Guarantor must cover the outstanding amount
+3. **Insufficient Funds**: If guarantor lacks adequate funds
+4. **Collateral Seizure**: Committee will take declared collateral to recover funds
 
-### 3.5 Member Responsibilities
-- Make timely monthly contributions
-- Pay seed money by the due date
-- Repay loans according to agreed terms
-- Keep personal information updated
-- Maintain confidentiality of group financial matters
+### E. Savings Duration
+- **Total Duration**: 11 months (January to November)
+- **Last Loan Month**: October (loans must be repaid by 5th October)
+- **Final Collections**: November reserved for final repayments
 
----
+### F. Year-End Loan Management
+- **Existing Balances**: Loans brought forward carry 15% interest on reduced balance
+- **Additional Loans**: Should be within individual share value
+- **Final Repayment Deadline**: 5th December
+- **Sharing Deadline**: 10th December
+- **Requirement**: All outstanding loans must be repaid by borrower or guarantor
 
-## 4. Financial Contributions
-
-### 4.1 Seed Money
-- **Purpose**: Initial capital to establish the group's loan fund
-- **Amount**: Set by group during formation
-- **Due Date**: Must be paid within the specified timeframe
-- **Non-refundable**: Until group cycle completion or dissolution
-- **Late Payment**: Subject to penalties as configured
-
-### 4.2 Monthly Contributions
-- **Frequency**: Monthly, on specified cycle dates
-- **Amount**: Fixed amount set during group formation (MWK)
-- **Payment Methods**: Multiple payment methods supported
-- **Recording**: All payments tracked with date, amount, and method
-- **Approval**: Admin must approve payments before they're recorded
-
-### 4.3 Payment Tracking
-The system tracks:
-- Total amount due
-- Total amount paid
-- Arrears (outstanding balance)
-- Payment status (paid/unpaid/pending)
-- Payment history with timestamps
-- Surplus payments
-
-### 4.4 Payment Calculation Formula
-```
-Arrears = Total Due - Total Paid
-Penalty = Arrears × (Penalty Rate / 100) [if past due date]
-Total Due = Arrears + Penalty
-Surplus = Total Paid - (Total Due + Penalty) [if overpaid]
-```
+### G. Dividend Sharing
+- **Date**: 10th December
+- **Requirement**: All loans must be cleared before sharing
+- **Distribution**: Contributions plus dividends
+- **Process**: Committee shares dividends once all loans are cleared
 
 ---
 
-## 5. Loans and Borrowing
+## 4. Reporting and Treasurer Account Details
 
-### 5.1 Loan Eligibility
-Members are eligible to borrow if they have:
-- Paid their seed money in full
-- Up-to-date monthly contributions
-- No outstanding loan arrears
-- Been a member for a minimum period (group-specific)
+### Monthly Report Contents
+The Finance Director must provide monthly updates after the 10th of each transaction month, including:
 
-### 5.2 Loan Terms
-- **Interest Rate**: Set during group formation (annual percentage)
-- **Repayment Period**: Agreed upon during loan application
-- **Maximum Amount**: Limited by group fund availability
-- **Collateral**: May be required (documented in system)
-- **Guarantors**: May be required by group policy
+1. **Financial Summary**
+   - Total money received previous month
+   - Total money loaned out previous month
 
-### 5.3 Loan Application Process
-1. Member submits loan application
-2. Admin reviews application
-3. Group discusses and approves/rejects
-4. Loan disbursed if approved
-5. Repayment schedule created
+2. **Loan Information**
+   - List of members who will get loans (including tentative compulsory lists)
+   - List of people paying back loans that month
+   - List of people who have not paid their loans
 
-### 5.4 Loan Repayment
-- **Regular Payments**: According to agreed schedule
-- **Payment Tracking**: System records all repayments
-- **Outstanding Balance**: Calculated as: Loan Amount - Total Repaid
-- **Early Repayment**: Allowed (with recalculated interest)
-- **Late Payment Penalty**: Penalty Rate × Outstanding Amount
+3. **Payment Details**
+   - All contributions to be made to group account
+   - All repayments to be made to group account
 
-### 5.5 Loan Records
-The system maintains:
-- Loan ID and reference number
-- Borrower information
-- Loan amount
-- Interest rate
-- Repayment schedule
-- Payment history
-- Outstanding balance
-- Penalty amounts
-- Loan status
+### Account Management
+- **Central Account**: All transactions through group account
+- **Transparency**: Account details shared with all members
+- **Tracking**: Platform maintains complete transaction history
 
 ---
 
-## 6. Penalties and Fines
+## 5. Exiting the Group
 
-### 6.1 Monthly Contribution Penalties
-- **Trigger**: Payment not made by cycle date
-- **Calculation**: Arrears × (Monthly Penalty Rate / 100)
-- **Application**: Applied automatically after due date
-- **Accumulation**: Compounds if not addressed
-- **Cap**: May have maximum penalty limit (group policy)
+### A. Group Duration
+- **Running Period**: 11 months (January to November)
+- **Minimum Commitment**: 6 months
+- **Restriction**: No member may exit before 6 months
 
-### 6.2 Loan Penalties
-- **Trigger**: Loan payment missed or delayed
-- **Calculation**: Outstanding Amount × (Loan Penalty Rate / 100)
-- **Application**: Applied per agreed schedule
-- **Impact**: Affects future loan eligibility
+### B. Voluntary Exit
+Members who choose to leave the group:
+- **Principal Only**: Will receive only principal investment of MWK 1,000,000
+- **No Interest**: No accrued interest or dividends paid
+- **Payment Date**: Principal payable only at end of group period (December)
+- **Conditions**: Must have no outstanding loans
 
-### 6.3 Penalty Payment
-- Penalties must be paid along with arrears
-- System tracks penalty amounts separately
-- No contribution considered complete until penalties cleared
+### C. Termination
+Members may be terminated if they:
+- **Failure to Repay**: Continuously fail to repay loans and interest
+- **Duration**: Non-payment for 3 consecutive months
 
-### 6.4 Penalty Waivers
-- May be granted by group decision
-- Must be documented
-- Requires admin approval in system
+### D. Terminated Member Obligations
+- **Loan Repayment**: Must pay back all group loan balances
+- **Principal Return**: Only principal investment returned at end of period (December)
+- **No Dividends**: Forfeits all accrued interest and dividends
+- **Repayment Period**: 3 weeks to pay back loan balances
 
----
-
-## 7. Interest Rates
-
-### 7.1 Loan Interest
-- **Rate Type**: Annual percentage rate (APR)
-- **Configuration**: Set during group formation
-- **Range**: Recommended 0-100% (configurable)
-- **Application**: Applied to outstanding loan balance
-- **Calculation**: Proportional to loan duration
-
-### 7.2 Interest Distribution
-- Interest collected goes to group fund
-- May be distributed among members at cycle end
-- Distribution method decided by group policy
-
-### 7.3 Interest Rate Changes
-- Require member consensus
-- Apply to new loans only (existing loans maintain original rate)
-- Must be documented in system
+### E. Debt Collection
+- **Trigger**: Failure to pay within 3 weeks of termination
+- **Action**: Loan handed over to debt collectors
+- **Costs**: Collection costs may be added to debt
+- **Legal**: Legal action may be pursued
 
 ---
 
-## 8. Payment Cycles
+## 6. Death of a Member
 
-### 8.1 Cycle Structure
-- **Duration**: 12 months (standard)
-- **Start Date**: Configured during group formation
-- **Monthly Dates**: Auto-generated for 12 months
-- **Cycle Tracking**: System maintains cycle calendar
+### A. Payment to Family
+- **Full Payment**: Principal investment PLUS accrued interest paid to family
+- **Recipient**: Payment made to next of kin as indicated by member
+- **Timing**: Immediate processing upon confirmation of death
+- **Documentation**: Death certificate required
 
-### 8.2 Cycle Dates
-The system generates:
-- ISO date format for calculations
-- Friendly date format for display
-- Year and month components
-- Timestamp for precise tracking
-
-### 8.3 Payment Due Dates
-- **Seed Money**: Specific due date set at formation
-- **Monthly Contributions**: Monthly cycle dates
-- **Loan Repayments**: Per agreed schedule
-- **Grace Period**: May be allowed (group policy)
-
-### 8.4 Cycle Completion
-At the end of 12 months:
-- Final accounting performed
-- Profits/interest distributed
-- Seed money may be returned
-- Option to start new cycle
-- Records archived
+### B. Loan Forgiveness
+- **Outstanding Loans**: Loan balances are forfeited in case of member death
+- **Guarantor Release**: Guarantors not liable for deceased member's loans
+- **Group Absorption**: Loss absorbed by group collectively
+- **Compassion**: Recognizes hardship to family
 
 ---
 
-## 9. Roles and Responsibilities
+## 7. Platform Implementation Status
 
-### 9.1 Group Admin
-**Responsibilities:**
-- Create and configure group
-- Approve new member applications
-- Review and approve payments
-- Approve loan applications
-- Monitor group financial health
-- Resolve disputes
-- Maintain accurate records
-- Communicate with members
+### ✅ Currently Implemented Features
 
-**Obligations:**
-- Same financial obligations as regular members
-- Must pay seed money and monthly contributions
-- Subject to same penalties if late
-- Can access both admin and user views
+1. **Member Registration**
+   - Email and phone validation
+   - Password security (min 6 characters)
+   - Multiple group membership support
 
-**Powers:**
-- Approve/reject payments
-- Approve/reject loan applications
-- View all member records
-- Generate reports
-- Modify payment statuses
+2. **Seed Money Tracking**
+   - Configurable amount (set to MWK 1,000,000)
+   - Due date tracking (set to 5th January)
+   - Payment status monitoring
 
-### 9.2 Regular Members
-**Responsibilities:**
-- Make timely contributions
-- Repay loans on schedule
-- Attend group meetings (if required)
-- Participate in group decisions
-- Maintain account security
+3. **Interest Rate System**
+   - 15% monthly rate configuration
+   - Interest calculation on balances
 
-**Rights:**
-- View personal financial records
-- Access group summary information
-- Apply for loans
-- Submit payments
-- View payment history
+4. **Payment Tracking**
+   - Payment history
+   - Arrears calculation
+   - Status monitoring (paid/unpaid/pending)
 
-### 9.3 System Responsibilities
-The platform automatically:
-- Calculates arrears and penalties
-- Tracks all payments and loans
-- Generates payment schedules
-- Maintains audit trail
-- Provides financial summaries
-- Enforces data consistency
+5. **Loan Management**
+   - Loan application
+   - Outstanding balance tracking
+   - Repayment recording
 
----
+6. **Penalties**
+   - Configurable penalty rates
+   - Automatic calculation
+   - Penalty tracking
 
-## 10. Record Keeping
+7. **Monthly Cycles**
+   - 12-month cycle generation
+   - Cycle date tracking
+   - Payment deadlines
 
-### 10.1 Financial Records
-The system maintains complete records of:
-- All contributions (seed money and monthly)
-- All loan transactions
-- All repayments
-- All penalties
-- Payment methods
-- Approval statuses
-- Timestamps for all transactions
+8. **Reporting**
+   - Payment summaries
+   - Group financial status
+   - Transaction history
 
-### 10.2 Member Records
-Stored securely for each member:
-- Personal information
-- Group memberships
-- Roles (admin/user)
-- Financial balances
-- Payment history
-- Loan history
-- Collateral information
+### ⚠️ Needs Enhancement
 
-### 10.3 Group Records
-Maintained for each group:
-- Group configuration
-- Admin details
-- Member list
-- Payment summary (total due, paid, arrears)
-- Approved payments
-- Pending payments
-- Loan portfolio
-- Cycle dates
-- Activity logs
+1. **Daily Late Penalties**
+   - **Current**: Percentage-based penalty
+   - **Required**: MWK 5,000 per day after 5th
+   - **Impact**: Critical for compliance
 
-### 10.4 Data Security
-- All data encrypted in transit and at rest
-- Firebase Authentication for secure access
-- Role-based access control
-- Audit trails for all modifications
-- Regular backups
+2. **Loan Period Enforcement**
+   - **Required**: Auto-calculate 2 or 3 months based on amount
+   - **Required**: < MWK 500,000 = 2 months max
+   - **Required**: ≥ MWK 500,000 = 3 months max
 
-### 10.5 Data Access
-- Members: Own records only
-- Admins: All group member records
-- System: Automated calculations and summaries
-- Privacy: Email and phone kept confidential
+3. **Interest on Reduced Balance**
+   - **Current**: Fixed interest calculation
+   - **Required**: 15% on remaining balance each month
 
----
+4. **Loan Booking System**
+   - **Required**: 15th deadline for next month
+   - **Required**: First-come, first-served queue
+   - **Required**: Emergency loan flagging
 
-## 11. Dispute Resolution
+5. **11-Month Cycle**
+   - **Current**: 12-month cycle
+   - **Required**: 11-month cycle (Jan-Nov)
+   - **Required**: October last loan month
+   - **Required**: December 5th final repayment
+   - **Required**: December 10th sharing
 
-### 11.1 Dispute Types
-- Payment disputes
-- Loan approval disputes
-- Penalty disputes
-- Membership disputes
-- Admin decisions
+### ❌ Missing Features (Critical)
 
-### 11.2 Resolution Process
-1. **Internal Resolution**: Admin reviews and mediates
-2. **Group Discussion**: Members vote if needed
-3. **Documentation**: All decisions recorded in system
-4. **Implementation**: System updated to reflect resolution
+1. **Guarantor System**
+   - Assign guarantors (min 1, max 2 per member)
+   - Track who guarantees whom
+   - Max 2 members per guarantor enforcement
+   - Automatic transfer to guarantor on default
+   - Guarantor liability tracking
 
-### 11.3 Escalation
-- Disputes unresolved internally may require external mediation
-- Group may establish dispute committee
-- Platform provides complete transaction history for evidence
+2. **Collateral Management**
+   - Asset type and description
+   - Estimated value
+   - Documentation upload
+   - Collateral seizure process
 
----
+3. **Next of Kin**
+   - Contact information
+   - Photo upload
+   - Relationship documentation
+   - Death notification process
 
-## 12. Termination and Exit
+4. **Exit Management**
+   - 6-month minimum enforcement
+   - Principal-only calculation for early exit
+   - 3-month non-payment termination
+   - 3-week debt collection period
+   - Exit date tracking
 
-### 12.1 Member Exit
-**Voluntary Exit:**
-- Member must clear all arrears
-- Outstanding loans must be repaid
-- Penalties must be settled
-- Share of group fund calculated
-- Formal exit recorded in system
+5. **Death Protocol**
+   - Death notification
+   - Principal + interest calculation
+   - Next of kin payment process
+   - Loan forgiveness
+   - Guarantor release
 
-**Involuntary Exit:**
-- Repeated violation of rules
-- Fraud or misconduct
-- Prolonged non-payment
-- Admin approval required
-- Group vote may be required
+6. **Surplus Distribution**
+   - Identify non-borrowers
+   - Calculate fair distribution
+   - Distribute surplus monthly
+   - Track distribution history
 
-### 12.2 Group Dissolution
-**Process:**
-1. All loans must be repaid
-2. Final accounting performed
-3. Profits distributed
-4. Seed money returned
-5. Records archived
-6. Group status set to inactive
+7. **Repayment History**
+   - Satisfactory/unsatisfactory tracking
+   - Borrowing limit enforcement
+   - History improvement tracking
 
-**Requirements:**
-- Member consensus
-- Admin coordination
-- Complete financial settlement
-- Documentation of final state
+8. **Member Limits**
+   - Maximum 30 members enforcement
+   - Membership form submission
+   - Surety declaration form
 
-### 12.3 Data Retention
-- Financial records retained per legal requirements
-- Inactive groups archived
-- Member data retained for audit purposes
-- Privacy rights respected per policy
+### Recommended Development Priorities
 
----
+#### Phase 1: Critical Compliance (Immediate)
+1. Daily penalty system (MWK 5,000/day)
+2. Loan period auto-calculation
+3. Interest on reduced balance
+4. 11-month cycle adjustment
+5. Specific payment dates (5th, 15th, 25th)
 
-## Appendix A: System Features Supporting Rules
+#### Phase 2: Core Features (1-2 weeks)
+6. Guarantor system complete
+7. Collateral tracking
+8. Next of kin management
+9. Exit/termination management
+10. Death protocol
 
-### Validation Features
-- Email uniqueness check (prevents duplicate accounts)
-- Field-level validation (ensures data quality)
-- Password strength requirements (minimum 6 characters)
-- Phone number validation (international format)
-- Numeric validation (amounts and percentages)
-- Date validation (cannot be in past)
+#### Phase 3: Advanced Features (2-4 weeks)
+11. Surplus distribution
+12. Loan booking system
+13. Repayment history tracking
+14. Monthly auto-reporting
+15. Sharing calculation (December 10th)
 
-### Calculation Features
-- Automatic arrears calculation
-- Penalty calculation based on configured rates
-- Surplus tracking
-- Total due computation
-- Outstanding balance tracking
+### Database Schema Requirements
 
-### Approval Workflow
-- Payment approval required before recording
-- Loan approval process
-- Multi-step validation before database writes
-- Batch operations for data consistency
-
-### Reporting Features
-- Payment summaries
-- Group financial health
-- Individual member balances
-- Loan portfolio status
-- Activity logs
-
-### Security Features
-- Firebase Authentication
-- Role-based access (admin/user)
-- Secure password storage
-- Session management
-- Audit trails
-
----
-
-## Appendix B: Best Practices
-
-### For Admins
-1. Review all payment submissions promptly
-2. Maintain regular communication with members
-3. Keep accurate records
-4. Be fair and transparent in decisions
-5. Plan for group sustainability
-6. Monitor group financial health
-7. Address arrears early
-
-### For Members
-1. Pay contributions on time
-2. Only borrow what you can repay
-3. Communicate if facing payment difficulties
-4. Keep login credentials secure
-5. Verify payment records regularly
-6. Participate in group decisions
-7. Respect group rules
-
-### For Groups
-1. Set realistic contribution amounts
-2. Define clear loan policies
-3. Establish fair penalty rates
-4. Document all important decisions
-5. Plan for emergencies
-6. Review rules periodically
-7. Foster trust and accountability
-
----
-
-## Appendix C: Technical Implementation
-
-### Database Structure
-```
-users/
-  {userId}/
-    - uid
-    - fullName
-    - email
-    - phone
-    - roles: ["admin", "user"]
-    - groupMemberships: [groupId1, groupId2, ...]
-    - createdAt
-
-groups/
-  {groupId}/
-    - groupId
-    - groupName
-    - seedMoney
-    - seedMoneyDueDate
-    - interestRate
-    - monthlyContribution
-    - loanPenalty
-    - monthlyPenalty
-    - cycleStartDate
-    - cycleDates[]
-    - displayCycleDates[]
-    - status
-    - adminDetails[]
-    - paymentSummary
-    - createdAt
-    
-    members/
-      {userId}/
-        - uid
-        - fullName
-        - email
-        - phone
-        - role
-        - joinedAt
-        - collateral
-        - balances[]
-    
-    payments/
-      {year}_SeedMoney/
-        {userId}/
-          PaymentDetails/
-            - userId
-            - fullName
-            - paymentType
-            - totalAmount
-            - arrears
-            - approvalStatus
-            - paymentStatus
-            - dueDate
-            - createdAt
-      
-      {year}_MonthlyContributions/
-        {userId}/
-          {year}_{month}/
-            - userId
-            - fullName
-            - paymentType
-            - totalAmount
-            - arrears
-            - approvalStatus
-            - paymentStatus
-            - dueDate
-            - createdAt
-    
-    loans/
-      {loanId}/
-        - borrowerId
-        - amount
-        - interestRate
-        - status
-        - repayments[]
-        - createdAt
-```
-
-### Key Algorithms
-
-**Penalty Calculation:**
 ```javascript
-const arrears = Math.max(totalDue - totalPaid, 0);
-const penalty = (arrears > 0 && isPastDue) 
-  ? arrears * (penaltyRate / 100) 
-  : 0;
-const totalDue = arrears + penalty;
+// Enhanced Member Schema
+members/{userId}/ {
+  // Existing fields
+  uid, fullName, email, phone, role, joinedAt,
+  
+  // New required fields
+  guarantors: [
+    {uid: string, name: string}  // Min 1, Max 2
+  ],
+  guarantorFor: [userId1, userId2],  // Max 2
+  nextOfKin: {
+    name: string,
+    phone: string,
+    relationship: string,
+    photoUrl: string
+  },
+  collateral: {
+    type: string,
+    description: string,
+    estimatedValue: number,
+    documentUrl: string
+  },
+  membershipDate: timestamp,
+  exitDate: timestamp | null,
+  terminationDate: timestamp | null,
+  deathDate: timestamp | null,
+  repaymentHistory: "satisfactory" | "unsatisfactory",
+  loanCount: number,
+  totalBorrowed: number,
+  membershipFormUrl: string,
+  suretyDeclarationUrl: string
+}
+
+// Enhanced Loan Schema
+loans/{loanId}/ {
+  // Existing fields
+  borrowerId, amount, interestRate, status,
+  
+  // New required fields
+  bookingDate: timestamp,           // When requested (by 15th)
+  approvalDate: timestamp,          // When approved
+  disbursementDate: timestamp,      // When given (25th)
+  dueDate: timestamp,               // 5th of month
+  maxPeriodMonths: 2 | 3,          // Based on amount
+  monthlyInterestRate: 15,          // Fixed 15%
+  
+  // Rollover tracking
+  isRollover: boolean,
+  rolledFromLoanId: string | null,
+  rolloverCount: number,
+  
+  // Late payment tracking
+  daysOverdue: number,
+  dailyPenaltyRate: 5000,           // MWK per day
+  accumulatedDailyPenalty: number,
+  
+  // Payment tracking
+  principalPaid: number,
+  interestPaid: number,
+  penaltiesPaid: number,
+  outstandingPrincipal: number,
+  monthlyInterestDetails: [
+    {
+      month: number,
+      balance: number,
+      interestRate: 15,
+      interestAmount: number,
+      paid: boolean
+    }
+  ]
+}
+
+// Enhanced Group Schema
+groups/{groupId}/ {
+  // Existing fields
+  groupId, groupName, status,
+  
+  // Required configurations
+  seedMoney: 1000000,               // Fixed MWK 1M
+  seedMoneyDueDate: "5 January",
+  interestRate: 15,                 // Fixed 15% monthly
+  loanPenalty: 5000,                // MWK per day
+  
+  // Cycle management
+  cycleDurationMonths: 11,          // Jan-Nov (not 12)
+  cycleStartMonth: "January",
+  cycleEndMonth: "November",
+  lastLoanMonth: "October",
+  finalRepaymentDate: "5 December",
+  sharingDate: "10 December",
+  
+  // Date configuration
+  loanDisbursementDay: 25,          // 25th of month
+  repaymentDueDay: 5,               // 5th of month
+  loanBookingDay: 15,               // 15th of prior month
+  reportingDay: 10,                 // 10th of month
+  
+  // Member limits
+  maxMembers: 30,
+  minimumMembershipMonths: 6,
+  terminationNonPaymentMonths: 3,
+  debtCollectionWeeks: 3,
+  
+  // Leadership
+  leadership: {
+    chairperson: "Kwacha Makwecha",
+    financeDirector: "Peter Kayere",
+    secretary: "Veronica Curtis"
+  }
+}
 ```
 
-**Validation Flow:**
-1. Field-level validation (client-side)
-2. Form submission validation
-3. Email existence check
-4. Firebase Auth user creation
-5. Batch write to Firestore (atomic)
-6. Success confirmation
+---
+
+## Compliance Checklist
+
+| Rule | Status | Implementation Required |
+|------|--------|------------------------|
+| Max 30 members | ⚠️ | Add member count validation |
+| Seed MWK 1M, due 5 Jan | ✅ | Already configured |
+| 15% monthly interest | ✅ | Already configured |
+| Interest on reduced balance | ⚠️ | Update calculation logic |
+| Loan < 500K = 2 months | ❌ | Add auto-period calculation |
+| Loan ≥ 500K = 3 months | ❌ | Add auto-period calculation |
+| Daily penalty MWK 5K | ❌ | Implement daily penalty system |
+| Payment due 5th | ⚠️ | Configure specific date |
+| Disbursement 25th | ❌ | Add disbursement scheduling |
+| Booking by 15th | ❌ | Add booking system |
+| Guarantor (1-2) | ❌ | Implement guarantor system |
+| Max 2 as guarantor | ❌ | Add guarantor limit |
+| Collateral tracking | ❌ | Add collateral system |
+| Next of kin | ❌ | Add next of kin fields |
+| 11-month cycle | ❌ | Change from 12 to 11 months |
+| Last loan in October | ❌ | Add month restriction |
+| Final payment 5 Dec | ❌ | Add deadline |
+| Sharing 10 Dec | ❌ | Add sharing calculation |
+| 6-month minimum | ❌ | Add tenure tracking |
+| 3-month termination | ❌ | Add termination logic |
+| 3-week collection | ❌ | Add collection timer |
+| Death protocol | ❌ | Add death handling |
+| Surplus distribution | ❌ | Add distribution logic |
+| Monthly report by 10th | ⚠️ | Automate reporting |
+
+**Legend:**
+- ✅ = Fully implemented
+- ⚠️ = Partially implemented / needs configuration
+- ❌ = Not implemented
 
 ---
 
 ## Version Control
 
-**Document Version:** 1.0  
+**Document Version:** 2.0 (Example Rules Template)  
 **Last Updated:** January 10, 2026  
-**Platform Version:** Compatible with Bank Nkhonde v1.0+  
-**Effective Date:** Upon group formation  
+**Example Group:** Money Masters Savings Club  
+**Platform Version:** Bank Nkhonde v1.0+  
+**Purpose:** Reference template for group rule creation  
 
 ---
 
-## Acknowledgments
+## Important Notes
 
-These rules and regulations are designed to support transparent, accountable, and sustainable savings groups. They align with best practices from Village Savings and Loan Associations (VSLAs) and Rotating Savings and Credit Associations (ROSCAs) worldwide.
+1. **Group-Specific Rules**: Each group creates its own rules during formation
+2. **Platform Flexibility**: The system supports various configurations to accommodate different group needs
+3. **Example Only**: Money Masters rules are one example - your group may differ significantly
+4. **Configurable Parameters**: Groups can customize:
+   - Seed money amounts
+   - Interest rates (e.g., 15%, 10%, 20%)
+   - Penalty structures (daily, monthly, percentage-based)
+   - Loan terms (2 months, 3 months, 6 months, etc.)
+   - Payment frequencies
+   - Cycle duration (11 months, 12 months, custom)
+   - Member limits
+5. **Member Agreement**: All members must agree to their specific group's rules upon joining
 
 ---
 
-## Contact and Support
-
-For questions about these rules and regulations, please contact your group admin or the Bank Nkhonde support team through the platform.
-
----
-
-*This document should be reviewed and customized by each group to match their specific needs and local regulations.*
+*This document serves as a reference template demonstrating the level of detail and types of rules that can be established for savings groups on the Bank Nkhonde platform. Individual groups should create their own rules based on their specific needs and circumstances.*
