@@ -105,6 +105,65 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Load groups where user is an admin
+  async function loadGroups(user) {
+    groupList.innerHTML = "<li>Loading your groups...</li>";
+    try {
+      const groupsRef = collection(db, "groups");
+      const querySnapshot = await getDocs(groupsRef);
+
+      groupList.innerHTML = "";
+
+      let isAdminOfAnyGroup = false;
+
+      querySnapshot.forEach((docSnapshot) => {
+        const groupData = docSnapshot.data();
+        const groupId = docSnapshot.id;
+
+        // Check if user is an admin of the group
+        const isAdmin = groupData.adminDetails?.some(
+          (admin) => admin.email === user.email || admin.uid === user.uid
+        );
+        
+        if (!isAdmin) return;
+        isAdminOfAnyGroup = true;
+
+        // Create clickable list item for group
+        const groupItem = document.createElement("li");
+        groupItem.classList.add("group-item");
+
+        groupItem.innerHTML = `
+          <a href="group_page.html?groupId=${groupId}" class="group-link">
+            <div class="group-details">
+              <h3>${groupData.groupName}</h3>
+              <p>Created: ${groupData.createdAt?.toDate
+                ? new Date(groupData.createdAt.toDate()).toLocaleDateString()
+                : "N/A"
+              }</p>
+              <p>Members: Loading...</p>
+            </div>
+          </a>
+        `;
+
+        groupList.appendChild(groupItem);
+
+        // Fetch member count dynamically
+        getDocs(collection(db, "groups", groupId, "members")).then((membersSnapshot) => {
+          const memberCount = membersSnapshot.size;
+          groupItem.querySelector(".group-details p:nth-child(3)").textContent = `Members: ${memberCount}`;
+        });
+      });
+
+      if (!isAdminOfAnyGroup) {
+        groupList.innerHTML = "<li>You are not an admin of any groups.</li>";
+      }
+    } catch (error) {
+      console.error("Error loading admin groups:", error.message);
+      groupList.innerHTML = "<li>Error loading groups. Please try again later.</li>";
+    }
+  }
+
+
   // Fetch user’s name
   async function fetchUserName(user) {
     try {

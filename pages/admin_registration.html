@@ -221,11 +221,9 @@
             break;
           case "seedMoneyDueDate":
           case "cycleStartDate":
-            const selectedDate = new Date(value);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            if (selectedDate < today) {
-              showError(fieldId, "Date cannot be in the past");
+            // Allow past dates for manual entry by admins
+            if (!value) {
+              showError(fieldId, "Date is required");
               return false;
             }
             break;
