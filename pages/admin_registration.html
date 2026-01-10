@@ -139,10 +139,7 @@
       const percentageFields = document.querySelectorAll("#interestRate, #loanPenalty, #monthlyPenalty");
 
       // ✅ Validation patterns
-      const patterns = {
-        email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-        name: /^[a-zA-Z\s]{2,}$/,
-      };
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
       // ✅ Show error message
       function showError(fieldId, message) {
@@ -188,13 +185,13 @@
 
         switch (fieldId) {
           case "name":
-            if (!patterns.name.test(value)) {
-              showError(fieldId, "Please enter a valid full name (letters only)");
+            if (value.length < 2) {
+              showError(fieldId, "Name must be at least 2 characters long");
               return false;
             }
             break;
           case "email":
-            if (!patterns.email.test(value)) {
+            if (!emailPattern.test(value)) {
               showError(fieldId, "Please enter a valid email address");
               return false;
             }
