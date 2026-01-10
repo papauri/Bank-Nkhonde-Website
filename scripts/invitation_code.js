@@ -6,6 +6,8 @@ import {
   where,
   getDocs,
   updateDoc,
+  deleteDoc,
+  Timestamp,
 } from "./firebaseConfig.js";
 
 
@@ -72,23 +74,63 @@ export async function validateInvitationCode(code) {
   }
 }
 
-// Mark the invitation code as used
-export async function markCodeAsUsed(code) {
+// Mark the invitation code as used and delete it immediately
+export async function markCodeAsUsedAndDelete(code) {
   try {
     const codeQuery = query(collection(db, "invitationCodes"), where("code", "==", code));
     const querySnapshot = await getDocs(codeQuery);
 
     if (!querySnapshot.empty) {
       const invitationDocRef = querySnapshot.docs[0].ref;
-      await updateDoc(invitationDocRef, { used: true });
-      console.log("Invitation code marked as used.");
+      // Delete the document immediately after use
+      await deleteDoc(invitationDocRef);
+      console.log("Invitation code deleted after use.");
     } else {
       console.warn("No matching invitation code found.");
     }
   } catch (err) {
-    console.error("Error marking code as used:", err);
-    alert("Failed to mark the invitation code as used. Please try again.");
+    console.error("Error deleting code:", err);
+    alert("Failed to process the invitation code. Please try again.");
   }
+}
+
+// Poll for registration key approval
+export async function pollForApproval(code, maxWaitTimeMs = 300000) {
+  const startTime = Date.now();
+  const pollInterval = 2000; // Check every 2 seconds
+  
+  return new Promise((resolve, reject) => {
+    const intervalId = setInterval(async () => {
+      try {
+        const codeQuery = query(collection(db, "invitationCodes"), where("code", "==", code));
+        const querySnapshot = await getDocs(codeQuery);
+
+        if (querySnapshot.empty) {
+          clearInterval(intervalId);
+          reject(new Error("Registration key not found. It may have been deleted."));
+          return;
+        }
+
+        const invitationDoc = querySnapshot.docs[0];
+        const invitationData = invitationDoc.data();
+
+        if (invitationData.approved) {
+          clearInterval(intervalId);
+          resolve(true);
+          return;
+        }
+
+        // Check if we've exceeded max wait time
+        if (Date.now() - startTime > maxWaitTimeMs) {
+          clearInterval(intervalId);
+          reject(new Error("Registration key approval timeout. Please contact an administrator."));
+        }
+      } catch (err) {
+        clearInterval(intervalId);
+        reject(err);
+      }
+    }, pollInterval);
+  });
 }
 
 // Automatically create an invitation code on page load

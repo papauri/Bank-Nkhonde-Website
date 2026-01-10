@@ -164,6 +164,29 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
 
+
+  // Check if user is admin of any group
+  async function checkIfUserIsAdmin(user) {
+    try {
+      const groupsRef = collection(db, "groups");
+      const querySnapshot = await getDocs(groupsRef);
+      
+      for (const docSnapshot of querySnapshot.docs) {
+        const groupData = docSnapshot.data();
+        const isAdmin = groupData.adminDetails?.some(
+          (admin) => admin.email === user.email || admin.uid === user.uid
+        );
+        if (isAdmin) {
+          return true;
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error("Error checking admin status:", error.message);
+      return false;
+    }
+  }
+
   // Fetch user’s name
   async function fetchUserName(user) {
     try {
@@ -203,6 +226,17 @@ document.addEventListener("DOMContentLoaded", () => {
       const userName = await fetchUserName(user);
       userNameSpan.textContent = userName;
       welcomeMessage.textContent = `Welcome, ${userName}`;
+      
+      // Check if user is an admin of any group
+      const isAdmin = await checkIfUserIsAdmin(user);
+      
+      // Show/hide switch view button based on admin status
+      if (isAdmin) {
+        switchViewButton.style.display = "block";
+      } else {
+        switchViewButton.style.display = "none";
+      }
+      
       await loadUserGroups(user);
       resetSessionTimer();
     } else {

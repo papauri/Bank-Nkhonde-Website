@@ -12,6 +12,12 @@ import {
   setDoc,
 } from "./firebaseConfig.js";
 
+import {
+  validateInvitationCode,
+  markCodeAsUsedAndDelete,
+  pollForApproval,
+} from "./invitation_code.js";
+
 document.addEventListener("DOMContentLoaded", () => {
   // Constants
   const PAYMENT_DETAILS_DOC = "PaymentDetails";
@@ -271,6 +277,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
   
+  // ✅ Helper function to create user and group with registration key deletion
+  async function createUserAndGroupWithKey(name, email, password, groupData, registrationKey) {
+    try {
+      // Create user and group first
+      await createUserAndGroup(name, email, password, groupData);
+      
+      // Delete the registration key after successful registration
+      toggleLoadingOverlay(true, "Cleaning up registration key...");
+      await markCodeAsUsedAndDelete(registrationKey);
+      console.log("✅ Registration key deleted successfully!");
+    } catch (error) {
+      console.error("❌ Error during registration with key:", error.message);
+      throw error;
+    }
+  }
 
   // Attach Phone Validation
   phoneInput.addEventListener("blur", validatePhoneInput);
@@ -285,6 +306,7 @@ registrationForm.addEventListener("submit", async (e) => {
   submitButton.disabled = true;
 
   // ✅ Collect data from form fields
+  const registrationKey = document.getElementById("registrationKey").value.trim();
   const name = document.getElementById("name").value.trim();
   const phone = document.getElementById("phone").value.trim();
   const email = document.getElementById("email").value.trim();
@@ -300,6 +322,7 @@ registrationForm.addEventListener("submit", async (e) => {
 
   // ✅ Validate input fields
   const errors = [
+    validateField(registrationKey, "Registration Key"),
     validateField(name, "Full Name"),
     validateField(phone, "Phone Number"),
     validateField(email, "Email Address"),
@@ -332,8 +355,33 @@ registrationForm.addEventListener("submit", async (e) => {
   }
 
   try {
-    toggleLoadingOverlay(true, "Validating your information...");
+    // ✅ Validate registration key exists and check if already used
+    toggleLoadingOverlay(true, "Validating registration key...");
     toggleFormFields(false);
+
+    const keyIsValid = await validateInvitationCode(registrationKey);
+    if (!keyIsValid) {
+      submitButton.disabled = false;
+      toggleFormFields(true);
+      toggleLoadingOverlay(false);
+      return;
+    }
+
+    // ✅ Wait for manual approval from database
+    toggleLoadingOverlay(true, "Waiting for admin approval of your registration key... This may take a few minutes.");
+    
+    try {
+      await pollForApproval(registrationKey, 300000); // Wait up to 5 minutes
+      toggleLoadingOverlay(true, "Registration key approved! Proceeding with registration...");
+    } catch (approvalError) {
+      alert(approvalError.message);
+      submitButton.disabled = false;
+      toggleFormFields(true);
+      toggleLoadingOverlay(false);
+      return;
+    }
+
+    toggleLoadingOverlay(true, "Validating your information...");
 
     // ✅ Check if email already exists
     const emailExists = await checkEmailExists(email);
@@ -361,8 +409,8 @@ registrationForm.addEventListener("submit", async (e) => {
       cycleStartDate,
     };
 
-    // ✅ Create user and group immediately (no approval needed for admin self-registration)
-    await createUserAndGroup(name, email, password, groupData);
+    // ✅ Create user and group with registration key deletion
+    await createUserAndGroupWithKey(name, email, password, groupData, registrationKey);
 
   } catch (error) {
     console.error("❌ Error during registration:", error.message);
