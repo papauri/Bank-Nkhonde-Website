@@ -134,7 +134,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Show success message
         showSuccess("Account created successfully! Redirecting to your dashboard...");
         
-        // Redirect to user dashboard after 2 seconds
+        // Redirect to user dashboard after 2 seconds (using relative path)
         setTimeout(() => {
           window.location.href = "user_dashboard.html";
         }, 2000);

@@ -266,18 +266,26 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Reset analytics display
   function resetAnalytics() {
-    document.getElementById("totalCollected").textContent = "MWK 0.00";
-    document.getElementById("totalExpected").textContent = "MWK 0.00";
-    document.getElementById("totalArrears").textContent = "MWK 0.00";
-    document.getElementById("collectionRate").textContent = "0%";
-    document.getElementById("fullyPaidCount").textContent = "0";
-    document.getElementById("partiallyPaidCount").textContent = "0";
-    document.getElementById("unpaidCount").textContent = "0";
+    const updates = {
+      totalCollected: "MWK 0.00",
+      totalExpected: "MWK 0.00",
+      totalArrears: "MWK 0.00",
+      collectionRate: "0%",
+      fullyPaidCount: "0",
+      partiallyPaidCount: "0",
+      unpaidCount: "0",
+      totalLoansIssued: "MWK 0.00",
+      loansRepaid: "MWK 0.00",
+      outstandingLoans: "MWK 0.00",
+      activeBorrowers: "0"
+    };
+    
+    Object.keys(updates).forEach(id => {
+      const element = document.getElementById(id);
+      if (element) element.textContent = updates[id];
+    });
+    
     document.getElementById("memberPerformanceTable").innerHTML = "<p>Select a group to view member performance</p>";
-    document.getElementById("totalLoansIssued").textContent = "MWK 0.00";
-    document.getElementById("loansRepaid").textContent = "MWK 0.00";
-    document.getElementById("outstandingLoans").textContent = "MWK 0.00";
-    document.getElementById("activeBorrowers").textContent = "0";
   }
 
   // Group selection change handler

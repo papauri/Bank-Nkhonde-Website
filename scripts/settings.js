@@ -45,7 +45,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const sendInviteBtn = document.getElementById("sendInviteBtn");
   const inviteEmailInput = document.getElementById("inviteEmail");
   const inviteGroupSelect = document.getElementById("inviteGroup");
-  const inviteMessageInput = document.getElementById("inviteMessage");
   const createRegistrationKeyBtn = document.getElementById("createRegistrationKeyBtn");
   const registrationKeysList = document.getElementById("registrationKeysList");
   const editGroupSelect = document.getElementById("editGroup");
@@ -246,6 +245,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Generate secure invitation token
       const invitationToken = generateSecureToken();
+      // Use relative path for better portability
       const invitationUrl = `${window.location.origin}/pages/accept_invitation.html?token=${invitationToken}`;
 
       // Store invitation in database for backend processing
