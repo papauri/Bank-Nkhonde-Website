@@ -246,6 +246,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const groupName = groupDoc.exists() ? groupDoc.data().groupName : "Unknown Group";
 
       // Store invitation in database for backend processing
+      // NOTE: Email credentials should ONLY be on the backend (Cloud Function)
       await addDoc(collection(db, "invitations"), {
         email,
         groupId,
@@ -255,13 +256,6 @@ document.addEventListener("DOMContentLoaded", () => {
         customMessage: message,
         status: "pending",
         createdAt: Timestamp.now(),
-        // SMTP credentials should be stored securely on the backend
-        emailConfig: {
-          host: "mail.promanaged-it.com",
-          port: 465,
-          from: "_mainaccount@promanaged-it.com",
-          // Password should be in environment variables on the backend
-        }
       });
 
       // NOTE: In production, a Cloud Function should be triggered here to send the actual email
@@ -315,17 +309,38 @@ document.addEventListener("DOMContentLoaded", () => {
         const keyItem = document.createElement("div");
         keyItem.className = "key-item";
         
-        const statusBadge = keyData.approved ? 
-          (keyData.used ? '<span class="badge used">Used</span>' : '<span class="badge approved">Approved</span>') :
-          '<span class="badge pending">Pending Approval</span>';
+        // Create key info container
+        const keyInfo = document.createElement("div");
+        keyInfo.className = "key-info";
         
-        keyItem.innerHTML = `
-          <div class="key-info">
-            <strong>${keyData.code}</strong>
-            ${statusBadge}
-            <small>Created: ${keyData.createdAt?.toDate().toLocaleDateString()}</small>
-          </div>
-        `;
+        // Add code (using textContent to prevent XSS)
+        const codeStrong = document.createElement("strong");
+        codeStrong.textContent = keyData.code;
+        keyInfo.appendChild(codeStrong);
+        
+        // Add status badge
+        const statusBadge = document.createElement("span");
+        statusBadge.className = "badge";
+        if (keyData.approved) {
+          if (keyData.used) {
+            statusBadge.classList.add("used");
+            statusBadge.textContent = "Used";
+          } else {
+            statusBadge.classList.add("approved");
+            statusBadge.textContent = "Approved";
+          }
+        } else {
+          statusBadge.classList.add("pending");
+          statusBadge.textContent = "Pending Approval";
+        }
+        keyInfo.appendChild(statusBadge);
+        
+        // Add creation date
+        const dateSmall = document.createElement("small");
+        dateSmall.textContent = `Created: ${keyData.createdAt?.toDate().toLocaleDateString()}`;
+        keyInfo.appendChild(dateSmall);
+        
+        keyItem.appendChild(keyInfo);
         
         // Add delete button if not used
         if (!keyData.used) {
@@ -344,7 +359,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Delete registration key
-  async function deleteKey(keyId) {
   async function deleteKey(keyId) {
     if (!confirm("Are you sure you want to delete this registration key?")) {
       return;
@@ -435,13 +449,28 @@ document.addEventListener("DOMContentLoaded", () => {
         const memberData = doc.data();
         const memberItem = document.createElement("div");
         memberItem.className = "member-item";
-        memberItem.innerHTML = `
-          <div class="member-info">
-            <strong>${memberData.fullName || "Unknown"}</strong>
-            <small>${memberData.email || ""}</small>
-            <span class="badge">${memberData.role || "member"}</span>
-          </div>
-        `;
+        
+        // Create member info container
+        const memberInfo = document.createElement("div");
+        memberInfo.className = "member-info";
+        
+        // Add member name (using textContent to prevent XSS)
+        const nameStrong = document.createElement("strong");
+        nameStrong.textContent = memberData.fullName || "Unknown";
+        memberInfo.appendChild(nameStrong);
+        
+        // Add email
+        const emailSmall = document.createElement("small");
+        emailSmall.textContent = memberData.email || "";
+        memberInfo.appendChild(emailSmall);
+        
+        // Add role badge
+        const roleBadge = document.createElement("span");
+        roleBadge.className = "badge";
+        roleBadge.textContent = memberData.role || "member";
+        memberInfo.appendChild(roleBadge);
+        
+        memberItem.appendChild(memberInfo);
         membersList.appendChild(memberItem);
       });
     } catch (error) {
