@@ -137,9 +137,6 @@ input:focus, select:focus {
     width: 100%;
     height: 100%;
     background-color: rgba(0, 0, 0, 0.4); /* Dark background overlay */
-    display: flex;
-    justify-content: center;
-    align-items: center;
 }
 
 /* 🔹 Style the modal content */
@@ -150,12 +147,60 @@ input:focus, select:focus {
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
     width: 400px;
     text-align: center;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     z-index: 1001;
 }
 
 /* 🔹 Show modal when triggered */
 .modal.show {
-    display: flex !important;  /* Ensure modal is displayed */
+    display: block !important;  /* Ensure modal is displayed */
+}
+
+/* 🔹 Edit Button Styles */
+.edit-button {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-right: 8px;
+    transition: all 0.3s ease;
+}
+
+.edit-button:hover {
+    background: #2563eb;
+}
+
+/* 🔹 Update and Confirm Button Styles */
+.update {
+    background: #3b82f6;
+    color: white;
+}
+
+.update:hover {
+    background: #2563eb;
+}
+
+.confirm {
+    background: #059669;
+    color: white;
+}
+
+.confirm:hover {
+    background: #047857;
+}
+
+.cancel {
+    background: #6b7280;
+    color: white;
+}
+
+.cancel:hover {
+    background: #4b5563;
 }
 
 

@@ -45,7 +45,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const sendInviteBtn = document.getElementById("sendInviteBtn");
   const inviteEmailInput = document.getElementById("inviteEmail");
   const inviteGroupSelect = document.getElementById("inviteGroup");
-  const inviteMessageInput = document.getElementById("inviteMessage");
   const createRegistrationKeyBtn = document.getElementById("createRegistrationKeyBtn");
   const registrationKeysList = document.getElementById("registrationKeysList");
   const editGroupSelect = document.getElementById("editGroup");
@@ -225,7 +224,6 @@ document.addEventListener("DOMContentLoaded", () => {
   sendInviteBtn.addEventListener("click", async () => {
     const email = inviteEmailInput.value.trim();
     const groupId = inviteGroupSelect.value;
-    const message = inviteMessageInput.value.trim();
 
     if (!email || !groupId) {
       alert("Please enter an email address and select a group.");
@@ -239,33 +237,46 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Validate message length (max 500 characters)
-    if (message.length > 500) {
-      alert("Custom message must be 500 characters or less.");
-      return;
-    }
-
-    // Basic sanitization: remove any HTML-like tags
-    const sanitizedMessage = message.replace(/<[^>]*>/g, '');
-
     try {
       toggleLoading(true, "Sending invitation...");
       
       const groupDoc = await getDoc(doc(db, "groups", groupId));
       const groupName = groupDoc.exists() ? groupDoc.data().groupName : "Unknown Group";
 
+      // Generate secure invitation token
+      const invitationToken = generateSecureToken();
+      // Use relative path for better portability
+      const invitationUrl = `${window.location.origin}/pages/accept_invitation.html?token=${invitationToken}`;
+
       // Store invitation in database for backend processing
-      // NOTE: Email credentials should ONLY be on the backend (Cloud Function)
       await addDoc(collection(db, "invitations"), {
         email,
         groupId,
         groupName,
+        invitationToken,
         invitedBy: currentUser.uid,
+        invitedByName: (await getDoc(doc(db, "users", currentUser.uid))).data()?.fullName || currentUser.email,
         invitedByEmail: currentUser.email,
-        customMessage: sanitizedMessage,
         status: "pending",
         createdAt: Timestamp.now(),
+        expiresAt: Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), // 7 days
       });
+
+      // Auto-generated email content (to be sent by Cloud Function)
+      const emailTemplate = {
+        subject: `You're invited to join ${groupName} on Bank Nkhonde`,
+        body: `
+          <h2>You've been invited to join ${groupName}!</h2>
+          <p>You have been invited by ${(await getDoc(doc(db, "users", currentUser.uid))).data()?.fullName || currentUser.email} to join their savings group on Bank Nkhonde.</p>
+          <p><strong>Group:</strong> ${groupName}</p>
+          <p>Click the link below to accept the invitation and create your account:</p>
+          <p><a href="${invitationUrl}" style="background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Accept Invitation</a></p>
+          <p>This invitation will expire in 7 days.</p>
+          <p>If you did not expect this invitation, you can safely ignore this email.</p>
+          <hr>
+          <p style="color: #6b7280; font-size: 12px;">Bank Nkhonde - Digital ROSCA Management Platform</p>
+        `,
+      };
 
       // NOTE: In production, a Cloud Function should be triggered here to send the actual email
       // The Cloud Function would:
@@ -274,9 +285,8 @@ document.addEventListener("DOMContentLoaded", () => {
       // 3. Send the email using nodemailer or similar
       // 4. Update the invitation status to "sent"
 
-      alert(`Invitation saved for ${email}! Backend processing will send the email to join ${groupName}.`);
+      alert(`Invitation sent to ${email}! They will receive an email with a link to join ${groupName}.`);
       inviteEmailInput.value = "";
-      inviteMessageInput.value = "";
     } catch (error) {
       console.error("Error sending invitation:", error);
       alert("Error sending invitation. Please try again.");
@@ -284,6 +294,13 @@ document.addEventListener("DOMContentLoaded", () => {
       toggleLoading(false);
     }
   });
+
+  // Generate secure random token
+  function generateSecureToken() {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
 
   // Create registration key
   createRegistrationKeyBtn.addEventListener("click", async () => {
@@ -480,6 +497,17 @@ document.addEventListener("DOMContentLoaded", () => {
         memberInfo.appendChild(roleBadge);
         
         memberItem.appendChild(memberInfo);
+        
+        // Add Edit Profile button for admins
+        const editBtn = document.createElement("button");
+        editBtn.className = "button small primary";
+        editBtn.textContent = "Edit Profile";
+        editBtn.style.marginTop = "10px";
+        editBtn.addEventListener("click", () => {
+          openEditMemberModal(doc.id, memberData, groupId);
+        });
+        memberItem.appendChild(editBtn);
+        
         membersList.appendChild(memberItem);
       });
     } catch (error) {
@@ -489,6 +517,67 @@ document.addEventListener("DOMContentLoaded", () => {
       toggleLoading(false);
     }
   });
+
+  // Open Edit Member Modal
+  function openEditMemberModal(memberId, memberData, groupId) {
+    const editMemberModal = document.getElementById("editMemberModal");
+    const editMemberForm = document.getElementById("editMemberProfileForm");
+    
+    // Populate form fields
+    document.getElementById("editMemberFullName").value = memberData.fullName || "";
+    document.getElementById("editMemberEmail").value = memberData.email || "";
+    document.getElementById("editMemberPhone").value = memberData.phone || "";
+    document.getElementById("editMemberRole").value = memberData.role || "user";
+    document.getElementById("editMemberCollateral").value = memberData.collateral || "";
+    
+    // Show modal
+    editMemberModal.style.display = "flex";
+    
+    // Handle form submission
+    editMemberForm.onsubmit = async (e) => {
+      e.preventDefault();
+      
+      try {
+        toggleLoading(true, "Updating member profile...");
+        
+        const updatedData = {
+          fullName: document.getElementById("editMemberFullName").value.trim(),
+          phone: document.getElementById("editMemberPhone").value.trim(),
+          role: document.getElementById("editMemberRole").value,
+          collateral: document.getElementById("editMemberCollateral").value.trim() || null,
+        };
+        
+        // Update member in group
+        await updateDoc(doc(db, `groups/${groupId}/members`, memberId), updatedData);
+        
+        // Also update in users collection if it's their core profile info
+        await updateDoc(doc(db, "users", memberId), {
+          fullName: updatedData.fullName,
+          phone: updatedData.phone,
+        });
+        
+        alert("Member profile updated successfully!");
+        editMemberModal.style.display = "none";
+        
+        // Reload members list
+        manageMembersGroupSelect.dispatchEvent(new Event("change"));
+      } catch (error) {
+        console.error("Error updating member profile:", error);
+        alert("Error updating member profile. Please try again.");
+      } finally {
+        toggleLoading(false);
+      }
+    };
+  }
+  
+  // Cancel Edit Member Modal
+  const cancelEditMember = document.getElementById("cancelEditMember");
+  if (cancelEditMember) {
+    cancelEditMember.addEventListener("click", () => {
+      const editMemberModal = document.getElementById("editMemberModal");
+      editMemberModal.style.display = "none";
+    });
+  }
 
   // Save notification preferences
   saveNotificationsBtn.addEventListener("click", async () => {

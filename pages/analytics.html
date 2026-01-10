@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Financial Analytics</title>
+  <link rel="stylesheet" href="../styles/analytics.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <h1>Financial Analytics</h1>
+      <button id="backButton" class="button back">Back to Dashboard</button>
+    </header>
+
+    <!-- Group Selector -->
+    <section class="group-selector">
+      <label for="groupSelect">Select Group:</label>
+      <select id="groupSelect">
+        <option value="">Loading groups...</option>
+      </select>
+    </section>
+
+    <!-- Group Financial Summary -->
+    <section class="financial-summary">
+      <h2>Group Financial Overview</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="card-icon">💰</div>
+          <div class="card-content">
+            <h3>Total Collected</h3>
+            <p class="amount" id="totalCollected">MWK 0.00</p>
+          </div>
+        </div>
+        <div class="summary-card">
+          <div class="card-icon">📊</div>
+          <div class="card-content">
+            <h3>Total Expected</h3>
+            <p class="amount" id="totalExpected">MWK 0.00</p>
+          </div>
+        </div>
+        <div class="summary-card">
+          <div class="card-icon">⚠️</div>
+          <div class="card-content">
+            <h3>Total Arrears</h3>
+            <p class="amount warning" id="totalArrears">MWK 0.00</p>
+          </div>
+        </div>
+        <div class="summary-card">
+          <div class="card-icon">✅</div>
+          <div class="card-content">
+            <h3>Collection Rate</h3>
+            <p class="amount" id="collectionRate">0%</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Member Performance -->
+    <section class="member-performance">
+      <h2>Member Payment Performance</h2>
+      <div id="memberPerformanceTable">
+        <p>Select a group to view member performance</p>
+      </div>
+    </section>
+
+    <!-- Payment Trends -->
+    <section class="payment-trends">
+      <h2>Payment Status Summary</h2>
+      <div class="trends-grid">
+        <div class="trend-card">
+          <h3>Fully Paid Members</h3>
+          <p class="trend-number success" id="fullyPaidCount">0</p>
+        </div>
+        <div class="trend-card">
+          <h3>Partially Paid Members</h3>
+          <p class="trend-number warning" id="partiallyPaidCount">0</p>
+        </div>
+        <div class="trend-card">
+          <h3>Unpaid Members</h3>
+          <p class="trend-number danger" id="unpaidCount">0</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Loan Analytics -->
+    <section class="loan-analytics">
+      <h2>Loan Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="card-icon">🏦</div>
+          <div class="card-content">
+            <h3>Total Loans Issued</h3>
+            <p class="amount" id="totalLoansIssued">MWK 0.00</p>
+          </div>
+        </div>
+        <div class="summary-card">
+          <div class="card-icon">💵</div>
+          <div class="card-content">
+            <h3>Loans Repaid</h3>
+            <p class="amount" id="loansRepaid">MWK 0.00</p>
+          </div>
+        </div>
+        <div class="summary-card">
+          <div class="card-icon">📉</div>
+          <div class="card-content">
+            <h3>Outstanding Loans</h3>
+            <p class="amount warning" id="outstandingLoans">MWK 0.00</p>
+          </div>
+        </div>
+        <div class="summary-card">
+          <div class="card-icon">👥</div>
+          <div class="card-content">
+            <h3>Active Borrowers</h3>
+            <p class="amount" id="activeBorrowers">0</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="../scripts/analytics.js"></script>
+</body>
+</html>

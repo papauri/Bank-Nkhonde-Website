@@ -26,6 +26,7 @@ import {
   updatePassword,
   EmailAuthProvider,
   reauthenticateWithCredential,
+  sendEmailVerification,
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import {
   getStorage,
@@ -75,6 +76,7 @@ export {
   updatePassword,
   EmailAuthProvider,
   reauthenticateWithCredential,
+  sendEmailVerification,
   ref,
   uploadBytes,
   getDownloadURL,
