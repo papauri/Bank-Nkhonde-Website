@@ -1,0 +1,214 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isGroupAdmin(groupId) {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role in ['admin', 'senior_admin'];
+    }
+    
+    function isSeniorAdmin(groupId) {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == 'senior_admin';
+    }
+    
+    function isGroupMember(groupId) {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    }
+    
+    // Users collection - global user profiles
+    match /users/{userId} {
+      // Users can read their own profile
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      
+      // Users can create their own profile during registration
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      
+      // Users can update their own profile
+      allow update: if isSignedIn() && request.auth.uid == userId &&
+        // Prevent changing uid and email
+        request.resource.data.uid == resource.data.uid &&
+        request.resource.data.email == resource.data.email;
+      
+      // Prevent deletion of user profiles
+      allow delete: if false;
+    }
+    
+    // Groups collection
+    match /groups/{groupId} {
+      // Anyone signed in can read group basic info if they are a member
+      allow read: if isSignedIn() && isGroupMember(groupId);
+      
+      // Only authenticated users can create groups (during registration)
+      allow create: if isSignedIn();
+      
+      // Only group admins can update group settings
+      allow update: if isGroupAdmin(groupId);
+      
+      // Only senior admins can delete groups
+      allow delete: if isSeniorAdmin(groupId);
+      
+      // Members subcollection
+      match /members/{memberId} {
+        // Members can read other members in their group
+        allow read: if isGroupMember(groupId);
+        
+        // Only admins can add new members
+        allow create: if isGroupAdmin(groupId);
+        
+        // Only admins can update member information
+        allow update: if isGroupAdmin(groupId);
+        
+        // Only senior admins can remove members
+        allow delete: if isSeniorAdmin(groupId);
+      }
+      
+      // Payments subcollection
+      match /payments/{yearType} {
+        // All group members can read payment summaries
+        allow read: if isGroupMember(groupId);
+        
+        // Only admins can create payment documents
+        allow create: if isGroupAdmin(groupId);
+        
+        // Only admins can update payment summaries
+        allow update: if isGroupAdmin(groupId);
+        
+        // Prevent deletion of payment records
+        allow delete: if false;
+        
+        // Individual user payment records
+        match /{userId}/{documentId} {
+          // Members can read their own payments, admins can read all
+          allow read: if isSignedIn() && 
+            (request.auth.uid == userId || isGroupAdmin(groupId));
+          
+          // Admins can create payment records
+          allow create: if isGroupAdmin(groupId);
+          
+          // Members can update their own payment proofs, admins can approve
+          allow update: if isSignedIn() && (
+            (request.auth.uid == userId && 
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['proofOfPayment', 'updatedAt'])) ||
+            isGroupAdmin(groupId)
+          );
+          
+          // Prevent deletion of payment records
+          allow delete: if false;
+        }
+      }
+      
+      // Loans subcollection
+      match /loans/{loanId} {
+        // All group members can read loans
+        allow read: if isGroupMember(groupId);
+        
+        // Members can create loan requests
+        allow create: if isGroupMember(groupId);
+        
+        // Only admins can update loans (approve, modify)
+        allow update: if isGroupAdmin(groupId);
+        
+        // Only senior admins can delete loans
+        allow delete: if isSeniorAdmin(groupId);
+      }
+      
+      // Transactions subcollection
+      match /transactions/{transactionId} {
+        // All group members can read transactions
+        allow read: if isGroupMember(groupId);
+        
+        // Only admins can create transactions
+        allow create: if isGroupAdmin(groupId);
+        
+        // Only admins can update transactions
+        allow update: if isGroupAdmin(groupId);
+        
+        // Prevent deletion of transactions (audit trail)
+        allow delete: if false;
+      }
+      
+      // Meetings subcollection (optional)
+      match /meetings/{meetingId} {
+        // All group members can read meetings
+        allow read: if isGroupMember(groupId);
+        
+        // Only admins can create meetings
+        allow create: if isGroupAdmin(groupId);
+        
+        // Only admins can update meetings
+        allow update: if isGroupAdmin(groupId);
+        
+        // Only senior admins can delete meetings
+        allow delete: if isSeniorAdmin(groupId);
+      }
+      
+      // Notifications subcollection
+      match /notifications/{notificationId} {
+        // Members can read their own notifications
+        allow read: if isSignedIn();
+        
+        // Only admins can create notifications
+        allow create: if isGroupAdmin(groupId);
+        
+        // Members can mark their notifications as read
+        allow update: if isSignedIn();
+        
+        // Admins can delete notifications
+        allow delete: if isGroupAdmin(groupId);
+      }
+    }
+    
+    // Invitation codes for registration approval
+    match /invitationCodes/{codeId} {
+      // Anyone can read to validate codes during registration
+      allow read: if true;
+      
+      // Anyone can create invitation codes during registration
+      allow create: if true;
+      
+      // Only authenticated admins can approve codes
+      allow update: if isSignedIn();
+      
+      // Codes can be deleted after use or by admins
+      allow delete: if isSignedIn();
+    }
+    
+    // Invitations for joining existing groups
+    match /invitations/{invitationId} {
+      // Anyone can read their own invitation
+      allow read: if true;
+      
+      // Only group admins can create invitations
+      allow create: if isSignedIn();
+      
+      // Only the inviter or the invited person can update
+      allow update: if isSignedIn();
+      
+      // Only the inviter can delete invitations
+      allow delete: if isSignedIn() && 
+        resource.data.invitedBy == request.auth.uid;
+    }
+    
+    // System settings (read-only for most users)
+    match /systemSettings/{settingId} {
+      // Anyone can read system settings
+      allow read: if true;
+      
+      // Only system admins can modify (would need custom claims)
+      allow write: if false;
+    }
+  }
+}

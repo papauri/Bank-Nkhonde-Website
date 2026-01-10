@@ -43,8 +43,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ✅ Loading Overlay Functions
   function toggleLoadingOverlay(show = true, message = "Processing... Please wait.") {
-    loadingMessage.textContent = message;
+    loadingMessage.innerHTML = message.replace(/\n/g, '<br>'); // Support multi-line messages
     loadingOverlay.classList.toggle("show", show);
+    loadingOverlay.classList.toggle("hidden", !show);
     document.body.style.pointerEvents = show ? "none" : "auto";
   }
 
@@ -56,6 +57,41 @@ document.addEventListener("DOMContentLoaded", () => {
   // ✅ Validate Required Fields
   function validateField(value, fieldName) {
     return value && value.trim() !== "" ? null : `${fieldName} is required.`;
+  }
+
+  // ✅ Validate Email
+  function validateEmail(email) {
+    const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailPattern.test(email)) {
+      return "Please enter a valid email address.";
+    }
+    return null;
+  }
+
+  // ✅ Validate Name
+  function validateName(name) {
+    const namePattern = /^[a-zA-Z\s'-]{2,}$/;
+    if (name.length < 2) {
+      return "Name must be at least 2 characters long.";
+    }
+    if (!namePattern.test(name)) {
+      return "Name can only contain letters, spaces, hyphens, and apostrophes.";
+    }
+    return null;
+  }
+
+  // ✅ Validate Password
+  function validatePassword(password) {
+    if (password.length < 6) {
+      return "Password must be at least 6 characters long.";
+    }
+    if (password.length > 50) {
+      return "Password is too long (max 50 characters).";
+    }
+    if (!/(?=.*[0-9!@#$%^&*])/.test(password)) {
+      return "Password should contain at least one number or special character.";
+    }
+    return null;
   }
 
   // ✅ Validate Numeric Fields
@@ -398,11 +434,23 @@ registrationForm.addEventListener("submit", async (e) => {
   const cycleStartDate = document.getElementById("cycleStartDate").value;
 
   // ✅ Validate input fields
-  const errors = [
-    validateField(name, "Full Name"),
+  const errors = [];
+  
+  // Validate name
+  const nameError = validateName(name);
+  if (nameError) errors.push(nameError);
+  
+  // Validate email
+  const emailError = validateEmail(email);
+  if (emailError) errors.push(emailError);
+  
+  // Validate password
+  const passwordError = validatePassword(password);
+  if (passwordError) errors.push(passwordError);
+  
+  // Validate other required fields
+  [
     validateField(phone, "Phone Number"),
-    validateField(email, "Email Address"),
-    validateField(password, "Password"),
     validateField(groupName, "Group Name"),
     validateField(seedMoneyDueDate, "Seed Money Due Date"),
     validateNumericField(seedMoney, "Seed Money", 0),
@@ -411,12 +459,9 @@ registrationForm.addEventListener("submit", async (e) => {
     validateNumericField(loanPenalty, "Loan Penalty", 0, 100, true),
     validateNumericField(monthlyPenalty, "Monthly Penalty", 0, 100, true),
     validateField(cycleStartDate, "Cycle Start Date"),
-  ].filter((error) => error !== null);
-
-  // ✅ Validate password strength
-  if (password.length < 6) {
-    errors.push("Password must be at least 6 characters long.");
-  }
+  ].forEach(error => {
+    if (error) errors.push(error);
+  });
 
   // ✅ Validate phone input separately
   if (!validatePhoneInput() || !phone) {

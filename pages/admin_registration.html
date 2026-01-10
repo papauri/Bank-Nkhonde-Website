@@ -49,7 +49,7 @@
           <label for="password">Password <span class="required">*</span></label>
           <input type="password" id="password" name="password" placeholder="Create a strong password (min. 6 characters)" required>
           <span class="error-message" id="passwordError"></span>
-          <small class="helper-text">Password must be at least 6 characters long</small>
+          <small class="helper-text">Password must be at least 6 characters with a number or special character</small>
         </div>
       </fieldset>
 
@@ -142,7 +142,8 @@
       const percentageFields = document.querySelectorAll("#interestRate, #loanPenalty, #monthlyPenalty");
 
       // ✅ Validation patterns
-      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      const namePattern = /^[a-zA-Z\s'-]{2,}$/;
 
       // ✅ Show error message
       function showError(fieldId, message) {
@@ -192,6 +193,20 @@
               showError(fieldId, "Name must be at least 2 characters long");
               return false;
             }
+            if (!namePattern.test(value)) {
+              showError(fieldId, "Name can only contain letters, spaces, hyphens, and apostrophes");
+              return false;
+            }
+            break;
+          case "groupName":
+            if (value.length < 2) {
+              showError(fieldId, "Group name must be at least 2 characters long");
+              return false;
+            }
+            if (value.length > 50) {
+              showError(fieldId, "Group name must not exceed 50 characters");
+              return false;
+            }
             break;
           case "email":
             if (!emailPattern.test(value)) {
@@ -204,12 +219,25 @@
               showError(fieldId, "Password must be at least 6 characters long");
               return false;
             }
+            if (value.length > 50) {
+              showError(fieldId, "Password is too long (max 50 characters)");
+              return false;
+            }
+            // Check for at least one number or special character for better security
+            if (!/(?=.*[0-9!@#$%^&*])/.test(value)) {
+              showError(fieldId, "Password should contain at least one number or special character");
+              return false;
+            }
             break;
           case "seedMoney":
           case "monthlyContribution":
             const amount = parseFloat(value);
             if (isNaN(amount) || amount < 0) {
               showError(fieldId, "Please enter a valid positive amount");
+              return false;
+            }
+            if (amount > 1000000000) {
+              showError(fieldId, "Amount is too large");
               return false;
             }
             break;
@@ -224,10 +252,21 @@
             break;
           case "seedMoneyDueDate":
           case "cycleStartDate":
-            // Allow past dates for manual entry by admins
             if (!value) {
               showError(fieldId, "Date is required");
               return false;
+            }
+            const selectedDate = new Date(value);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            // For cycle start date, warn if too far in the past
+            if (fieldId === "cycleStartDate" && selectedDate < today) {
+              const daysDiff = Math.floor((today - selectedDate) / (1000 * 60 * 60 * 24));
+              if (daysDiff > 365) {
+                showError(fieldId, "Cycle start date is more than a year in the past. Please verify.");
+                return false;
+              }
             }
             break;
         }
