@@ -29,12 +29,12 @@ document.addEventListener("DOMContentLoaded", () => {
    */
   function displayError(message) {
     errorMessage.textContent = message;
-    errorMessage.style.display = 'block';
-    successMessage.style.display = 'none';
+    errorMessage.classList.remove('hidden');
+    successMessage.classList.add('hidden');
     
     setTimeout(() => {
       errorMessage.textContent = '';
-      errorMessage.style.display = 'none';
+      errorMessage.classList.add('hidden');
     }, 8000);
   }
 
@@ -43,12 +43,12 @@ document.addEventListener("DOMContentLoaded", () => {
    */
   function displaySuccess(message) {
     successMessage.textContent = message;
-    successMessage.style.display = 'block';
-    errorMessage.style.display = 'none';
+    successMessage.classList.remove('hidden');
+    errorMessage.classList.add('hidden');
     
     setTimeout(() => {
       successMessage.textContent = '';
-      successMessage.style.display = 'none';
+      successMessage.classList.add('hidden');
     }, 5000);
   }
 
@@ -57,9 +57,9 @@ document.addEventListener("DOMContentLoaded", () => {
    */
   function clearMessages() {
     errorMessage.textContent = '';
-    errorMessage.style.display = 'none';
+    errorMessage.classList.add('hidden');
     successMessage.textContent = '';
-    successMessage.style.display = 'none';
+    successMessage.classList.add('hidden');
   }
 
   /**
@@ -154,9 +154,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /**
-   * Login Button Click Handler
+   * Handle Form Submit
    */
-  loginBtn.addEventListener("click", async () => {
+  const loginForm = document.getElementById("loginForm");
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    
     const email = document.getElementById("email")?.value.trim();
     const password = document.getElementById("password")?.value.trim();
 
@@ -177,21 +180,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     await handleLogin(email, password);
-  });
-
-  /**
-   * Enter key support
-   */
-  document.getElementById("password").addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-      loginBtn.click();
-    }
-  });
-
-  document.getElementById("email").addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-      document.getElementById("password").focus();
-    }
   });
 
   /**
