@@ -617,7 +617,7 @@ registrationForm.addEventListener("submit", async (e) => {
       console.error("❌ Auto-login failed:", loginError.message);
       toggleLoadingOverlay(false);
       alert("Registration complete! Please login with your credentials.");
-      window.location.href = "../index.html"; // Redirect to login
+      window.location.href = "../login.html"; // Redirect to login
     }
 
   } catch (error) {

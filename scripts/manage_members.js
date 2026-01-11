@@ -239,7 +239,7 @@ confirmPaymentButton.addEventListener("click", async () => {
         alert(`Member added successfully! They will receive a verification email at ${newMemberData.email}.\n\nYou have been logged out. Please log in again to continue.`);
         
         // Redirect to login page
-        window.location.href = "../index.html";
+        window.location.href = "../login.html";
 
     } catch (error) {
         console.error("Error adding member:", error);

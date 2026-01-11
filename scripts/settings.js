@@ -747,7 +747,7 @@ document.addEventListener("DOMContentLoaded", () => {
   logoutBtn.addEventListener("click", async () => {
     try {
       await signOut(auth);
-      window.location.href = "../index.html";
+      window.location.href = "../login.html";
     } catch (error) {
       console.error("Error logging out:", error);
       alert("Error logging out. Please try again.");
@@ -808,7 +808,7 @@ document.addEventListener("DOMContentLoaded", () => {
       await currentUser.delete();
       
       alert("Account deleted successfully.");
-      window.location.href = "../index.html";
+      window.location.href = "../login.html";
     } catch (error) {
       console.error("Error deleting account:", error);
       if (error.code === "auth/requires-recent-login") {
@@ -848,7 +848,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } else {
       alert("You must be logged in to access settings.");
-      window.location.href = "../index.html";
+      window.location.href = "../login.html";
     }
   });
 });

@@ -22,7 +22,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (!groupId) {
     alert("Group ID is missing. Redirecting to the admin dashboard...");
-    window.location.href = "../index.html";
+    window.location.href = "../login.html";
     return;
   }
 
