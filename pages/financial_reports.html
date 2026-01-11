@@ -2,133 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Financial Reports</title>
-  <link rel="stylesheet" href="../styles/manage_page.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#047857">
+  <title>Financial Reports - Bank Nkhonde</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/mobile-design-system.css">
 </head>
 <body>
-  <div class="container">
-    <header class="header">
-      <h1>Financial Reports</h1>
-      <button id="backButton" class="button back">Back to Dashboard</button>
-    </header>
-
-    <!-- Group & Period Selector -->
-    <section class="selector-section">
-      <div class="selector-row">
-        <div class="selector-group">
-          <label for="groupSelector">Select Group:</label>
-          <select id="groupSelector" class="group-select">
-            <option value="">Loading groups...</option>
-          </select>
-        </div>
-        <div class="selector-group">
-          <label for="reportType">Report Type:</label>
-          <select id="reportType" class="report-select">
-            <option value="monthly">Monthly Report</option>
-            <option value="yearly">Yearly Report</option>
-            <option value="cycle">Cycle Report</option>
-            <option value="custom">Custom Period</option>
-          </select>
-        </div>
-        <div class="selector-group">
-          <label for="periodSelector">Period:</label>
-          <select id="periodSelector" class="period-select">
-            <option value="">Select Period...</option>
-          </select>
-        </div>
-      </div>
-      <button id="generateReportBtn" class="button primary">Generate Report</button>
-    </section>
-
-    <!-- Report Summary -->
-    <section class="report-summary" id="reportSummary" style="display: none;">
-      <h2>Report Summary</h2>
-      <div class="summary-grid">
-        <div class="summary-card">
-          <h4>Total Income</h4>
-          <p id="totalIncome" class="summary-value">MWK 0</p>
-        </div>
-        <div class="summary-card">
-          <h4>Total Disbursed</h4>
-          <p id="totalDisbursed" class="summary-value">MWK 0</p>
-        </div>
-        <div class="summary-card">
-          <h4>Net Balance</h4>
-          <p id="netBalance" class="summary-value">MWK 0</p>
-        </div>
-        <div class="summary-card">
-          <h4>Active Members</h4>
-          <p id="activeMembers" class="summary-value">0</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Detailed Breakdown -->
-    <section class="report-details" id="reportDetails" style="display: none;">
-      <h2>Detailed Breakdown</h2>
-      
-      <!-- Income Breakdown -->
-      <div class="breakdown-section">
-        <h3>Income Breakdown</h3>
-        <div class="breakdown-table" id="incomeBreakdown"></div>
-      </div>
-
-      <!-- Expenditure Breakdown -->
-      <div class="breakdown-section">
-        <h3>Expenditure Breakdown</h3>
-        <div class="breakdown-table" id="expenditureBreakdown"></div>
-      </div>
-
-      <!-- Member-wise Summary -->
-      <div class="breakdown-section">
-        <h3>Member-wise Contribution Summary</h3>
-        <div class="breakdown-table" id="memberSummary"></div>
-      </div>
-
-      <!-- Loan Summary -->
-      <div class="breakdown-section">
-        <h3>Loan Summary</h3>
-        <div class="breakdown-table" id="loanSummary"></div>
-      </div>
-    </section>
-
-    <!-- Export Options -->
-    <section class="export-section" id="exportSection" style="display: none;">
-      <h2>Export Report</h2>
-      <div class="export-buttons">
-        <button id="exportPdfBtn" class="button secondary">
-          <span>📄</span> Export as PDF
-        </button>
-        <button id="exportExcelBtn" class="button secondary">
-          <span>📊</span> Export as Excel
-        </button>
-        <button id="exportCsvBtn" class="button secondary">
-          <span>📋</span> Export as CSV
-        </button>
-        <button id="printBtn" class="button secondary">
-          <span>🖨️</span> Print Report
-        </button>
-      </div>
-    </section>
-
-    <!-- Charts -->
-    <section class="charts-section" id="chartsSection" style="display: none;">
-      <h2>Visual Analytics</h2>
-      <div class="charts-grid">
-        <div class="chart-container">
-          <h3>Income vs Expenditure</h3>
-          <canvas id="incomeExpChart"></canvas>
-        </div>
-        <div class="chart-container">
-          <h3>Payment Compliance</h3>
-          <canvas id="complianceChart"></canvas>
-        </div>
-      </div>
-    </section>
+  <div class="mobile-header">
+    <button class="mobile-header-action" onclick="history.back()">←</button>
+    <h1 class="mobile-header-title">Financial Reports</h1>
+    <div style="width: 44px;"></div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <div class="mobile-container">
+    <div class="empty-state" style="padding: 60px 20px;">
+      <div class="empty-state-icon">📋</div>
+      <h2 style="margin: 16px 0;">Financial Reports</h2>
+      <p>This page is under construction. Full financial reporting features coming soon!</p>
+      <button class="btn btn-primary mt-4" onclick="history.back()">Go Back</button>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module" src="../scripts/financial_reports.js"></script>
 </body>
 </html>
