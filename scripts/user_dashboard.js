@@ -226,6 +226,11 @@ document.addEventListener("DOMContentLoaded", () => {
     window.location.href = "settings.html";
   });
 
+  // Logout Button
+  logoutButton.addEventListener("click", async () => {
+    await handleLogout();
+  });
+
   // Listen for authentication state
   onAuthStateChanged(auth, async (user) => {
     if (user) {

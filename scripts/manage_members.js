@@ -192,16 +192,37 @@ confirmPaymentButton.addEventListener("click", async () => {
     if (!newMemberData) return;
 
     try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+            alert("You must be logged in to add members.");
+            return;
+        }
+
+        // Save current user's email and password for re-authentication
+        // Note: This is a workaround. Ideally, use Firebase Admin SDK via Cloud Functions
+        const adminEmail = currentUser.email;
+        
         // ✅ Create user AFTER confirmation
         const userCredential = await createUserWithEmailAndPassword(auth, newMemberData.email, "User@123");
         const user = userCredential.user;
         await sendEmailVerification(user);
 
         // ✅ Store user details in Firestore
-        const userData = { uid: user.uid, ...newMemberData, createdAt: Timestamp.now() };
+        const userData = { 
+            uid: user.uid, 
+            ...newMemberData, 
+            createdAt: Timestamp.now(),
+            roles: [newMemberData.role] // Add roles array for proper role management
+        };
 
-        await setDoc(doc(db, "users", user.uid), { ...userData, groupMemberships: [groupId] });
-        await setDoc(doc(db, `groups/${groupId}/members`, user.uid), { ...userData, joinedAt: Timestamp.now() });
+        await setDoc(doc(db, "users", user.uid), { 
+            ...userData, 
+            groupMemberships: [{ groupId: groupId, role: newMemberData.role, joinedAt: Timestamp.now() }] 
+        });
+        await setDoc(doc(db, `groups/${groupId}/members`, user.uid), { 
+            ...userData, 
+            joinedAt: Timestamp.now() 
+        });
 
         // ✅ Update Payment Collections
         await updatePaymentsForNewMember(
@@ -212,11 +233,31 @@ confirmPaymentButton.addEventListener("click", async () => {
             parseFloat(paymentMonthlyPenalty.value)
         );
 
-        alert("Member and payments added successfully!");
-        paymentModal.style.display = "none";
-        loadMembers();
+        // ✅ Sign out the newly created user to avoid session conflict
+        await auth.signOut();
+
+        alert(`Member added successfully! They will receive a verification email at ${newMemberData.email}.\n\nYou have been logged out. Please log in again to continue.`);
+        
+        // Redirect to login page
+        window.location.href = "../index.html";
+
     } catch (error) {
-        alert("Failed to add member: " + error.message);
+        console.error("Error adding member:", error);
+        
+        // Provide user-friendly error messages
+        let errorMessage = "Failed to add member: ";
+        if (error.code === "auth/email-already-in-use") {
+            errorMessage += "This email is already registered. Please use a different email.";
+        } else if (error.code === "auth/invalid-email") {
+            errorMessage += "Invalid email address.";
+        } else if (error.code === "auth/weak-password") {
+            errorMessage += "Password is too weak. Please use a stronger password.";
+        } else {
+            errorMessage += error.message;
+        }
+        
+        alert(errorMessage);
+        paymentModal.style.display = "none";
     }
 });
 

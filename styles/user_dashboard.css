@@ -106,6 +106,9 @@ body {
 .group-list {
   list-style: none;
   padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 15px;
 }
 
 /* Clickable Group Item */
@@ -114,7 +117,6 @@ body {
   background: #f8f9fa;
   padding: 20px 25px;
   border-radius: 12px;
-  margin-bottom: 15px;
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
   text-decoration: none;
@@ -196,9 +198,25 @@ body {
   .welcome h2 {
     font-size: 24px;
   }
+  
+  .welcome {
+    padding: 30px 15px;
+  }
+
+  .groups {
+    padding: 20px;
+  }
 
   .groups h2 {
     font-size: 24px;
+  }
+  
+  .group-list {
+    gap: 12px;
+  }
+
+  .group-list li {
+    padding: 15px 18px;
   }
 
   .group-list li .details h3 {
@@ -209,22 +227,49 @@ body {
     font-size: 14px;
   }
 
+  .footer {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
   .footer .button {
     font-size: 14px;
+    flex: 1 1 calc(50% - 5px);
+    min-width: 120px;
   }
 }
 
 @media (max-width: 480px) {
+  .header {
+    padding: 15px 20px;
+  }
+
   .header h1 {
-    font-size: 24px;
+    font-size: 20px;
+  }
+
+  .welcome {
+    padding: 25px 15px;
   }
 
   .welcome h2 {
     font-size: 20px;
   }
 
+  .welcome p {
+    font-size: 15px;
+  }
+
+  .groups {
+    padding: 15px;
+  }
+
   .groups h2 {
     font-size: 20px;
+  }
+
+  .group-list li {
+    padding: 12px 15px;
   }
 
   .group-list li .details h3 {
@@ -237,6 +282,7 @@ body {
 
   .footer .button {
     font-size: 12px;
+    padding: 8px 12px;
   }
 }
 
@@ -274,6 +320,12 @@ body {
     font-size: 30px;
   }
   
+  /* Grid layout for larger screens */
+  .group-list {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+  
   .group-list li {
     padding: 25px 30px;
   }
@@ -303,6 +355,11 @@ body {
   
   .groups h2 {
     font-size: 32px;
+  }
+  
+  /* 3 columns for very large screens */
+  .group-list {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
