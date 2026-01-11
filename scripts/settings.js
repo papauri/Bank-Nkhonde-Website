@@ -485,6 +485,17 @@ document.addEventListener("DOMContentLoaded", () => {
         nameStrong.textContent = memberData.fullName || "Unknown";
         memberInfo.appendChild(nameStrong);
         
+        // Add custom title if available
+        if (memberData.customTitle) {
+          const titleBadge = document.createElement("span");
+          titleBadge.className = "badge badge-title";
+          titleBadge.textContent = memberData.customTitle;
+          titleBadge.style.marginLeft = "10px";
+          titleBadge.style.background = "#dbeafe";
+          titleBadge.style.color = "#1e40af";
+          memberInfo.appendChild(titleBadge);
+        }
+        
         // Add email
         const emailSmall = document.createElement("small");
         emailSmall.textContent = memberData.email || "";
@@ -561,6 +572,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("editMemberEmail").value = memberData.email || "";
     document.getElementById("editMemberPhone").value = memberData.phone || "";
     document.getElementById("editMemberRole").value = memberData.role || "user";
+    document.getElementById("editMemberTitle").value = memberData.customTitle || "";
     document.getElementById("editMemberCollateral").value = memberData.collateral || "";
     
     // Show modal
@@ -577,6 +589,7 @@ document.addEventListener("DOMContentLoaded", () => {
           fullName: document.getElementById("editMemberFullName").value.trim(),
           phone: document.getElementById("editMemberPhone").value.trim(),
           role: document.getElementById("editMemberRole").value,
+          customTitle: document.getElementById("editMemberTitle").value.trim() || null,
           collateral: document.getElementById("editMemberCollateral").value.trim() || null,
         };
         
