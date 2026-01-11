@@ -269,6 +269,12 @@ body {
   font-weight: 700;
 }
 
+.badge.badge-title {
+  background: #dbeafe;
+  color: #1e40af;
+  font-weight: 600;
+}
+
 /* Member List */
 .member-item {
   padding: 15px;

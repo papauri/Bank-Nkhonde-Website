@@ -490,9 +490,6 @@ document.addEventListener("DOMContentLoaded", () => {
           const titleBadge = document.createElement("span");
           titleBadge.className = "badge badge-title";
           titleBadge.textContent = memberData.customTitle;
-          titleBadge.style.marginLeft = "10px";
-          titleBadge.style.background = "#dbeafe";
-          titleBadge.style.color = "#1e40af";
           memberInfo.appendChild(titleBadge);
         }
         
@@ -706,8 +703,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const currentStats = groupData.statistics || {};
         
         await updateDoc(groupRef, {
-          "statistics.totalMembers": (currentStats.totalMembers || 1) - 1,
-          "statistics.activeMembers": (currentStats.activeMembers || 1) - 1,
+          "statistics.totalMembers": Math.max((currentStats.totalMembers || 0) - 1, 0),
+          "statistics.activeMembers": Math.max((currentStats.activeMembers || 0) - 1, 0),
           updatedAt: Timestamp.now(),
         });
       }
