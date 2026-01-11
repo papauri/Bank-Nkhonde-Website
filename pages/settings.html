@@ -2,232 +2,237 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Settings</title>
-  <link rel="stylesheet" href="../styles/settings.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#047857">
+  <title>Settings - Bank Nkhonde</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/mobile-design-system.css">
+  <style>
+    body {
+      background: var(--bn-gray-lighter);
+      padding-bottom: 80px;
+    }
+
+    .settings-header {
+      background: var(--bn-white);
+      box-shadow: var(--bn-shadow-sm);
+      padding: var(--bn-spacing-md);
+      display: flex;
+      align-items: center;
+      gap: var(--bn-spacing-md);
+      position: sticky;
+      top: 0;
+      z-index: var(--z-sticky);
+    }
+
+    .back-btn {
+      min-width: var(--bn-touch-target);
+      min-height: var(--bn-touch-target);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      color: var(--bn-dark);
+      font-size: 24px;
+      cursor: pointer;
+      border-radius: var(--bn-radius-sm);
+    }
+
+    .back-btn:active {
+      background: var(--bn-gray-lighter);
+    }
+
+    .settings-header h1 {
+      font-size: var(--bn-font-xl);
+      margin: 0;
+    }
+
+    .settings-section {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-spacing-md);
+      margin-bottom: var(--bn-spacing-md);
+      box-shadow: var(--bn-shadow-sm);
+    }
+
+    .settings-section h2 {
+      font-size: var(--bn-font-lg);
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin: 0 0 var(--bn-spacing-md) 0;
+      padding-bottom: var(--bn-spacing-sm);
+      border-bottom: 2px solid var(--bn-gray-lighter);
+    }
+
+    .setting-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--bn-spacing-md) 0;
+      border-bottom: 1px solid var(--bn-gray-lighter);
+    }
+
+    .setting-item:last-child {
+      border-bottom: none;
+    }
+
+    .setting-info h4 {
+      font-size: var(--bn-font-base);
+      font-weight: 600;
+      color: var(--bn-dark);
+      margin: 0 0 4px 0;
+    }
+
+    .setting-info p {
+      font-size: var(--bn-font-sm);
+      color: var(--bn-gray);
+      margin: 0;
+    }
+
+    .setting-value {
+      font-size: var(--bn-font-base);
+      color: var(--bn-dark);
+      font-weight: 600;
+    }
+
+    .danger-zone {
+      border: 2px solid var(--bn-danger);
+    }
+
+    .danger-zone h2 {
+      color: var(--bn-danger);
+    }
+  </style>
 </head>
 <body>
-  <div class="container">
-    <!-- Header Section -->
-    <header class="header">
-      <h1 id="settingsTitle">Settings</h1>
-      <button id="backButton" class="button back">Back to Dashboard</button>
-    </header>
-
-    <!-- Settings Content -->
-    <div class="settings-content">
-      
-      <!-- Profile Settings -->
-      <section class="settings-section">
-        <h2>Profile Settings</h2>
-        <div class="form-group">
-          <label for="fullName">Full Name</label>
-          <input type="text" id="fullName" placeholder="Your full name">
-        </div>
-        <div class="form-group">
-          <label for="email">Email Address</label>
-          <input type="email" id="email" placeholder="Your email" readonly>
-          <small>Email cannot be changed</small>
-        </div>
-        <div class="form-group">
-          <label for="phone">Phone Number</label>
-          <input type="tel" id="phone" placeholder="Your phone number">
-        </div>
-        <button id="saveProfileBtn" class="button primary">Save Profile</button>
-      </section>
-
-      <!-- Password Change -->
-      <section class="settings-section">
-        <h2>Change Password</h2>
-        <div class="form-group">
-          <label for="currentPassword">Current Password</label>
-          <input type="password" id="currentPassword" placeholder="Enter current password">
-        </div>
-        <div class="form-group">
-          <label for="newPassword">New Password</label>
-          <input type="password" id="newPassword" placeholder="Enter new password">
-        </div>
-        <div class="form-group">
-          <label for="confirmPassword">Confirm New Password</label>
-          <input type="password" id="confirmPassword" placeholder="Confirm new password">
-        </div>
-        <button id="changePasswordBtn" class="button primary">Change Password</button>
-      </section>
-
-      <!-- Admin-Only Settings -->
-      <section class="settings-section admin-only" style="display: none;">
-        <h2>Admin Settings</h2>
-        
-        <!-- Group Management -->
-        <div class="subsection">
-          <h3>Group Management</h3>
-          <div id="adminGroupsList"></div>
-        </div>
-
-        <!-- Email Invite Settings -->
-        <div class="subsection">
-          <h3>Email Invitations</h3>
-          <p>Send email invitations to new members to join your group. The invitation will include a secure link to create their account.</p>
-          <div class="form-group">
-            <label for="inviteEmail">Member Email Address</label>
-            <input type="email" id="inviteEmail" placeholder="member@example.com">
-          </div>
-          <div class="form-group">
-            <label for="inviteGroup">Select Group</label>
-            <select id="inviteGroup">
-              <option value="">Loading groups...</option>
-            </select>
-          </div>
-          <button id="sendInviteBtn" class="button primary">Send Invitation</button>
-        </div>
-
-        <!-- Registration Key Management -->
-        <div class="subsection">
-          <h3>Registration Keys</h3>
-          <p>Create and manage registration keys for new admin accounts.</p>
-          <button id="createRegistrationKeyBtn" class="button secondary">Create New Registration Key</button>
-          <div id="registrationKeysList" class="keys-list"></div>
-        </div>
-
-        <!-- Group Settings -->
-        <div class="subsection">
-          <h3>Update Group Settings</h3>
-          <div class="form-group">
-            <label for="editGroup">Select Group to Edit</label>
-            <select id="editGroup">
-              <option value="">Select a group...</option>
-            </select>
-          </div>
-          <div id="groupEditForm" style="display: none;">
-            <h4>Financial Settings</h4>
-            <div class="form-group">
-              <label for="editSeedMoney">Seed Money (MWK)</label>
-              <input type="number" id="editSeedMoney" step="0.01" min="0">
-            </div>
-            <div class="form-group">
-              <label for="editSeedMoneyDueDate">Seed Money Due Date</label>
-              <input type="date" id="editSeedMoneyDueDate">
-            </div>
-            <div class="form-group">
-              <label for="editMonthlyContribution">Monthly Contribution (MWK)</label>
-              <input type="number" id="editMonthlyContribution" step="0.01" min="0">
-            </div>
-            <div class="form-group">
-              <label for="editInterestRate">Interest Rate (%)</label>
-              <input type="number" id="editInterestRate" step="0.01" min="0" max="100">
-            </div>
-            <div class="form-group">
-              <label for="editLoanPenalty">Loan Penalty (%)</label>
-              <input type="number" id="editLoanPenalty" step="0.01" min="0" max="100">
-            </div>
-            <div class="form-group">
-              <label for="editMonthlyPenalty">Monthly Penalty (%)</label>
-              <input type="number" id="editMonthlyPenalty" step="0.01" min="0" max="100">
-            </div>
-            
-            <h4>Cycle Settings</h4>
-            <div class="form-group">
-              <label for="editCycleStartDate">Cycle Start Date</label>
-              <input type="date" id="editCycleStartDate">
-              <small>Changing this will regenerate the 12-month cycle dates</small>
-            </div>
-            <div class="form-group">
-              <label for="editCycleDuration">Cycle Duration (Months)</label>
-              <input type="number" id="editCycleDuration" min="1" max="24" value="12">
-            </div>
-            
-            <button id="saveGroupSettingsBtn" class="button primary">Save Group Settings</button>
-          </div>
-        </div>
-
-        <!-- Member Management -->
-        <div class="subsection">
-          <h3>Member Management</h3>
-          <div class="form-group">
-            <label for="manageMembersGroup">Select Group</label>
-            <select id="manageMembersGroup">
-              <option value="">Select a group...</option>
-            </select>
-          </div>
-          <div id="membersList"></div>
-        </div>
-      </section>
-
-      <!-- Notification Settings -->
-      <section class="settings-section">
-        <h2>Notification Preferences</h2>
-        <div class="form-group checkbox-group">
-          <input type="checkbox" id="emailNotifications" checked>
-          <label for="emailNotifications">Email Notifications</label>
-        </div>
-        <div class="form-group checkbox-group">
-          <input type="checkbox" id="paymentReminders" checked>
-          <label for="paymentReminders">Payment Reminders</label>
-        </div>
-        <div class="form-group checkbox-group">
-          <input type="checkbox" id="loanAlerts" checked>
-          <label for="loanAlerts">Loan Alerts</label>
-        </div>
-        <button id="saveNotificationsBtn" class="button primary">Save Preferences</button>
-      </section>
-
-      <!-- Account Actions -->
-      <section class="settings-section danger-zone">
-        <h2>Account Actions</h2>
-        <button id="logoutBtn" class="button secondary">Logout</button>
-        <button id="deleteAccountBtn" class="button danger">Delete Account</button>
-      </section>
-    </div>
+  <div class="settings-header">
+    <button class="back-btn" onclick="history.back()">←</button>
+    <h1>Settings</h1>
   </div>
 
-  <!-- Edit Member Profile Modal -->
-  <div id="editMemberModal" class="modal-overlay" style="display: none;">
-    <div class="modal-box">
-      <h2>Edit Member Profile</h2>
-      <form id="editMemberProfileForm">
-        <div class="form-group">
-          <label for="editMemberFullName">Full Name</label>
-          <input type="text" id="editMemberFullName" required>
+  <div class="mobile-container">
+    <!-- Profile Settings -->
+    <section class="settings-section">
+      <h2>Profile</h2>
+      <div class="setting-item">
+        <div class="setting-info">
+          <h4>Full Name</h4>
+          <p id="userName">Loading...</p>
         </div>
-        <div class="form-group">
-          <label for="editMemberEmail">Email Address</label>
-          <input type="email" id="editMemberEmail" readonly>
-          <small>Email cannot be changed</small>
+        <button class="btn btn-sm btn-ghost" onclick="editProfile()">Edit</button>
+      </div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <h4>Email</h4>
+          <p id="userEmail">Loading...</p>
         </div>
-        <div class="form-group">
-          <label for="editMemberPhone">Phone Number</label>
-          <input type="tel" id="editMemberPhone">
+      </div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <h4>Phone Number</h4>
+          <p id="userPhone">Loading...</p>
         </div>
-        <div class="form-group">
-          <label for="editMemberRole">Role</label>
-          <select id="editMemberRole">
-            <option value="user">User</option>
-            <option value="admin">Admin</option>
-          </select>
+        <button class="btn btn-sm btn-ghost" onclick="editPhone()">Edit</button>
+      </div>
+    </section>
+
+    <!-- Account Settings -->
+    <section class="settings-section">
+      <h2>Account</h2>
+      <div class="setting-item">
+        <div class="setting-info">
+          <h4>Change Password</h4>
+          <p>Update your account password</p>
         </div>
-        <div class="form-group">
-          <label for="editMemberTitle">Custom Title/Position (Optional)</label>
-          <input type="text" id="editMemberTitle" placeholder="e.g., Secretary, Chairman, Treasurer">
-          <small>This title will be visible to all group members</small>
+        <button class="btn btn-sm btn-secondary" onclick="changePassword()">Change</button>
+      </div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <h4>Email Verification</h4>
+          <p id="emailVerificationStatus">Checking...</p>
         </div>
-        <div class="form-group">
-          <label for="editMemberCollateral">Collateral</label>
-          <input type="text" id="editMemberCollateral">
+        <button class="btn btn-sm btn-ghost hidden" id="verifyEmailBtn" onclick="verifyEmail()">Verify</button>
+      </div>
+    </section>
+
+    <!-- Notifications -->
+    <section class="settings-section">
+      <h2>Notifications</h2>
+      <div class="setting-item">
+        <div class="setting-info">
+          <h4>Payment Reminders</h4>
+          <p>Notify me before payments are due</p>
         </div>
-        <div style="display: flex; gap: 10px; margin-top: 20px;">
-          <button type="submit" class="button primary">Save Changes</button>
-          <button type="button" class="button secondary" id="cancelEditMember">Cancel</button>
+        <label class="switch">
+          <input type="checkbox" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <h4>Loan Updates</h4>
+          <p>Notify me about loan status changes</p>
         </div>
-      </form>
-    </div>
+        <label class="switch">
+          <input type="checkbox" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </section>
+
+    <!-- About -->
+    <section class="settings-section">
+      <h2>About</h2>
+      <div class="setting-item">
+        <div class="setting-info">
+          <h4>Version</h4>
+          <p>Bank Nkhonde v1.0.0</p>
+        </div>
+      </div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <h4>Terms & Conditions</h4>
+          <p>Read our terms and conditions</p>
+        </div>
+        <button class="btn btn-sm btn-ghost">View</button>
+      </div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <h4>Privacy Policy</h4>
+          <p>How we handle your data</p>
+        </div>
+        <button class="btn btn-sm btn-ghost">View</button>
+      </div>
+    </section>
+
+    <!-- Danger Zone -->
+    <section class="settings-section danger-zone">
+      <h2>Danger Zone</h2>
+      <div class="setting-item">
+        <div class="setting-info">
+          <h4>Logout</h4>
+          <p>Sign out of your account</p>
+        </div>
+        <button class="btn btn-sm btn-ghost" onclick="logout()">Logout</button>
+      </div>
+    </section>
   </div>
 
   <!-- Loading Overlay -->
-  <div id="loadingOverlay" class="loading-overlay" style="display: none;">
-    <div class="spinner"></div>
-    <p id="loadingMessage">Processing...</p>
+  <div class="spinner-overlay hidden" id="spinner">
+    <div class="spinner-content">
+      <div class="spinner"></div>
+      <p class="loading-text">Loading...</p>
+    </div>
   </div>
 
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module" src="../scripts/settings.js"></script>
 </body>
 </html>

@@ -137,10 +137,15 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("✅ Redirecting to user dashboard");
         displaySuccess("Login successful! Redirecting to user dashboard...");
         setTimeout(() => {
-          window.location.href = "pages/user_dashboard.html";
+          window.location.href = "pages/user_dashboard_new.html";
         }, 500);
       } else {
-        throw new Error("Your account doesn't have proper access permissions. Please contact support.");
+        // Default to user dashboard if no specific role found
+        console.log("✅ Redirecting to user dashboard (default)");
+        displaySuccess("Login successful! Redirecting to your dashboard...");
+        setTimeout(() => {
+          window.location.href = "pages/user_dashboard_new.html";
+        }, 500);
       }
 
     } catch (error) {
