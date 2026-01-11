@@ -29,6 +29,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const createGroupButton = document.getElementById("createGroupButton");
   const analyticsButton = document.getElementById("analyticsButton");
   const settingsButton = document.getElementById("settingsButton");
+  
+  // Quick action buttons
+  const manageLoansButton = document.getElementById("manageLoansButton");
+  const managePaymentsButton = document.getElementById("managePaymentsButton");
+  const viewContributionsButton = document.getElementById("viewContributionsButton");
+  const viewSeedMoneyButton = document.getElementById("viewSeedMoneyButton");
+  const manageInterestButton = document.getElementById("manageInterestButton");
+  const viewReportsButton = document.getElementById("viewReportsButton");
 
   let isAdminView = true;
   let sessionTimeout;
@@ -215,6 +223,36 @@ document.addEventListener("DOMContentLoaded", () => {
   // ✅ Navigate to Settings
   settingsButton.addEventListener("click", () => {
     window.location.href = "../pages/settings.html";
+  });
+
+  // ✅ Quick Action: Manage Loans
+  manageLoansButton.addEventListener("click", () => {
+    window.location.href = "../pages/manage_loans.html";
+  });
+
+  // ✅ Quick Action: Manage Payments
+  managePaymentsButton.addEventListener("click", () => {
+    window.location.href = "../pages/manage_payments.html";
+  });
+
+  // ✅ Quick Action: View Contributions
+  viewContributionsButton.addEventListener("click", () => {
+    window.location.href = "../pages/contributions_overview.html";
+  });
+
+  // ✅ Quick Action: View Seed Money
+  viewSeedMoneyButton.addEventListener("click", () => {
+    window.location.href = "../pages/seed_money_overview.html";
+  });
+
+  // ✅ Quick Action: Manage Interest & Penalties
+  manageInterestButton.addEventListener("click", () => {
+    window.location.href = "../pages/interest_penalties.html";
+  });
+
+  // ✅ Quick Action: View Reports
+  viewReportsButton.addEventListener("click", () => {
+    window.location.href = "../pages/financial_reports.html";
   });
 
   // ✅ Logout Button

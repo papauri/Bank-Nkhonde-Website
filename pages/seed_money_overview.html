@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seed Money Overview</title>
+  <link rel="stylesheet" href="../styles/manage_page.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@12.3.1/dist/handsontable.full.min.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>Seed Money Overview</h1>
+      <button id="backButton" class="button back">Back to Dashboard</button>
+    </header>
+
+    <!-- Group Selector -->
+    <section class="selector-section">
+      <label for="groupSelector">Select Group:</label>
+      <select id="groupSelector" class="group-select">
+        <option value="">Loading groups...</option>
+      </select>
+    </section>
+
+    <!-- Seed Money Statistics -->
+    <section class="stats-section">
+      <div class="stat-card green">
+        <h3>Total Required</h3>
+        <p id="totalRequired" class="stat-value">MWK 0</p>
+      </div>
+      <div class="stat-card blue">
+        <h3>Total Paid</h3>
+        <p id="totalPaid" class="stat-value">MWK 0</p>
+      </div>
+      <div class="stat-card orange">
+        <h3>Pending Approval</h3>
+        <p id="totalPending" class="stat-value">MWK 0</p>
+      </div>
+      <div class="stat-card red">
+        <h3>Outstanding</h3>
+        <p id="totalOutstanding" class="stat-value">MWK 0</p>
+      </div>
+      <div class="stat-card purple">
+        <h3>Completion Rate</h3>
+        <p id="completionRate" class="stat-value">0%</p>
+      </div>
+    </section>
+
+    <!-- Seed Money Table -->
+    <section class="table-section">
+      <h2>Seed Money Status by Member</h2>
+      <div id="seedMoneyTable" class="data-table">
+        <p>Select a group to view seed money status</p>
+      </div>
+    </section>
+
+    <!-- Quick Actions -->
+    <section class="actions-section">
+      <button id="approveAllBtn" class="button primary">Approve All Pending</button>
+      <button id="sendReminderBtn" class="button secondary">Send Reminders</button>
+      <button id="exportBtn" class="button secondary">Export to Excel</button>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/handsontable@12.3.1/dist/handsontable.full.min.js"></script>
+  <script type="module" src="../scripts/seed_money_overview.js"></script>
+</body>
+</html>

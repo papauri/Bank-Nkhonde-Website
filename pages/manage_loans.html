@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Loans</title>
+  <link rel="stylesheet" href="../styles/manage_page.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>Loan Management</h1>
+      <button id="backButton" class="button back">Back to Dashboard</button>
+    </header>
+
+    <!-- Group Selector -->
+    <section class="selector-section">
+      <label for="groupSelector">Select Group:</label>
+      <select id="groupSelector" class="group-select">
+        <option value="">Loading groups...</option>
+      </select>
+    </section>
+
+    <!-- Loan Statistics -->
+    <section class="stats-section">
+      <div class="stat-card">
+        <h3>Pending Requests</h3>
+        <p id="pendingLoans" class="stat-value">0</p>
+      </div>
+      <div class="stat-card">
+        <h3>Active Loans</h3>
+        <p id="activeLoans" class="stat-value">0</p>
+      </div>
+      <div class="stat-card">
+        <h3>Total Disbursed</h3>
+        <p id="totalDisbursed" class="stat-value">MWK 0</p>
+      </div>
+      <div class="stat-card">
+        <h3>Total Outstanding</h3>
+        <p id="totalOutstanding" class="stat-value">MWK 0</p>
+      </div>
+    </section>
+
+    <!-- Loan Requests Table -->
+    <section class="table-section">
+      <h2>Loan Requests</h2>
+      <div id="loanRequestsTable" class="data-table">
+        <p>Select a group to view loan requests</p>
+      </div>
+    </section>
+
+    <!-- Active Loans Table -->
+    <section class="table-section">
+      <h2>Active Loans</h2>
+      <div id="activeLoansTable" class="data-table">
+        <p>Select a group to view active loans</p>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="../scripts/manage_loans.js"></script>
+</body>
+</html>
