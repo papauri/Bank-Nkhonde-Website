@@ -5,10 +5,27 @@
   box-sizing: border-box;
 }
 
+:root {
+  --group-primary: #475569;
+  --group-primary-dark: #334155;
+  --group-secondary: #64748b;
+  --group-bg: #f8fafc;
+  --group-card-bg: #ffffff;
+  --group-text: #1e293b;
+  --group-text-muted: #64748b;
+  --group-border: #e2e8f0;
+  --group-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  
+  --status-success: #059669;
+  --status-warning: #d97706;
+  --status-danger: #dc2626;
+  --status-info: #0284c7;
+}
+
 body {
   font-family: 'Inter', sans-serif;
-  background: #f3f4f6; /* Light gray background */
-  color: #1c1c1e;
+  background: var(--group-bg);
+  color: var(--group-text);
   margin: 0;
   line-height: 1.6;
 }
@@ -28,89 +45,87 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #1e293b; /* Deep blue-gray for a modern look */
-  padding: 20px 30px;
+  background: var(--group-primary);
+  padding: 18px 24px;
   border-radius: 12px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--group-shadow);
 }
 
 .header h1 {
-  font-size: 28px;
+  font-size: 22px;
   color: #ffffff;
-  font-weight: bold;
-  letter-spacing: 1px;
+  font-weight: 600;
+  letter-spacing: 0.25px;
 }
 
 .header-buttons {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .header .back,
 .header .manage {
-  background: linear-gradient(135deg, #3b82f6, #2563eb); /* Gradient for CTA button */
+  background: var(--group-secondary);
   color: #ffffff;
   border: none;
-  padding: 12px 20px;
-  border-radius: 25px;
-  font-size: 16px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
 .header .manage {
-  background: linear-gradient(135deg, #059669, #047857); /* Green gradient for manage button */
+  background: var(--status-success);
 }
 
 .header .back:hover,
 .header .manage:hover {
-  background: #1d4ed8; /* Darker blue on hover */
-  transform: scale(1.05); /* Slight scale effect */
-  box-shadow: 0 6px 15px rgba(29, 78, 216, 0.3);
+  background: var(--group-primary-dark);
 }
 
 .header .manage:hover {
-  background: #065f46; /* Darker green on hover */
-  box-shadow: 0 6px 15px rgba(6, 95, 70, 0.3);
+  background: #047857;
 }
 
 /* Section Styling */
 section {
-  background: #ffffff;
-  padding: 25px;
+  background: var(--group-card-bg);
+  padding: 24px;
   border-radius: 12px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--group-shadow);
+  border: 1px solid var(--group-border);
 }
 
 section h2 {
-  font-size: 24px;
-  margin-bottom: 20px;
-  color: #1e293b;
-  border-bottom: 2px solid #94a3b8; /* Subtle accent color */
-  padding-bottom: 5px;
-  font-weight: bold;
+  font-size: 20px;
+  margin-bottom: 16px;
+  color: var(--group-text);
+  border-bottom: 2px solid var(--group-border);
+  padding-bottom: 10px;
+  font-weight: 600;
 }
 
 /* Group Info Grid */
 .info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
 }
 
 .info-grid p {
-  font-size: 16px;
-  color: #475569;
-  background: #f1f5f9; /* Very light gray-blue */
-  padding: 15px;
-  border-radius: 10px;
-  transition: background 0.3s ease, transform 0.3s ease;
+  font-size: 14px;
+  color: var(--group-text-muted);
+  background: var(--group-bg);
+  padding: 14px;
+  border-radius: 8px;
+  transition: background 0.3s ease;
+  border: 1px solid var(--group-border);
 }
 
 .info-grid p:hover {
-  background: #e2e8f0; /* Slightly darker shade on hover */
-  transform: scale(1.02);
+  background: #e2e8f0;
 }
 
 /* Lists */
@@ -120,17 +135,18 @@ section h2 {
 }
 
 .list li {
-  background: #f8fafc; /* Very light gray */
-  padding: 15px;
-  border-radius: 10px;
-  margin-bottom: 10px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  background: var(--group-bg);
+  padding: 14px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   transition: all 0.3s ease;
+  border: 1px solid var(--group-border);
 }
 
 .list li:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 /* Payments Section */
