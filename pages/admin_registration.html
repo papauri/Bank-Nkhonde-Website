@@ -4,20 +4,143 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Registration</title>
+  <meta name="theme-color" content="#047857">
+  <title>Create Group - Bank Nkhonde</title>
 
   <!-- Intl-Tel-Input Styles and Script -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/css/intlTelInput.min.css" />
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/intlTelInput.min.js"></script>
 
   <!-- Custom Styles -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/mobile-design-system.css">
   <link rel="stylesheet" href="../styles/registration.css">
+  <style>
+    body {
+      background: var(--bn-gray-lighter);
+      padding-bottom: var(--bn-spacing-xl);
+    }
+
+    .registration-header {
+      background: var(--bn-gradient-primary);
+      color: var(--bn-white);
+      padding: var(--bn-spacing-lg) var(--bn-spacing-md);
+      margin: 0 0 var(--bn-spacing-md) 0;
+      border-radius: 0 0 var(--bn-radius-xl) var(--bn-radius-xl);
+      box-shadow: var(--bn-shadow-lg);
+      text-align: center;
+    }
+
+    .registration-header h1 {
+      font-size: var(--bn-font-2xl);
+      margin-bottom: 8px;
+      color: var(--bn-white);
+    }
+
+    .registration-header p {
+      font-size: var(--bn-font-sm);
+      opacity: 0.9;
+      margin: 0;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--bn-white);
+      text-decoration: none;
+      font-size: var(--bn-font-sm);
+      margin-bottom: var(--bn-spacing-md);
+      opacity: 0.9;
+      transition: opacity 0.2s ease;
+    }
+
+    .back-link:hover {
+      opacity: 1;
+    }
+
+    fieldset {
+      background: var(--bn-white);
+      border: none;
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-spacing-md);
+      margin-bottom: var(--bn-spacing-md);
+      box-shadow: var(--bn-shadow-sm);
+    }
+
+    legend {
+      font-size: var(--bn-font-lg);
+      font-weight: 700;
+      color: var(--bn-dark);
+      padding: 0 var(--bn-spacing-sm);
+    }
+
+    .helper-text {
+      font-size: var(--bn-font-xs);
+      color: var(--bn-gray);
+      margin-top: 4px;
+      display: block;
+    }
+
+    .required {
+      color: var(--bn-danger);
+    }
+
+    .error-message {
+      font-size: var(--bn-font-sm);
+      color: var(--bn-danger);
+      display: block;
+      margin-top: 4px;
+    }
+
+    .input-with-suffix {
+      display: flex;
+      align-items: center;
+      position: relative;
+    }
+
+    .input-with-suffix input {
+      flex: 1;
+      padding-right: 40px;
+    }
+
+    .input-with-suffix span {
+      position: absolute;
+      right: 16px;
+      color: var(--bn-gray);
+      font-weight: 600;
+    }
+
+    .submit-section {
+      text-align: center;
+      padding: var(--bn-spacing-md);
+    }
+
+    .login-link {
+      margin-top: var(--bn-spacing-md);
+      font-size: var(--bn-font-sm);
+      color: var(--bn-gray);
+    }
+
+    .login-link a {
+      color: var(--bn-primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+  </style>
 </head>
 
 <body>
-  <div class="container">
-    <h1>Admin Registration</h1>
-    <p class="subtitle">Create your admin account and set up your group</p>
+  <div class="registration-header">
+    <a href="../login.html" class="back-link">← Back to Login</a>
+    <h1>Create Your Group</h1>
+    <p>Set up your admin account and ROSCA group</p>
+  </div>
+
+  <div class="mobile-container">
     <form id="registrationForm">
 
       <!-- 🔹 USER DETAILS -->
@@ -138,18 +261,20 @@
       </fieldset>
 
       <!-- 🔹 SUBMIT BUTTON -->
-      <button type="submit" id="registerBtn" disabled>Register</button>
-
-      <!-- 🔹 BACK TO LOGIN -->
-      <p class="login-link">Already have an account? <a href="../index.html">Login here</a></p>
+      <div class="submit-section">
+        <button type="submit" id="registerBtn" class="btn btn-primary btn-lg btn-block" disabled>
+          Create Group & Register
+        </button>
+        <p class="login-link">Already have an account? <a href="../login.html">Login here</a></p>
+      </div>
     </form>
   </div>
 
   <!-- 🔹 LOADING OVERLAY -->
-  <div id="loadingOverlay" class="hidden">
-    <div class="content">
-      <p id="loadingMessage">Processing... Please wait.</p>
-      <div class="loader"></div>
+  <div id="loadingOverlay" class="spinner-overlay hidden">
+    <div class="spinner-content">
+      <div class="spinner"></div>
+      <p class="loading-text" id="loadingMessage">Processing... Please wait.</p>
     </div>
   </div>
 

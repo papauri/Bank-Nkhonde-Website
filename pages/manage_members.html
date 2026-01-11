@@ -2,108 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Manage Members</title>
-  <link rel="stylesheet" href="../styles/manage_members.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#047857">
+  <title>Manage Members - Bank Nkhonde</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/mobile-design-system.css">
 </head>
 <body>
-  <div class="container">
-    <!-- Header -->
-    <header class="header">
-      <h1>Manage Members</h1>
-      <button id="backButton" class="button back">Back to Group</button>
-    </header>
-
-    <!-- Member List Section -->
-    <section class="member-list-section">
-      <h2>Current Members</h2>
-      <ul id="memberList" class="member-list">Loading members...</ul>
-    </section>
-
-    <!-- Add New Member Section -->
-    <section class="add-member-section">
-      <h2>Add New Member</h2>
-      <form id="addMemberForm">
-        <h3>Basic Information</h3>
-        <input type="text" id="fullName" placeholder="Full Name" required>
-        <input type="email" id="email" placeholder="Email Address" required>
-        <input type="tel" id="phone" placeholder="Phone Number" required>
-        <input type="tel" id="whatsappNumber" placeholder="WhatsApp Number (Optional)">
-        
-        <h3>Additional Information (Optional)</h3>
-        <input type="text" id="address" placeholder="Address">
-        <input type="text" id="workplace" placeholder="Workplace">
-        <input type="text" id="career" placeholder="Career/Profession">
-        <input type="text" id="guarantor" placeholder="Guarantor Name">
-        <input type="tel" id="guarantorPhone" placeholder="Guarantor Phone Number">
-        <input type="text" id="collateral" placeholder="Collateral">
-
-        <!-- Role Selection -->
-        <label for="role">Select Role:</label>
-        <select id="role" required>
-          <option value="user" selected>Standard User</option>
-          <option value="admin">Admin</option>
-        </select>
-        
-        <button type="submit" class="button add">Add Member</button>
-      </form>
-    </section>
-
-    <!-- Edit Member Modal -->
-    <div id="editMemberModal" class="modal">
-      <div class="modal-content">
-        <h2>Edit Member</h2>
-        <form id="editMemberForm">
-          <h3>Basic Information</h3>
-          <input type="text" id="editFullName" placeholder="Full Name" required>
-          <input type="email" id="editEmail" placeholder="Email Address" required>
-          <input type="text" id="editPhone" placeholder="Phone Number" required>
-          <input type="tel" id="editWhatsappNumber" placeholder="WhatsApp Number (Optional)">
-          
-          <h3>Additional Information (Optional)</h3>
-          <input type="text" id="editAddress" placeholder="Address">
-          <input type="text" id="editWorkplace" placeholder="Workplace">
-          <input type="text" id="editCareer" placeholder="Career/Profession">
-          <input type="text" id="editGuarantor" placeholder="Guarantor Name">
-          <input type="tel" id="editGuarantorPhone" placeholder="Guarantor Phone Number">
-          <input type="text" id="editCollateral" placeholder="Collateral">
-          
-          <label for="editRole">Role:</label>
-          <select id="editRole" required>
-            <option value="user">Standard User</option>
-            <option value="admin">Admin</option>
-          </select>
-          <button type="submit" class="button update">Update</button>
-          <button type="button" class="button cancel" id="closeEditModal">Cancel</button>
-        </form>
-      </div>
-    </div>
-
-    <!-- Payment Confirmation Modal -->
-    <div id="paymentModal" class="modal">
-      <div class="modal-content">
-        <h2>Confirm Payment Setup</h2>
-        <p>Review and confirm payment records before updating Firestore.</p>
-
-        <label for="paymentSeedMoney">Seed Money:</label>
-        <input type="number" id="paymentSeedMoney" placeholder="Amount">
-
-        <label for="paymentMonthlyContribution">Monthly Contribution:</label>
-        <input type="number" id="paymentMonthlyContribution" placeholder="Amount">
-
-        <label for="paymentLoanPenalty">Loan Penalty (%):</label>
-        <input type="number" id="paymentLoanPenalty" placeholder="Percentage">
-
-        <label for="paymentMonthlyPenalty">Monthly Penalty (%):</label>
-        <input type="number" id="paymentMonthlyPenalty" placeholder="Percentage">
-
-        <button id="confirmPaymentButton" class="button confirm">Confirm & Update</button>
-        <button id="cancelPaymentButton" class="button cancel">Cancel</button>
-      </div>
-    </div>
-
+  <div class="mobile-header">
+    <button class="mobile-header-action" onclick="history.back()">←</button>
+    <h1 class="mobile-header-title">Manage Members</h1>
+    <div style="width: 44px;"></div>
   </div>
 
+  <div class="mobile-container">
+    <div class="empty-state" style="padding: 60px 20px;">
+      <div class="empty-state-icon">👥</div>
+      <h2 style="margin: 16px 0;">Members Management</h2>
+      <p>This page is under construction. Full member management features coming soon!</p>
+      <button class="btn btn-primary mt-4" onclick="history.back()">Go Back</button>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module" src="../scripts/manage_members.js"></script>
 </body>
 </html>

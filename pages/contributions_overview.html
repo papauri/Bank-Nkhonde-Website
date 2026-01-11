@@ -2,73 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Contributions Overview</title>
-  <link rel="stylesheet" href="../styles/manage_page.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@12.3.1/dist/handsontable.full.min.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#047857">
+  <title>Contributions Overview - Bank Nkhonde</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/mobile-design-system.css">
 </head>
 <body>
-  <div class="container">
-    <header class="header">
-      <h1>Monthly Contributions Overview</h1>
-      <button id="backButton" class="button back">Back to Dashboard</button>
-    </header>
-
-    <!-- Group Selector -->
-    <section class="selector-section">
-      <label for="groupSelector">Select Group:</label>
-      <select id="groupSelector" class="group-select">
-        <option value="">Loading groups...</option>
-      </select>
-      <label for="monthSelector">Select Month:</label>
-      <select id="monthSelector" class="month-select">
-        <option value="">Select Month...</option>
-      </select>
-    </section>
-
-    <!-- Contribution Statistics -->
-    <section class="stats-section">
-      <div class="stat-card green">
-        <h3>Total Expected</h3>
-        <p id="totalExpected" class="stat-value">MWK 0</p>
-      </div>
-      <div class="stat-card blue">
-        <h3>Total Collected</h3>
-        <p id="totalCollected" class="stat-value">MWK 0</p>
-      </div>
-      <div class="stat-card orange">
-        <h3>Total Pending</h3>
-        <p id="totalPending" class="stat-value">MWK 0</p>
-      </div>
-      <div class="stat-card red">
-        <h3>Total Arrears</h3>
-        <p id="totalArrears" class="stat-value">MWK 0</p>
-      </div>
-      <div class="stat-card purple">
-        <h3>Compliance Rate</h3>
-        <p id="complianceRate" class="stat-value">0%</p>
-      </div>
-    </section>
-
-    <!-- Contributions Table -->
-    <section class="table-section">
-      <h2>Member Contributions</h2>
-      <div id="contributionsTable" class="data-table">
-        <p>Select a group and month to view contributions</p>
-      </div>
-    </section>
-
-    <!-- Summary Charts -->
-    <section class="charts-section">
-      <h2>Contribution Trends</h2>
-      <div id="contributionCharts">
-        <canvas id="trendChart"></canvas>
-      </div>
-    </section>
+  <div class="mobile-header">
+    <button class="mobile-header-action" onclick="history.back()">←</button>
+    <h1 class="mobile-header-title">Contributions</h1>
+    <div style="width: 44px;"></div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/handsontable@12.3.1/dist/handsontable.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <div class="mobile-container">
+    <div class="empty-state" style="padding: 60px 20px;">
+      <div class="empty-state-icon">📊</div>
+      <h2 style="margin: 16px 0;">Contributions Overview</h2>
+      <p>This page is under construction. Full contributions tracking features coming soon!</p>
+      <button class="btn btn-primary mt-4" onclick="history.back()">Go Back</button>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module" src="../scripts/contributions_overview.js"></script>
 </body>
 </html>

@@ -4,305 +4,391 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Bank Nkhonde User Dashboard - Manage your savings and loans">
+  <meta name="theme-color" content="#047857">
   <title>Dashboard - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
-  <link rel="stylesheet" href="../styles/dashboard.css">
+  <link rel="stylesheet" href="../styles/mobile-design-system.css">
+  <link rel="icon" type="image/png" href="../assets/favicon.png">
+  <style>
+    body {
+      background: var(--bn-gray-lighter);
+      padding-bottom: 80px;
+    }
+
+    .dashboard-header {
+      background: var(--bn-gradient-primary);
+      color: var(--bn-white);
+      padding: var(--bn-spacing-lg) var(--bn-spacing-md);
+      margin: 0;
+      border-radius: 0 0 var(--bn-radius-xl) var(--bn-radius-xl);
+      box-shadow: var(--bn-shadow-lg);
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--bn-spacing-md);
+    }
+
+    .user-greeting h1 {
+      font-size: var(--bn-font-xl);
+      margin-bottom: 4px;
+      color: var(--bn-white);
+    }
+
+    .user-greeting p {
+      font-size: var(--bn-font-sm);
+      opacity: 0.9;
+      margin: 0;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: var(--bn-spacing-xs);
+    }
+
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      border-radius: 50%;
+      color: var(--bn-white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      backdrop-filter: blur(10px);
+      font-size: 20px;
+    }
+
+    .icon-btn:active {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .balance-card {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(20px);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-spacing-md);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .balance-label {
+      font-size: var(--bn-font-sm);
+      opacity: 0.9;
+      margin-bottom: 4px;
+    }
+
+    .balance-amount {
+      font-size: 32px;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .balance-subtext {
+      font-size: var(--bn-font-xs);
+      opacity: 0.8;
+      margin-top: 4px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--bn-spacing-md);
+    }
+
+    .section-title {
+      font-size: var(--bn-font-lg);
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin: 0;
+    }
+
+    .section-link {
+      font-size: var(--bn-font-sm);
+      color: var(--bn-primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .pending-badge {
+      background: var(--bn-danger);
+      color: var(--bn-white);
+      font-size: var(--bn-font-xs);
+      padding: 2px 8px;
+      border-radius: var(--bn-radius-full);
+      margin-left: 8px;
+      font-weight: 600;
+    }
+
+    .list-item {
+      background: var(--bn-white);
+      padding: var(--bn-spacing-md);
+      border-radius: var(--bn-radius-md);
+      margin-bottom: var(--bn-spacing-sm);
+      box-shadow: var(--bn-shadow-sm);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      color: var(--bn-dark);
+    }
+
+    .list-item:active {
+      transform: scale(0.98);
+      box-shadow: var(--bn-shadow-md);
+    }
+
+    .list-item-content h4 {
+      font-size: var(--bn-font-base);
+      font-weight: 600;
+      margin: 0 0 4px 0;
+      color: var(--bn-dark);
+    }
+
+    .list-item-content p {
+      font-size: var(--bn-font-sm);
+      color: var(--bn-gray);
+      margin: 0;
+    }
+
+    .list-item-meta {
+      text-align: right;
+    }
+
+    .list-item-amount {
+      font-size: var(--bn-font-lg);
+      font-weight: 700;
+      color: var(--bn-dark);
+    }
+
+    .list-item-status {
+      font-size: var(--bn-font-xs);
+      padding: 4px 8px;
+      border-radius: var(--bn-radius-sm);
+      font-weight: 600;
+      margin-top: 4px;
+      display: inline-block;
+    }
+
+    .status-pending {
+      background: rgba(245, 158, 11, 0.1);
+      color: var(--bn-warning);
+    }
+
+    .status-approved {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--bn-success);
+    }
+
+    .status-overdue {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--bn-danger);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: var(--bn-spacing-xl) var(--bn-spacing-md);
+      color: var(--bn-gray);
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: var(--bn-spacing-sm);
+      opacity: 0.5;
+    }
+
+    .empty-state p {
+      margin: 0;
+      font-size: var(--bn-font-sm);
+    }
+
+    .group-selector {
+      background: var(--bn-white);
+      padding: var(--bn-spacing-sm);
+      border-radius: var(--bn-radius-md);
+      margin: var(--bn-spacing-md);
+      box-shadow: var(--bn-shadow-sm);
+    }
+
+    .group-selector select {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid var(--bn-gray-light);
+      border-radius: var(--bn-radius-sm);
+      font-size: var(--bn-font-base);
+      font-weight: 600;
+      color: var(--bn-dark);
+      background: var(--bn-white);
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
-  <!-- Navigation Sidebar -->
-  <nav class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <div class="sidebar-logo">
-        <div class="logo-icon-small">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2"/>
-            <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2"/>
-            <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2"/>
-          </svg>
-        </div>
-        <span class="sidebar-logo-text">Bank Nkhonde</span>
+  <!-- Dashboard Header -->
+  <div class="dashboard-header">
+    <div class="header-top">
+      <div class="user-greeting">
+        <h1>Hello, <span id="userName">User</span>! 👋</h1>
+        <p id="groupName">Loading group...</p>
       </div>
-      <button class="sidebar-toggle" id="sidebarToggle">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
-    </div>
-
-    <div class="sidebar-menu">
-      <a href="#" class="menu-item active" data-section="overview">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <rect x="3" y="3" width="7" height="7" stroke="currentColor" stroke-width="2"/>
-          <rect x="14" y="3" width="7" height="7" stroke="currentColor" stroke-width="2"/>
-          <rect x="3" y="14" width="7" height="7" stroke="currentColor" stroke-width="2"/>
-          <rect x="14" y="14" width="7" height="7" stroke="currentColor" stroke-width="2"/>
-        </svg>
-        <span>Overview</span>
-      </a>
-      
-      <a href="#" class="menu-item" data-section="payments">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <rect x="1" y="4" width="22" height="16" rx="2" stroke="currentColor" stroke-width="2"/>
-          <line x1="1" y1="10" x2="23" y2="10" stroke="currentColor" stroke-width="2"/>
-        </svg>
-        <span>Payments</span>
-      </a>
-
-      <a href="#" class="menu-item" data-section="loans">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <span>Loans</span>
-      </a>
-
-      <a href="#" class="menu-item" data-section="group">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <span>My Group</span>
-      </a>
-
-      <a href="#" class="menu-item" data-section="reports">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path d="M3 3v18h18M7 16l4-4 4 4 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <span>Reports</span>
-      </a>
-
-      <a href="#" class="menu-item" data-section="settings">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
-          <path d="M12 1v3m0 16v3M4.22 4.22l2.12 2.12m11.32 11.32l2.12 2.12M1 12h3m16 0h3M4.22 19.78l2.12-2.12m11.32-11.32l2.12-2.12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <span>Settings</span>
-      </a>
-    </div>
-
-    <div class="sidebar-footer">
-      <div class="user-profile">
-        <div class="user-avatar" id="userAvatar">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2"/>
-          </svg>
-        </div>
-        <div class="user-info">
-          <div class="user-name" id="userName">Loading...</div>
-          <div class="user-role" id="userRole">Member</div>
-        </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="notificationBtn" aria-label="Notifications">
+          🔔
+        </button>
+        <button class="icon-btn" id="settingsBtn" aria-label="Settings">
+          ⚙️
+        </button>
       </div>
-      <button class="btn-logout" id="logoutBtn">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
     </div>
-  </nav>
+
+    <div class="balance-card">
+      <p class="balance-label">Your Total Savings</p>
+      <h2 class="balance-amount" id="totalSavings">MWK 0.00</h2>
+      <p class="balance-subtext">Last updated: <span id="lastUpdated">Just now</span></p>
+    </div>
+  </div>
+
+  <!-- Group Selector (if user is in multiple groups) -->
+  <div class="group-selector hidden" id="groupSelector">
+    <select id="groupSelect">
+      <option value="">Select a group...</option>
+    </select>
+  </div>
 
   <!-- Main Content -->
-  <main class="main-content">
-    <!-- Top Bar -->
-    <header class="topbar">
-      <div class="topbar-left">
-        <button class="mobile-menu-toggle" id="mobileMenuToggle">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </button>
-        <h1 class="page-title">Dashboard</h1>
+  <div class="mobile-container">
+    <!-- Quick Stats -->
+    <div class="stats-grid">
+      <div class="stat-card success">
+        <div class="stat-label">Paid</div>
+        <div class="stat-value" id="totalPaid">MWK 0</div>
       </div>
-      <div class="topbar-right">
-        <button class="notification-btn" id="notificationBtn">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          <span class="notification-dot" id="notificationDot"></span>
-        </button>
+      <div class="stat-card warning">
+        <div class="stat-label">Pending</div>
+        <div class="stat-value" id="totalPending">MWK 0</div>
       </div>
-    </header>
-
-    <!-- Dashboard Content -->
-    <div class="dashboard-container">
-      <!-- Overview Section -->
-      <section id="overviewSection" class="dashboard-section active">
-        <!-- Stats Grid -->
-        <div class="stats-grid">
-          <div class="stat-card stat-primary">
-            <div class="stat-icon">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-                <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </div>
-            <div class="stat-content">
-              <div class="stat-label">Total Contributions</div>
-              <div class="stat-value" id="totalContributions">MWK 0</div>
-              <div class="stat-change positive">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-                <span>All time</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="stat-card stat-success">
-            <div class="stat-icon">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                <path d="M22 4L12 14.01l-3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </div>
-            <div class="stat-content">
-              <div class="stat-label">Available Balance</div>
-              <div class="stat-value" id="availableBalance">MWK 0</div>
-              <div class="stat-change">Current balance</div>
-            </div>
-          </div>
-
-          <div class="stat-card stat-warning">
-            <div class="stat-icon">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </div>
-            <div class="stat-content">
-              <div class="stat-label">Active Loans</div>
-              <div class="stat-value" id="activeLoans">MWK 0</div>
-              <div class="stat-change"><span id="loanCount">0</span> loans</div>
-            </div>
-          </div>
-
-          <div class="stat-card stat-danger">
-            <div class="stat-icon">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-                <path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </div>
-            <div class="stat-content">
-              <div class="stat-label">Outstanding</div>
-              <div class="stat-value" id="outstanding">MWK 0</div>
-              <div class="stat-change">To be paid</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="section-header">
-          <h2>Quick Actions</h2>
-        </div>
-        <div class="quick-actions-grid">
-          <button class="action-btn action-primary" id="makePaymentBtn">
-            <div class="action-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-                <rect x="1" y="4" width="22" height="16" rx="2" stroke="currentColor" stroke-width="2"/>
-                <line x1="1" y1="10" x2="23" y2="10" stroke="currentColor" stroke-width="2"/>
-              </svg>
-            </div>
-            <span class="action-label">Make Payment</span>
-          </button>
-
-          <button class="action-btn action-secondary" id="requestLoanBtn">
-            <div class="action-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </div>
-            <span class="action-label">Request Loan</span>
-          </button>
-
-          <button class="action-btn action-tertiary" id="viewReportsBtn">
-            <div class="action-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </div>
-            <span class="action-label">View Reports</span>
-          </button>
-
-          <button class="action-btn action-quaternary" id="contactAdminBtn">
-            <div class="action-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </div>
-            <span class="action-label">Contact Admin</span>
-          </button>
-        </div>
-
-        <!-- Recent Activity & Upcoming Payments -->
-        <div class="grid grid-cols-2">
-          <!-- Recent Activity -->
-          <div class="card">
-            <div class="card-header">
-              <h3 class="card-title">Recent Activity</h3>
-            </div>
-            <div class="card-body">
-              <div id="recentActivity" class="activity-list">
-                <div class="activity-placeholder">
-                  Loading recent activity...
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Upcoming Payments -->
-          <div class="card">
-            <div class="card-header">
-              <h3 class="card-title">Upcoming Payments</h3>
-            </div>
-            <div class="card-body">
-              <div id="upcomingPayments" class="payment-list">
-                <div class="payment-placeholder">
-                  Loading upcoming payments...
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Other sections will be added here -->
-      <section id="paymentsSection" class="dashboard-section">
-        <h2>Payments Management</h2>
-        <p>Payments section coming soon...</p>
-      </section>
-
-      <section id="loansSection" class="dashboard-section">
-        <h2>Loans Management</h2>
-        <p>Loans section coming soon...</p>
-      </section>
-
-      <section id="groupSection" class="dashboard-section">
-        <h2>My Group</h2>
-        <p>Group details coming soon...</p>
-      </section>
-
-      <section id="reportsSection" class="dashboard-section">
-        <h2>Financial Reports</h2>
-        <p>Reports coming soon...</p>
-      </section>
-
-      <section id="settingsSection" class="dashboard-section">
-        <h2>Settings</h2>
-        <p>Settings coming soon...</p>
-      </section>
+      <div class="stat-card danger">
+        <div class="stat-label">Arrears</div>
+        <div class="stat-value" id="totalArrears">MWK 0</div>
+      </div>
+      <div class="stat-card info">
+        <div class="stat-label">Loans</div>
+        <div class="stat-value" id="activeLoans">0</div>
+      </div>
     </div>
-  </main>
+
+    <!-- Quick Actions -->
+    <section>
+      <div class="section-header">
+        <h2 class="section-title">Quick Actions</h2>
+      </div>
+      <div class="actions-grid">
+        <a href="#" class="action-card" id="makePaymentBtn">
+          <span class="action-icon">💰</span>
+          <h3>Make Payment</h3>
+          <p>Pay dues</p>
+        </a>
+        <a href="#" class="action-card" id="requestLoanBtn">
+          <span class="action-icon">💵</span>
+          <h3>Request Loan</h3>
+          <p>Borrow funds</p>
+        </a>
+        <a href="#" class="action-card" id="viewHistoryBtn">
+          <span class="action-icon">📊</span>
+          <h3>History</h3>
+          <p>View records</p>
+        </a>
+        <a href="#" class="action-card" id="viewReportsBtn">
+          <span class="action-icon">📋</span>
+          <h3>Reports</h3>
+          <p>Financial</p>
+        </a>
+      </div>
+    </section>
+
+    <!-- Pending Payments -->
+    <section>
+      <div class="section-header">
+        <h2 class="section-title">
+          Pending Payments
+          <span class="pending-badge hidden" id="pendingCount">0</span>
+        </h2>
+        <a href="#" class="section-link" id="viewAllPayments">View All</a>
+      </div>
+      <div id="pendingPaymentsList">
+        <div class="empty-state">
+          <div class="empty-state-icon">✅</div>
+          <p>No pending payments</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Active Loans -->
+    <section>
+      <div class="section-header">
+        <h2 class="section-title">Active Loans</h2>
+        <a href="#" class="section-link" id="viewAllLoans">View All</a>
+      </div>
+      <div id="activeLoansList">
+        <div class="empty-state">
+          <div class="empty-state-icon">💵</div>
+          <p>No active loans</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recent Activity -->
+    <section>
+      <div class="section-header">
+        <h2 class="section-title">Recent Activity</h2>
+      </div>
+      <div id="recentActivityList">
+        <div class="empty-state">
+          <div class="empty-state-icon">📜</div>
+          <p>No recent activity</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Mobile Navigation -->
+  <nav class="mobile-nav">
+    <a href="user_dashboard_new.html" class="mobile-nav-item active">
+      <span class="mobile-nav-icon">🏠</span>
+      <span>Home</span>
+    </a>
+    <a href="#" class="mobile-nav-item" id="navPayments">
+      <span class="mobile-nav-icon">💰</span>
+      <span>Payments</span>
+    </a>
+    <a href="#" class="mobile-nav-item" id="navLoans">
+      <span class="mobile-nav-icon">💵</span>
+      <span>Loans</span>
+    </a>
+    <a href="#" class="mobile-nav-item" id="navProfile">
+      <span class="mobile-nav-icon">👤</span>
+      <span>Profile</span>
+    </a>
+  </nav>
 
   <!-- Loading Overlay -->
-  <div class="spinner-overlay hidden" id="loadingOverlay">
+  <div class="spinner-overlay hidden" id="spinner">
     <div class="spinner-content">
       <div class="spinner"></div>
       <p class="loading-text">Loading your dashboard...</p>
     </div>
   </div>
 
-  <!-- Firebase Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
