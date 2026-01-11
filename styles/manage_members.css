@@ -104,6 +104,22 @@ body {
     gap: 10px;
 }
 
+.add-member-section h3,
+.modal-content h3 {
+    font-size: 18px;
+    color: #1e293b;
+    margin-top: 15px;
+    margin-bottom: 5px;
+    padding-bottom: 5px;
+    border-bottom: 2px solid #e2e8f0;
+    font-weight: 600;
+}
+
+.add-member-section h3:first-of-type,
+.modal-content h3:first-of-type {
+    margin-top: 0;
+}
+
 input, select {
     padding: 10px;
     border: 1px solid #cbd5e1;
@@ -213,5 +229,42 @@ input:focus, select:focus {
 
     .modal-content {
         width: 90%;
+    }
+}
+
+/* Enhanced styling for larger screens */
+@media (min-width: 768px) {
+    .container {
+        max-width: 900px;
+        padding: 30px;
+    }
+    
+    .header h1 {
+        font-size: 26px;
+    }
+    
+    .modal-content {
+        width: 500px;
+        padding: 30px;
+    }
+    
+    input, select {
+        font-size: 16px;
+        padding: 12px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .container {
+        max-width: 1000px;
+        padding: 40px;
+    }
+    
+    .header h1 {
+        font-size: 28px;
+    }
+    
+    .modal-content {
+        width: 600px;
     }
 }

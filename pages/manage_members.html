@@ -24,10 +24,19 @@
     <section class="add-member-section">
       <h2>Add New Member</h2>
       <form id="addMemberForm">
+        <h3>Basic Information</h3>
         <input type="text" id="fullName" placeholder="Full Name" required>
         <input type="email" id="email" placeholder="Email Address" required>
         <input type="tel" id="phone" placeholder="Phone Number" required>
-        <input type="text" id="collateral" placeholder="Collateral (Optional)">
+        <input type="tel" id="whatsappNumber" placeholder="WhatsApp Number (Optional)">
+        
+        <h3>Additional Information (Optional)</h3>
+        <input type="text" id="address" placeholder="Address">
+        <input type="text" id="workplace" placeholder="Workplace">
+        <input type="text" id="career" placeholder="Career/Profession">
+        <input type="text" id="guarantor" placeholder="Guarantor Name">
+        <input type="tel" id="guarantorPhone" placeholder="Guarantor Phone Number">
+        <input type="text" id="collateral" placeholder="Collateral">
 
         <!-- Role Selection -->
         <label for="role">Select Role:</label>
@@ -45,10 +54,20 @@
       <div class="modal-content">
         <h2>Edit Member</h2>
         <form id="editMemberForm">
+          <h3>Basic Information</h3>
           <input type="text" id="editFullName" placeholder="Full Name" required>
           <input type="email" id="editEmail" placeholder="Email Address" required>
           <input type="text" id="editPhone" placeholder="Phone Number" required>
-          <input type="text" id="editCollateral" placeholder="Collateral (Optional)">
+          <input type="tel" id="editWhatsappNumber" placeholder="WhatsApp Number (Optional)">
+          
+          <h3>Additional Information (Optional)</h3>
+          <input type="text" id="editAddress" placeholder="Address">
+          <input type="text" id="editWorkplace" placeholder="Workplace">
+          <input type="text" id="editCareer" placeholder="Career/Profession">
+          <input type="text" id="editGuarantor" placeholder="Guarantor Name">
+          <input type="tel" id="editGuarantorPhone" placeholder="Guarantor Phone Number">
+          <input type="text" id="editCollateral" placeholder="Collateral">
+          
           <label for="editRole">Role:</label>
           <select id="editRole" required>
             <option value="user">Standard User</option>
