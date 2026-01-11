@@ -28,6 +28,47 @@ body {
   box-sizing: border-box;
 }
 
+/* Better support for larger screens (tablets and desktops) */
+@media (min-width: 768px) {
+  .container {
+    max-width: 700px;
+    padding: 45px;
+  }
+  
+  h1 {
+    font-size: 36px;
+  }
+  
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="tel"],
+  input[type="number"],
+  input[type="date"] {
+    font-size: 16px;
+    padding: 14px 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container {
+    max-width: 800px;
+    padding: 50px;
+  }
+  
+  h1 {
+    font-size: 38px;
+  }
+  
+  fieldset {
+    padding: 25px;
+  }
+  
+  .form-group {
+    margin-bottom: 18px;
+  }
+}
+
 h1 {
   font-size: 32px;
   margin-bottom: 10px;
@@ -124,9 +165,29 @@ input.invalid {
 
 .error-message {
   color: #e74c3c;
+  background-color: rgba(231, 76, 60, 0.1);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  border-radius: 6px;
+  padding: 8px 10px;
   font-size: 12px;
   display: none;
-  margin-top: 3px;
+  margin-top: 5px;
+  animation: slideDown 0.3s ease;
+}
+
+.error-message.show {
+  display: block;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .helper-text {
