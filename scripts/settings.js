@@ -414,11 +414,36 @@ document.addEventListener("DOMContentLoaded", () => {
       const groupDoc = await getDoc(doc(db, "groups", groupId));
       if (groupDoc.exists()) {
         const groupData = groupDoc.data();
-        document.getElementById("editSeedMoney").value = groupData.seedMoney || 0;
-        document.getElementById("editMonthlyContribution").value = groupData.monthlyContribution || 0;
-        document.getElementById("editInterestRate").value = groupData.interestRate || 0;
-        document.getElementById("editLoanPenalty").value = groupData.loanPenalty || 0;
-        document.getElementById("editMonthlyPenalty").value = groupData.monthlyPenalty || 0;
+        
+        // Handle both nested and flat structures for backward compatibility
+        const seedMoney = groupData.rules?.seedMoney?.amount ?? groupData.seedMoney ?? 0;
+        const monthlyContribution = groupData.rules?.monthlyContribution?.amount ?? groupData.monthlyContribution ?? 0;
+        const interestRate = groupData.rules?.interestRate ?? groupData.interestRate ?? 0;
+        const loanPenalty = groupData.rules?.loanPenalty?.rate ?? groupData.loanPenalty ?? 0;
+        const monthlyPenalty = groupData.rules?.monthlyPenalty?.rate ?? groupData.monthlyPenalty ?? 0;
+        const seedMoneyDueDate = groupData.rules?.seedMoney?.dueDate;
+        const cycleStartDate = groupData.rules?.cycleDuration?.startDate;
+        const cycleDuration = groupData.rules?.cycleDuration?.months ?? 12;
+        
+        document.getElementById("editSeedMoney").value = seedMoney;
+        document.getElementById("editMonthlyContribution").value = monthlyContribution;
+        document.getElementById("editInterestRate").value = interestRate;
+        document.getElementById("editLoanPenalty").value = loanPenalty;
+        document.getElementById("editMonthlyPenalty").value = monthlyPenalty;
+        document.getElementById("editCycleDuration").value = cycleDuration;
+        
+        // Set seed money due date
+        if (seedMoneyDueDate) {
+          const dueDate = seedMoneyDueDate.toDate ? seedMoneyDueDate.toDate() : new Date(seedMoneyDueDate);
+          document.getElementById("editSeedMoneyDueDate").value = dueDate.toISOString().split('T')[0];
+        }
+        
+        // Set cycle start date
+        if (cycleStartDate) {
+          const startDate = cycleStartDate.toDate ? cycleStartDate.toDate() : new Date(cycleStartDate);
+          document.getElementById("editCycleStartDate").value = startDate.toISOString().split('T')[0];
+        }
+        
         groupEditForm.style.display = "block";
       }
     } catch (error) {
@@ -434,19 +459,85 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       toggleLoading(true, "Saving group settings...");
+      
+      const seedMoney = parseFloat(document.getElementById("editSeedMoney").value);
+      const monthlyContribution = parseFloat(document.getElementById("editMonthlyContribution").value);
+      const interestRate = parseFloat(document.getElementById("editInterestRate").value);
+      const loanPenalty = parseFloat(document.getElementById("editLoanPenalty").value);
+      const monthlyPenalty = parseFloat(document.getElementById("editMonthlyPenalty").value);
+      const seedMoneyDueDateStr = document.getElementById("editSeedMoneyDueDate").value;
+      const cycleStartDateStr = document.getElementById("editCycleStartDate").value;
+      const cycleDuration = parseInt(document.getElementById("editCycleDuration").value) || 12;
+      
+      const seedMoneyDueDate = seedMoneyDueDateStr ? Timestamp.fromDate(new Date(seedMoneyDueDateStr)) : null;
+      const cycleStartDate = cycleStartDateStr ? Timestamp.fromDate(new Date(cycleStartDateStr)) : null;
+      
+      // Generate new cycle dates if cycle start date is provided
+      let cycleDates = null;
+      let displayCycleDates = null;
+      if (cycleStartDateStr) {
+        cycleDates = [];
+        displayCycleDates = [];
+        
+        for (let i = 0; i < cycleDuration; i++) {
+          const date = new Date(cycleStartDateStr);
+          date.setMonth(date.getMonth() + i);
+          
+          cycleDates.push(Timestamp.fromDate(date));
+          displayCycleDates.push(date.toLocaleDateString("default", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          }));
+        }
+      }
+      
       const groupRef = doc(db, "groups", groupId);
-      await updateDoc(groupRef, {
-        seedMoney: parseFloat(document.getElementById("editSeedMoney").value),
-        monthlyContribution: parseFloat(document.getElementById("editMonthlyContribution").value),
-        interestRate: parseFloat(document.getElementById("editInterestRate").value),
-        loanPenalty: parseFloat(document.getElementById("editLoanPenalty").value),
-        monthlyPenalty: parseFloat(document.getElementById("editMonthlyPenalty").value),
+      
+      // Update with comprehensive structure (both nested and flat for backward compatibility)
+      const updateData = {
+        // Flat structure for backward compatibility
+        seedMoney: seedMoney,
+        monthlyContribution: monthlyContribution,
+        interestRate: interestRate,
+        loanPenalty: loanPenalty,
+        monthlyPenalty: monthlyPenalty,
+        
+        // Nested rules structure (preferred)
+        "rules.seedMoney.amount": seedMoney,
+        "rules.monthlyContribution.amount": monthlyContribution,
+        "rules.interestRate": interestRate,
+        "rules.loanPenalty.rate": loanPenalty,
+        "rules.monthlyPenalty.rate": monthlyPenalty,
+        
         updatedAt: Timestamp.now(),
-      });
+        lastModifiedBy: auth.currentUser.uid
+      };
+      
+      // Add seed money due date if provided
+      if (seedMoneyDueDate) {
+        updateData["rules.seedMoney.dueDate"] = seedMoneyDueDate;
+      }
+      
+      // Add cycle information if provided
+      if (cycleStartDate) {
+        updateData["rules.cycleDuration.startDate"] = cycleStartDate;
+        updateData["rules.cycleDuration.months"] = cycleDuration;
+      }
+      
+      // Add cycle dates arrays if generated
+      if (cycleDates) {
+        updateData.cycleDates = cycleDates;
+        updateData.displayCycleDates = displayCycleDates;
+      }
+      
+      await updateDoc(groupRef, updateData);
+      
       alert("Group settings updated successfully!");
     } catch (error) {
       console.error("Error saving group settings:", error);
-      alert("Error saving group settings. Please try again.");
+      alert("Error saving group settings: " + error.message);
     } finally {
       toggleLoading(false);
     }

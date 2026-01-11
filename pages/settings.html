@@ -99,9 +99,14 @@
             </select>
           </div>
           <div id="groupEditForm" style="display: none;">
+            <h4>Financial Settings</h4>
             <div class="form-group">
               <label for="editSeedMoney">Seed Money (MWK)</label>
               <input type="number" id="editSeedMoney" step="0.01" min="0">
+            </div>
+            <div class="form-group">
+              <label for="editSeedMoneyDueDate">Seed Money Due Date</label>
+              <input type="date" id="editSeedMoneyDueDate">
             </div>
             <div class="form-group">
               <label for="editMonthlyContribution">Monthly Contribution (MWK)</label>
@@ -119,6 +124,18 @@
               <label for="editMonthlyPenalty">Monthly Penalty (%)</label>
               <input type="number" id="editMonthlyPenalty" step="0.01" min="0" max="100">
             </div>
+            
+            <h4>Cycle Settings</h4>
+            <div class="form-group">
+              <label for="editCycleStartDate">Cycle Start Date</label>
+              <input type="date" id="editCycleStartDate">
+              <small>Changing this will regenerate the 12-month cycle dates</small>
+            </div>
+            <div class="form-group">
+              <label for="editCycleDuration">Cycle Duration (Months)</label>
+              <input type="number" id="editCycleDuration" min="1" max="24" value="12">
+            </div>
+            
             <button id="saveGroupSettingsBtn" class="button primary">Save Group Settings</button>
           </div>
         </div>
