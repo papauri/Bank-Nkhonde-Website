@@ -6,6 +6,7 @@ import {
   collection,
   getDocs,
   updateDoc,
+  addDoc,
   arrayUnion,
   ref,
   uploadBytes,
@@ -191,7 +192,7 @@ async function displayMemberData(member, allPayments, monthlyPenaltyRate, groupI
       status: "",
     });
 
-    // ✅ Render Table
+    // ✅ Render Table with afterChange handler
     new Handsontable(memberTableContainer, {
       data: tableData,
       colHeaders: [
@@ -230,6 +231,98 @@ async function displayMemberData(member, allPayments, monthlyPenaltyRate, groupI
       height: "auto",
       stretchH: "all",
       licenseKey: "non-commercial-and-evaluation",
+      afterChange: async function (changes, source) {
+        // Only process user changes, not initial data load
+        if (source === 'loadData' || !changes) return;
+
+        for (const [row, prop, oldValue, newValue] of changes) {
+          // Only handle status column changes
+          if (prop === 'status' && oldValue !== newValue) {
+            try {
+              const rowData = this.getSourceDataAtRow(row);
+              const monthId = rowData.month;
+              
+              // Don't process Total row
+              if (monthId === 'Total') continue;
+
+              const currentYear = new Date().getFullYear();
+              const sanitizedFullName = member.fullName.replace(/\s+/g, "_");
+              const paymentRef = doc(
+                db,
+                `groups/${groupId}/payments/${currentYear}_MonthlyContributions/${sanitizedFullName}/${monthId}`
+              );
+
+              // Update the payment status in Firestore
+              await updateDoc(paymentRef, {
+                paymentStatus: newValue,
+                approvalStatus: newValue === 'Completed' ? 'approved' : 'pending',
+                updatedAt: new Date(),
+                approvedAt: newValue === 'Completed' ? new Date() : null,
+                approvedBy: newValue === 'Completed' ? auth.currentUser.uid : null,
+              });
+
+              // If completed, update arrears and create transaction
+              if (newValue === 'Completed') {
+                const paymentDoc = await getDoc(paymentRef);
+                if (paymentDoc.exists()) {
+                  const paymentData = paymentDoc.data();
+                  const totalPaid = paymentData.paid?.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || 0;
+                  
+                  await updateDoc(paymentRef, {
+                    arrears: 0,
+                  });
+
+                  // Create a transaction record
+                  const transactionRef = collection(db, `groups/${groupId}/transactions`);
+                  await addDoc(transactionRef, {
+                    transactionType: 'payment',
+                    category: 'income',
+                    amount: totalPaid,
+                    userId: member.uid,
+                    userName: member.fullName,
+                    description: `Monthly Contribution payment approved for ${member.fullName} - ${monthId}`,
+                    status: 'completed',
+                    createdAt: new Date(),
+                    processedAt: new Date(),
+                    processedBy: auth.currentUser.uid,
+                    metadata: {
+                      paymentType: 'Monthly Contribution',
+                      month: monthId,
+                      paymentId: paymentRef.id,
+                    },
+                  });
+
+                  // Update group statistics
+                  const groupRef = doc(db, "groups", groupId);
+                  const groupDoc = await getDoc(groupRef);
+                  if (groupDoc.exists()) {
+                    const groupData = groupDoc.data();
+                    const currentFunds = groupData.statistics?.totalFunds || 0;
+                    const currentArrears = groupData.statistics?.totalArrears || 0;
+                    const arrearsReduction = parseFloat(rowData.arrears) || 0;
+                    
+                    await updateDoc(groupRef, {
+                      'statistics.totalFunds': currentFunds + totalPaid,
+                      'statistics.totalArrears': Math.max(0, currentArrears - arrearsReduction),
+                      'statistics.lastUpdated': new Date(),
+                    });
+                  }
+                }
+              }
+
+              alert(`✅ Payment status updated to "${newValue}" successfully!`);
+              
+              // Reload the table to reflect changes
+              await displayMemberData(member, allPayments, monthlyPenaltyRate, groupId);
+            } catch (error) {
+              console.error('❌ Error updating payment status:', error);
+              alert(`⚠️ Error updating status: ${error.message}`);
+              // Revert the change in the table
+              this.setDataAtCell(row, this.propToCol(prop), oldValue);
+            }
+          }
+        }
+      },
     });
 
     // ✅ Display Manual Payment Form
@@ -549,7 +642,7 @@ async function displaySeedMoney(groupId) {
         seedMoneyContainer.appendChild(card);
       });
     } else {
-      // ✅ Render Handsontable for Desktop View
+      // ✅ Render Handsontable for Desktop View with afterChange handler
       new Handsontable(seedMoneyContainer, {
         data: seedMoneyData,
         colHeaders: [
@@ -578,6 +671,101 @@ async function displaySeedMoney(groupId) {
         height: 300,
         stretchH: "all",
         licenseKey: "non-commercial-and-evaluation",
+        afterChange: async function (changes, source) {
+          // Only process user changes, not initial data load
+          if (source === 'loadData' || !changes) return;
+
+          for (const [row, prop, oldValue, newValue] of changes) {
+            // Only handle status column changes
+            if (prop === 'status' && oldValue !== newValue) {
+              try {
+                const rowData = this.getSourceDataAtRow(row);
+                const memberName = rowData.memberName;
+                
+                // Find the member UID from the members list
+                const membersSnapshot = await getDocs(collection(db, `groups/${groupId}/members`));
+                const member = membersSnapshot.docs.find(doc => doc.data().fullName === memberName);
+                
+                if (!member) {
+                  alert(`❌ Could not find member: ${memberName}`);
+                  continue;
+                }
+
+                const memberUid = member.id;
+                const currentYear = new Date().getFullYear();
+                const paymentRef = doc(
+                  db,
+                  `groups/${groupId}/payments/${currentYear}_SeedMoney/${memberUid}/PaymentDetails`
+                );
+
+                // Update the payment status in Firestore
+                await updateDoc(paymentRef, {
+                  paymentStatus: newValue,
+                  approvalStatus: newValue === 'Completed' ? 'approved' : 'pending',
+                  updatedAt: new Date(),
+                  approvedAt: newValue === 'Completed' ? new Date() : null,
+                  approvedBy: newValue === 'Completed' ? auth.currentUser.uid : null,
+                });
+
+                // If completed, also update arrears to 0
+                if (newValue === 'Completed') {
+                  const paymentDoc = await getDoc(paymentRef);
+                  if (paymentDoc.exists()) {
+                    const paymentData = paymentDoc.data();
+                    await updateDoc(paymentRef, {
+                      arrears: 0,
+                      amountPaid: paymentData.totalAmount,
+                    });
+
+                    // Create a transaction record
+                    const transactionRef = collection(db, `groups/${groupId}/transactions`);
+                    await addDoc(transactionRef, {
+                      transactionType: 'payment',
+                      category: 'income',
+                      amount: paymentData.totalAmount,
+                      userId: memberUid,
+                      userName: memberName,
+                      description: `Seed Money payment approved for ${memberName}`,
+                      status: 'completed',
+                      createdAt: new Date(),
+                      processedAt: new Date(),
+                      processedBy: auth.currentUser.uid,
+                      metadata: {
+                        paymentType: 'Seed Money',
+                        paymentId: paymentRef.id,
+                      },
+                    });
+
+                    // Update group statistics
+                    const groupRef = doc(db, "groups", groupId);
+                    const groupDoc = await getDoc(groupRef);
+                    if (groupDoc.exists()) {
+                      const groupData = groupDoc.data();
+                      const currentFunds = groupData.statistics?.totalFunds || 0;
+                      const currentArrears = groupData.statistics?.totalArrears || 0;
+                      
+                      await updateDoc(groupRef, {
+                        'statistics.totalFunds': currentFunds + paymentData.totalAmount,
+                        'statistics.totalArrears': Math.max(0, currentArrears - paymentData.totalAmount),
+                        'statistics.lastUpdated': new Date(),
+                      });
+                    }
+                  }
+                }
+
+                alert(`✅ Payment status updated to "${newValue}" successfully!`);
+                
+                // Reload the table to reflect changes
+                await displaySeedMoney(groupId);
+              } catch (error) {
+                console.error('❌ Error updating payment status:', error);
+                alert(`⚠️ Error updating status: ${error.message}`);
+                // Revert the change in the table
+                this.setDataAtCell(row, this.propToCol(prop), oldValue);
+              }
+            }
+          }
+        },
       });
     }
   } catch (error) {

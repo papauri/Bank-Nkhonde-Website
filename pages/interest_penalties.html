@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interest & Penalties</title>
+  <link rel="stylesheet" href="../styles/manage_page.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>Interest Rates & Penalties Management</h1>
+      <button id="backButton" class="button back">Back to Dashboard</button>
+    </header>
+
+    <!-- Group Selector -->
+    <section class="selector-section">
+      <label for="groupSelector">Select Group:</label>
+      <select id="groupSelector" class="group-select">
+        <option value="">Loading groups...</option>
+      </select>
+    </section>
+
+    <!-- Current Rates Display -->
+    <section class="rates-section">
+      <h2>Current Rates & Penalties</h2>
+      <div class="rates-grid">
+        <div class="rate-card">
+          <h3>Loan Interest Rates</h3>
+          <div class="rate-details">
+            <p><strong>Month 1:</strong> <span id="loanInterestM1">0%</span></p>
+            <p><strong>Month 2:</strong> <span id="loanInterestM2">0%</span></p>
+            <p><strong>Month 3+:</strong> <span id="loanInterestM3">0%</span></p>
+          </div>
+          <button class="edit-btn" data-target="loanInterest">Edit</button>
+        </div>
+
+        <div class="rate-card">
+          <h3>Loan Penalty Rate</h3>
+          <div class="rate-details">
+            <p><strong>Rate:</strong> <span id="loanPenaltyRate">0%</span></p>
+            <p><strong>Type:</strong> <span id="loanPenaltyType">Percentage</span></p>
+            <p><strong>Grace Period:</strong> <span id="loanGracePeriod">0 days</span></p>
+          </div>
+          <button class="edit-btn" data-target="loanPenalty">Edit</button>
+        </div>
+
+        <div class="rate-card">
+          <h3>Monthly Contribution Penalty</h3>
+          <div class="rate-details">
+            <p><strong>Rate:</strong> <span id="monthlyPenaltyRate">0%</span></p>
+            <p><strong>Type:</strong> <span id="monthlyPenaltyType">Percentage</span></p>
+            <p><strong>Grace Period:</strong> <span id="monthlyGracePeriod">0 days</span></p>
+          </div>
+          <button class="edit-btn" data-target="monthlyPenalty">Edit</button>
+        </div>
+
+        <div class="rate-card">
+          <h3>Seed Money</h3>
+          <div class="rate-details">
+            <p><strong>Amount:</strong> <span id="seedMoneyAmount">MWK 0</span></p>
+            <p><strong>Required:</strong> <span id="seedMoneyRequired">Yes</span></p>
+            <p><strong>Due Date:</strong> <span id="seedMoneyDueDate">N/A</span></p>
+          </div>
+          <button class="edit-btn" data-target="seedMoney">Edit</button>
+        </div>
+
+        <div class="rate-card">
+          <h3>Monthly Contribution</h3>
+          <div class="rate-details">
+            <p><strong>Amount:</strong> <span id="monthlyContribution">MWK 0</span></p>
+            <p><strong>Due Day:</strong> <span id="monthlyDueDay">15th</span></p>
+            <p><strong>Partial Payments:</strong> <span id="partialAllowed">Allowed</span></p>
+          </div>
+          <button class="edit-btn" data-target="monthlyContribution">Edit</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Penalties Applied This Month -->
+    <section class="table-section">
+      <h2>Penalties Applied This Month</h2>
+      <div id="penaltiesTable" class="data-table">
+        <p>Select a group to view penalties</p>
+      </div>
+    </section>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2 id="modalTitle">Edit Rate</h2>
+        <div id="modalForm"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="../scripts/interest_penalties.js"></script>
+</body>
+</html>
