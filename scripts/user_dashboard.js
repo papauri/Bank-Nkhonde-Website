@@ -48,27 +48,31 @@ document.addEventListener("DOMContentLoaded", () => {
   async function loadUserGroups(user) {
     groupList.innerHTML = "<li>Loading your groups...</li>";
     try {
-      const q = query(collection(db, "groups"));
-      const querySnapshot = await getDocs(q);
+      const groupsQuery = query(collection(db, "groups"));
+      const querySnapshot = await getDocs(groupsQuery);
 
       groupList.innerHTML = "";
 
       let userGroups = [];
 
-      querySnapshot.forEach((doc) => {
-        const group = doc.data();
-        const groupId = doc.id;
+      // Check each group to see if user is a member
+      for (const groupDoc of querySnapshot.docs) {
+        const group = groupDoc.data();
+        const groupId = groupDoc.id;
 
-        // ✅ Ensure the user is recognized as either:
-        // - A member in the `members` array
-        // - The admin (`adminId` matches `user.uid`)
-        if (
-          (Array.isArray(group.members) && group.members.includes(user.uid)) || 
-          group.adminId === user.uid
-        ) {
+        // ✅ Check if user is in the members subcollection
+        const memberDoc = await getDoc(doc(db, `groups/${groupId}/members`, user.uid));
+        
+        // ✅ Check if user is in the admins array
+        const isAdmin = group.admins?.some(
+          (admin) => admin.uid === user.uid || admin.email === user.email
+        );
+
+        // Add group if user is a member OR an admin
+        if (memberDoc.exists() || isAdmin) {
           userGroups.push({ id: groupId, ...group });
         }
-      });
+      }
 
       if (userGroups.length === 0) {
         groupList.innerHTML = "<li>You are not part of any groups yet.</li>";
