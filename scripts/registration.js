@@ -155,13 +155,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // ✅ Convert and validate numeric fields
       const seedMoney = parseFloat(groupData.seedMoney);
-      const interestRate = parseFloat(groupData.interestRate);
+      const loanInterestMonth1 = parseFloat(groupData.loanInterestMonth1);
+      const loanInterestMonth2 = parseFloat(groupData.loanInterestMonth2);
+      const loanInterestMonth3 = parseFloat(groupData.loanInterestMonth3);
       const monthlyContribution = parseFloat(groupData.monthlyContribution);
       const loanPenalty = parseFloat(groupData.loanPenalty);
       const monthlyPenalty = parseFloat(groupData.monthlyPenalty);
 
       if (
-        isNaN(seedMoney) || isNaN(interestRate) || isNaN(monthlyContribution) ||
+        isNaN(seedMoney) || isNaN(loanInterestMonth1) || isNaN(monthlyContribution) ||
         isNaN(loanPenalty) || isNaN(monthlyPenalty)
       ) {
         throw new Error("Invalid numeric input detected. Ensure all numeric fields have valid values.");
@@ -229,7 +231,12 @@ document.addEventListener("DOMContentLoaded", () => {
             dayOfMonth: new Date(groupData.cycleStartDate).getDate(),
             allowPartialPayment: true
           },
-          interestRate: interestRate,
+          loanInterest: {
+            month1: loanInterestMonth1,
+            month2: loanInterestMonth2,
+            month3AndBeyond: loanInterestMonth3,
+            description: "Tiered interest rates for loan repayments"
+          },
           loanPenalty: {
             rate: loanPenalty,
             type: "percentage",
@@ -454,7 +461,24 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("❌ Error during registration:", error.message);
       toggleLoadingOverlay(false);
       toggleFormFields(true);
-      alert(`Registration failed: ${error.message}`);
+      
+      // Provide user-friendly error messages
+      let errorMessage = "Registration failed: ";
+      if (error.code === "auth/email-already-in-use") {
+        errorMessage += "This email is already registered. Please use a different email or login.";
+      } else if (error.code === "auth/invalid-email") {
+        errorMessage += "Invalid email address format.";
+      } else if (error.code === "auth/weak-password") {
+        errorMessage += "Password is too weak. Please use a stronger password (at least 6 characters).";
+      } else if (error.code === "auth/network-request-failed") {
+        errorMessage += "Network error. Please check your internet connection and try again.";
+      } else if (error.message.includes("permission")) {
+        errorMessage += "Permission denied. Please contact support.";
+      } else {
+        errorMessage += error.message;
+      }
+      
+      alert(errorMessage);
       throw error;
     }
   }
@@ -495,7 +519,9 @@ registrationForm.addEventListener("submit", async (e) => {
   const groupName = document.getElementById("groupName").value.trim();
   const seedMoney = parseFloat(document.getElementById("seedMoney").value);
   const seedMoneyDueDate = document.getElementById("seedMoneyDueDate").value;
-  const interestRate = parseFloat(document.getElementById("interestRate").value);
+  const loanInterestMonth1 = parseFloat(document.getElementById("loanInterestMonth1").value);
+  const loanInterestMonth2 = parseFloat(document.getElementById("loanInterestMonth2").value) || loanInterestMonth1;
+  const loanInterestMonth3 = parseFloat(document.getElementById("loanInterestMonth3").value) || loanInterestMonth2;
   const monthlyContribution = parseFloat(document.getElementById("monthlyContribution").value);
   const loanPenalty = parseFloat(document.getElementById("loanPenalty").value);
   const monthlyPenalty = parseFloat(document.getElementById("monthlyPenalty").value);
@@ -522,7 +548,7 @@ registrationForm.addEventListener("submit", async (e) => {
     validateField(groupName, "Group Name"),
     validateField(seedMoneyDueDate, "Seed Money Due Date"),
     validateNumericField(seedMoney, "Seed Money", 0),
-    validateNumericField(interestRate, "Interest Rate", 0, 100, true),
+    validateNumericField(loanInterestMonth1, "Loan Interest Month 1", 0, 100, true),
     validateNumericField(monthlyContribution, "Monthly Contribution", 0),
     validateNumericField(loanPenalty, "Loan Penalty", 0, 100, true),
     validateNumericField(monthlyPenalty, "Monthly Penalty", 0, 100, true),
@@ -596,7 +622,9 @@ registrationForm.addEventListener("submit", async (e) => {
       phone,
       seedMoney: seedMoney.toFixed(2),
       seedMoneyDueDate,
-      interestRate: interestRate.toFixed(2),
+      loanInterestMonth1: loanInterestMonth1.toFixed(2),
+      loanInterestMonth2: loanInterestMonth2.toFixed(2),
+      loanInterestMonth3: loanInterestMonth3.toFixed(2),
       monthlyContribution: monthlyContribution.toFixed(2),
       loanPenalty: loanPenalty.toFixed(2),
       monthlyPenalty: monthlyPenalty.toFixed(2),
