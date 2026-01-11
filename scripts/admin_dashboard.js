@@ -5,8 +5,15 @@ import {
   getDocs,
   doc,
   getDoc,
+  addDoc,
+  updateDoc,
+  query,
+  where,
+  orderBy,
+  limit,
   onAuthStateChanged,
   signOut,
+  Timestamp,
 } from "./firebaseConfig.js";
 
 onAuthStateChanged(auth, (user) => {
@@ -15,7 +22,7 @@ onAuthStateChanged(auth, (user) => {
   } else {
     console.log("No user is signed in.");
     alert("You must be signed in to access this page.");
-    window.location.href = "../login.html"; // Redirect to login page
+    window.location.href = "../login.html";
   }
 });
 
@@ -23,12 +30,23 @@ document.addEventListener("DOMContentLoaded", () => {
   const groupList = document.getElementById("groupList");
   const welcomeMessage = document.getElementById("welcomeMessage");
   const adminNameSpan = document.getElementById("adminName");
-  const dashboardTitle = document.getElementById("dashboardTitle");
   const switchViewButton = document.getElementById("switchViewButton");
   const logoutButton = document.getElementById("logoutButton");
   const createGroupButton = document.getElementById("createGroupButton");
   const analyticsButton = document.getElementById("analyticsButton");
   const settingsButton = document.getElementById("settingsButton");
+  
+  // Stats elements
+  const totalCollections = document.getElementById("totalCollections");
+  const activeLoansCount = document.getElementById("activeLoansCount");
+  const loansAmount = document.getElementById("loansAmount");
+  const pendingApprovalsCount = document.getElementById("pendingApprovalsCount");
+  const totalArrearsValue = document.getElementById("totalArrearsValue");
+  const arrearsMembers = document.getElementById("arrearsMembers");
+  const pendingBadge = document.getElementById("pendingBadge");
+  const pendingList = document.getElementById("pendingList");
+  const messageBadge = document.getElementById("messageBadge");
+  const messagesList = document.getElementById("messagesList");
   
   // Quick action buttons
   const manageLoansButton = document.getElementById("manageLoansButton");
@@ -38,148 +56,304 @@ document.addEventListener("DOMContentLoaded", () => {
   const manageInterestButton = document.getElementById("manageInterestButton");
   const viewReportsButton = document.getElementById("viewReportsButton");
 
-  let isAdminView = true;
+  let adminGroups = [];
+  let currentUser = null;
   let sessionTimeout;
 
-  // ✅ Set session timeout for 1 hour
+  // Format currency
+  function formatCurrency(amount) {
+    return "MWK " + Number(amount || 0).toLocaleString();
+  }
+
+  // Escape HTML
+  function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Set session timeout for 1 hour
   function resetSessionTimer() {
     clearTimeout(sessionTimeout);
     sessionTimeout = setTimeout(async () => {
       alert("Your session has expired. You will be logged out.");
       await handleLogout();
-    }, 60 * 60 * 1000); // 1 hour
+    }, 60 * 60 * 1000);
   }
 
-  // ✅ Handle logout functionality
+  // Handle logout functionality
   async function handleLogout() {
     try {
       await signOut(auth);
       alert("You have been logged out.");
       window.location.href = "../login.html";
     } catch (error) {
-      console.error("❌ Error signing out:", error.message);
+      console.error("Error signing out:", error.message);
       alert("An error occurred while logging out. Please try again.");
     }
   }
 
-  // Load groups for the admin 
+  // Load admin groups and statistics
   async function loadGroups(user) {
-    const groupList = document.getElementById("groupList");
     groupList.innerHTML = "<li>Loading your groups...</li>";
+    adminGroups = [];
   
     try {
       const groupsRef = collection(db, "groups");
       const querySnapshot = await getDocs(groupsRef);
   
       groupList.innerHTML = "";
-  
-      let isAdminOfAnyGroup = false;
-      const currentYear = new Date().getFullYear();
-      const currentMonth = new Date().toLocaleString("default", { month: "long" });
+      
+      let totalCollectionsAmount = 0;
+      let totalActiveLoans = 0;
+      let totalLoansAmount = 0;
+      let totalPending = 0;
+      let totalArrears = 0;
+      let membersWithArrears = 0;
+      let pendingItems = [];
+      let messageItems = [];
   
       for (const docSnapshot of querySnapshot.docs) {
         const groupData = docSnapshot.data();
         const groupId = docSnapshot.id;
   
-        // ✅ Ensure user is an admin of the group
         const isAdmin = groupData.admins?.some(
           (admin) => admin.email === user.email || admin.uid === user.uid
         );
         if (!isAdmin) continue;
-        isAdminOfAnyGroup = true;
+        
+        adminGroups.push({ id: groupId, ...groupData });
   
-        let hasPendingApprovals = false;
-  
-        // ✅ Fetch all members
-        const membersRef = collection(db, `groups/${groupId}/members`);
+        // Fetch members
+        const membersRef = collection(db, "groups/" + groupId + "/members");
         const membersSnapshot = await getDocs(membersRef);
-        const members = membersSnapshot.docs.map((doc) => ({
-          uid: doc.id,
-          fullName: doc.data().fullName,
-        }));
-  
-        // ✅ Check pending approvals for each member
-        for (const member of members) {
-          // 🔹 Check Seed Money
-          const seedMoneyDocRef = doc(db, `groups/${groupId}/payments/${currentYear}_SeedMoney/${member.uid}/PaymentDetails`);
-          const seedMoneyDoc = await getDoc(seedMoneyDocRef);
-          if (seedMoneyDoc.exists() && seedMoneyDoc.data().approvalStatus === "pending") {
-            hasPendingApprovals = true;
-            break; // No need to check further if already found
+        const memberCount = membersSnapshot.size;
+        
+        // Check for pending payments
+        const currentYear = new Date().getFullYear();
+        for (const memberDoc of membersSnapshot.docs) {
+          const memberData = memberDoc.data();
+          const memberId = memberDoc.id;
+          
+          // Check seed money pending
+          try {
+            const seedMoneyDocRef = doc(db, "groups/" + groupId + "/payments/" + currentYear + "_SeedMoney/" + memberId + "/PaymentDetails");
+            const seedMoneyDoc = await getDoc(seedMoneyDocRef);
+            if (seedMoneyDoc.exists()) {
+              const paymentData = seedMoneyDoc.data();
+              if (paymentData.approvalStatus === "pending") {
+                totalPending++;
+                pendingItems.push({
+                  type: "Seed Money",
+                  member: memberData.fullName || "Unknown",
+                  group: groupData.groupName,
+                  groupId: groupId,
+                  memberId: memberId,
+                  amount: paymentData.amountPaid || 0,
+                  date: paymentData.submittedAt?.toDate ? paymentData.submittedAt.toDate() : new Date()
+                });
+              }
+              if (paymentData.totalPaid) {
+                totalCollectionsAmount += paymentData.totalPaid;
+              }
+              if (paymentData.arrears > 0) {
+                totalArrears += paymentData.arrears;
+                membersWithArrears++;
+              }
+            }
+          } catch (e) {
+            // Silent fail for missing docs
           }
-  
-          // 🔹 Check Monthly Contributions
-          const contributionDocRef = doc(db,
-            `groups/${groupId}/payments/${currentYear}_MonthlyContributions/${member.fullName.replace(/\s+/g, "_")}/${currentYear}_${currentMonth}`
-          );
-          const contributionDoc = await getDoc(contributionDocRef);
-          if (contributionDoc.exists() && contributionDoc.data().approvalStatus === "pending") {
-            hasPendingApprovals = true;
-            break;
+          
+          // Get member financial summary
+          if (memberData.financialSummary) {
+            totalCollectionsAmount += memberData.financialSummary.totalPaid || 0;
+            totalArrears += memberData.financialSummary.totalArrears || 0;
+            totalArrears += memberData.financialSummary.totalPenalties || 0;
           }
-  
-          // 🔹 Check Loan Repayments
-          const loansCollectionRef = collection(db, `groups/${groupId}/loans/${member.uid}/repayments`);
-          const loansSnapshot = await getDocs(loansCollectionRef);
+        }
+        
+        // Check for pending loans
+        try {
+          const loansRef = collection(db, "groups/" + groupId + "/loans");
+          const loansSnapshot = await getDocs(loansRef);
           for (const loanDoc of loansSnapshot.docs) {
-            if (loanDoc.data().approvalStatus === "pending") {
-              hasPendingApprovals = true;
-              break;
+            const loanData = loanDoc.data();
+            if (loanData.status === "pending") {
+              totalPending++;
+              pendingItems.push({
+                type: "Loan Request",
+                member: loanData.borrowerName || "Unknown",
+                group: groupData.groupName,
+                groupId: groupId,
+                loanId: loanDoc.id,
+                amount: loanData.loanAmount || 0,
+                date: loanData.requestedAt?.toDate ? loanData.requestedAt.toDate() : new Date()
+              });
+            }
+            if (loanData.status === "active" || loanData.status === "approved" || loanData.status === "disbursed") {
+              totalActiveLoans++;
+              totalLoansAmount += loanData.amountRemaining || loanData.loanAmount || 0;
             }
           }
-  
-          // Stop checking if we already found a pending approval
-          if (hasPendingApprovals) break;
+        } catch (e) {
+          // Silent fail
+        }
+        
+        // Check for messages
+        try {
+          const messagesRef = collection(db, "groups/" + groupId + "/messages");
+          const messagesSnapshot = await getDocs(messagesRef);
+          for (const msgDoc of messagesSnapshot.docs) {
+            const msgData = msgDoc.data();
+            if (msgData.status === "open" || msgData.status === "in_progress") {
+              messageItems.push({
+                id: msgDoc.id,
+                groupId: groupId,
+                group: groupData.groupName,
+                from: msgData.createdByName || "Unknown",
+                subject: msgData.subject || "No subject",
+                category: msgData.category || "general",
+                date: msgData.createdAt?.toDate ? msgData.createdAt.toDate() : new Date(),
+                unread: msgData.status === "open"
+              });
+            }
+          }
+        } catch (e) {
+          // Silent fail
         }
   
-        // ✅ Create Clickable Group Item
+        // Create group item
         const groupItem = document.createElement("li");
         groupItem.classList.add("group-item");
   
-        groupItem.innerHTML = `
-          <a href="group_page.html?groupId=${groupId}" class="group-link">
-            <div class="group-details">
-              <h3>${groupData.groupName}</h3>
-              <p>Created: ${groupData.createdAt?.toDate
-                ? new Date(groupData.createdAt.toDate()).toLocaleDateString()
-                : "N/A"
-              }</p>
-              <p>Members: Loading...</p>
-              ${hasPendingApprovals
-                ? `<span class="pending-badge">Pending Approvals</span>`
-                : ""
-              }
-            </div>
-          </a>
-        `;
+        groupItem.innerHTML = 
+          '<a href="group_page.html?groupId=' + groupId + '" class="group-link">' +
+            '<div class="details">' +
+              '<h3>' + escapeHtml(groupData.groupName) + '</h3>' +
+              '<p>Created: ' + (groupData.createdAt?.toDate ? new Date(groupData.createdAt.toDate()).toLocaleDateString() : "N/A") + '</p>' +
+              '<p>Members: ' + memberCount + '</p>' +
+            '</div>' +
+          '</a>';
   
         groupList.appendChild(groupItem);
-  
-        // ✅ Fetch and Update Member Count
-        getDocs(collection(db, `groups/${groupId}/members`))
-          .then((membersSnapshot) => {
-            const memberCount = membersSnapshot.size;
-            groupItem.querySelector(
-              ".group-details p:nth-child(3)"
-            ).textContent = `Members: ${memberCount}`;
-          })
-          .catch(() => {
-            groupItem.querySelector(
-              ".group-details p:nth-child(3)"
-            ).textContent = `Members: Error`;
-          });
       }
   
-      if (!isAdminOfAnyGroup) {
+      if (adminGroups.length === 0) {
         groupList.innerHTML = "<li>You are not an admin of any groups.</li>";
       }
+      
+      // Update statistics UI
+      if (totalCollections) totalCollections.textContent = formatCurrency(totalCollectionsAmount);
+      if (activeLoansCount) activeLoansCount.textContent = totalActiveLoans;
+      if (loansAmount) loansAmount.textContent = formatCurrency(totalLoansAmount);
+      if (pendingApprovalsCount) pendingApprovalsCount.textContent = totalPending;
+      if (totalArrearsValue) totalArrearsValue.textContent = formatCurrency(totalArrears);
+      if (arrearsMembers) arrearsMembers.textContent = membersWithArrears + " members";
+      if (pendingBadge) pendingBadge.textContent = totalPending;
+      
+      // Render pending items
+      renderPendingItems(pendingItems);
+      
+      // Render messages
+      renderMessages(messageItems);
+      
+      // Populate broadcast group select
+      populateBroadcastSelect();
+      
     } catch (error) {
+      console.error("Error loading groups:", error);
       groupList.innerHTML = "<li>Error loading groups. Please try again later.</li>";
     }
   }
   
+  // Render pending approval items
+  function renderPendingItems(items) {
+    if (!pendingList) return;
+    
+    if (items.length === 0) {
+      pendingList.innerHTML = 
+        '<div class="empty-state">' +
+          '<div class="icon">✅</div>' +
+          '<p>No pending approvals</p>' +
+        '</div>';
+      return;
+    }
+    
+    // Sort by date descending
+    items.sort((a, b) => b.date - a.date);
+    
+    // Show first 5
+    const displayItems = items.slice(0, 5);
+    
+    pendingList.innerHTML = displayItems.map(item => 
+      '<div class="pending-item" data-type="' + item.type + '" data-group="' + item.groupId + '">' +
+        '<div class="pending-info">' +
+          '<h4>' + escapeHtml(item.type) + ': ' + formatCurrency(item.amount) + '</h4>' +
+          '<p>' + escapeHtml(item.member) + ' - ' + escapeHtml(item.group) + '</p>' +
+        '</div>' +
+        '<div class="pending-actions">' +
+          '<button class="btn-approve" onclick="approveItem(\'' + item.type + '\', \'' + item.groupId + '\', \'' + (item.memberId || item.loanId) + '\')">Approve</button>' +
+          '<button class="btn-view" onclick="viewItem(\'' + item.type + '\', \'' + item.groupId + '\')">View</button>' +
+        '</div>' +
+      '</div>'
+    ).join("");
+  }
+  
+  // Render messages
+  function renderMessages(items) {
+    if (!messagesList) return;
+    
+    if (items.length === 0) {
+      messagesList.innerHTML = 
+        '<div class="empty-state">' +
+          '<div class="icon">💬</div>' +
+          '<p>No new messages</p>' +
+        '</div>';
+      return;
+    }
+    
+    // Update badge
+    const unreadCount = items.filter(m => m.unread).length;
+    if (messageBadge && unreadCount > 0) {
+      messageBadge.textContent = unreadCount;
+      messageBadge.style.display = "inline";
+    }
+    
+    // Sort by date descending
+    items.sort((a, b) => b.date - a.date);
+    
+    // Show first 5
+    const displayItems = items.slice(0, 5);
+    
+    messagesList.innerHTML = displayItems.map(item => 
+      '<div class="message-item ' + (item.unread ? 'unread' : '') + '">' +
+        '<div class="message-content">' +
+          '<h4>' + escapeHtml(item.subject) + '</h4>' +
+          '<p>From: ' + escapeHtml(item.from) + ' (' + escapeHtml(item.group) + ')</p>' +
+        '</div>' +
+        '<div class="message-meta">' +
+          item.date.toLocaleDateString() +
+        '</div>' +
+      '</div>'
+    ).join("");
+  }
+  
+  // Populate broadcast select
+  function populateBroadcastSelect() {
+    const broadcastGroup = document.getElementById("broadcastGroup");
+    if (!broadcastGroup) return;
+    
+    broadcastGroup.innerHTML = '<option value="">Select Group</option>';
+    adminGroups.forEach(group => {
+      const option = document.createElement("option");
+      option.value = group.id;
+      option.textContent = group.groupName;
+      broadcastGroup.appendChild(option);
+    });
+  }
 
-  // ✅ Fetch admin's full name
+  // Fetch admin's full name
   async function fetchAdminName(user) {
     try {
       const userDoc = await getDoc(doc(db, "users", user.uid));
@@ -189,23 +363,71 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       return user.displayName || "Admin";
     } catch (error) {
-      console.error("❌ Error fetching admin name:", error.message);
+      console.error("Error fetching admin name:", error.message);
       return "Admin";
     }
   }
 
-  // ✅ Switch between Admin and User View
-  switchViewButton.addEventListener("click", () => {
-    // Navigate to user dashboard instead of switching in place
-    window.location.href = "user_dashboard.html";
-  });
+  // Broadcast form submission
+  const broadcastForm = document.getElementById("broadcastForm");
+  if (broadcastForm) {
+    broadcastForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      
+      const groupId = document.getElementById("broadcastGroup").value;
+      const title = document.getElementById("broadcastTitle").value;
+      const message = document.getElementById("broadcastMessage").value;
+      
+      if (!groupId || !title || !message) {
+        alert("Please fill in all fields.");
+        return;
+      }
+      
+      try {
+        const broadcastData = {
+          broadcastId: "broadcast_" + Date.now(),
+          type: "announcement",
+          title: title,
+          message: message,
+          richContent: { type: "plain_text", content: message },
+          createdBy: currentUser.uid,
+          createdByName: adminNameSpan?.textContent || "Admin",
+          createdAt: Timestamp.now(),
+          scheduledFor: null,
+          sentAt: Timestamp.now(),
+          status: "sent",
+          priority: "normal",
+          targetAudience: { type: "all_members", specificMembers: [] },
+          deliveryChannels: ["in_app"],
+          deliveryStatus: { totalRecipients: 0, delivered: 0, read: 0, failed: 0 },
+          expiresAt: null
+        };
+        
+        await addDoc(collection(db, "groups/" + groupId + "/broadcasts"), broadcastData);
+        
+        alert("Broadcast sent successfully!");
+        e.target.reset();
+        
+      } catch (error) {
+        console.error("Error sending broadcast:", error.message);
+        alert("Error sending broadcast. Please try again.");
+      }
+    });
+  }
 
-  // ✅ Navigate to Create Group
-  createGroupButton.addEventListener("click", () => {
-    window.location.href = "../pages/create_group.html";
-  });
+  // Navigation event listeners
+  if (switchViewButton) {
+    switchViewButton.addEventListener("click", () => {
+      window.location.href = "user_dashboard.html";
+    });
+  }
 
-  // ✅ Navigate to Approve Registrations
+  if (createGroupButton) {
+    createGroupButton.addEventListener("click", () => {
+      window.location.href = "../pages/admin_registration.html";
+    });
+  }
+
   const approveRegistrationsButton = document.getElementById("approveRegistrationsButton");
   if (approveRegistrationsButton) {
     approveRegistrationsButton.addEventListener("click", () => {
@@ -213,59 +435,67 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ✅ Navigate to Analytics
   if (analyticsButton) {
     analyticsButton.addEventListener("click", () => {
       window.location.href = "../pages/analytics.html";
     });
   }
 
-  // ✅ Navigate to Settings
-  settingsButton.addEventListener("click", () => {
-    window.location.href = "../pages/settings.html";
-  });
+  if (settingsButton) {
+    settingsButton.addEventListener("click", () => {
+      window.location.href = "../pages/settings.html";
+    });
+  }
 
-  // ✅ Quick Action: Manage Loans
-  manageLoansButton.addEventListener("click", () => {
-    window.location.href = "../pages/manage_loans.html";
-  });
+  if (manageLoansButton) {
+    manageLoansButton.addEventListener("click", () => {
+      window.location.href = "../pages/manage_loans.html";
+    });
+  }
 
-  // ✅ Quick Action: Manage Payments
-  managePaymentsButton.addEventListener("click", () => {
-    window.location.href = "../pages/manage_payments.html";
-  });
+  if (managePaymentsButton) {
+    managePaymentsButton.addEventListener("click", () => {
+      window.location.href = "../pages/manage_payments.html";
+    });
+  }
 
-  // ✅ Quick Action: View Contributions
-  viewContributionsButton.addEventListener("click", () => {
-    window.location.href = "../pages/contributions_overview.html";
-  });
+  if (viewContributionsButton) {
+    viewContributionsButton.addEventListener("click", () => {
+      window.location.href = "../pages/contributions_overview.html";
+    });
+  }
 
-  // ✅ Quick Action: View Seed Money
-  viewSeedMoneyButton.addEventListener("click", () => {
-    window.location.href = "../pages/seed_money_overview.html";
-  });
+  if (viewSeedMoneyButton) {
+    viewSeedMoneyButton.addEventListener("click", () => {
+      window.location.href = "../pages/seed_money_overview.html";
+    });
+  }
 
-  // ✅ Quick Action: Manage Interest & Penalties
-  manageInterestButton.addEventListener("click", () => {
-    window.location.href = "../pages/interest_penalties.html";
-  });
+  if (manageInterestButton) {
+    manageInterestButton.addEventListener("click", () => {
+      window.location.href = "../pages/interest_penalties.html";
+    });
+  }
 
-  // ✅ Quick Action: View Reports
-  viewReportsButton.addEventListener("click", () => {
-    window.location.href = "../pages/financial_reports.html";
-  });
+  if (viewReportsButton) {
+    viewReportsButton.addEventListener("click", () => {
+      window.location.href = "../pages/financial_reports.html";
+    });
+  }
 
-  // ✅ Logout Button
-  logoutButton.addEventListener("click", async () => {
-    await handleLogout();
-  });
+  if (logoutButton) {
+    logoutButton.addEventListener("click", async () => {
+      await handleLogout();
+    });
+  }
 
-  // ✅ Listen for authentication state changes
+  // Listen for authentication state changes
   onAuthStateChanged(auth, async (user) => {
     if (user) {
+      currentUser = user;
       const adminName = await fetchAdminName(user);
-      adminNameSpan.textContent = adminName;
-      welcomeMessage.textContent = `Welcome, ${adminName}`;
+      if (adminNameSpan) adminNameSpan.textContent = adminName;
+      if (welcomeMessage) welcomeMessage.innerHTML = "Welcome, <span id='adminName'>" + adminName + "</span>";
       await loadGroups(user);
       resetSessionTimer();
     } else {
@@ -274,8 +504,26 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // ✅ Reset session timer on user interaction
+  // Reset session timer on user interaction
   ["click", "keypress", "mousemove", "scroll"].forEach((event) =>
     window.addEventListener(event, resetSessionTimer)
   );
 });
+
+// Global functions for pending item actions
+window.approveItem = async function(type, groupId, itemId) {
+  alert("Approving " + type + " - redirecting to approval page...");
+  if (type === "Loan Request") {
+    window.location.href = "manage_loans.html?groupId=" + groupId;
+  } else {
+    window.location.href = "manage_payments.html?groupId=" + groupId;
+  }
+};
+
+window.viewItem = function(type, groupId) {
+  if (type === "Loan Request") {
+    window.location.href = "manage_loans.html?groupId=" + groupId;
+  } else {
+    window.location.href = "manage_payments.html?groupId=" + groupId;
+  }
+};
