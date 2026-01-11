@@ -66,6 +66,55 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /**
+   * Get User-Friendly Error Message
+   * Translates Firebase error codes to user-friendly messages
+   */
+  function getUserFriendlyErrorMessage(error) {
+    const errorCode = error.code;
+    const errorMessage = error.message;
+
+    // Firebase Authentication error codes
+    const errorMessages = {
+      'auth/invalid-email': 'The email address is not valid. Please check and try again.',
+      'auth/user-disabled': 'This account has been disabled. Please contact support.',
+      'auth/user-not-found': 'No account found with this email. Please check your email or register.',
+      'auth/wrong-password': 'Incorrect password. Please try again or reset your password.',
+      'auth/email-already-in-use': 'An account with this email already exists. Please login or use a different email.',
+      'auth/weak-password': 'Password is too weak. Please use at least 6 characters.',
+      'auth/network-request-failed': 'Network error. Please check your internet connection and try again.',
+      'auth/too-many-requests': 'Too many failed attempts. Please try again later or reset your password.',
+      'auth/operation-not-allowed': 'This operation is not allowed. Please contact support.',
+      'auth/invalid-credential': 'Invalid login credentials. Please check your email and password.',
+      'auth/account-exists-with-different-credential': 'An account already exists with this email using a different sign-in method.',
+    };
+
+    // Return user-friendly message or default message
+    return errorMessages[errorCode] || errorMessage || 'An unexpected error occurred. Please try again.';
+  }
+
+  /**
+   * Display Error Message
+   */
+  function displayError(element, message) {
+    element.textContent = message;
+    element.style.display = 'block';
+    
+    // Auto-hide after 8 seconds
+    setTimeout(() => {
+      element.textContent = '';
+      element.style.display = 'none';
+    }, 8000);
+  }
+
+  /**
+   * Clear Error Message
+   */
+  function clearError(element) {
+    element.textContent = '';
+    element.style.display = 'none';
+  }
+
+  /**
    * Log User Activity
    */
   async function logUserActivity(activityType, title, details, groupId = "global") {
@@ -92,6 +141,8 @@ document.addEventListener("DOMContentLoaded", () => {
    * Handle Login
    */
   async function handleLogin(email, password, role) {
+    const errorElement = role === "admin" ? adminErrorMessage : userErrorMessage;
+    clearError(errorElement);
     showSpinner();
     disableLoginButtons();
 
@@ -103,14 +154,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const userDoc = await getDoc(userDocRef);
 
       if (!userDoc.exists()) {
-        throw new Error("User data not found in Firestore.");
+        throw new Error("User profile not found. Please contact support.");
       }
 
       const userData = userDoc.data();
       const userRoles = userData.roles || [];
 
       if (!userRoles.includes(role)) {
-        throw new Error(`Access denied. Not authorized as ${role}.`);
+        await auth.signOut(); // Sign out if wrong role
+        throw new Error(`Access denied. You don't have ${role} privileges. Please use the correct login form.`);
       }
 
       await logUserActivity("login", `${role} login`, `${user.email} logged in as ${role}`);
@@ -124,11 +176,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (error) {
       console.error("Login failed:", error.message);
-      if (role === "admin") {
-        adminErrorMessage.textContent = error.message || "Login failed. Please try again.";
-      } else {
-        userErrorMessage.textContent = error.message || "Login failed. Please try again.";
-      }
+      const friendlyMessage = getUserFriendlyErrorMessage(error);
+      displayError(errorElement, friendlyMessage);
     } finally {
       hideSpinner();
       enableLoginButtons();
