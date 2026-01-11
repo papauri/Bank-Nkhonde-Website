@@ -22,7 +22,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (!groupId) {
     alert("Group ID is missing. Redirecting to the admin dashboard...");
-    window.location.href = "../index.html";
+    window.location.href = "../login.html";
     return;
   }
 
@@ -54,16 +54,23 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       const groupData = groupDoc.data();
 
+      // Handle both nested and flat structures for backward compatibility
+      const seedMoney = groupData.rules?.seedMoney?.amount ?? groupData.seedMoney ?? 0;
+      const monthlyContribution = groupData.rules?.monthlyContribution?.amount ?? groupData.monthlyContribution ?? 0;
+      const interestRate = groupData.rules?.interestRate ?? groupData.interestRate ?? 0;
+      const loanPenalty = groupData.rules?.loanPenalty?.rate ?? groupData.loanPenalty ?? 0;
+      const monthlyPenalty = groupData.rules?.monthlyPenalty?.rate ?? groupData.monthlyPenalty ?? 0;
+
       // ✅ Populate Group Information Fields
       groupNameField.textContent = groupData.groupName || "N/A";
       groupCreatedField.textContent = groupData.createdAt
         ? new Date(groupData.createdAt.toDate()).toLocaleDateString()
         : "N/A";
-      seedMoneyField.textContent = `MWK ${groupData.seedMoney?.toFixed(2) || "0.00"}`;
-      interestRateField.textContent = `${groupData.interestRate?.toFixed(2) || "0.00"}%`;
-      monthlyContributionField.textContent = `MWK ${groupData.monthlyContribution?.toFixed(2) || "0.00"}`;
-      loanPenaltyField.textContent = `${groupData.loanPenalty?.toFixed(2) || "0.00"}%`;
-      monthlyPenaltyField.textContent = `${groupData.monthlyPenalty?.toFixed(2) || "0.00"}%`;
+      seedMoneyField.textContent = `MWK ${seedMoney.toFixed(2)}`;
+      interestRateField.textContent = `${interestRate.toFixed(2)}%`;
+      monthlyContributionField.textContent = `MWK ${monthlyContribution.toFixed(2)}`;
+      loanPenaltyField.textContent = `${loanPenalty.toFixed(2)}%`;
+      monthlyPenaltyField.textContent = `${monthlyPenalty.toFixed(2)}%`;
 
       // ✅ Fetch and Display Number of Members
       const membersSnapshot = await getDocs(collection(db, `groups/${groupId}/members`));

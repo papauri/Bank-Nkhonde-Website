@@ -76,18 +76,39 @@
         </div>
 
         <div class="form-group">
-          <label for="interestRate">Interest Rate (%) <span class="required">*</span></label>
-          <div class="input-with-suffix">
-            <input type="number" id="interestRate" name="interestRate" placeholder="0.00" step="0.01" min="0" max="100" required>
-            <span>%</span>
-          </div>
-          <span class="error-message" id="interestRateError"></span>
-        </div>
-
-        <div class="form-group">
           <label for="monthlyContribution">Monthly Contribution (MWK) <span class="required">*</span></label>
           <input type="number" id="monthlyContribution" name="monthlyContribution" placeholder="0.00" step="0.01" min="0" required>
           <span class="error-message" id="monthlyContributionError"></span>
+        </div>
+
+        <div class="form-group">
+          <label for="loanInterestMonth1">Loan Interest - Month 1 (%) <span class="required">*</span></label>
+          <div class="input-with-suffix">
+            <input type="number" id="loanInterestMonth1" name="loanInterestMonth1" placeholder="15.00" step="0.01" min="0" max="100" required>
+            <span>%</span>
+          </div>
+          <span class="error-message" id="loanInterestMonth1Error"></span>
+          <small class="helper-text">Interest rate charged on the 1st month of loan repayment</small>
+        </div>
+
+        <div class="form-group">
+          <label for="loanInterestMonth2">Loan Interest - Month 2 (%) <span style="color: #999;">(Optional)</span></label>
+          <div class="input-with-suffix">
+            <input type="number" id="loanInterestMonth2" name="loanInterestMonth2" placeholder="10.00" step="0.01" min="0" max="100">
+            <span>%</span>
+          </div>
+          <span class="error-message" id="loanInterestMonth2Error"></span>
+          <small class="helper-text">Interest rate for 2nd month (if different). Leave empty to use Month 1 rate</small>
+        </div>
+
+        <div class="form-group">
+          <label for="loanInterestMonth3">Loan Interest - Month 3+ (%) <span style="color: #999;">(Optional)</span></label>
+          <div class="input-with-suffix">
+            <input type="number" id="loanInterestMonth3" name="loanInterestMonth3" placeholder="5.00" step="0.01" min="0" max="100">
+            <span>%</span>
+          </div>
+          <span class="error-message" id="loanInterestMonth3Error"></span>
+          <small class="helper-text">Interest rate for 3rd month onwards (if different). Leave empty to use previous rate</small>
         </div>
 
         <div class="form-group">
@@ -97,6 +118,7 @@
             <span>%</span>
           </div>
           <span class="error-message" id="loanPenaltyError"></span>
+          <small class="helper-text">Penalty for late loan payments</small>
         </div>
 
         <div class="form-group">

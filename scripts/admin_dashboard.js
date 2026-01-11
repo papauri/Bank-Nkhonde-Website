@@ -15,7 +15,7 @@ onAuthStateChanged(auth, (user) => {
   } else {
     console.log("No user is signed in.");
     alert("You must be signed in to access this page.");
-    window.location.href = "../index.html"; // Redirect to login page
+    window.location.href = "../login.html"; // Redirect to login page
   }
 });
 
@@ -47,7 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       await signOut(auth);
       alert("You have been logged out.");
-      window.location.href = "../index.html";
+      window.location.href = "../login.html";
     } catch (error) {
       console.error("❌ Error signing out:", error.message);
       alert("An error occurred while logging out. Please try again.");
@@ -217,6 +217,11 @@ document.addEventListener("DOMContentLoaded", () => {
     window.location.href = "../pages/settings.html";
   });
 
+  // ✅ Logout Button
+  logoutButton.addEventListener("click", async () => {
+    await handleLogout();
+  });
+
   // ✅ Listen for authentication state changes
   onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -227,7 +232,7 @@ document.addEventListener("DOMContentLoaded", () => {
       resetSessionTimer();
     } else {
       alert("No user is currently logged in. Redirecting to login...");
-      window.location.href = "../index.html";
+      window.location.href = "../login.html";
     }
   });
 

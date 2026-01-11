@@ -50,13 +50,26 @@ async function fetchGroupPaymentSettings() {
         if (groupSnap.exists()) {
             groupPaymentSettings = groupSnap.data();
 
-            // ✅ Pre-fill modal with correct values from Firestore
-            paymentSeedMoney.value = groupPaymentSettings.seedMoney || 0;
-            paymentMonthlyContribution.value = groupPaymentSettings.monthlyContribution || 0;
-            paymentLoanPenalty.value = groupPaymentSettings.loanPenalty || 0;
-            paymentMonthlyPenalty.value = groupPaymentSettings.monthlyPenalty || 0;
+            // ✅ Access nested structure from rules or top-level fallback
+            const seedMoney = groupPaymentSettings.rules?.seedMoney?.amount ?? groupPaymentSettings.seedMoney ?? 0;
+            const monthlyContribution = groupPaymentSettings.rules?.monthlyContribution?.amount ?? groupPaymentSettings.monthlyContribution ?? 0;
+            const interestRate = groupPaymentSettings.rules?.interestRate ?? groupPaymentSettings.interestRate ?? 0;
+            const loanPenalty = groupPaymentSettings.rules?.loanPenalty?.rate ?? groupPaymentSettings.loanPenalty ?? 0;
+            const monthlyPenalty = groupPaymentSettings.rules?.monthlyPenalty?.rate ?? groupPaymentSettings.monthlyPenalty ?? 0;
 
-            console.log("✅ Group Payment Settings Loaded:", groupPaymentSettings);
+            // ✅ Pre-fill modal with correct values from Firestore
+            paymentSeedMoney.value = seedMoney;
+            paymentMonthlyContribution.value = monthlyContribution;
+            paymentLoanPenalty.value = loanPenalty;
+            paymentMonthlyPenalty.value = monthlyPenalty;
+
+            console.log("✅ Group Payment Settings Loaded:", {
+                seedMoney,
+                monthlyContribution,
+                interestRate,
+                loanPenalty,
+                monthlyPenalty
+            });
         } else {
             console.warn("❌ Group settings not found.");
         }
@@ -83,6 +96,12 @@ async function loadMembers() {
                     data-name="${member.fullName}" 
                     data-email="${member.email}" 
                     data-phone="${member.phone}" 
+                    data-whatsapp="${member.whatsappNumber || member.phone || ''}"
+                    data-address="${member.address || ''}"
+                    data-workplace="${member.workplace || ''}"
+                    data-career="${member.career || ''}"
+                    data-guarantor="${member.guarantor || ''}"
+                    data-guarantor-phone="${member.guarantorPhone || ''}"
                     data-role="${member.role}" 
                     data-collateral="${member.collateral || ''}">
                     Edit
@@ -102,6 +121,12 @@ async function loadMembers() {
                 document.getElementById("editFullName").value = button.getAttribute("data-name");
                 document.getElementById("editEmail").value = button.getAttribute("data-email");
                 document.getElementById("editPhone").value = button.getAttribute("data-phone");
+                document.getElementById("editWhatsappNumber").value = button.getAttribute("data-whatsapp") || "";
+                document.getElementById("editAddress").value = button.getAttribute("data-address") || "";
+                document.getElementById("editWorkplace").value = button.getAttribute("data-workplace") || "";
+                document.getElementById("editCareer").value = button.getAttribute("data-career") || "";
+                document.getElementById("editGuarantor").value = button.getAttribute("data-guarantor") || "";
+                document.getElementById("editGuarantorPhone").value = button.getAttribute("data-guarantor-phone") || "";
                 document.getElementById("editRole").value = button.getAttribute("data-role");
                 document.getElementById("editCollateral").value = button.getAttribute("data-collateral") || "";
 
@@ -129,11 +154,29 @@ addMemberForm.addEventListener("submit", async (e) => {
     const fullName = document.getElementById("fullName").value.trim();
     const email = document.getElementById("email").value.trim();
     const phone = document.getElementById("phone").value.trim();
+    const whatsappNumber = document.getElementById("whatsappNumber").value.trim() || phone;
+    const address = document.getElementById("address").value.trim() || "";
+    const workplace = document.getElementById("workplace").value.trim() || "";
+    const career = document.getElementById("career").value.trim() || "";
+    const guarantor = document.getElementById("guarantor").value.trim() || "";
+    const guarantorPhone = document.getElementById("guarantorPhone").value.trim() || "";
     const role = document.getElementById("role").value;
     const collateral = document.getElementById("collateral").value.trim() || null;
 
     try {
-        newMemberData = { fullName, email, phone, role, collateral };
+        newMemberData = { 
+            fullName, 
+            email, 
+            phone, 
+            whatsappNumber,
+            address,
+            workplace,
+            career,
+            guarantor,
+            guarantorPhone,
+            role, 
+            collateral 
+        };
 
         // ✅ Fetch default payment settings and show payment modal
         await fetchGroupPaymentSettings();
@@ -149,16 +192,37 @@ confirmPaymentButton.addEventListener("click", async () => {
     if (!newMemberData) return;
 
     try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+            alert("You must be logged in to add members.");
+            return;
+        }
+
+        // Save current user's email and password for re-authentication
+        // Note: This is a workaround. Ideally, use Firebase Admin SDK via Cloud Functions
+        const adminEmail = currentUser.email;
+        
         // ✅ Create user AFTER confirmation
         const userCredential = await createUserWithEmailAndPassword(auth, newMemberData.email, "User@123");
         const user = userCredential.user;
         await sendEmailVerification(user);
 
         // ✅ Store user details in Firestore
-        const userData = { uid: user.uid, ...newMemberData, createdAt: Timestamp.now() };
+        const userData = { 
+            uid: user.uid, 
+            ...newMemberData, 
+            createdAt: Timestamp.now(),
+            roles: [newMemberData.role] // Add roles array for proper role management
+        };
 
-        await setDoc(doc(db, "users", user.uid), { ...userData, groupMemberships: [groupId] });
-        await setDoc(doc(db, `groups/${groupId}/members`, user.uid), { ...userData, joinedAt: Timestamp.now() });
+        await setDoc(doc(db, "users", user.uid), { 
+            ...userData, 
+            groupMemberships: [{ groupId: groupId, role: newMemberData.role, joinedAt: Timestamp.now() }] 
+        });
+        await setDoc(doc(db, `groups/${groupId}/members`, user.uid), { 
+            ...userData, 
+            joinedAt: Timestamp.now() 
+        });
 
         // ✅ Update Payment Collections
         await updatePaymentsForNewMember(
@@ -169,11 +233,31 @@ confirmPaymentButton.addEventListener("click", async () => {
             parseFloat(paymentMonthlyPenalty.value)
         );
 
-        alert("Member and payments added successfully!");
-        paymentModal.style.display = "none";
-        loadMembers();
+        // ✅ Sign out the newly created user to avoid session conflict
+        await auth.signOut();
+
+        alert(`Member added successfully! They will receive a verification email at ${newMemberData.email}.\n\nYou have been logged out. Please log in again to continue.`);
+        
+        // Redirect to login page
+        window.location.href = "../login.html";
+
     } catch (error) {
-        alert("Failed to add member: " + error.message);
+        console.error("Error adding member:", error);
+        
+        // Provide user-friendly error messages
+        let errorMessage = "Failed to add member: ";
+        if (error.code === "auth/email-already-in-use") {
+            errorMessage += "This email is already registered. Please use a different email.";
+        } else if (error.code === "auth/invalid-email") {
+            errorMessage += "Invalid email address.";
+        } else if (error.code === "auth/weak-password") {
+            errorMessage += "Password is too weak. Please use a stronger password.";
+        } else {
+            errorMessage += error.message;
+        }
+        
+        alert(errorMessage);
+        paymentModal.style.display = "none";
     }
 });
 
@@ -202,6 +286,12 @@ if (editMemberForm) {
         const fullName = document.getElementById("editFullName").value.trim();
         const email = document.getElementById("editEmail").value.trim();
         const phone = document.getElementById("editPhone").value.trim();
+        const whatsappNumber = document.getElementById("editWhatsappNumber").value.trim() || phone;
+        const address = document.getElementById("editAddress").value.trim() || "";
+        const workplace = document.getElementById("editWorkplace").value.trim() || "";
+        const career = document.getElementById("editCareer").value.trim() || "";
+        const guarantor = document.getElementById("editGuarantor").value.trim() || "";
+        const guarantorPhone = document.getElementById("editGuarantorPhone").value.trim() || "";
         const role = document.getElementById("editRole").value;
         const collateral = document.getElementById("editCollateral").value.trim() || null;
 
@@ -211,6 +301,12 @@ if (editMemberForm) {
                 fullName,
                 email,
                 phone,
+                whatsappNumber,
+                address,
+                workplace,
+                career,
+                guarantor,
+                guarantorPhone,
                 role,
                 collateral,
             });

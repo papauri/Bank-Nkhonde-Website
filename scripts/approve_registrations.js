@@ -18,7 +18,7 @@ let currentFilter = "all";
 onAuthStateChanged(auth, (user) => {
   if (!user) {
     alert("You must be signed in to access this page.");
-    window.location.href = "../index.html";
+    window.location.href = "../login.html";
   }
 });
 

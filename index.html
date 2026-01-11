@@ -3,67 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Bank Nkhonde - A digital platform for managing ROSCAs (Rotating Savings and Credit Associations).">
+  <meta name="description" content="Bank Nkhonde - A digital platform for managing ROSCAs">
   <title>Bank Nkhonde</title>
-  <link rel="stylesheet" href="styles/styles.css">
-  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <script>
+    // Redirect to login page
+    window.location.href = "login.html";
+  </script>
 </head>
 <body>
-  <div class="container">
-    <!-- Welcome Section -->
-    <div class="form-container" id="loginSection">
-      <h1>Welcome to Bank Nkhonde</h1>
-
-      <!-- User Login Form -->
-      <div id="userLoginForm" class="login-form active">
-        <h2>User Login</h2>
-        <label for="userEmail">User Email Address</label>
-        <input type="email" id="userEmail" placeholder="User Email Address" required>
-        <label for="userPassword">Password</label>
-        <input type="password" id="userPassword" placeholder="Password" required>
-        <button id="userLoginBtn" class="login-btn">
-          <span class="btn-text">Login</span>
-          <div class="spinner hidden"></div>
-        </button>
-        <p id="userErrorMessage" class="error-message" aria-live="polite"></p>
-      </div>
-
-      <!-- Admin Login Form -->
-      <div id="adminLoginForm" class="login-form hidden">
-        <h2>Admin Login</h2>
-        <label for="adminEmail">Admin Email Address</label>
-        <input type="email" id="adminEmail" placeholder="Admin Email Address" required>
-        <label for="adminPassword">Password</label>
-        <input type="password" id="adminPassword" placeholder="Password" required>
-        <button id="adminLoginBtn" class="login-btn">
-          <span class="btn-text">Login</span>
-          <div class="spinner hidden"></div>
-        </button>
-        <p id="adminErrorMessage" class="error-message" aria-live="polite"></p>
-      </div>
-
-      <div class="login-switcher">
-        <button id="userLoginToggle" class="toggle-btn active">User Login</button>
-        <button id="adminLoginToggle" class="toggle-btn">Admin Login</button>
-      </div>
-
-      <p>
-        Don't have an account? <a href="pages/admin_registration.html" id="registerLink">Register</a>
-      </p>
-      <p>
-        Forgot your password? <a href="#" id="forgotPasswordLink">Reset Password</a>
-      </p>
-    </div>
-
-    <!-- Spinner -->
-    <div class="spinner-container hidden" id="spinner">
-      <div class="spinner"></div>
-    </div>
-  </div>
-
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
-  <script type="module" src="scripts/main.js"></script>
+  <p>Redirecting to login page...</p>
 </body>
 </html>
