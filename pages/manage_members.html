@@ -2,33 +2,572 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#047857">
   <title>Manage Members - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
   <link rel="stylesheet" href="../styles/mobile-design-system.css">
+  <style>
+    body {
+      background: var(--bn-gray-lighter);
+      padding-bottom: 80px;
+    }
+
+    /* Header */
+    .page-header {
+      background: var(--bn-gradient-dark);
+      color: var(--bn-white);
+      padding: var(--bn-spacing-lg) var(--bn-spacing-md);
+      margin-bottom: var(--bn-spacing-md);
+      border-radius: 0 0 var(--bn-radius-xl) var(--bn-radius-xl);
+      box-shadow: var(--bn-shadow-lg);
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      margin-bottom: var(--bn-spacing-md);
+    }
+
+    .back-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: var(--bn-white);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 20px;
+    }
+
+    .header-title {
+      flex: 1;
+      text-align: center;
+      font-size: var(--bn-font-2xl);
+      margin: 0;
+    }
+
+    .header-actions {
+      width: 40px;
+    }
+
+    /* Group Selector */
+    .group-selector {
+      background: rgba(255, 255, 255, 0.1);
+      padding: var(--bn-spacing-sm);
+      border-radius: var(--bn-radius-md);
+      margin-bottom: var(--bn-spacing-md);
+    }
+
+    .group-selector select {
+      width: 100%;
+      padding: var(--bn-spacing-sm);
+      background: var(--bn-white);
+      border: none;
+      border-radius: var(--bn-radius-sm);
+      font-size: var(--bn-font-base);
+      color: var(--bn-dark);
+    }
+
+    /* Stats Cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--bn-spacing-sm);
+      padding: 0 var(--bn-spacing-md);
+      margin-bottom: var(--bn-spacing-md);
+    }
+
+    .stat-card {
+      background: var(--bn-white);
+      padding: var(--bn-spacing-md);
+      border-radius: var(--bn-radius-lg);
+      box-shadow: var(--bn-shadow-sm);
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: var(--bn-font-2xl);
+      font-weight: 700;
+      color: var(--bn-primary);
+      margin: 4px 0;
+    }
+
+    .stat-label {
+      font-size: var(--bn-font-xs);
+      color: var(--bn-gray);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Action Button */
+    .add-member-btn {
+      margin: 0 var(--bn-spacing-md) var(--bn-spacing-md);
+      width: calc(100% - 32px);
+      padding: var(--bn-spacing-md);
+      background: var(--bn-gradient-primary);
+      color: var(--bn-white);
+      border: none;
+      border-radius: var(--bn-radius-lg);
+      font-size: var(--bn-font-base);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      box-shadow: var(--bn-shadow-md);
+    }
+
+    .add-member-btn:active {
+      transform: scale(0.98);
+    }
+
+    /* Members List */
+    .members-section {
+      padding: 0 var(--bn-spacing-md);
+    }
+
+    .section-title {
+      font-size: var(--bn-font-lg);
+      font-weight: 700;
+      margin-bottom: var(--bn-spacing-sm);
+      color: var(--bn-dark);
+    }
+
+    .member-card {
+      background: var(--bn-white);
+      padding: var(--bn-spacing-md);
+      border-radius: var(--bn-radius-lg);
+      margin-bottom: var(--bn-spacing-sm);
+      box-shadow: var(--bn-shadow-sm);
+    }
+
+    .member-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: var(--bn-spacing-sm);
+    }
+
+    .member-avatar {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: var(--bn-gradient-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--bn-white);
+      font-size: var(--bn-font-lg);
+      font-weight: 700;
+      margin-right: var(--bn-spacing-sm);
+    }
+
+    .member-info {
+      flex: 1;
+    }
+
+    .member-name {
+      font-size: var(--bn-font-base);
+      font-weight: 600;
+      margin-bottom: 2px;
+      color: var(--bn-dark);
+    }
+
+    .member-email {
+      font-size: var(--bn-font-xs);
+      color: var(--bn-gray);
+    }
+
+    .member-role-badge {
+      padding: 4px 12px;
+      border-radius: var(--bn-radius-full);
+      font-size: var(--bn-font-xs);
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .role-admin {
+      background: rgba(245, 158, 11, 0.1);
+      color: var(--bn-accent-dark);
+    }
+
+    .role-member {
+      background: rgba(4, 120, 87, 0.1);
+      color: var(--bn-primary-dark);
+    }
+
+    .member-details {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--bn-spacing-sm);
+      margin-top: var(--bn-spacing-sm);
+      padding-top: var(--bn-spacing-sm);
+      border-top: 1px solid var(--bn-gray-lighter);
+    }
+
+    .detail-item {
+      font-size: var(--bn-font-xs);
+    }
+
+    .detail-label {
+      color: var(--bn-gray);
+      margin-bottom: 2px;
+    }
+
+    .detail-value {
+      font-weight: 600;
+      color: var(--bn-dark);
+    }
+
+    .member-actions {
+      display: flex;
+      gap: var(--bn-spacing-xs);
+      margin-top: var(--bn-spacing-sm);
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: var(--bn-spacing-xs);
+      border: 1px solid var(--bn-gray-light);
+      border-radius: var(--bn-radius-sm);
+      background: var(--bn-white);
+      font-size: var(--bn-font-xs);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .action-btn:active {
+      background: var(--bn-gray-lighter);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: var(--z-modal);
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-overlay.active {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-xl) var(--bn-radius-xl) 0 0;
+      width: 100%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: var(--bn-spacing-lg);
+      animation: slideUp 0.3s ease;
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(100%);
+      }
+      to {
+        transform: translateY(0);
+      }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--bn-spacing-lg);
+    }
+
+    .modal-title {
+      font-size: var(--bn-font-xl);
+      font-weight: 700;
+      color: var(--bn-dark);
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 28px;
+      color: var(--bn-gray);
+      cursor: pointer;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+    }
+
+    .modal-close:active {
+      background: var(--bn-gray-lighter);
+    }
+
+    .form-group {
+      margin-bottom: var(--bn-spacing-md);
+    }
+
+    .form-label {
+      display: block;
+      font-size: var(--bn-font-sm);
+      font-weight: 600;
+      margin-bottom: var(--bn-spacing-xs);
+      color: var(--bn-dark);
+    }
+
+    .form-input {
+      width: 100%;
+      padding: var(--bn-spacing-sm) var(--bn-spacing-md);
+      border: 1px solid var(--bn-gray-light);
+      border-radius: var(--bn-radius-sm);
+      font-size: var(--bn-font-base);
+      font-family: 'Inter', sans-serif;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--bn-primary);
+      box-shadow: 0 0 0 3px rgba(4, 120, 87, 0.1);
+    }
+
+    .form-select {
+      width: 100%;
+      padding: var(--bn-spacing-sm) var(--bn-spacing-md);
+      border: 1px solid var(--bn-gray-light);
+      border-radius: var(--bn-radius-sm);
+      font-size: var(--bn-font-base);
+      font-family: 'Inter', sans-serif;
+      background: var(--bn-white);
+    }
+
+    .form-actions {
+      display: flex;
+      gap: var(--bn-spacing-sm);
+      margin-top: var(--bn-spacing-lg);
+    }
+
+    .btn-primary {
+      flex: 1;
+      padding: var(--bn-spacing-md);
+      background: var(--bn-gradient-primary);
+      color: var(--bn-white);
+      border: none;
+      border-radius: var(--bn-radius-lg);
+      font-size: var(--bn-font-base);
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-secondary {
+      flex: 1;
+      padding: var(--bn-spacing-md);
+      background: var(--bn-gray-lighter);
+      color: var(--bn-dark);
+      border: none;
+      border-radius: var(--bn-radius-lg);
+      font-size: var(--bn-font-base);
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Loading */
+    .spinner-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: var(--z-modal);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .spinner-overlay.active {
+      display: flex;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top-color: var(--bn-white);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bn-dark);
+      color: var(--bn-white);
+      padding: var(--bn-spacing-md) var(--bn-spacing-lg);
+      border-radius: var(--bn-radius-lg);
+      box-shadow: var(--bn-shadow-xl);
+      z-index: var(--z-toast);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .toast.show {
+      opacity: 1;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--bn-gray);
+    }
+
+    .empty-state-icon {
+      font-size: 64px;
+      margin-bottom: var(--bn-spacing-md);
+    }
+
+    @media (min-width: 768px) {
+      .stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .modal-content {
+        border-radius: var(--bn-radius-xl);
+        max-height: 80vh;
+      }
+
+      .modal-overlay.active {
+        align-items: center;
+      }
+    }
+  </style>
 </head>
 <body>
-  <div class="mobile-header">
-    <button class="mobile-header-action" onclick="history.back()">←</button>
-    <h1 class="mobile-header-title">Manage Members</h1>
-    <div style="width: 44px;"></div>
-  </div>
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-top">
+      <button class="back-btn" onclick="history.back()">←</button>
+      <h1 class="header-title">Manage Members</h1>
+      <div class="header-actions"></div>
+    </div>
 
-  <div class="mobile-container">
-    <div class="empty-state" style="padding: 60px 20px;">
-      <div class="empty-state-icon">👥</div>
-      <h2 style="margin: 16px 0;">Members Management</h2>
-      <p>This page is under construction. Full member management features coming soon!</p>
-      <button class="btn btn-primary mt-4" onclick="history.back()">Go Back</button>
+    <!-- Group Selector -->
+    <div class="group-selector">
+      <select id="groupSelect">
+        <option value="">Select a group...</option>
+      </select>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="totalMembers">0</div>
+        <div class="stat-label">Total Members</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="activeMembers">0</div>
+        <div class="stat-label">Active</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="adminCount">0</div>
+        <div class="stat-label">Admins</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="pendingMembers">0</div>
+        <div class="stat-label">Pending</div>
+      </div>
     </div>
   </div>
+
+  <!-- Add Member Button -->
+  <button class="add-member-btn" id="addMemberBtn">
+    <span>➕</span>
+    <span>Add New Member</span>
+  </button>
+
+  <!-- Members List -->
+  <div class="members-section">
+    <h2 class="section-title">Members</h2>
+    <div id="membersList">
+      <!-- Members will be loaded here -->
+    </div>
+  </div>
+
+  <!-- Add Member Modal -->
+  <div class="modal-overlay" id="addMemberModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Add New Member</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      
+      <form id="addMemberForm">
+        <div class="form-group">
+          <label class="form-label">Full Name *</label>
+          <input type="text" class="form-input" id="memberName" required placeholder="Enter full name">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email Address *</label>
+          <input type="email" class="form-input" id="memberEmail" required placeholder="member@example.com">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Phone Number *</label>
+          <input type="tel" class="form-input" id="memberPhone" required placeholder="+265">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Role</label>
+          <select class="form-select" id="memberRole">
+            <option value="member">Member</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Collateral (Optional)</label>
+          <input type="text" class="form-input" id="memberCollateral" placeholder="Land title, house, etc.">
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn-primary">Add Member</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="spinner-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
 
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
-  <script type="module" src="../scripts/manage_members.js"></script>
+  <script type="module" src="../scripts/manage_members_new.js"></script>
 </body>
 </html>
