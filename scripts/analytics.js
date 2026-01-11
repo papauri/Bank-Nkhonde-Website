@@ -38,7 +38,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       
       querySnapshot.forEach((docSnapshot) => {
         const groupData = docSnapshot.data();
-        const isAdmin = groupData.adminDetails?.some(
+        const isAdmin = groupData.admins?.some(
           (admin) => admin.email === user.email || admin.uid === user.uid
         );
         

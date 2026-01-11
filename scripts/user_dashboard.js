@@ -121,7 +121,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const groupId = docSnapshot.id;
 
         // Check if user is an admin of the group
-        const isAdmin = groupData.adminDetails?.some(
+        const isAdmin = groupData.admins?.some(
           (admin) => admin.email === user.email || admin.uid === user.uid
         );
         
@@ -186,7 +186,7 @@ document.addEventListener("DOMContentLoaded", () => {
       
       for (const docSnapshot of querySnapshot.docs) {
         const groupData = docSnapshot.data();
-        const isAdmin = groupData.adminDetails?.some(
+        const isAdmin = groupData.admins?.some(
           (admin) => admin.email === user.email || admin.uid === user.uid
         );
         if (isAdmin) {
@@ -217,15 +217,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Switch between User and Admin View
   switchViewButton.addEventListener("click", async () => {
-    isAdminView = !isAdminView;
-    dashboardTitle.textContent = isAdminView ? "Admin Dashboard" : "User Dashboard";
-    switchViewButton.textContent = isAdminView ? "Switch to User View" : "Switch to Admin View";
-
-    if (isAdminView) {
-      loadGroups(auth.currentUser); // Load admin groups
-    } else {
-      await loadUserGroups(auth.currentUser); // Load user groups
-    }
+    // Navigate to admin dashboard
+    window.location.href = "admin_dashboard.html";
   });
 
   // Navigate to Settings

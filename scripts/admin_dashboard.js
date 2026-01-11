@@ -74,7 +74,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const groupId = docSnapshot.id;
   
         // ✅ Ensure user is an admin of the group
-        const isAdmin = groupData.adminDetails?.some(
+        const isAdmin = groupData.admins?.some(
           (admin) => admin.email === user.email || admin.uid === user.uid
         );
         if (!isAdmin) continue;
@@ -188,15 +188,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ✅ Switch between Admin and User View
   switchViewButton.addEventListener("click", () => {
-    isAdminView = !isAdminView;
-    dashboardTitle.textContent = isAdminView ? "Admin Dashboard" : "User Dashboard";
-    switchViewButton.textContent = isAdminView ? "Switch to User View" : "Switch to Admin View";
-
-    if (isAdminView) {
-      loadGroups(auth.currentUser); // Reload groups for admin view
-    } else {
-      window.location.href = "../pages/user_dashboard.html"; // Navigate to user dashboard
-    }
+    // Navigate to user dashboard instead of switching in place
+    window.location.href = "user_dashboard.html";
   });
 
   // ✅ Navigate to Create Group

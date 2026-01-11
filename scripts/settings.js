@@ -70,7 +70,7 @@ document.addEventListener("DOMContentLoaded", () => {
       
       for (const docSnapshot of querySnapshot.docs) {
         const groupData = docSnapshot.data();
-        const isAdmin = groupData.adminDetails?.some(
+        const isAdmin = groupData.admins?.some(
           (admin) => admin.email === user.email || admin.uid === user.uid
         );
         if (isAdmin) {
@@ -179,7 +179,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const adminGroups = [];
       querySnapshot.forEach((docSnapshot) => {
         const groupData = docSnapshot.data();
-        const isGroupAdmin = groupData.adminDetails?.some(
+        const isGroupAdmin = groupData.admins?.some(
           (admin) => admin.email === currentUser.email || admin.uid === currentUser.uid
         );
         if (isGroupAdmin) {
@@ -637,14 +637,14 @@ document.addEventListener("DOMContentLoaded", () => {
           await deleteDoc(memberRef);
         }
         
-        // Update adminDetails if user is an admin
+        // Update admins array if user is an admin
         const groupData = groupDoc.data();
-        if (groupData.adminDetails?.some(admin => admin.uid === currentUser.uid)) {
-          const updatedAdminDetails = groupData.adminDetails.filter(
+        if (groupData.admins?.some(admin => admin.uid === currentUser.uid)) {
+          const updatedAdmins = groupData.admins.filter(
             admin => admin.uid !== currentUser.uid
           );
           await updateDoc(doc(db, "groups", groupId), {
-            adminDetails: updatedAdminDetails
+            admins: updatedAdmins
           });
         }
       }
