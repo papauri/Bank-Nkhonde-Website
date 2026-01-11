@@ -1,8 +1,49 @@
-/* General Styles */
+/* General Styles - Muted Professional Color Palette */
+:root {
+  /* Primary Colors - Muted Navy/Slate */
+  --color-primary: #475569;
+  --color-primary-dark: #334155;
+  --color-primary-light: #64748b;
+  
+  /* Secondary Colors - Warm Gray */
+  --color-secondary: #6b7280;
+  --color-secondary-dark: #4b5563;
+  --color-secondary-light: #9ca3af;
+  
+  /* Background Colors */
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
+  
+  /* Text Colors */
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  
+  /* Border Colors */
+  --border-color: #e2e8f0;
+  --border-dark: #cbd5e1;
+  
+  /* Status Colors - Muted */
+  --color-success: #059669;
+  --color-success-light: #d1fae5;
+  --color-warning: #d97706;
+  --color-warning-light: #fef3c7;
+  --color-danger: #dc2626;
+  --color-danger-light: #fee2e2;
+  --color-info: #0284c7;
+  --color-info-light: #e0f2fe;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
 body {
-  font-family: Arial, sans-serif;
-  background-color: #121212;
-  color: #ffffff;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -16,12 +57,13 @@ body {
 .container {
   width: 100%;
   max-width: 450px;
-  background: #1e1e1e;
-  border-radius: 8px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
   padding: 20px;
-  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
   text-align: center;
   box-sizing: border-box;
+  border: 1px solid var(--border-color);
 }
 
 /* Larger screen support for better admin experience */
@@ -78,31 +120,32 @@ input {
   width: 100%;
   padding: 12px;
   margin: 10px 0;
-  background: #2b2b2b;
-  border: none;
-  border-radius: 4px;
-  color: #fff;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
   font-size: 16px;
   box-sizing: border-box;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
   -webkit-appearance: none;
 }
 
 input:focus {
-  outline: 2px solid #ffffff;
-  box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(71, 85, 105, 0.1);
 }
 
 /* Login Buttons */
 .login-btn {
   width: 100%;
   padding: 14px;
-  background: linear-gradient(45deg, #007bff, #0056b3);
+  background: var(--color-primary);
   color: #ffffff;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 16px;
-  font-weight: bold;
+  font-weight: 600;
   cursor: pointer;
   margin-top: 10px;
   min-height: 44px;
@@ -111,13 +154,13 @@ input:focus {
 }
 
 .login-btn:hover {
-  background: linear-gradient(45deg, #0056b3, #003f88);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+  background: var(--color-primary-dark);
+  box-shadow: var(--shadow-md);
 }
 
 .login-btn:focus {
   outline: none;
-  box-shadow: 0 0 8px rgba(0, 123, 255, 0.7);
+  box-shadow: 0 0 0 3px rgba(71, 85, 105, 0.3);
 }
 
 .login-btn:active {
@@ -126,7 +169,7 @@ input:focus {
 
 /* Links */
 a {
-  color: #ffffff;
+  color: var(--color-secondary);
   text-decoration: underline;
   cursor: pointer;
   font-size: 14px;
@@ -138,7 +181,7 @@ a {
 }
 
 a:hover {
-  color: #b3b3b3;
+  color: var(--text-primary);
 }
 
 /* Spinner */
@@ -151,13 +194,13 @@ a:hover {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.4);
   z-index: 1000;
 }
 
 .spinner {
-  border: 5px solid #f3f3f3;
-  border-top: 5px solid #007bff;
+  border: 5px solid var(--border-color);
+  border-top: 5px solid var(--color-primary);
   border-radius: 50%;
   width: 40px;
   height: 40px;
@@ -180,10 +223,10 @@ a:hover {
 
 /* Error Messages */
 .error-message {
-  color: #ff6b6b;
-  background-color: rgba(255, 107, 107, 0.1);
-  border: 1px solid rgba(255, 107, 107, 0.3);
-  border-radius: 4px;
+  color: var(--color-danger);
+  background-color: var(--color-danger-light);
+  border: 1px solid #fecaca;
+  border-radius: 8px;
   padding: 10px;
   margin-top: 10px;
   font-size: 14px;
@@ -197,10 +240,10 @@ a:hover {
 }
 
 .success-message {
-  color: #51cf66;
-  background-color: rgba(81, 207, 102, 0.1);
-  border: 1px solid rgba(81, 207, 102, 0.3);
-  border-radius: 4px;
+  color: var(--color-success);
+  background-color: var(--color-success-light);
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
   padding: 10px;
   margin-top: 10px;
   font-size: 14px;
@@ -235,25 +278,31 @@ a:hover {
 .toggle-btn {
   flex: 1;
   padding: 12px;
-  background: #2b2b2b;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-weight: bold;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-weight: 600;
   font-size: 14px;
   min-height: 44px;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: all 0.3s ease;
   touch-action: manipulation;
 }
 
 .toggle-btn.active {
-  background: #1db954; /* Highlight for active button */
+  background: var(--color-primary);
   color: #ffffff;
+  border-color: var(--color-primary);
 }
 
 .toggle-btn:hover {
-  background: #17a34a; /* Slightly darker green for hover */
+  background: var(--border-color);
+  border-color: var(--color-secondary-light);
+}
+
+.toggle-btn.active:hover {
+  background: var(--color-primary-dark);
 }
 
 .toggle-btn:active {
