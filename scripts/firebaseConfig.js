@@ -16,6 +16,8 @@ import {
   Timestamp,
   writeBatch,
   arrayRemove,
+  orderBy,
+  limit,
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import {
   getAuth,
@@ -83,4 +85,6 @@ export {
   Timestamp,
   writeBatch,
   arrayRemove,
+  orderBy,
+  limit,
 };
