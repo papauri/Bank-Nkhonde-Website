@@ -496,18 +496,51 @@ document.addEventListener("DOMContentLoaded", () => {
         roleBadge.textContent = memberData.role || "member";
         memberInfo.appendChild(roleBadge);
         
+        // Add status badge if suspended
+        if (memberData.status === "suspended") {
+          const statusBadge = document.createElement("span");
+          statusBadge.className = "badge badge-warning";
+          statusBadge.textContent = "Suspended";
+          statusBadge.style.marginLeft = "10px";
+          memberInfo.appendChild(statusBadge);
+        }
+        
         memberItem.appendChild(memberInfo);
+        
+        // Create button container
+        const buttonContainer = document.createElement("div");
+        buttonContainer.style.display = "flex";
+        buttonContainer.style.gap = "10px";
+        buttonContainer.style.marginTop = "10px";
         
         // Add Edit Profile button for admins
         const editBtn = document.createElement("button");
         editBtn.className = "button small primary";
         editBtn.textContent = "Edit Profile";
-        editBtn.style.marginTop = "10px";
         editBtn.addEventListener("click", () => {
           openEditMemberModal(doc.id, memberData, groupId);
         });
-        memberItem.appendChild(editBtn);
+        buttonContainer.appendChild(editBtn);
         
+        // Add Suspend/Unsuspend button
+        const suspendBtn = document.createElement("button");
+        suspendBtn.className = memberData.status === "suspended" ? "button small secondary" : "button small warning";
+        suspendBtn.textContent = memberData.status === "suspended" ? "Unsuspend" : "Suspend";
+        suspendBtn.addEventListener("click", () => {
+          toggleMemberSuspension(doc.id, memberData, groupId);
+        });
+        buttonContainer.appendChild(suspendBtn);
+        
+        // Add Delete button
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "button small danger";
+        deleteBtn.textContent = "Delete";
+        deleteBtn.addEventListener("click", () => {
+          deleteMember(doc.id, memberData, groupId);
+        });
+        buttonContainer.appendChild(deleteBtn);
+        
+        memberItem.appendChild(buttonContainer);
         membersList.appendChild(memberItem);
       });
     } catch (error) {
@@ -577,6 +610,105 @@ document.addEventListener("DOMContentLoaded", () => {
       const editMemberModal = document.getElementById("editMemberModal");
       editMemberModal.style.display = "none";
     });
+  }
+
+  // Toggle Member Suspension
+  async function toggleMemberSuspension(memberId, memberData, groupId) {
+    const currentStatus = memberData.status || "active";
+    const newStatus = currentStatus === "suspended" ? "active" : "suspended";
+    const action = newStatus === "suspended" ? "suspend" : "unsuspend";
+    
+    if (!confirm(`Are you sure you want to ${action} ${memberData.fullName}?`)) {
+      return;
+    }
+    
+    try {
+      toggleLoading(true, `${action === "suspend" ? "Suspending" : "Unsuspending"} member...`);
+      
+      // Update member status in group
+      await updateDoc(doc(db, `groups/${groupId}/members`, memberId), {
+        status: newStatus,
+        suspendedAt: newStatus === "suspended" ? Timestamp.now() : null,
+        suspendedBy: newStatus === "suspended" ? currentUser.uid : null,
+        unsuspendedAt: newStatus === "active" ? Timestamp.now() : null,
+        unsuspendedBy: newStatus === "active" ? currentUser.uid : null,
+      });
+      
+      alert(`Member ${action}ed successfully!`);
+      
+      // Reload members list
+      manageMembersGroupSelect.dispatchEvent(new Event("change"));
+    } catch (error) {
+      console.error(`Error ${action}ing member:`, error);
+      alert(`Error ${action}ing member. Please try again.`);
+    } finally {
+      toggleLoading(false);
+    }
+  }
+
+  // Delete Member
+  async function deleteMember(memberId, memberData, groupId) {
+    // Prevent deleting yourself
+    if (memberId === currentUser.uid) {
+      alert("You cannot delete yourself. Please use 'Leave Group' from Account Actions.");
+      return;
+    }
+    
+    const confirmText = `Are you sure you want to delete ${memberData.fullName} from this group?\n\nThis action will:\n- Remove them from the group\n- Remove all their payment records\n- This action CANNOT be undone!\n\nType "${memberData.fullName}" to confirm.`;
+    const userInput = prompt(confirmText);
+    
+    if (userInput !== memberData.fullName) {
+      alert("Deletion cancelled. Name did not match.");
+      return;
+    }
+    
+    try {
+      toggleLoading(true, "Deleting member...");
+      
+      // Delete member from group
+      await deleteDoc(doc(db, `groups/${groupId}/members`, memberId));
+      
+      // Remove group from user's groupMemberships
+      const userRef = doc(db, "users", memberId);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const updatedMemberships = (userData.groupMemberships || []).filter(
+          membership => membership.groupId !== groupId
+        );
+        
+        await updateDoc(userRef, {
+          groupMemberships: updatedMemberships,
+          updatedAt: Timestamp.now(),
+        });
+      }
+      
+      // Update group statistics
+      const groupRef = doc(db, "groups", groupId);
+      const groupDoc = await getDoc(groupRef);
+      
+      if (groupDoc.exists()) {
+        const groupData = groupDoc.data();
+        const currentStats = groupData.statistics || {};
+        
+        await updateDoc(groupRef, {
+          "statistics.totalMembers": (currentStats.totalMembers || 1) - 1,
+          "statistics.activeMembers": (currentStats.activeMembers || 1) - 1,
+          updatedAt: Timestamp.now(),
+        });
+      }
+      
+      alert("Member deleted successfully!");
+      
+      // Reload members list
+      manageMembersGroupSelect.dispatchEvent(new Event("change"));
+    } catch (error) {
+      console.error("Error deleting member:", error);
+      alert("Error deleting member. Please try again.");
+    } finally {
+      toggleLoading(false);
+    }
   }
 
   // Save notification preferences
