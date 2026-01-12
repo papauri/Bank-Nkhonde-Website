@@ -4,146 +4,115 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Broadcast Notifications - Bank Nkhonde">
+  <meta name="theme-color" content="#0A1628">
   <title>Broadcast Notifications - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
-  <link rel="stylesheet" href="../styles/unified-page.css">
+  <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
 </head>
 <body>
-  <div class="page-wrapper">
-    <!-- Background Shapes -->
-    <div class="page-bg-shape"></div>
-
-    <!-- Page Header -->
-    <div class="page-header">
-      <div class="page-header-content">
-        <div class="page-header-top">
+  <!-- Page Header -->
+  <header class="page-header">
+    <div class="page-header-container">
+      <div class="page-header-top">
+        <div class="page-header-nav">
+          <button class="page-back-btn" onclick="history.back()" aria-label="Go back">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+          </button>
           <div>
-            <h1 class="page-title">Broadcast Notifications</h1>
-            <p class="page-subtitle">Send messages to your group members</p>
-          </div>
-          <div class="page-header-actions">
-            <button class="page-header-btn" id="backBtn" aria-label="Back" title="Back">
-              ←
-            </button>
+            <h1 class="page-title">Broadcast</h1>
+            <p class="page-subtitle">Send notifications to members</p>
           </div>
         </div>
+      </div>
+
+      <div class="page-group-selector">
+        <select id="groupSelector">
+          <option value="">Select a group...</option>
+        </select>
       </div>
     </div>
+  </header>
 
-    <!-- Main Content -->
-    <div class="page-content">
-      <!-- Quick Templates Section -->
-      <div class="content-section">
-        <div class="content-section-header">
-          <h2 class="content-section-title">Quick Templates</h2>
-          <p class="content-section-subtitle">Send pre-filled notifications</p>
-        </div>
-        <div class="template-grid">
-          <button class="template-card" data-template="payment_reminder">
-            <div class="template-icon">💵</div>
-            <h3>Payment Reminder</h3>
-            <p>Remind members about upcoming payments</p>
-          </button>
-          
-          <button class="template-card" data-template="meeting_announcement">
-            <div class="template-icon">📅</div>
-            <h3>Meeting Announcement</h3>
-            <p>Announce group meetings</p>
-          </button>
-          
-          <button class="template-card" data-template="loan_available">
-            <div class="template-icon">💰</div>
-            <h3>Loan Available</h3>
-            <p>Notify about available loans</p>
-          </button>
-          
-          <button class="template-card" data-template="payment_received">
-            <div class="template-icon">✅</div>
-            <h3>Payment Confirmed</h3>
-            <p>Confirm payment receipt</p>
-          </button>
-          
-          <button class="template-card" data-template="custom">
-            <div class="template-icon">✉️</div>
-            <h3>Custom Message</h3>
-            <p>Send a custom message</p>
-          </button>
-        </div>
+  <!-- Page Content -->
+  <main class="page-content">
+    <!-- Compose Message -->
+    <section class="content-section">
+      <div class="content-section-header">
+        <h2 class="content-section-title">Compose Message</h2>
       </div>
-
-      <!-- Broadcast Form -->
-      <div class="content-section">
-        <div class="content-section-header">
-          <h2 class="content-section-title">Create Broadcast</h2>
-        </div>
+      <div class="content-section-body">
         <form id="broadcastForm">
           <div class="form-group">
-            <label for="groupSelect" class="form-label">Select Group <span class="required">*</span></label>
-            <select id="groupSelect" class="form-input" required>
-              <option value="">Choose a group...</option>
+            <label class="form-label">Message Type</label>
+            <select id="messageType" class="form-select" required>
+              <option value="">Select type...</option>
+              <option value="announcement">Announcement</option>
+              <option value="reminder">Payment Reminder</option>
+              <option value="meeting">Meeting Notice</option>
+              <option value="urgent">Urgent Notice</option>
             </select>
           </div>
-
           <div class="form-group">
-            <label for="notificationTitle" class="form-label">Title <span class="required">*</span></label>
-            <input type="text" id="notificationTitle" class="form-input" placeholder="Enter notification title" required>
+            <label class="form-label">Subject</label>
+            <input type="text" id="messageSubject" class="form-input" placeholder="Message subject" required>
           </div>
-
           <div class="form-group">
-            <label for="notificationMessage" class="form-label">Message <span class="required">*</span></label>
-            <textarea id="notificationMessage" class="form-input" rows="6" placeholder="Enter your message..." required></textarea>
+            <label class="form-label">Message</label>
+            <textarea id="messageBody" class="form-textarea" rows="5" placeholder="Type your message here..." required></textarea>
           </div>
-
           <div class="form-group">
-            <label for="notificationType" class="form-label">Type</label>
-            <select id="notificationType" class="form-input">
-              <option value="info">Information</option>
-              <option value="warning">Warning</option>
-              <option value="urgent">Urgent</option>
-              <option value="success">Success</option>
-            </select>
+            <label class="form-label">Recipients</label>
+            <div style="display: flex; gap: var(--bn-space-4); flex-wrap: wrap;">
+              <label style="display: flex; align-items: center; gap: var(--bn-space-2); cursor: pointer;">
+                <input type="radio" name="recipients" value="all" checked>
+                <span style="font-size: var(--bn-text-sm);">All Members</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: var(--bn-space-2); cursor: pointer;">
+                <input type="radio" name="recipients" value="admins">
+                <span style="font-size: var(--bn-text-sm);">Admins Only</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: var(--bn-space-2); cursor: pointer;">
+                <input type="radio" name="recipients" value="members">
+                <span style="font-size: var(--bn-text-sm);">Members Only</span>
+              </label>
+            </div>
           </div>
-
-          <div class="form-group">
-            <label class="checkbox-wrapper">
-              <input type="checkbox" id="allowReplies" checked>
-              <span class="checkbox-label">Allow members to reply</span>
-            </label>
-          </div>
-
-          <button type="submit" id="sendBroadcastBtn" class="btn btn-primary btn-lg btn-block">
-            <span class="btn-text">Send Broadcast</span>
-            <svg class="btn-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <button type="submit" class="btn btn-accent btn-block btn-lg">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
             </svg>
+            Send Broadcast
           </button>
         </form>
       </div>
+    </section>
 
-      <!-- Recent Broadcasts -->
-      <div class="content-section">
-        <div class="content-section-header">
-          <h2 class="content-section-title">Recent Broadcasts</h2>
-        </div>
-        <div id="recentBroadcastsList">
-          <div class="empty-state">
-            <div class="empty-state-icon">📢</div>
-            <p class="empty-state-text">No broadcasts yet</p>
-          </div>
+    <!-- Recent Broadcasts -->
+    <section class="content-section">
+      <div class="content-section-header">
+        <h2 class="content-section-title">Recent Broadcasts</h2>
+      </div>
+      <div class="content-section-body" id="recentBroadcasts">
+        <div class="empty-state">
+          <div class="empty-state-icon">📢</div>
+          <p class="empty-state-text">No broadcasts sent yet</p>
         </div>
       </div>
-    </div>
-  </div>
+    </section>
+  </main>
 
   <!-- Mobile Navigation -->
   <nav class="mobile-nav">
     <a href="admin_dashboard.html" class="mobile-nav-item">
       <span class="mobile-nav-icon">🏠</span>
-      <span>Dashboard</span>
+      <span>Home</span>
     </a>
     <a href="broadcast_notifications.html" class="mobile-nav-item active">
       <span class="mobile-nav-icon">📢</span>
@@ -158,6 +127,17 @@
       <span>Settings</span>
     </a>
   </nav>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Loading Overlay -->
+  <div class="spinner-overlay hidden" id="spinner">
+    <div class="spinner-content">
+      <div class="spinner"></div>
+      <p class="loading-text">Sending broadcast...</p>
+    </div>
+  </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>

@@ -4,70 +4,122 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Interest & Penalties - Bank Nkhonde">
+  <meta name="theme-color" content="#0A1628">
   <title>Interest & Penalties - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
-  <link rel="stylesheet" href="../styles/unified-page.css">
+  <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
 </head>
 <body>
-  <div class="page-wrapper">
-    <div class="page-bg-shape"></div>
-
-    <div class="page-header">
-      <div class="page-header-content">
-        <div class="page-header-top">
+  <!-- Page Header -->
+  <header class="page-header">
+    <div class="page-header-container">
+      <div class="page-header-top">
+        <div class="page-header-nav">
+          <button class="page-back-btn" onclick="history.back()" aria-label="Go back">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+          </button>
           <div>
-            <button onclick="history.back()" class="page-header-btn" style="position: absolute; left: var(--bn-spacing-md); top: var(--bn-spacing-lg);">←</button>
-            <h1 class="page-title" style="margin-left: 50px;">Interest & Penalties</h1>
+            <h1 class="page-title">Interest & Penalties</h1>
+            <p class="page-subtitle">Manage rates and view penalties</p>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="page-content">
-      <div class="group-selector">
-        <select id="groupSelector" class="form-select" style="background: transparent; border: none; color: white; width: 100%; padding: var(--bn-spacing-xs) 0;">
+      <div class="page-group-selector">
+        <select id="groupSelector">
           <option value="">Select a group...</option>
         </select>
       </div>
-
-      <div class="content-section">
-        <div class="content-section-header">
-          <h2 class="content-section-title">Current Rates</h2>
-        </div>
-        <div id="ratesList">
-          <div class="empty-state">
-            <div class="empty-state-icon">⚖️</div>
-            <p class="empty-state-text">Select a group to view rates</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="content-section">
-        <div class="content-section-header">
-          <h2 class="content-section-title">Penalties Applied This Month</h2>
-        </div>
-        <div id="penaltiesList">
-          <div class="empty-state">
-            <div class="empty-state-icon">📋</div>
-            <p class="empty-state-text">No penalties applied this month</p>
-          </div>
-        </div>
-      </div>
     </div>
-  </div>
+  </header>
 
+  <!-- Page Content -->
+  <main class="page-content">
+    <!-- Interest Rates -->
+    <section class="content-section">
+      <div class="content-section-header">
+        <h2 class="content-section-title">Interest Rates</h2>
+        <button class="btn btn-secondary btn-sm" id="editRatesBtn">Edit Rates</button>
+      </div>
+      <div class="content-section-body">
+        <div class="card-grid">
+          <div class="info-card">
+            <div class="info-card-header">
+              <span class="info-card-title">Loan Interest Rate</span>
+            </div>
+            <div class="info-card-value" id="loanInterestRate">0%</div>
+            <div class="info-card-footer">
+              <span class="info-card-meta">Per month</span>
+            </div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-header">
+              <span class="info-card-title">Late Payment Penalty</span>
+            </div>
+            <div class="info-card-value" id="latePenaltyRate">0%</div>
+            <div class="info-card-footer">
+              <span class="info-card-meta">Of contribution amount</span>
+            </div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-header">
+              <span class="info-card-title">Grace Period</span>
+            </div>
+            <div class="info-card-value" id="gracePeriod">0 days</div>
+            <div class="info-card-footer">
+              <span class="info-card-meta">Before penalty applies</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pending Penalties -->
+    <section class="content-section">
+      <div class="content-section-header">
+        <h2 class="content-section-title">Pending Penalties</h2>
+      </div>
+      <div class="content-section-body" id="pendingPenaltiesList">
+        <div class="empty-state">
+          <div class="empty-state-icon">⚖️</div>
+          <p class="empty-state-text">No pending penalties</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Collected Interest -->
+    <section class="content-section">
+      <div class="content-section-header">
+        <h2 class="content-section-title">Collected Interest</h2>
+      </div>
+      <div class="content-section-body" id="collectedInterestList">
+        <div class="empty-state">
+          <div class="empty-state-icon">💰</div>
+          <p class="empty-state-text">No interest collected yet</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Mobile Navigation -->
   <nav class="mobile-nav">
     <a href="admin_dashboard.html" class="mobile-nav-item">
       <span class="mobile-nav-icon">🏠</span>
-      <span>Dashboard</span>
+      <span>Home</span>
     </a>
     <a href="interest_penalties.html" class="mobile-nav-item active">
       <span class="mobile-nav-icon">⚖️</span>
-      <span>Rates</span>
+      <span>Interest</span>
+    </a>
+    <a href="manage_loans.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">💰</span>
+      <span>Loans</span>
     </a>
     <a href="settings.html" class="mobile-nav-item">
       <span class="mobile-nav-icon">⚙️</span>
@@ -75,10 +127,14 @@
     </a>
   </nav>
 
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Loading Overlay -->
   <div class="spinner-overlay hidden" id="spinner">
     <div class="spinner-content">
       <div class="spinner"></div>
-      <p class="loading-text">Loading rates...</p>
+      <p class="loading-text">Loading data...</p>
     </div>
   </div>
 

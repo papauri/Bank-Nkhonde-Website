@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Select Group - Bank Nkhonde">
+  <meta name="theme-color" content="#0A1628">
+  <title>Select Group - Bank Nkhonde</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="icon" type="image/png" href="../assets/favicon.png">
+  <style>
+    body {
+      background: var(--bn-gradient-primary);
+      min-height: 100vh;
+    }
+
+    .page-container {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .select-header {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding: var(--bn-space-4) var(--bn-space-6);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+      text-decoration: none;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--bn-gradient-accent);
+      border-radius: var(--bn-radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .brand-icon svg {
+      width: 22px;
+      height: 22px;
+      color: var(--bn-dark);
+    }
+
+    .brand-text {
+      font-size: var(--bn-text-lg);
+      font-weight: 800;
+      color: var(--bn-white);
+    }
+
+    .header-user {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-4);
+    }
+
+    .user-info {
+      text-align: right;
+    }
+
+    .user-name {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-white);
+    }
+
+    .user-email {
+      font-size: var(--bn-text-xs);
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--bn-radius-full);
+      background: var(--bn-gradient-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: var(--bn-text-sm);
+      color: var(--bn-dark);
+    }
+
+    .logout-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: var(--bn-white);
+      padding: var(--bn-space-2) var(--bn-space-4);
+      border-radius: var(--bn-radius-lg);
+      font-size: var(--bn-text-sm);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--bn-transition-fast);
+    }
+
+    .logout-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      padding: var(--bn-space-8) var(--bn-space-6);
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .welcome-section {
+      text-align: center;
+      margin-bottom: var(--bn-space-10);
+    }
+
+    .welcome-title {
+      font-size: clamp(1.5rem, 4vw, 2.5rem);
+      font-weight: 800;
+      color: var(--bn-white);
+      margin-bottom: var(--bn-space-3);
+    }
+
+    .welcome-subtitle {
+      font-size: var(--bn-text-base);
+      color: rgba(255, 255, 255, 0.7);
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    /* Notifications Summary */
+    .notifications-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--bn-space-4);
+      margin-bottom: var(--bn-space-10);
+    }
+
+    .notification-card {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--bn-radius-xl);
+      padding: var(--bn-space-5);
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-4);
+      transition: all var(--bn-transition-base);
+      cursor: pointer;
+    }
+
+    .notification-card:hover {
+      background: rgba(255, 255, 255, 0.12);
+      transform: translateY(-2px);
+    }
+
+    .notification-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--bn-radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      flex-shrink: 0;
+    }
+
+    .notification-icon.pending { background: rgba(251, 191, 36, 0.2); }
+    .notification-icon.loans { background: rgba(96, 165, 250, 0.2); }
+    .notification-icon.broadcasts { background: rgba(167, 139, 250, 0.2); }
+
+    .notification-content h4 {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-white);
+      margin: 0 0 var(--bn-space-1);
+    }
+
+    .notification-content p {
+      font-size: var(--bn-text-xs);
+      color: rgba(255, 255, 255, 0.6);
+      margin: 0;
+    }
+
+    .notification-badge {
+      margin-left: auto;
+      background: var(--bn-accent);
+      color: var(--bn-dark);
+      font-size: var(--bn-text-xs);
+      font-weight: 700;
+      padding: 2px 10px;
+      border-radius: var(--bn-radius-full);
+      min-width: 24px;
+      text-align: center;
+    }
+
+    /* Groups Grid */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .section-title {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      color: var(--bn-white);
+    }
+
+    .groups-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--bn-space-5);
+    }
+
+    .group-card {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-xl);
+      padding: var(--bn-space-6);
+      cursor: pointer;
+      transition: all var(--bn-transition-base);
+      text-decoration: none;
+      display: block;
+    }
+
+    .group-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .group-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .group-name {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin: 0 0 var(--bn-space-1);
+    }
+
+    .group-role {
+      font-size: var(--bn-text-xs);
+      font-weight: 600;
+      padding: var(--bn-space-1) var(--bn-space-3);
+      border-radius: var(--bn-radius-full);
+    }
+
+    .group-role.admin {
+      background: var(--bn-accent-subtle);
+      color: var(--bn-accent-dark);
+    }
+
+    .group-role.member {
+      background: var(--bn-info-light);
+      color: var(--bn-info);
+    }
+
+    .group-stats {
+      display: flex;
+      gap: var(--bn-space-6);
+    }
+
+    .group-stat {
+      flex: 1;
+    }
+
+    .group-stat-value {
+      font-size: var(--bn-text-base);
+      font-weight: 700;
+      color: var(--bn-dark);
+    }
+
+    .group-stat-label {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+
+    .group-pending {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+      margin-top: var(--bn-space-4);
+      padding-top: var(--bn-space-4);
+      border-top: 1px solid var(--bn-gray-100);
+      font-size: var(--bn-text-xs);
+      color: var(--bn-warning);
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: var(--bn-space-16);
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: var(--bn-radius-xl);
+      border: 2px dashed rgba(255, 255, 255, 0.2);
+    }
+
+    .empty-state-icon {
+      font-size: 3rem;
+      margin-bottom: var(--bn-space-4);
+      opacity: 0.6;
+    }
+
+    .empty-state-text {
+      font-size: var(--bn-text-base);
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: var(--bn-space-6);
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .header-user .user-info {
+        display: none;
+      }
+
+      .notifications-summary {
+        grid-template-columns: 1fr;
+      }
+
+      .groups-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-container">
+    <!-- Header -->
+    <header class="select-header">
+      <div class="header-container">
+        <a href="../index.html" class="header-brand">
+          <div class="brand-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+              <path d="M2 17l10 5 10-5"/>
+              <path d="M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <span class="brand-text">Bank Nkhonde</span>
+        </a>
+
+        <div class="header-user">
+          <div class="user-info">
+            <div class="user-name" id="userName">Loading...</div>
+            <div class="user-email" id="userEmail"></div>
+          </div>
+          <div class="user-avatar" id="userAvatar">?</div>
+          <button class="logout-btn" id="logoutBtn">Sign Out</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="welcome-section">
+        <h1 class="welcome-title">Select a Group</h1>
+        <p class="welcome-subtitle">Choose which group you'd like to manage. You can switch groups anytime from the dashboard.</p>
+      </div>
+
+      <!-- Notifications Summary -->
+      <div class="notifications-summary" id="notificationsSummary">
+        <div class="notification-card" onclick="window.location.href='manage_payments.html'">
+          <div class="notification-icon pending">⏳</div>
+          <div class="notification-content">
+            <h4>Pending Payments</h4>
+            <p>Awaiting approval</p>
+          </div>
+          <span class="notification-badge" id="pendingPaymentsBadge">0</span>
+        </div>
+        <div class="notification-card" onclick="window.location.href='manage_loans.html'">
+          <div class="notification-icon loans">💰</div>
+          <div class="notification-content">
+            <h4>Loan Requests</h4>
+            <p>Need review</p>
+          </div>
+          <span class="notification-badge" id="loanRequestsBadge">0</span>
+        </div>
+        <div class="notification-card" onclick="window.location.href='broadcast_notifications.html'">
+          <div class="notification-icon broadcasts">📢</div>
+          <div class="notification-content">
+            <h4>Broadcasts</h4>
+            <p>Unread messages</p>
+          </div>
+          <span class="notification-badge" id="broadcastsBadge">0</span>
+        </div>
+      </div>
+
+      <!-- Groups -->
+      <div class="section-header">
+        <h2 class="section-title">Your Groups</h2>
+        <a href="admin_registration.html" class="btn btn-accent btn-sm">Create New Group</a>
+      </div>
+
+      <div class="groups-grid" id="groupsGrid">
+        <!-- Groups will be loaded dynamically -->
+        <div class="empty-state" id="emptyState">
+          <div class="empty-state-icon">📁</div>
+          <p class="empty-state-text">Loading your groups...</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="spinner-overlay hidden" id="spinner">
+    <div class="spinner-content">
+      <div class="spinner"></div>
+      <p class="loading-text">Loading...</p>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+  <script type="module" src="../scripts/select_group.js"></script>
+</body>
+</html>

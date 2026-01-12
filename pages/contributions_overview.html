@@ -4,92 +4,108 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Contributions Overview - Bank Nkhonde">
+  <meta name="theme-color" content="#0A1628">
   <title>Contributions Overview - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
-  <link rel="stylesheet" href="../styles/unified-page.css">
+  <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
 </head>
 <body>
-  <div class="page-wrapper">
-    <div class="page-bg-shape"></div>
-
-    <div class="page-header">
-      <div class="page-header-content">
-        <div class="page-header-top">
+  <!-- Page Header -->
+  <header class="page-header">
+    <div class="page-header-container">
+      <div class="page-header-top">
+        <div class="page-header-nav">
+          <button class="page-back-btn" onclick="history.back()" aria-label="Go back">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+          </button>
           <div>
-            <button onclick="history.back()" class="page-header-btn" style="position: absolute; left: var(--bn-spacing-md); top: var(--bn-spacing-lg);">←</button>
-            <h1 class="page-title" style="margin-left: 50px;">Contributions Overview</h1>
+            <h1 class="page-title">Contributions Overview</h1>
+            <p class="page-subtitle">Track monthly contributions</p>
           </div>
         </div>
+        <div class="page-header-actions">
+          <button class="page-header-btn" id="refreshBtn" aria-label="Refresh">🔄</button>
+        </div>
       </div>
-    </div>
 
-    <div class="page-content">
-      <div class="group-selector">
-        <select id="groupSelector" class="form-select" style="background: transparent; border: none; color: white; width: 100%; padding: var(--bn-spacing-xs) 0;">
+      <div class="page-group-selector">
+        <select id="groupSelector">
           <option value="">Select a group...</option>
         </select>
       </div>
 
-      <div class="form-section" style="margin-bottom: var(--bn-spacing-lg);">
-        <label class="form-label">Select Month</label>
-        <input type="month" id="monthSelector" class="form-input" value="">
-      </div>
-
-      <div class="stats-section">
-        <div class="stats-grid">
-          <div class="stat-item info">
-            <div class="stat-label">Total Expected</div>
-            <div class="stat-value" id="totalExpected">MWK 0</div>
-          </div>
-          <div class="stat-item success">
-            <div class="stat-label">Total Collected</div>
-            <div class="stat-value" id="totalCollected">MWK 0</div>
-          </div>
-          <div class="stat-item warning">
-            <div class="stat-label">Total Pending</div>
-            <div class="stat-value" id="totalPending">MWK 0</div>
-          </div>
-          <div class="stat-item danger">
-            <div class="stat-label">Total Arrears</div>
-            <div class="stat-value" id="totalArrears">MWK 0</div>
-          </div>
+      <div class="page-stats">
+        <div class="page-stat">
+          <div class="page-stat-value success" id="totalContributed">MWK 0</div>
+          <div class="page-stat-label">Total Contributed</div>
         </div>
-        <div class="stat-item" style="margin-top: var(--bn-spacing-md);">
-          <div class="stat-label">Compliance Rate</div>
-          <div class="stat-value" id="complianceRate">0%</div>
+        <div class="page-stat">
+          <div class="page-stat-value info" id="thisMonth">MWK 0</div>
+          <div class="page-stat-label">This Month</div>
         </div>
-      </div>
-
-      <div class="content-section">
-        <div class="content-section-header">
-          <h2 class="content-section-title">Member Contributions</h2>
+        <div class="page-stat">
+          <div class="page-stat-value warning" id="pendingAmount">MWK 0</div>
+          <div class="page-stat-label">Pending</div>
         </div>
-        <div id="contributionsTable">
-          <div class="empty-state">
-            <div class="empty-state-icon">📊</div>
-            <p class="empty-state-text">Select a group to view contributions</p>
-          </div>
+        <div class="page-stat">
+          <div class="page-stat-value" id="memberCount">0</div>
+          <div class="page-stat-label">Contributors</div>
         </div>
       </div>
     </div>
-  </div>
+  </header>
 
+  <!-- Page Content -->
+  <main class="page-content">
+    <!-- Monthly Breakdown -->
+    <section class="content-section">
+      <div class="content-section-header">
+        <h2 class="content-section-title">Monthly Breakdown</h2>
+        <select class="form-select" style="width: auto; padding: var(--bn-space-2) var(--bn-space-4); font-size: var(--bn-text-sm);" id="monthSelector">
+          <option value="current">Current Month</option>
+        </select>
+      </div>
+      <div class="content-section-body" id="contributionsList">
+        <div class="empty-state">
+          <div class="empty-state-icon">📊</div>
+          <p class="empty-state-text">Select a group to view contributions</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contribution History -->
+    <section class="content-section">
+      <div class="content-section-header">
+        <h2 class="content-section-title">Contribution History</h2>
+      </div>
+      <div class="content-section-body" id="contributionHistory">
+        <div class="empty-state">
+          <div class="empty-state-icon">📋</div>
+          <p class="empty-state-text">No contribution history</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Mobile Navigation -->
   <nav class="mobile-nav">
     <a href="admin_dashboard.html" class="mobile-nav-item">
       <span class="mobile-nav-icon">🏠</span>
-      <span>Dashboard</span>
+      <span>Home</span>
     </a>
     <a href="contributions_overview.html" class="mobile-nav-item active">
-      <span class="mobile-nav-icon">📈</span>
+      <span class="mobile-nav-icon">📊</span>
       <span>Contributions</span>
     </a>
-    <a href="financial_reports.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">📊</span>
-      <span>Reports</span>
+    <a href="manage_payments.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">💳</span>
+      <span>Payments</span>
     </a>
     <a href="settings.html" class="mobile-nav-item">
       <span class="mobile-nav-icon">⚙️</span>
@@ -97,6 +113,10 @@
     </a>
   </nav>
 
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Loading Overlay -->
   <div class="spinner-overlay hidden" id="spinner">
     <div class="spinner-content">
       <div class="spinner"></div>

@@ -5,11 +5,9 @@ import {
   getDocs,
   doc,
   getDoc,
-  addDoc,
   updateDoc,
   query,
   where,
-  orderBy,
   limit,
   onAuthStateChanged,
   signOut,
@@ -18,19 +16,21 @@ import {
 
 // Global state
 let currentUser = null;
-let adminGroups = [];
 let currentGroup = null;
+let adminGroups = [];
 
-// DOM Elements
+// DOM Elements - with null checks
 const spinner = document.getElementById("spinner");
-const adminName = document.getElementById("adminName");
+const sidebarUserName = document.getElementById("sidebarUserName");
+const sidebarUserInitials = document.getElementById("sidebarUserInitials");
+const topbarUserInitials = document.getElementById("topbarUserInitials");
 const totalCollections = document.getElementById("totalCollections");
 const activeLoans = document.getElementById("activeLoans");
 const pendingApprovals = document.getElementById("pendingApprovals");
 const totalArrears = document.getElementById("totalArrears");
-const pendingBadge = document.getElementById("pendingBadge");
 const pendingApprovalsList = document.getElementById("pendingApprovalsList");
 const groupsList = document.getElementById("groupsList");
+const systemAlerts = document.getElementById("systemAlerts");
 
 // Initialize app
 onAuthStateChanged(auth, async (user) => {
@@ -42,149 +42,183 @@ onAuthStateChanged(auth, async (user) => {
     showSpinner(false);
   } else {
     console.log("No user is signed in.");
-    alert("You must be signed in to access this page.");
     window.location.href = "../login.html";
   }
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Setup event listeners
   setupEventListeners();
 });
 
-/**
- * Setup Event Listeners
- */
 function setupEventListeners() {
-  // Header actions
-  document.getElementById("logoutBtn")?.addEventListener("click", async () => {
-    try {
-      await signOut(auth);
-      window.location.href = "../login.html";
-    } catch (error) {
-      console.error("Error signing out:", error);
-      showToast("Error signing out: " + error.message, "error");
-    }
-  });
+  // Logout button in sidebar
+  document.getElementById("logoutBtn")?.addEventListener("click", handleLogout);
   
+  // Switch to user view button
   document.getElementById("switchViewBtn")?.addEventListener("click", () => {
-    // Store current view preference in sessionStorage
     sessionStorage.setItem("viewMode", "user");
     window.location.href = "user_dashboard.html";
   });
+  
+  // Sidebar user click (for dropdown menu)
+  document.getElementById("sidebarUser")?.addEventListener("click", (e) => {
+    // Could open a dropdown menu here
+  });
 }
 
-/**
- * Load admin data
- */
+async function handleLogout() {
+  try {
+    await signOut(auth);
+    sessionStorage.clear();
+    window.location.href = "../login.html";
+  } catch (error) {
+    console.error("Error signing out:", error);
+    showToast("Error signing out: " + error.message, "danger");
+  }
+}
+
 async function loadAdminData() {
   try {
     // Load user data
     const userDoc = await getDoc(doc(db, "users", currentUser.uid));
     if (userDoc.exists()) {
       const userData = userDoc.data();
-      adminName.textContent = userData.fullName || userData.email.split("@")[0];
+      const displayName = userData.fullName || currentUser.email.split("@")[0];
       
-      // Get groups where user is admin
-      const groupsRef = collection(db, "groups");
-      const q = query(groupsRef, where("createdBy", "==", currentUser.uid));
-      const snapshot = await getDocs(q);
+      // Update UI elements safely
+      if (sidebarUserName) sidebarUserName.textContent = displayName;
+      if (sidebarUserInitials) sidebarUserInitials.textContent = displayName.charAt(0).toUpperCase();
+      if (topbarUserInitials) topbarUserInitials.textContent = displayName.charAt(0).toUpperCase();
       
-      adminGroups = [];
-      snapshot.forEach(doc => {
-        adminGroups.push({ ...doc.data(), groupId: doc.id });
-      });
-      
-      // Also check if admin in any group's admins array
-      const allGroupsSnapshot = await getDocs(collection(db, "groups"));
-      allGroupsSnapshot.forEach(doc => {
-        const groupData = doc.data();
-        if (groupData.admins && groupData.admins.some(admin => admin.uid === currentUser.uid)) {
-          // Check if not already added
-          if (!adminGroups.find(g => g.groupId === doc.id)) {
-            adminGroups.push({ ...groupData, groupId: doc.id });
-          }
-        }
-      });
-      
-      if (adminGroups.length > 0) {
-        currentGroup = adminGroups[0];
+      // Load profile picture if available
+      if (userData.profileImageUrl) {
+        const sidebarProfilePic = document.getElementById("sidebarProfilePic");
+        const topbarProfilePic = document.getElementById("topbarProfilePic");
         
-        // Check if profile is completed
-        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          if (!userData.profileCompleted) {
-            // Redirect to profile completion
-            window.location.href = "complete_profile.html";
-            return;
-          }
+        if (sidebarProfilePic) {
+          sidebarProfilePic.src = userData.profileImageUrl;
+          sidebarProfilePic.style.display = "block";
+          if (sidebarUserInitials) sidebarUserInitials.style.display = "none";
         }
-        
-        await loadDashboardStats();
-        await loadGroups();
-        await loadPendingApprovals();
-      } else {
-        groupsList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📁</div><p>No groups found. Create your first group!</p></div>';
+        if (topbarProfilePic) {
+          topbarProfilePic.src = userData.profileImageUrl;
+          topbarProfilePic.style.display = "block";
+          if (topbarUserInitials) topbarUserInitials.style.display = "none";
+        }
+      }
+      
+      // Check if profile is completed
+      if (!userData.profileCompleted) {
+        window.location.href = "complete_profile.html";
+        return;
       }
     }
+    
+    // Get selected group from session or load all groups
+    const selectedGroupId = sessionStorage.getItem('selectedGroupId');
+    
+    // Load admin groups
+    await loadAdminGroups();
+    
+    if (adminGroups.length === 0) {
+      renderEmptyState();
+      return;
+    }
+    
+    // Set current group
+    if (selectedGroupId) {
+      currentGroup = adminGroups.find(g => g.groupId === selectedGroupId) || adminGroups[0];
+    } else {
+      currentGroup = adminGroups[0];
+    }
+    
+    // Store the selected group
+    sessionStorage.setItem('selectedGroupId', currentGroup.groupId);
+    
+    // Load dashboard data
+    await Promise.all([
+      loadDashboardStats(),
+      loadGroups(),
+      loadPendingApprovals()
+    ]);
+    
   } catch (error) {
     console.error("Error loading admin data:", error);
-    showToast("Error loading admin data: " + error.message, "error");
+    showToast("Error loading dashboard: " + error.message, "danger");
   }
 }
 
-/**
- * Load dashboard statistics
- */
+async function loadAdminGroups() {
+  adminGroups = [];
+  
+  // Get groups where user is creator
+  const groupsRef = collection(db, "groups");
+  const creatorQuery = query(groupsRef, where("createdBy", "==", currentUser.uid));
+  const creatorSnapshot = await getDocs(creatorQuery);
+  
+  creatorSnapshot.forEach(doc => {
+    adminGroups.push({ ...doc.data(), groupId: doc.id });
+  });
+  
+  // Also check admins array in all groups
+  const allGroupsSnapshot = await getDocs(collection(db, "groups"));
+  allGroupsSnapshot.forEach(doc => {
+    const groupData = doc.data();
+    if (groupData.admins?.some(admin => admin.uid === currentUser.uid)) {
+      if (!adminGroups.find(g => g.groupId === doc.id)) {
+        adminGroups.push({ ...groupData, groupId: doc.id });
+      }
+    }
+  });
+}
+
 async function loadDashboardStats() {
   try {
-    let totalFundsAmount = 0;
-    let totalMembersCount = 0;
     let totalCollectionsAmount = 0;
     let activeLoansCount = 0;
     let totalArrearsAmount = 0;
     let pendingApprovalsCount = 0;
     
-    for (const group of adminGroups) {
-      // Get group statistics
+    // Calculate stats for current group or all groups
+    const groupsToProcess = currentGroup ? [currentGroup] : adminGroups;
+    
+    for (const group of groupsToProcess) {
       const groupDoc = await getDoc(doc(db, "groups", group.groupId));
       if (groupDoc.exists()) {
         const groupData = groupDoc.data();
         const stats = groupData.statistics || {};
         
-        totalFundsAmount += stats.totalFunds || 0;
-        totalMembersCount += stats.totalMembers || 0;
         totalCollectionsAmount += stats.totalCollections || 0;
         activeLoansCount += stats.totalLoansActive || 0;
         totalArrearsAmount += stats.totalArrears || 0;
       }
       
-      // Count pending approvals (payments, loans, registrations)
+      // Count pending approvals
       const currentYear = new Date().getFullYear();
-      
-      // Pending payments - Query through members since payment structure uses subcollections
       const membersRef = collection(db, "groups", group.groupId, "members");
       const membersSnapshot = await getDocs(membersRef);
       
       for (const memberDoc of membersSnapshot.docs) {
         const userId = memberDoc.id;
         
-        // Check Seed Money payments
-        const seedMoneyRef = doc(db, `groups/${group.groupId}/payments/${currentYear}_SeedMoney/${userId}/PaymentDetails`);
-        const seedMoneyDoc = await getDoc(seedMoneyRef);
-        if (seedMoneyDoc.exists() && seedMoneyDoc.data().approvalStatus === "pending") {
-          pendingApprovalsCount++;
-        }
-        
-        // Check Monthly Contributions - need to check each month
-        const monthlyContributionsRef = collection(db, `groups/${group.groupId}/payments/${currentYear}_MonthlyContributions/${userId}`);
-        const monthlySnapshot = await getDocs(monthlyContributionsRef);
-        monthlySnapshot.forEach(monthDoc => {
-          if (monthDoc.data().approvalStatus === "pending") {
+        // Check pending payments
+        try {
+          const seedMoneyRef = doc(db, `groups/${group.groupId}/payments/${currentYear}_SeedMoney/${userId}/PaymentDetails`);
+          const seedMoneyDoc = await getDoc(seedMoneyRef);
+          if (seedMoneyDoc.exists() && seedMoneyDoc.data().approvalStatus === "pending") {
             pendingApprovalsCount++;
           }
-        });
+        } catch (e) {}
+        
+        try {
+          const monthlyRef = collection(db, `groups/${group.groupId}/payments/${currentYear}_MonthlyContributions/${userId}`);
+          const monthlySnapshot = await getDocs(monthlyRef);
+          monthlySnapshot.forEach(monthDoc => {
+            if (monthDoc.data().approvalStatus === "pending") {
+              pendingApprovalsCount++;
+            }
+          });
+        } catch (e) {}
       }
       
       // Pending loans
@@ -194,241 +228,222 @@ async function loadDashboardStats() {
       pendingApprovalsCount += pendingLoansSnapshot.size;
     }
     
-    // Update UI (remove totalFunds, totalMembers, totalGroups as they're not in new design)
-    totalCollections.textContent = formatCurrency(totalCollectionsAmount);
-    activeLoans.textContent = activeLoansCount;
-    pendingApprovals.textContent = pendingApprovalsCount;
-    totalArrears.textContent = formatCurrency(totalArrearsAmount);
+    // Update UI safely
+    if (totalCollections) totalCollections.textContent = formatCurrency(totalCollectionsAmount);
+    if (activeLoans) activeLoans.textContent = activeLoansCount;
+    if (pendingApprovals) pendingApprovals.textContent = pendingApprovalsCount;
+    if (totalArrears) totalArrears.textContent = formatCurrency(totalArrearsAmount);
     
   } catch (error) {
     console.error("Error loading dashboard stats:", error);
   }
 }
 
-/**
- * Load groups list
- */
 async function loadGroups() {
-  try {
-    if (adminGroups.length === 0) {
-      groupsList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📁</div><p>No groups found</p></div>';
-      return;
-    }
+  if (!groupsList) return;
+  
+  if (adminGroups.length === 0) {
+    renderEmptyState();
+    return;
+  }
+  
+  groupsList.innerHTML = adminGroups.map(group => {
+    const stats = group.statistics || {};
+    const isSelected = currentGroup && currentGroup.groupId === group.groupId;
     
-    groupsList.innerHTML = "";
-    
-    adminGroups.forEach(group => {
-      const groupCard = document.createElement("a");
-      groupCard.className = "group-card";
-      groupCard.href = `group_details.html?groupId=${group.groupId}`;
-      
-      const stats = group.statistics || {};
-      
-      groupCard.innerHTML = `
-        <h4>${group.groupName}</h4>
-        <div class="group-info">
-          <span>👥 ${stats.totalMembers || 0} members</span>
-          <span>💰 ${formatCurrency(stats.totalFunds || 0)}</span>
+    return `
+      <a href="javascript:void(0)" class="group-card ${isSelected ? 'selected' : ''}" onclick="switchGroup('${group.groupId}')">
+        <h4 class="group-name">${group.groupName || 'Unnamed Group'}</h4>
+        <div class="group-stats">
+          <div class="group-stat-item">
+            <div class="group-stat-value">${stats.totalMembers || 0}</div>
+            <div class="group-stat-label">Members</div>
+          </div>
+          <div class="group-stat-item">
+            <div class="group-stat-value">${formatCurrencyShort(stats.totalFunds || 0)}</div>
+            <div class="group-stat-label">Funds</div>
+          </div>
         </div>
-      `;
-      
-      groupsList.appendChild(groupCard);
-    });
-  } catch (error) {
-    console.error("Error loading groups:", error);
-  }
+      </a>
+    `;
+  }).join('');
 }
 
-/**
- * Load pending approvals
- */
 async function loadPendingApprovals() {
-  try {
-    const allPending = [];
+  if (!pendingApprovalsList) return;
+  
+  const allPending = [];
+  const groupsToProcess = currentGroup ? [currentGroup] : adminGroups;
+  
+  for (const group of groupsToProcess) {
+    // Pending loans
+    const loansRef = collection(db, "groups", group.groupId, "loans");
+    const pendingLoansQuery = query(loansRef, where("status", "==", "pending"), limit(5));
+    const loansSnapshot = await getDocs(pendingLoansQuery);
     
-    for (const group of adminGroups) {
-      // Get pending loan requests
-      const loansRef = collection(db, "groups", group.groupId, "loans");
-      const pendingLoansQuery = query(loansRef, where("status", "==", "pending"), limit(5));
-      const loansSnapshot = await getDocs(pendingLoansQuery);
-      
-      loansSnapshot.forEach(doc => {
-        allPending.push({
-          ...doc.data(),
-          id: doc.id,
-          type: "loan",
-          groupId: group.groupId,
-          groupName: group.groupName
-        });
+    loansSnapshot.forEach(doc => {
+      allPending.push({
+        ...doc.data(),
+        id: doc.id,
+        type: "loan",
+        groupId: group.groupId,
+        groupName: group.groupName
       });
+    });
+    
+    // Pending payments
+    const currentYear = new Date().getFullYear();
+    const membersRef = collection(db, "groups", group.groupId, "members");
+    const membersSnapshot = await getDocs(membersRef);
+    
+    for (const memberDoc of membersSnapshot.docs) {
+      const userId = memberDoc.id;
+      const memberData = memberDoc.data();
       
-      // Get pending payment approvals - Query through members
-      const currentYear = new Date().getFullYear();
-      const membersRef = collection(db, "groups", group.groupId, "members");
-      const membersSnapshot = await getDocs(membersRef);
-      
-      for (const memberDoc of membersSnapshot.docs) {
-        const userId = memberDoc.id;
-        const memberData = memberDoc.data();
-        
-        // Check Seed Money payments
-        try {
-          const seedMoneyRef = doc(db, `groups/${group.groupId}/payments/${currentYear}_SeedMoney/${userId}/PaymentDetails`);
-          const seedMoneyDoc = await getDoc(seedMoneyRef);
-          if (seedMoneyDoc.exists()) {
-            const paymentData = seedMoneyDoc.data();
-            if (paymentData.approvalStatus === "pending") {
-              allPending.push({
-                ...paymentData,
-                id: seedMoneyRef.id,
-                type: "payment",
-                paymentType: "Seed Money",
-                memberName: memberData.fullName,
-                memberId: userId,
-                groupId: group.groupId,
-                groupName: group.groupName
-              });
-            }
+      try {
+        const seedMoneyRef = doc(db, `groups/${group.groupId}/payments/${currentYear}_SeedMoney/${userId}/PaymentDetails`);
+        const seedMoneyDoc = await getDoc(seedMoneyRef);
+        if (seedMoneyDoc.exists()) {
+          const paymentData = seedMoneyDoc.data();
+          if (paymentData.approvalStatus === "pending") {
+            allPending.push({
+              ...paymentData,
+              id: seedMoneyRef.id,
+              type: "payment",
+              paymentType: "Seed Money",
+              memberName: memberData.fullName,
+              memberId: userId,
+              groupId: group.groupId,
+              groupName: group.groupName
+            });
           }
-        } catch (error) {
-          // Payment document doesn't exist yet
         }
-        
-        // Check Monthly Contributions
-        try {
-          const monthlyContributionsRef = collection(db, `groups/${group.groupId}/payments/${currentYear}_MonthlyContributions/${userId}`);
-          const monthlySnapshot = await getDocs(monthlyContributionsRef);
-          monthlySnapshot.forEach(monthDoc => {
-            const paymentData = monthDoc.data();
-            if (paymentData.approvalStatus === "pending") {
-              allPending.push({
-                ...paymentData,
-                id: monthDoc.id,
-                type: "payment",
-                paymentType: "Monthly Contribution",
-                memberName: memberData.fullName,
-                memberId: userId,
-                groupId: group.groupId,
-                groupName: group.groupName
-              });
-            }
-          });
-        } catch (error) {
-          // Payment collection doesn't exist yet
-        }
-      }
+      } catch (e) {}
     }
-    
-    if (allPending.length > 0) {
-      pendingBadge.textContent = allPending.length;
-      pendingBadge.classList.remove("hidden");
-      pendingApprovalsList.innerHTML = "";
-      
-      // Show first 5
-      allPending.slice(0, 5).forEach(item => {
-        const approvalElement = createApprovalElement(item);
-        pendingApprovalsList.appendChild(approvalElement);
-      });
-    } else {
-      pendingBadge.classList.add("hidden");
-    }
-  } catch (error) {
-    console.error("Error loading pending approvals:", error);
-  }
-}
-
-/**
- * Create approval element
- */
-function createApprovalElement(item) {
-  const div = document.createElement("div");
-  div.className = "approval-item";
-  
-  let title, subtitle;
-  if (item.type === "loan") {
-    title = `Loan Request - ${item.borrowerName}`;
-    subtitle = `${formatCurrency(item.loanAmount)} • ${item.groupName}`;
-  } else {
-    title = `Payment Approval - ${item.fullName}`;
-    subtitle = `${item.paymentType} • ${formatCurrency(item.totalAmount)}`;
   }
   
-  div.innerHTML = `
-    <div class="approval-header">
-      <div class="approval-info">
-        <h4>${title}</h4>
-        <p>${subtitle}</p>
+  if (allPending.length === 0) {
+    pendingApprovalsList.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">✅</div>
+        <p class="empty-state-text">No pending approvals</p>
       </div>
-    </div>
-    <div class="approval-actions">
-      <button class="btn btn-sm btn-approve" data-id="${item.id}" data-type="${item.type}" data-group="${item.groupId}">
-        Approve
-      </button>
-      <button class="btn btn-sm btn-reject" data-id="${item.id}" data-type="${item.type}" data-group="${item.groupId}">
-        Reject
-      </button>
-    </div>
-  `;
+    `;
+    return;
+  }
   
-  // Add event listeners
-  const approveBtn = div.querySelector(".btn-approve");
-  const rejectBtn = div.querySelector(".btn-reject");
-  
-  approveBtn.addEventListener("click", () => handleApproval(item, true));
-  rejectBtn.addEventListener("click", () => handleApproval(item, false));
-  
-  return div;
+  pendingApprovalsList.innerHTML = allPending.slice(0, 5).map(item => {
+    const title = item.type === "loan" 
+      ? `Loan - ${item.borrowerName || 'Member'}` 
+      : `Payment - ${item.memberName || 'Member'}`;
+    const amount = item.type === "loan" ? item.loanAmount : item.totalAmount;
+    
+    return `
+      <div class="approval-item">
+        <div class="approval-avatar">${(item.borrowerName || item.memberName || 'M').charAt(0)}</div>
+        <div class="approval-info">
+          <div class="approval-name">${title}</div>
+          <div class="approval-detail">${item.groupName}</div>
+        </div>
+        <div>
+          <div class="approval-amount">${formatCurrencyShort(amount || 0)}</div>
+          <div class="approval-type">${item.type}</div>
+        </div>
+        <div class="approval-actions">
+          <button class="approval-btn approval-btn-approve" onclick="handleApproval('${item.id}', '${item.type}', '${item.groupId}', true)" title="Approve">✓</button>
+          <button class="approval-btn approval-btn-reject" onclick="handleApproval('${item.id}', '${item.type}', '${item.groupId}', false)" title="Reject">✕</button>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
-/**
- * Handle approval/rejection
- */
-async function handleApproval(item, approve) {
+function renderEmptyState() {
+  if (groupsList) {
+    groupsList.innerHTML = `
+      <div class="empty-state" style="grid-column: span 3;">
+        <div class="empty-state-icon">📁</div>
+        <p class="empty-state-text">No groups found. Create your first group!</p>
+        <a href="admin_registration.html" class="btn btn-accent btn-sm" style="margin-top: var(--bn-space-4);">Create Group</a>
+      </div>
+    `;
+  }
+}
+
+// Global functions for onclick handlers
+window.switchGroup = async function(groupId) {
+  currentGroup = adminGroups.find(g => g.groupId === groupId);
+  if (currentGroup) {
+    sessionStorage.setItem('selectedGroupId', groupId);
+    showSpinner(true);
+    await Promise.all([
+      loadDashboardStats(),
+      loadGroups(),
+      loadPendingApprovals()
+    ]);
+    showSpinner(false);
+    showToast(`Switched to ${currentGroup.groupName}`, "success");
+  }
+};
+
+window.handleApproval = async function(itemId, type, groupId, approve) {
   try {
     showSpinner(true);
     
-    if (item.type === "loan") {
-      const loanRef = doc(db, "groups", item.groupId, "loans", item.id);
+    if (type === "loan") {
+      const loanRef = doc(db, "groups", groupId, "loans", itemId);
       await updateDoc(loanRef, {
         status: approve ? "approved" : "rejected",
         approvedBy: currentUser.uid,
         approvedAt: Timestamp.now(),
         updatedAt: Timestamp.now()
       });
-    } else if (item.type === "payment") {
-      // Update payment approval status
-      const paymentRef = doc(db, "groups", item.groupId, "payments", item.paymentType, item.userId, item.id);
-      const updateData = {
-        approvalStatus: approve ? "approved" : "rejected",
-        approvedBy: currentUser.uid,
-        approvedAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
-      };
-      
-      // Automatically set status to completed when approved
-      if (approve) {
-        updateData.paymentStatus = "completed";
-        updateData.status = "completed";
-      }
-      
-      await updateDoc(paymentRef, updateData);
     }
     
     showToast(`Successfully ${approve ? "approved" : "rejected"}`, "success");
-    await loadPendingApprovals();
-    await loadDashboardStats();
+    
+    // Add system alert
+    addSystemAlert(`${type === 'loan' ? 'Loan' : 'Payment'} ${approve ? 'approved' : 'rejected'}`, approve ? 'success' : 'warning');
+    
+    await Promise.all([
+      loadDashboardStats(),
+      loadPendingApprovals()
+    ]);
     
   } catch (error) {
     console.error("Error handling approval:", error);
-    showToast("Error processing approval: " + error.message, "error");
+    showToast("Error: " + error.message, "danger");
   } finally {
     showSpinner(false);
   }
+};
+
+function addSystemAlert(message, type = 'success') {
+  if (!systemAlerts) return;
+  
+  const icons = { success: '✓', warning: '⚠', danger: '✕', info: 'ℹ' };
+  const alert = document.createElement('div');
+  alert.className = `alert-item ${type}`;
+  alert.innerHTML = `
+    <div class="alert-icon">${icons[type] || icons.info}</div>
+    <div class="alert-content">
+      <div class="alert-title">${message}</div>
+      <div class="alert-time">Just now</div>
+    </div>
+    <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+  `;
+  
+  systemAlerts.insertBefore(alert, systemAlerts.firstChild);
+  
+  setTimeout(() => {
+    if (alert.parentElement) {
+      alert.style.opacity = '0';
+      alert.style.transform = 'translateX(100%)';
+      setTimeout(() => alert.remove(), 300);
+    }
+  }, 10000);
 }
 
-/**
- * Show/Hide Spinner
- */
 function showSpinner(show) {
   if (show) {
     spinner?.classList.remove("hidden");
@@ -437,43 +452,47 @@ function showSpinner(show) {
   }
 }
 
-/**
- * Show toast notification
- */
 function showToast(message, type = "info") {
+  const container = document.getElementById("toastContainer");
+  if (!container) return;
+  
+  const icons = { success: '✓', warning: '⚠', danger: '✕', info: 'ℹ' };
   const toast = document.createElement("div");
   toast.className = `toast ${type}`;
-  toast.textContent = message;
-  document.body.appendChild(toast);
+  toast.style.cssText = `
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    border-left: 4px solid ${type === 'success' ? '#10b981' : type === 'danger' ? '#ef4444' : type === 'warning' ? '#f59e0b' : '#3b82f6'};
+    animation: slideInRight 0.3s ease-out;
+  `;
   
-  setTimeout(() => toast.classList.add("show"), 100);
+  toast.innerHTML = `
+    <span style="font-size: 1.25rem;">${icons[type] || icons.info}</span>
+    <span style="flex: 1; font-size: 0.875rem; color: #1e293b;">${message}</span>
+    <button onclick="this.parentElement.remove()" style="background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 1.25rem;">×</button>
+  `;
+  
+  container.appendChild(toast);
+  
   setTimeout(() => {
-    toast.classList.remove("show");
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(100%)';
     setTimeout(() => toast.remove(), 300);
-  }, 3000);
+  }, 4000);
 }
 
-/**
- * Format currency
- */
 function formatCurrency(amount) {
-  return `MWK ${parseFloat(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `MWK ${parseFloat(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
-/**
- * Format date
- */
-function formatDate(timestamp) {
-  if (!timestamp) return "N/A";
-  
-  let date;
-  if (timestamp.toDate) {
-    date = timestamp.toDate();
-  } else if (timestamp instanceof Date) {
-    date = timestamp;
-  } else {
-    date = new Date(timestamp);
-  }
-  
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+function formatCurrencyShort(amount) {
+  const num = parseFloat(amount || 0);
+  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+  if (num >= 1000) return `${(num / 1000).toFixed(0)}K`;
+  return num.toLocaleString();
 }

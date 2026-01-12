@@ -3,15 +3,83 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Contacts - Bank Nkhonde">
+  <meta name="description" content="View Group Rules - Bank Nkhonde">
   <meta name="theme-color" content="#0A1628">
-  <title>Contacts - Bank Nkhonde</title>
+  <title>Group Rules - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
   <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
+  <style>
+    .rules-container {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-xl);
+      box-shadow: var(--bn-shadow-lg);
+      border: 1px solid var(--bn-gray-lighter);
+      overflow: hidden;
+      min-height: 600px;
+    }
+
+    .pdf-viewer {
+      width: 100%;
+      height: calc(100vh - 250px);
+      min-height: 600px;
+      border: none;
+    }
+
+    .rules-header {
+      padding: var(--bn-space-5) var(--bn-space-6);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .rules-title {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin: 0;
+    }
+
+    .download-btn {
+      padding: var(--bn-space-2) var(--bn-space-4);
+      font-size: var(--bn-text-sm);
+    }
+
+    .no-rules {
+      padding: var(--bn-space-16);
+      text-align: center;
+    }
+
+    .no-rules-icon {
+      font-size: 4rem;
+      margin-bottom: var(--bn-space-4);
+      opacity: 0.4;
+    }
+
+    .no-rules-title {
+      font-size: var(--bn-text-lg);
+      font-weight: 600;
+      color: var(--bn-dark);
+      margin-bottom: var(--bn-space-2);
+    }
+
+    .no-rules-text {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
+      margin-bottom: var(--bn-space-6);
+    }
+
+    @media (max-width: 768px) {
+      .pdf-viewer {
+        height: calc(100vh - 200px);
+        min-height: 500px;
+      }
+    }
+  </style>
 </head>
 <body>
   <!-- Page Header -->
@@ -25,33 +93,23 @@
             </svg>
           </button>
           <div>
-            <h1 class="page-title">Contacts</h1>
-            <p class="page-subtitle">Group member contacts</p>
+            <h1 class="page-title">Group Rules</h1>
+            <p class="page-subtitle" id="groupName">Loading...</p>
           </div>
         </div>
-      </div>
-
-      <div class="page-group-selector">
-        <select id="groupSelector">
-          <option value="">Select a group...</option>
-        </select>
       </div>
     </div>
   </header>
 
   <!-- Page Content -->
   <main class="page-content">
-    <section class="content-section">
-      <div class="content-section-header">
-        <h2 class="content-section-title">Members</h2>
+    <div class="rules-container" id="rulesContainer">
+      <div class="no-rules">
+        <div class="no-rules-icon">📋</div>
+        <h2 class="no-rules-title">Loading rules...</h2>
+        <p class="no-rules-text">Please wait while we load the group rules.</p>
       </div>
-      <div class="content-section-body" id="contactsList">
-        <div class="empty-state">
-          <div class="empty-state-icon">📇</div>
-          <p class="empty-state-text">Select a group to view contacts</p>
-        </div>
-      </div>
-    </section>
+    </div>
   </main>
 
   <!-- Mobile Navigation -->
@@ -60,11 +118,11 @@
       <span class="mobile-nav-icon">🏠</span>
       <span>Home</span>
     </a>
-    <a href="contacts.html" class="mobile-nav-item active">
+    <a href="contacts.html" class="mobile-nav-item">
       <span class="mobile-nav-icon">📇</span>
       <span>Contacts</span>
     </a>
-    <a href="group_page.html" class="mobile-nav-item">
+    <a href="select_group.html" class="mobile-nav-item">
       <span class="mobile-nav-icon">👥</span>
       <span>Groups</span>
     </a>
@@ -74,20 +132,17 @@
     </a>
   </nav>
 
-  <!-- Toast Container -->
-  <div class="toast-container" id="toastContainer"></div>
-
   <!-- Loading Overlay -->
   <div class="spinner-overlay hidden" id="spinner">
     <div class="spinner-content">
       <div class="spinner"></div>
-      <p class="loading-text">Loading contacts...</p>
+      <p class="loading-text">Loading rules...</p>
     </div>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
-  <script type="module" src="../scripts/contacts.js"></script>
+  <script type="module" src="../scripts/view_rules.js"></script>
 </body>
 </html>

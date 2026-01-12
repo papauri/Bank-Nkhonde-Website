@@ -4,768 +4,1137 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Bank Nkhonde User Dashboard - Manage your savings and loans">
-  <meta name="theme-color" content="#047857">
-  <title>User Dashboard - Bank Nkhonde</title>
+  <meta name="theme-color" content="#0A1628">
+  <title>My Dashboard - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
-  <link rel="stylesheet" href="../styles/login.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
-    /* User Dashboard Specific Styles */
+    /* User Dashboard Layout */
     body {
+      background: var(--bn-gray-100);
       min-height: 100vh;
-      position: relative;
+      padding-bottom: 80px;
+    }
+
+    /* ============================================
+       TOP NAVIGATION
+       ============================================ */
+    .top-nav {
+      position: sticky;
+      top: 0;
+      background: var(--bn-dark);
+      z-index: var(--z-fixed);
+      padding: var(--bn-space-4) var(--bn-space-6);
+    }
+
+    .top-nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
       display: flex;
-      flex-direction: column;
-      background: var(--bn-gradient-dark);
+      align-items: center;
+      justify-content: space-between;
     }
 
-    .dashboard-main {
-      flex: 1;
-      position: relative;
-      z-index: 1;
+    .top-nav-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+      text-decoration: none;
     }
 
-    /* Hero Section */
-    .dashboard-hero {
-      background: var(--bn-gradient-primary);
-      padding: var(--bn-space-4xl) var(--bn-space-xl);
+    .top-nav-logo-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--bn-gradient-accent);
+      border-radius: var(--bn-radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .top-nav-logo-icon svg {
+      width: 20px;
+      height: 20px;
+      color: var(--bn-dark);
+    }
+
+    .top-nav-logo-text {
+      font-size: var(--bn-text-lg);
+      font-weight: 800;
       color: var(--bn-white);
+      letter-spacing: -0.02em;
+    }
+
+    .top-nav-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+    }
+
+    .top-nav-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--bn-radius-md);
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: var(--bn-white);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--bn-transition-fast);
+      position: relative;
+    }
+
+    .top-nav-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .top-nav-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--bn-radius-full);
+      background: var(--bn-gradient-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: var(--bn-text-sm);
+      color: var(--bn-dark);
+      cursor: pointer;
+      overflow: hidden;
+    }
+
+    .top-nav-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* View Toggle */
+    .view-toggle {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: var(--bn-radius-full);
+      padding: 3px;
+    }
+
+    .view-toggle.hidden {
+      display: none;
+    }
+
+    .view-toggle-btn {
+      padding: var(--bn-space-2) var(--bn-space-4);
+      font-size: var(--bn-text-xs);
+      font-weight: 600;
+      border: none;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.6);
+      border-radius: var(--bn-radius-full);
+      cursor: pointer;
+      transition: all var(--bn-transition-fast);
+    }
+
+    .view-toggle-btn.active {
+      background: var(--bn-accent);
+      color: var(--bn-dark);
+    }
+
+    .view-toggle-btn:hover:not(.active) {
+      color: var(--bn-white);
+    }
+
+    @media (max-width: 640px) {
+      .view-toggle {
+        display: none;
+      }
+    }
+
+    /* ============================================
+       HERO SECTION
+       ============================================ */
+    .hero-section {
+      background: var(--bn-gradient-primary);
+      padding: var(--bn-space-8) var(--bn-space-6) var(--bn-space-16);
       position: relative;
       overflow: hidden;
     }
 
-    .dashboard-hero::before {
+    .hero-section::before {
       content: '';
       position: absolute;
-      top: -50%;
-      right: -20%;
-      width: 800px;
-      height: 800px;
-      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-      border-radius: 50%;
-      animation: pulse 15s infinite ease-in-out;
+      top: 0;
+      right: 0;
+      width: 60%;
+      height: 100%;
+      background: radial-gradient(ellipse at 70% 30%, rgba(201, 162, 39, 0.1) 0%, transparent 60%);
+      pointer-events: none;
     }
 
-    @keyframes pulse {
-      0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
-      50% { transform: translate(-20px, -20px) scale(1.1); opacity: 0.8; }
-    }
-
-    .dashboard-hero-content {
+    .hero-container {
       max-width: 1200px;
       margin: 0 auto;
       position: relative;
       z-index: 1;
     }
 
-    .dashboard-hero-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: var(--bn-space-2xl);
-      flex-wrap: wrap;
-      gap: var(--bn-space-lg);
+    .hero-greeting {
+      margin-bottom: var(--bn-space-8);
     }
 
-    .dashboard-hero-title h1 {
-      font-size: clamp(2rem, 4vw, 3rem);
+    .hero-greeting-text {
+      font-size: var(--bn-text-sm);
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: var(--bn-space-1);
+    }
+
+    .hero-greeting-name {
+      font-size: var(--bn-text-3xl);
       font-weight: 800;
-      margin: 0 0 var(--bn-space-sm) 0;
       color: var(--bn-white);
-      line-height: 1.2;
-    }
-
-    .dashboard-hero-title p {
-      font-size: 1.125rem;
-      color: rgba(255, 255, 255, 0.9);
-      margin: 0;
-    }
-
-    .dashboard-hero-actions {
-      display: flex;
-      gap: var(--bn-space-sm);
-    }
-
-    .hero-action-btn {
-      width: 48px;
-      height: 48px;
-      border-radius: var(--bn-radius-lg);
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(10px);
-      color: var(--bn-white);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all var(--bn-transition-base);
-      font-size: 1.25rem;
-      text-decoration: none;
-    }
-
-    .hero-action-btn:hover {
-      background: rgba(255, 255, 255, 0.2);
-      border-color: rgba(255, 255, 255, 0.5);
-      transform: translateY(-2px);
     }
 
     .hero-stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: var(--bn-space-xl);
-      margin-top: var(--bn-space-2xl);
+      display: flex;
+      gap: var(--bn-space-3);
+      overflow-x: auto;
+      padding-bottom: var(--bn-space-2);
     }
 
     .hero-stat {
-      background: rgba(255, 255, 255, 0.15);
-      border-radius: var(--bn-radius-lg);
-      padding: var(--bn-space-lg);
-      text-align: center;
+      flex: 1;
+      min-width: 120px;
+      background: rgba(255, 255, 255, 0.08);
       backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-space-4);
       transition: all var(--bn-transition-base);
     }
 
     .hero-stat:hover {
-      background: rgba(255, 255, 255, 0.2);
-      transform: translateY(-4px);
-    }
-
-    .hero-stat-label {
-      font-size: 0.875rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: rgba(255, 255, 255, 0.8);
-      margin-bottom: var(--bn-space-sm);
+      background: rgba(255, 255, 255, 0.12);
     }
 
     .hero-stat-value {
-      font-size: clamp(1.75rem, 3vw, 2.5rem);
+      font-size: var(--bn-text-lg);
       font-weight: 800;
       color: var(--bn-white);
-      margin: 0;
-      line-height: 1.2;
+      font-feature-settings: 'tnum' 1;
+      margin-bottom: var(--bn-space-1);
+      white-space: nowrap;
     }
 
-    /* Main Content Container */
-    .dashboard-content {
+    .hero-stat-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.6);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ============================================
+       MAIN CONTENT
+       ============================================ */
+    .main-content {
       max-width: 1200px;
       margin: 0 auto;
-      padding: var(--bn-space-4xl) var(--bn-space-xl);
+      padding: 0 var(--bn-space-6);
+      margin-top: calc(-1 * var(--bn-space-8));
+      position: relative;
+      z-index: 2;
     }
 
-    /* Professional Container */
-    .content-container {
+    .content-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: var(--bn-space-6);
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .content-card {
       background: var(--bn-white);
       border-radius: var(--bn-radius-xl);
       box-shadow: var(--bn-shadow-lg);
-      padding: var(--bn-space-2xl);
-      margin-bottom: var(--bn-space-xl);
       border: 1px solid var(--bn-gray-lighter);
-      transition: all var(--bn-transition-base);
-    }
-
-    .content-container:hover {
-      box-shadow: var(--bn-shadow-xl);
-    }
-
-    .container-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--bn-space-xl);
-      padding-bottom: var(--bn-space-lg);
-      border-bottom: 2px solid var(--bn-gray-lighter);
-    }
-
-    .container-title {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--bn-dark);
-      margin: 0;
-      display: flex;
-      align-items: center;
-      gap: var(--bn-space-sm);
-    }
-
-    .container-title-icon {
-      font-size: 1.75rem;
-    }
-
-    /* Action Grid */
-    .action-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: var(--bn-space-md);
-    }
-
-    .action-card {
-      display: flex;
-      align-items: center;
-      gap: var(--bn-space-md);
-      padding: var(--bn-space-lg);
-      background: linear-gradient(135deg, var(--bn-gray-lighter) 0%, var(--bn-white) 100%);
-      border-radius: var(--bn-radius-lg);
-      text-decoration: none;
-      color: var(--bn-dark);
-      transition: all var(--bn-transition-base);
-      border: 2px solid transparent;
-      position: relative;
       overflow: hidden;
     }
 
-    .action-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: var(--bn-gradient-primary);
-      opacity: 0;
-      transition: opacity var(--bn-transition-base);
+    .content-card-header {
+      padding: var(--bn-space-5) var(--bn-space-6);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
-    .action-card:hover {
-      border-color: var(--bn-primary);
-      transform: translateY(-4px);
-      box-shadow: var(--bn-shadow-md);
+    .content-card-title {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      color: var(--bn-dark);
     }
 
-    .action-card:hover::before {
-      opacity: 0.05;
+    .content-card-body {
+      padding: var(--bn-space-6);
     }
 
-    .action-icon {
-      width: 56px;
-      height: 56px;
-      background: var(--bn-gradient-primary);
-      border-radius: var(--bn-radius-lg);
+    /* Quick Actions - Minimal */
+    .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: var(--bn-space-3);
+    }
+
+    .action-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.75rem;
-      flex-shrink: 0;
-      position: relative;
-      z-index: 1;
-      box-shadow: var(--bn-shadow-sm);
+      padding: var(--bn-space-4);
+      background: var(--bn-gray-100);
+      border: none;
+      border-radius: var(--bn-radius-lg);
+      cursor: pointer;
+      transition: all var(--bn-transition-base);
+      text-decoration: none;
     }
 
-    .action-info {
-      flex: 1;
-      position: relative;
-      z-index: 1;
+    .action-btn:hover {
+      background: var(--bn-accent);
+      transform: translateY(-2px);
     }
 
-    .action-info h3 {
-      font-size: 1.125rem;
-      font-weight: 700;
+    .action-btn:hover .action-label {
       color: var(--bn-dark);
-      margin: 0 0 var(--bn-space-xs) 0;
     }
 
-    .action-info p {
-      font-size: 0.875rem;
+    .action-label {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-dark);
+      text-align: center;
+      transition: color var(--bn-transition-fast);
+    }
+
+    /* Notifications */
+    .notification-list {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .notification-item {
+      display: flex;
+      gap: var(--bn-space-4);
+      padding: var(--bn-space-4);
+      border-radius: var(--bn-radius-lg);
+      transition: background var(--bn-transition-fast);
+      cursor: pointer;
+    }
+
+    .notification-item:hover {
+      background: var(--bn-gray-100);
+    }
+
+    .notification-item.unread {
+      background: var(--bn-accent-subtle);
+    }
+
+    .notification-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--bn-radius-md);
+      background: var(--bn-gray-100);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      flex-shrink: 0;
+    }
+
+    .notification-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .notification-title {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-dark);
+      margin-bottom: var(--bn-space-1);
+    }
+
+    .notification-text {
+      font-size: var(--bn-text-sm);
       color: var(--bn-gray);
       margin: 0;
     }
 
-    /* Group Cards */
-    .group-card {
-      display: block;
-      padding: var(--bn-space-lg);
-      background: linear-gradient(135deg, var(--bn-gray-lighter) 0%, var(--bn-white) 100%);
-      border-radius: var(--bn-radius-lg);
-      text-decoration: none;
-      color: var(--bn-dark);
-      transition: all var(--bn-transition-base);
-      border: 2px solid transparent;
-      margin-bottom: var(--bn-space-md);
-    }
-
-    .group-card:hover {
-      background: var(--bn-white);
-      border-color: var(--bn-primary);
-      transform: translateY(-2px);
-      box-shadow: var(--bn-shadow-md);
-    }
-
-    .group-card h4 {
-      font-size: 1.125rem;
-      font-weight: 700;
-      color: var(--bn-dark);
-      margin: 0 0 var(--bn-space-sm) 0;
-    }
-
-    .group-info {
-      display: flex;
-      gap: var(--bn-space-lg);
-      font-size: 0.875rem;
+    .notification-time {
+      font-size: var(--bn-text-xs);
       color: var(--bn-gray);
+      margin-top: var(--bn-space-1);
     }
 
-    /* Notification Items */
-    .notification-item {
-      padding: var(--bn-space-lg);
-      background: linear-gradient(135deg, var(--bn-gray-lighter) 0%, var(--bn-white) 100%);
-      border-radius: var(--bn-radius-lg);
-      margin-bottom: var(--bn-space-md);
-      border-left: 4px solid var(--bn-primary);
-      transition: all var(--bn-transition-base);
+    /* Payment Calendar */
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: var(--bn-space-2);
+      margin-bottom: var(--bn-space-4);
     }
 
-    .notification-item:hover {
+    .calendar-header {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: var(--bn-space-2);
+      margin-bottom: var(--bn-space-3);
+    }
+
+    .calendar-day-name {
+      text-align: center;
+      font-size: var(--bn-text-xs);
+      font-weight: 700;
+      color: var(--bn-gray);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: var(--bn-space-2);
+    }
+
+    .calendar-day {
+      aspect-ratio: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: var(--bn-space-2);
+      border-radius: var(--bn-radius-md);
+      background: #f8f9fa;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all var(--bn-transition-fast);
+      position: relative;
+      min-height: 60px;
+    }
+
+    .calendar-day:hover {
+      background: var(--bn-gray-100);
+      border-color: var(--bn-primary);
+    }
+
+    .calendar-day.other-month {
+      opacity: 0.3;
+    }
+
+    .calendar-day.today {
+      background: rgba(34, 197, 94, 0.1);
+      border-color: var(--bn-primary);
+      font-weight: 700;
+    }
+
+    .calendar-day-number {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-dark);
+      margin-bottom: 2px;
+    }
+
+    .calendar-day-events {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      width: 100%;
+      justify-content: center;
+      margin-top: auto;
+    }
+
+    .calendar-event-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .calendar-event-dot.monthly {
+      background: var(--bn-primary);
+    }
+
+    .calendar-event-dot.seed {
+      background: var(--bn-accent);
+    }
+
+    .calendar-event-dot.loan {
+      background: var(--bn-warning);
+    }
+
+    .calendar-event-dot.overdue {
+      background: var(--bn-danger);
+      border: 1px solid var(--bn-danger);
+      box-shadow: 0 0 4px rgba(239, 68, 68, 0.5);
+    }
+
+    .calendar-day.has-events {
       background: var(--bn-white);
-      transform: translateX(4px);
+      border-color: var(--bn-gray-lighter);
+    }
+
+    .calendar-day.has-events.today {
+      background: rgba(34, 197, 94, 0.1);
+    }
+
+    @media (max-width: 640px) {
+      .calendar-day {
+        min-height: 50px;
+        padding: var(--bn-space-1);
+      }
+      
+      .calendar-day-number {
+        font-size: var(--bn-text-xs);
+      }
+      
+      .calendar-event-dot {
+        width: 4px;
+        height: 4px;
+      }
+    }
+
+    /* Upcoming Payments */
+    .payment-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--bn-space-4);
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-lg);
+      margin-bottom: var(--bn-space-3);
+      transition: all var(--bn-transition-fast);
+    }
+
+    .payment-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .payment-item:hover {
+      background: var(--bn-white);
       box-shadow: var(--bn-shadow-sm);
     }
 
-    .notification-item.unread {
-      border-left-color: var(--bn-info);
-      background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, var(--bn-white) 100%);
+    .payment-info h4 {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-dark);
+      margin: 0 0 var(--bn-space-1) 0;
+    }
+
+    .payment-info p {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      margin: 0;
+    }
+
+    .payment-amount {
+      text-align: right;
+    }
+
+    .payment-amount-value {
+      font-size: var(--bn-text-base);
+      font-weight: 700;
+      color: var(--bn-dark);
+    }
+
+    .payment-due {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-warning);
+      font-weight: 500;
+    }
+
+    /* Groups Section */
+    .groups-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--bn-space-4);
+    }
+
+    .group-card {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-xl);
+      padding: var(--bn-space-5);
+      border: 1px solid var(--bn-gray-lighter);
+      text-decoration: none;
+      transition: all var(--bn-transition-base);
+    }
+
+    .group-card:hover {
+      border-color: var(--bn-accent);
+      box-shadow: var(--bn-shadow-lg);
+      transform: translateY(-4px);
+    }
+
+    .group-header {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .group-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--bn-radius-lg);
+      background: var(--bn-gradient-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      color: var(--bn-white);
+    }
+
+    .group-name {
+      font-size: var(--bn-text-base);
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin: 0 0 var(--bn-space-1) 0;
+    }
+
+    .group-role {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+
+    .group-stats {
+      display: flex;
+      gap: var(--bn-space-4);
+      padding-top: var(--bn-space-4);
+      border-top: 1px solid var(--bn-gray-lighter);
+    }
+
+    .group-stat-item {
+      flex: 1;
+    }
+
+    .group-stat-value {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      color: var(--bn-dark);
+    }
+
+    .group-stat-label {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
     }
 
     /* Empty State */
     .empty-state {
       text-align: center;
-      padding: var(--bn-space-3xl);
-      color: var(--bn-gray);
+      padding: var(--bn-space-10) var(--bn-space-6);
     }
 
     .empty-state-icon {
-      font-size: 64px;
-      margin-bottom: var(--bn-space-md);
-      opacity: 0.5;
+      font-size: 48px;
+      margin-bottom: var(--bn-space-3);
+      opacity: 0.4;
     }
 
     .empty-state-text {
-      font-size: 1rem;
-    }
-
-    /* Badge */
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: var(--bn-space-xs);
-      padding: 0.25rem 0.75rem;
-      font-size: 0.75rem;
-      font-weight: 600;
-      border-radius: var(--bn-radius-full);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      background: rgba(239, 68, 68, 0.1);
-      color: #ef4444;
-    }
-
-    .badge.hidden {
-      display: none;
-    }
-
-    /* Footer */
-    .dashboard-footer {
-      background: var(--bn-dark);
-      color: var(--bn-white);
-      padding: var(--bn-space-3xl) var(--bn-space-xl);
-      margin-top: auto;
-      position: relative;
-      z-index: 1;
-    }
-
-    .footer-content {
-      max-width: 1200px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: var(--bn-space-xl);
-    }
-
-    .footer-section h4 {
-      font-size: 1rem;
-      font-weight: 700;
-      margin: 0 0 var(--bn-space-md) 0;
-      color: var(--bn-white);
-    }
-
-    .footer-section p,
-    .footer-section a {
-      font-size: 0.875rem;
-      color: rgba(255, 255, 255, 0.7);
-      text-decoration: none;
-      display: block;
-      margin-bottom: var(--bn-space-xs);
-      transition: color var(--bn-transition-base);
-    }
-
-    .footer-section a:hover {
-      color: var(--bn-primary-light);
-    }
-
-    .footer-bottom {
-      max-width: 1200px;
-      margin: var(--bn-space-xl) auto 0;
-      padding-top: var(--bn-space-xl);
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      text-align: center;
-      font-size: 0.875rem;
-      color: rgba(255, 255, 255, 0.6);
-    }
-
-    /* Loading Overlay */
-    .spinner-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(15, 23, 42, 0.8);
-      backdrop-filter: blur(4px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-    }
-
-    .spinner-overlay.hidden {
-      display: none;
-    }
-
-    .spinner-content {
-      text-align: center;
-      color: var(--bn-white);
-    }
-
-    .spinner {
-      width: 50px;
-      height: 50px;
-      border: 4px solid rgba(255, 255, 255, 0.3);
-      border-top-color: var(--bn-white);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin: 0 auto var(--bn-space-md);
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .loading-text {
-      font-size: 1rem;
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
       margin: 0;
     }
 
-    /* Responsive */
-    @media (max-width: 1023px) {
-      .dashboard-hero {
-        padding: var(--bn-space-3xl) var(--bn-space-lg);
+    /* ============================================
+       MODALS
+       ============================================ */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 22, 40, 0.8);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: var(--z-modal);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--bn-transition-base);
+    }
+
+    .modal-overlay.active,
+    .modal-overlay:not(.hidden) {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal-overlay.hidden {
+      display: none;
+    }
+
+    .modal-content {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-2xl) var(--bn-radius-2xl) 0 0;
+      width: 100%;
+      max-width: 560px;
+      max-height: 90vh;
+      overflow-y: auto;
+      transform: translateY(100%);
+      transition: transform var(--bn-transition-base);
+    }
+
+    .modal-overlay.active .modal-content,
+    .modal-overlay:not(.hidden) .modal-content {
+      transform: translateY(0);
+    }
+
+    @media (min-width: 768px) {
+      .modal-overlay {
+        align-items: center;
       }
 
-      .dashboard-content {
-        padding: var(--bn-space-2xl) var(--bn-space-lg);
+      .modal-content {
+        border-radius: var(--bn-radius-2xl);
+        transform: scale(0.95) translateY(20px);
       }
 
-      .content-container {
-        padding: var(--bn-space-xl);
+      .modal-overlay.active .modal-content,
+      .modal-overlay:not(.hidden) .modal-content {
+        transform: scale(1) translateY(0);
       }
+    }
 
-      .hero-stats {
-        grid-template-columns: repeat(2, 1fr);
-      }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--bn-space-5) var(--bn-space-6);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+    }
 
-      .action-grid {
+    .modal-title {
+      font-size: var(--bn-text-xl);
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .modal-close {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--bn-radius-md);
+      background: var(--bn-gray-100);
+      border: none;
+      font-size: 1.5rem;
+      color: var(--bn-gray);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--bn-transition-fast);
+    }
+
+    .modal-close:hover {
+      background: var(--bn-gray-lighter);
+      color: var(--bn-dark);
+    }
+
+    .modal-body {
+      padding: var(--bn-space-6);
+    }
+
+    /* ============================================
+       MOBILE BOTTOM NAV
+       ============================================ */
+    .mobile-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--bn-white);
+      border-top: 1px solid var(--bn-gray-lighter);
+      display: flex;
+      justify-content: space-around;
+      padding: var(--bn-space-2) 0;
+      z-index: var(--z-fixed);
+    }
+
+    .mobile-nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--bn-space-1);
+      padding: var(--bn-space-2) var(--bn-space-4);
+      text-decoration: none;
+      color: var(--bn-gray);
+      font-size: var(--bn-text-xs);
+      font-weight: 500;
+      transition: color var(--bn-transition-fast);
+    }
+
+    .mobile-nav-item.active {
+      color: var(--bn-accent);
+    }
+
+    .mobile-nav-icon {
+      font-size: 1.25rem;
+    }
+
+    /* ============================================
+       RESPONSIVE
+       ============================================ */
+    @media (max-width: 1024px) {
+      .content-grid {
         grid-template-columns: 1fr;
       }
     }
 
-    @media (max-width: 640px) {
-      .dashboard-hero-header {
-        flex-direction: column;
-        align-items: flex-start;
+    @media (max-width: 768px) {
+      .hero-section {
+        padding: var(--bn-space-6) var(--bn-space-4) var(--bn-space-12);
       }
 
       .hero-stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--bn-space-3);
+      }
+
+      .hero-stat {
+        min-width: auto;
+        padding: var(--bn-space-3);
+      }
+
+      .hero-stat-value {
+        font-size: var(--bn-text-base);
+      }
+
+      .main-content {
+        padding: 0 var(--bn-space-4);
+      }
+
+      .quick-actions {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .groups-grid {
         grid-template-columns: 1fr;
       }
 
-      .footer-content {
-        grid-template-columns: 1fr;
+      .content-card-body {
+        padding: var(--bn-space-4);
       }
+    }
+
+    /* ============================================
+       ANIMATIONS
+       ============================================ */
+    .hero-stat {
+      animation: fadeInUp 0.5s var(--bn-ease-out) backwards;
+    }
+
+    .hero-stat:nth-child(1) { animation-delay: 0.1s; }
+    .hero-stat:nth-child(2) { animation-delay: 0.2s; }
+    .hero-stat:nth-child(3) { animation-delay: 0.3s; }
+    .hero-stat:nth-child(4) { animation-delay: 0.4s; }
+
+    .content-card {
+      animation: fadeInUp 0.6s var(--bn-ease-out) 0.3s backwards;
     }
   </style>
 </head>
 <body>
-  <!-- Background Decoration (same as login.html) -->
-  <div class="login-bg">
-    <div class="login-bg-shape login-bg-shape-1"></div>
-    <div class="login-bg-shape login-bg-shape-2"></div>
-    <div class="login-bg-shape login-bg-shape-3"></div>
-  </div>
+  <!-- Top Navigation -->
+  <nav class="top-nav">
+    <div class="top-nav-container">
+      <a href="../index.html" class="top-nav-logo">
+        <div class="top-nav-logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <span class="top-nav-logo-text">Bank Nkhonde</span>
+      </a>
 
-  <!-- Main Dashboard -->
-  <div class="dashboard-main">
-    <!-- Hero Section -->
-    <div class="dashboard-hero">
-      <div class="dashboard-hero-content">
-        <div class="dashboard-hero-header">
-          <div class="dashboard-hero-title">
-            <h1>My Dashboard</h1>
-            <p>Welcome, <span id="userName">User</span></p>
-          </div>
-          <div class="dashboard-hero-actions">
-            <button class="hero-action-btn" id="switchViewButton" aria-label="Switch to Admin View" title="Switch to Admin View" style="display:none;">
-              👨‍💼
+      <div class="top-nav-actions">
+        <!-- View Toggle (only shows if user is admin) -->
+        <div class="view-toggle hidden" id="viewToggle">
+          <button class="view-toggle-btn" onclick="window.location.href='admin_dashboard.html'">Admin</button>
+          <button class="view-toggle-btn active">User</button>
+        </div>
+        <button class="top-nav-btn" onclick="window.location.href='select_group.html'" title="Select Group">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <line x1="12" y1="8" x2="12" y2="16"/>
+            <line x1="8" y1="12" x2="16" y2="12"/>
+          </svg>
+        </button>
+        <button class="top-nav-btn" id="logoutBtn" title="Logout">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+        <a href="settings.html" class="top-nav-avatar" id="userAvatar" title="Settings & Profile">
+          <img id="userProfilePic" src="" alt="Profile" style="display: none;">
+          <span id="userInitials">U</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <div class="hero-container">
+      <div class="hero-greeting">
+        <p class="hero-greeting-text">Welcome back,</p>
+        <h1 class="hero-greeting-name" id="userName">User</h1>
+      </div>
+
+        <div class="hero-stats">
+        <div class="hero-stat">
+          <div class="hero-stat-value" id="totalContributed">MWK 0</div>
+          <div class="hero-stat-label">Contributed</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-value" id="activeLoans">0</div>
+          <div class="hero-stat-label">Loans</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-value" id="pendingPayments">0</div>
+          <div class="hero-stat-label">Pending</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-value" id="totalArrears">MWK 0</div>
+          <div class="hero-stat-label">Arrears</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="content-grid">
+      <!-- Quick Actions Card -->
+      <div class="content-card">
+        <div class="content-card-header">
+          <h2 class="content-card-title">Quick Actions</h2>
+        </div>
+        <div class="content-card-body">
+          <div class="quick-actions">
+            <button class="action-btn" id="requestLoanBtn">
+              <span class="action-label">Request Loan</span>
             </button>
-            <button class="hero-action-btn" id="logoutBtn" aria-label="Logout" title="Logout">
-              🚪
+            <button class="action-btn" id="uploadPaymentBtn">
+              <span class="action-label">Upload Payment</span>
             </button>
+            <a href="contacts.html" class="action-btn" id="viewMembersBtn">
+              <span class="action-label">Members</span>
+            </a>
+            <a href="view_rules.html" class="action-btn" id="viewRulesBtn">
+              <span class="action-label">Rules</span>
+            </a>
+            <a href="user_analytics.html" class="action-btn">
+              <span class="action-label">Analytics</span>
+            </a>
+            <a href="select_group.html" class="action-btn">
+              <span class="action-label">Groups</span>
+            </a>
+            <a href="settings.html" class="action-btn">
+              <span class="action-label">Settings</span>
+            </a>
           </div>
         </div>
-        <div class="hero-stats">
-          <div class="hero-stat">
-            <div class="hero-stat-label">Total Contributed</div>
-            <div class="hero-stat-value" id="totalContributed">MWK 0</div>
+      </div>
+
+      <!-- Notifications Card -->
+      <div class="content-card">
+        <div class="content-card-header">
+          <h2 class="content-card-title">Notifications</h2>
+          <div style="display: flex; align-items: center; gap: var(--bn-space-2);">
+            <span class="badge badge-danger hidden" id="unreadBadge">0</span>
+            <a href="messages.html" class="btn btn-ghost btn-sm">View All</a>
           </div>
-          <div class="hero-stat">
-            <div class="hero-stat-label">Active Loans</div>
-            <div class="hero-stat-value" id="activeLoans">MWK 0</div>
-          </div>
-          <div class="hero-stat">
-            <div class="hero-stat-label">Pending Payments</div>
-            <div class="hero-stat-value" id="pendingPayments">MWK 0</div>
-          </div>
-          <div class="hero-stat">
-            <div class="hero-stat-label">Arrears/Penalties</div>
-            <div class="hero-stat-value" id="totalArrears">MWK 0</div>
+        </div>
+        <div class="content-card-body">
+          <div class="notification-list" id="notificationsList">
+            <div class="empty-state">
+              <div class="empty-state-icon">📬</div>
+              <p class="empty-state-text">No notifications</p>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Main Content -->
-    <div class="dashboard-content">
-      <!-- Notifications Container -->
-      <div class="content-container">
-        <div class="container-header">
-          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-            <h2 class="container-title" style="margin: 0;">
-              <span class="container-title-icon">📬</span>
-              Notifications
-            </h2>
-            <span class="badge hidden" id="unreadBadge">0</span>
-          </div>
-        </div>
-        <div id="notificationsList">
-          <div class="empty-state">
-            <div class="empty-state-icon">📬</div>
-            <p class="empty-state-text">No notifications</p>
-          </div>
+    <!-- Payment Calendar -->
+    <div class="content-card" style="margin-bottom: var(--bn-space-6);">
+      <div class="content-card-header">
+        <h2 class="content-card-title">Payment Calendar</h2>
+        <div style="display: flex; gap: var(--bn-space-2); align-items: center;">
+          <button class="btn btn-ghost btn-sm" id="calendarPrevMonth">&lt;</button>
+          <span id="calendarMonthYear" style="font-weight: 600; min-width: 150px; text-align: center;"></span>
+          <button class="btn btn-ghost btn-sm" id="calendarNextMonth">&gt;</button>
         </div>
       </div>
-
-      <!-- Quick Actions Container -->
-      <div class="content-container">
-        <div class="container-header">
-          <h2 class="container-title">
-            <span class="container-title-icon">⚡</span>
-            Quick Actions
-          </h2>
-        </div>
-        <div class="action-grid">
-          <button id="requestLoanBtn" class="action-card" style="border: none; background: linear-gradient(135deg, var(--bn-gray-lighter) 0%, var(--bn-white) 100%); cursor: pointer;">
-            <div class="action-icon">💰</div>
-            <div class="action-info">
-              <h3>Request Loan</h3>
-              <p>Apply for a new loan</p>
-            </div>
-          </button>
-          
-          <button id="uploadPaymentBtn" class="action-card" style="border: none; background: linear-gradient(135deg, var(--bn-gray-lighter) 0%, var(--bn-white) 100%); cursor: pointer;">
-            <div class="action-icon">📤</div>
-            <div class="action-info">
-              <h3>Upload Payment</h3>
-              <p>Submit payment proof</p>
-            </div>
-          </button>
-          
-          <button id="viewMembersBtn" class="action-card" style="border: none; background: linear-gradient(135deg, var(--bn-gray-lighter) 0%, var(--bn-white) 100%); cursor: pointer;">
-            <div class="action-icon">👥</div>
-            <div class="action-info">
-              <h3>View Members</h3>
-              <p>See group members</p>
-            </div>
-          </button>
-          
-          <button id="viewRulesBtn" class="action-card" style="border: none; background: linear-gradient(135deg, var(--bn-gray-lighter) 0%, var(--bn-white) 100%); cursor: pointer;">
-            <div class="action-icon">📋</div>
-            <div class="action-info">
-              <h3>View Rules</h3>
-              <p>Group rules and regulations</p>
-            </div>
-          </button>
-          
-          <button id="messagesBtn" class="action-card" style="border: none; background: linear-gradient(135deg, var(--bn-gray-lighter) 0%, var(--bn-white) 100%); cursor: pointer;">
-            <div class="action-icon">💬</div>
-            <div class="action-info">
-              <h3>Messages</h3>
-              <p>Contact admin</p>
-            </div>
-          </button>
-          
-          <button id="editProfileBtn" class="action-card" style="border: none; background: linear-gradient(135deg, var(--bn-gray-lighter) 0%, var(--bn-white) 100%); cursor: pointer;">
-            <div class="action-icon">⚙️</div>
-            <div class="action-info">
-              <h3>Edit Profile</h3>
-              <p>Update your information</p>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      <!-- Upcoming Payments Container -->
-      <div class="content-container">
-        <div class="container-header">
-          <h2 class="container-title">
-            <span class="container-title-icon">📅</span>
-            Upcoming Payments
-          </h2>
-        </div>
-        <div id="upcomingPayments">
-          <div class="empty-state">
-            <div class="empty-state-icon">📅</div>
-            <p class="empty-state-text">No upcoming payments</p>
+      <div class="content-card-body">
+        <div id="paymentCalendar"></div>
+        <div style="margin-top: var(--bn-space-4); padding-top: var(--bn-space-4); border-top: 1px solid var(--bn-gray-lighter); display: flex; gap: var(--bn-space-4); flex-wrap: wrap; font-size: var(--bn-text-xs);">
+          <div style="display: flex; align-items: center; gap: var(--bn-space-2);">
+            <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--bn-primary);"></div>
+            <span>Monthly Contribution</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: var(--bn-space-2);">
+            <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--bn-accent);"></div>
+            <span>Seed Money</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: var(--bn-space-2);">
+            <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--bn-warning);"></div>
+            <span>Loan Repayment</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: var(--bn-space-2);">
+            <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--bn-danger); border: 2px solid var(--bn-danger);"></div>
+            <span>Overdue</span>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- User Groups Container -->
-      <div class="content-container">
-        <div class="container-header">
-          <h2 class="container-title">
-            <span class="container-title-icon">📁</span>
-            Your Groups
-          </h2>
+    <!-- Upcoming Payments -->
+    <div class="content-card" style="margin-bottom: var(--bn-space-6);">
+      <div class="content-card-header">
+        <h2 class="content-card-title">Upcoming Payments</h2>
+      </div>
+      <div class="content-card-body" id="upcomingPayments">
+        <div class="empty-state">
+          <div class="empty-state-icon">📅</div>
+          <p class="empty-state-text">No upcoming payments</p>
         </div>
-        <div id="groupList">
-          <div class="empty-state">
+      </div>
+    </div>
+
+    <!-- Your Groups -->
+    <div class="content-card">
+      <div class="content-card-header">
+        <h2 class="content-card-title">Your Groups</h2>
+      </div>
+      <div class="content-card-body">
+        <div class="groups-grid" id="groupList">
+          <div class="empty-state" style="grid-column: span 2;">
             <div class="empty-state-icon">📁</div>
             <p class="empty-state-text">Loading your groups...</p>
           </div>
         </div>
       </div>
     </div>
-  </div>
-
-  <!-- Footer -->
-  <footer class="dashboard-footer">
-    <div class="footer-content">
-      <div class="footer-section">
-        <h4>Bank Nkhonde</h4>
-        <p>Empowering communities through collaborative savings. Track your contributions, manage loans, and grow wealth together.</p>
-      </div>
-      <div class="footer-section">
-        <h4>Quick Links</h4>
-        <a href="user_dashboard.html">Dashboard</a>
-        <a href="group_page.html">My Groups</a>
-        <a href="settings.html">Settings</a>
-      </div>
-      <div class="footer-section">
-        <h4>Support</h4>
-        <a href="#">Help Center</a>
-        <a href="#">Contact Admin</a>
-        <a href="#">FAQs</a>
-      </div>
-      <div class="footer-section">
-        <h4>Legal</h4>
-        <a href="#">Privacy Policy</a>
-        <a href="#">Terms of Service</a>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <p>&copy; 2024 Bank Nkhonde. All rights reserved.</p>
-    </div>
-  </footer>
+  </main>
 
   <!-- Request Loan Modal -->
   <div class="modal-overlay hidden" id="loanModal">
     <div class="modal-content">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--bn-space-lg);">
-        <h2 style="margin: 0;">Request a Loan</h2>
-        <button id="closeLoanModal" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+      <div class="modal-header">
+        <h2 class="modal-title">Request a Loan</h2>
+        <button class="modal-close" id="closeLoanModal">&times;</button>
       </div>
-      <form id="loanRequestForm">
-        <div class="form-group">
-          <label class="form-label">Select Group</label>
-          <select id="loanGroup" class="form-select" required>
-            <option value="">Choose a group...</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Loan Amount (MWK)</label>
-          <input type="number" id="loanAmount" class="form-input" placeholder="Enter amount" required min="1000">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Purpose</label>
-          <select id="loanPurpose" class="form-select" required>
-            <option value="">Select purpose...</option>
-            <option value="business">Business</option>
-            <option value="education">Education</option>
-            <option value="medical">Medical</option>
-            <option value="emergency">Emergency</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Description (Optional)</label>
-          <textarea id="loanDescription" class="form-textarea" rows="3" placeholder="Brief description..."></textarea>
-        </div>
-        <button type="submit" class="btn btn-primary btn-block">Submit Loan Request</button>
-      </form>
+      <div class="modal-body">
+        <form id="loanRequestForm">
+          <div class="form-group">
+            <label class="form-label">Select Group</label>
+            <select id="loanGroup" class="form-select" required>
+              <option value="">Choose a group...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Loan Amount (MWK)</label>
+            <input type="number" id="loanAmount" class="form-input" placeholder="Enter amount" required min="1000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Purpose</label>
+            <select id="loanPurpose" class="form-select" required>
+              <option value="">Select purpose...</option>
+              <option value="business">Business</option>
+              <option value="education">Education</option>
+              <option value="medical">Medical</option>
+              <option value="emergency">Emergency</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Description (Optional)</label>
+            <textarea id="loanDescription" class="form-textarea" rows="3" placeholder="Brief description..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-accent btn-block btn-lg">Submit Loan Request</button>
+        </form>
+      </div>
     </div>
   </div>
 
   <!-- Upload Payment Modal -->
   <div class="modal-overlay hidden" id="paymentModal">
     <div class="modal-content">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--bn-space-lg);">
-        <h2 style="margin: 0;">Upload Payment Proof</h2>
-        <button id="closePaymentModal" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+      <div class="modal-header">
+        <h2 class="modal-title">Upload Payment Proof</h2>
+        <button class="modal-close" id="closePaymentModal">&times;</button>
       </div>
-      <form id="paymentUploadForm">
-        <div class="form-group">
-          <label class="form-label">Select Group</label>
-          <select id="paymentGroup" class="form-select" required>
-            <option value="">Choose a group...</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Payment Type</label>
-          <select id="paymentType" class="form-select" required>
-            <option value="">Select type...</option>
-            <option value="seed_money">Seed Money</option>
-            <option value="monthly_contribution">Monthly Contribution</option>
-            <option value="loan_repayment">Loan Repayment</option>
-            <option value="penalty">Penalty Payment</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Amount Paid (MWK)</label>
-          <input type="number" id="paymentAmount" class="form-input" placeholder="Enter amount" required min="1">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Payment Date</label>
-          <input type="date" id="paymentDate" class="form-input" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Proof of Payment</label>
-          <input type="file" id="paymentProof" class="form-input" accept="image/*,.pdf" required>
-        </div>
-        <button type="submit" class="btn btn-primary btn-block">Submit Payment</button>
-      </form>
+      <div class="modal-body">
+        <form id="paymentUploadForm">
+          <div class="form-group">
+            <label class="form-label">Select Group</label>
+            <select id="paymentGroup" class="form-select" required>
+              <option value="">Choose a group...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Payment Type</label>
+            <select id="paymentType" class="form-select" required>
+              <option value="">Select type...</option>
+              <option value="seed_money">Seed Money</option>
+              <option value="monthly_contribution">Monthly Contribution</option>
+              <option value="loan_repayment">Loan Repayment</option>
+              <option value="penalty">Penalty Payment</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Amount Paid (MWK)</label>
+            <input type="number" id="paymentAmount" class="form-input" placeholder="Enter amount" required min="1">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Payment Date</label>
+            <input type="date" id="paymentDate" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Proof of Payment</label>
+            <input type="file" id="paymentProof" class="form-input" accept="image/*,.pdf" required>
+          </div>
+          <button type="submit" class="btn btn-accent btn-block btn-lg">Submit Payment</button>
+        </form>
+      </div>
     </div>
   </div>
+
+  <!-- Mobile Bottom Navigation -->
+  <nav class="mobile-nav">
+    <a href="user_dashboard.html" class="mobile-nav-item active">
+      <span class="mobile-nav-icon">🏠</span>
+      <span>Home</span>
+    </a>
+    <a href="group_page.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">👥</span>
+      <span>Groups</span>
+    </a>
+    <a href="user_analytics.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">📊</span>
+      <span>Analytics</span>
+    </a>
+    <a href="settings.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">⚙️</span>
+      <span>Settings</span>
+    </a>
+  </nav>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
 
   <!-- Loading Overlay -->
   <div class="spinner-overlay hidden" id="spinner">
@@ -775,6 +1144,7 @@
     </div>
   </div>
 
+  <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>

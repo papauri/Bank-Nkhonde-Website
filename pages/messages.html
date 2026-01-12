@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Messages - Bank Nkhonde">
+  <meta name="theme-color" content="#0A1628">
+  <title>Messages - Bank Nkhonde</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/pages.css">
+  <link rel="icon" type="image/png" href="../assets/favicon.png">
+  <style>
+    .messages-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--bn-space-3);
+    }
+
+    .message-item {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-space-5);
+      border: 1px solid var(--bn-gray-lighter);
+      cursor: pointer;
+      transition: all var(--bn-transition-base);
+    }
+
+    .message-item:hover {
+      border-color: var(--bn-primary);
+      box-shadow: var(--bn-shadow-md);
+    }
+
+    .message-item.unread {
+      background: var(--bn-accent-subtle);
+      border-color: var(--bn-accent);
+    }
+
+    .message-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: var(--bn-space-3);
+    }
+
+    .message-title {
+      font-size: var(--bn-text-base);
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin: 0 0 var(--bn-space-1);
+    }
+
+    .message-meta {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+
+    .message-type-badge {
+      padding: 2px 8px;
+      border-radius: var(--bn-radius-full);
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .message-type-badge.info {
+      background: var(--bn-info-light);
+      color: var(--bn-info);
+    }
+
+    .message-type-badge.success {
+      background: var(--bn-success-light);
+      color: var(--bn-success);
+    }
+
+    .message-type-badge.warning {
+      background: var(--bn-warning-light);
+      color: var(--bn-warning);
+    }
+
+    .message-type-badge.danger {
+      background: var(--bn-danger-light);
+      color: var(--bn-danger);
+    }
+
+    .message-body {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray-700);
+      line-height: 1.6;
+      white-space: pre-wrap;
+      margin-bottom: var(--bn-space-3);
+    }
+
+    .message-actions {
+      display: flex;
+      gap: var(--bn-space-2);
+      padding-top: var(--bn-space-3);
+      border-top: 1px solid var(--bn-gray-lighter);
+    }
+
+    .message-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 22, 40, 0.8);
+      backdrop-filter: blur(8px);
+      z-index: 10000;
+      padding: var(--bn-space-4);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .message-modal.active {
+      display: flex;
+    }
+
+    .message-modal-content {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-xl);
+      max-width: 600px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: var(--bn-shadow-xl);
+    }
+
+    .message-modal-header {
+      padding: var(--bn-space-5) var(--bn-space-6);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .message-modal-title {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin: 0;
+    }
+
+    .message-modal-close {
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-full);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--bn-text-xl);
+      color: var(--bn-gray);
+    }
+
+    .message-modal-body {
+      padding: var(--bn-space-6);
+    }
+
+    .message-modal-meta {
+      display: flex;
+      gap: var(--bn-space-4);
+      margin-bottom: var(--bn-space-4);
+      padding-bottom: var(--bn-space-4);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
+    }
+
+    .message-modal-text {
+      font-size: var(--bn-text-base);
+      color: var(--bn-dark);
+      line-height: 1.7;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <!-- Page Header -->
+  <header class="page-header">
+    <div class="page-header-container">
+      <div class="page-header-top">
+        <div class="page-header-nav">
+          <button class="page-back-btn" onclick="history.back()" aria-label="Go back">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+          </button>
+          <div>
+            <h1 class="page-title">Messages</h1>
+            <p class="page-subtitle">Your notifications and broadcasts</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="page-group-selector">
+        <select id="groupSelector">
+          <option value="">All Groups</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- Page Content -->
+  <main class="page-content">
+    <section class="content-section">
+      <div class="content-section-header">
+        <h2 class="content-section-title">Your Messages</h2>
+        <button class="btn btn-ghost btn-sm" id="markAllReadBtn" style="display: none;">Mark All as Read</button>
+      </div>
+      <div class="content-section-body">
+        <div class="messages-list" id="messagesList">
+          <div class="empty-state">
+            <div class="empty-state-icon">📬</div>
+            <p class="empty-state-text">Loading messages...</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Message Modal -->
+  <div class="message-modal" id="messageModal">
+    <div class="message-modal-content">
+      <div class="message-modal-header">
+        <h3 class="message-modal-title" id="modalTitle">Message</h3>
+        <button class="message-modal-close" id="closeModal">&times;</button>
+      </div>
+      <div class="message-modal-body">
+        <div class="message-modal-meta" id="modalMeta"></div>
+        <div class="message-modal-text" id="modalText"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Navigation -->
+  <nav class="mobile-nav">
+    <a href="user_dashboard.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">🏠</span>
+      <span>Home</span>
+    </a>
+    <a href="contacts.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">📇</span>
+      <span>Contacts</span>
+    </a>
+    <a href="messages.html" class="mobile-nav-item active">
+      <span class="mobile-nav-icon">📬</span>
+      <span>Messages</span>
+    </a>
+    <a href="settings.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">⚙️</span>
+      <span>Settings</span>
+    </a>
+  </nav>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Loading Overlay -->
+  <div class="spinner-overlay hidden" id="spinner">
+    <div class="spinner-content">
+      <div class="spinner"></div>
+      <p class="loading-text">Loading messages...</p>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+  <script type="module" src="../scripts/messages.js"></script>
+</body>
+</html>

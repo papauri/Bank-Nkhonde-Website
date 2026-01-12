@@ -3,14 +3,1382 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Bank Nkhonde - A digital platform for managing ROSCAs">
-  <title>Bank Nkhonde</title>
-  <script>
-    // Redirect to login page
-    window.location.href = "login.html";
-  </script>
+  <meta name="description" content="Bank Nkhonde - Elevate Your Group's Financial Momentum. Premium digital ROSCA platform for Malawi.">
+  <meta name="theme-color" content="#0A1628">
+  <title>Bank Nkhonde | Premium Digital ROSCA Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles/design-system.css">
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <style>
+    /* Landing Page Specific Styles */
+    :root {
+      --nav-height: 80px;
+    }
+
+    body {
+      background: var(--bn-off-white);
+    }
+
+    /* ============================================
+       NAVIGATION
+       ============================================ */
+    .nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: var(--nav-height);
+      z-index: var(--z-fixed);
+      transition: all var(--bn-transition-base);
+    }
+
+    .nav.scrolled {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+      box-shadow: var(--bn-shadow-sm);
+    }
+
+    .nav-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 var(--bn-space-6);
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+      text-decoration: none;
+    }
+
+    .nav-logo-icon {
+      width: 44px;
+      height: 44px;
+      background: var(--bn-gradient-accent);
+      border-radius: var(--bn-radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-logo-icon svg {
+      width: 24px;
+      height: 24px;
+      color: var(--bn-dark);
+    }
+
+    .nav-logo-text {
+      font-size: var(--bn-text-xl);
+      font-weight: 800;
+      color: var(--bn-white);
+      letter-spacing: -0.02em;
+      transition: color var(--bn-transition-base);
+    }
+
+    .nav.scrolled .nav-logo-text {
+      color: var(--bn-dark);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-8);
+    }
+
+    .nav-link {
+      font-size: var(--bn-text-sm);
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      transition: color var(--bn-transition-fast);
+    }
+
+    .nav-link:hover {
+      color: var(--bn-white);
+    }
+
+    .nav.scrolled .nav-link {
+      color: var(--bn-gray-700);
+    }
+
+    .nav.scrolled .nav-link:hover {
+      color: var(--bn-dark);
+    }
+
+    .nav-cta {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-4);
+    }
+
+    .nav-btn-secondary {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-white);
+      text-decoration: none;
+      transition: color var(--bn-transition-fast);
+    }
+
+    .nav.scrolled .nav-btn-secondary {
+      color: var(--bn-dark);
+    }
+
+    .nav-mobile-toggle {
+      display: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: var(--bn-space-2);
+    }
+
+    .nav-mobile-toggle span {
+      display: block;
+      width: 24px;
+      height: 2px;
+      background: var(--bn-white);
+      margin: 5px 0;
+      transition: all var(--bn-transition-fast);
+    }
+
+    .nav.scrolled .nav-mobile-toggle span {
+      background: var(--bn-dark);
+    }
+
+    /* ============================================
+       HERO SECTION
+       ============================================ */
+    .hero {
+      min-height: 100vh;
+      background: var(--bn-gradient-primary);
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: 
+        radial-gradient(ellipse at 20% 30%, rgba(201, 162, 39, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 70%, rgba(26, 43, 71, 0.5) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      padding: var(--bn-space-16) var(--bn-space-12);
+      max-width: 680px;
+      margin-left: auto;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+      padding: var(--bn-space-2) var(--bn-space-4);
+      background: rgba(201, 162, 39, 0.15);
+      border: 1px solid rgba(201, 162, 39, 0.3);
+      border-radius: var(--bn-radius-full);
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .hero-badge-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--bn-accent);
+      border-radius: 50%;
+      animation: pulse-dot 2s infinite;
+    }
+
+    .hero-badge-text {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-accent);
+      letter-spacing: var(--bn-tracking-wide);
+    }
+
+    .hero-title {
+      font-size: clamp(2.5rem, 5vw, 4rem);
+      font-weight: 800;
+      color: var(--bn-white);
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .hero-title-accent {
+      color: var(--bn-accent);
+    }
+
+    .hero-description {
+      font-size: var(--bn-text-lg);
+      color: rgba(255, 255, 255, 0.75);
+      line-height: 1.7;
+      margin-bottom: var(--bn-space-10);
+      max-width: 520px;
+    }
+
+    .hero-cta {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-4);
+      flex-wrap: wrap;
+    }
+
+    .hero-cta .btn-accent {
+      padding: var(--bn-space-4) var(--bn-space-8);
+      font-size: var(--bn-text-base);
+    }
+
+    .hero-cta-link {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      transition: color var(--bn-transition-fast);
+    }
+
+    .hero-cta-link:hover {
+      color: var(--bn-white);
+    }
+
+    .hero-cta-link svg {
+      width: 16px;
+      height: 16px;
+      transition: transform var(--bn-transition-fast);
+    }
+
+    .hero-cta-link:hover svg {
+      transform: translateX(4px);
+    }
+
+    .hero-visual {
+      position: relative;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--bn-space-16);
+    }
+
+    .hero-ring {
+      position: relative;
+      width: 400px;
+      height: 400px;
+    }
+
+    .hero-ring-outer {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px solid rgba(201, 162, 39, 0.2);
+      animation: ring-rotate 30s linear infinite;
+    }
+
+    .hero-ring-middle {
+      position: absolute;
+      inset: 40px;
+      border-radius: 50%;
+      border: 2px solid rgba(201, 162, 39, 0.3);
+      animation: ring-rotate 25s linear infinite reverse;
+    }
+
+    .hero-ring-inner {
+      position: absolute;
+      inset: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(201, 162, 39, 0.2) 0%, rgba(201, 162, 39, 0.05) 100%);
+      backdrop-filter: blur(20px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hero-ring-icon {
+      width: 120px;
+      height: 120px;
+      color: var(--bn-accent);
+      opacity: 0.9;
+    }
+
+    .hero-ring-dot {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: var(--bn-accent);
+      border-radius: 50%;
+      box-shadow: 0 0 20px rgba(201, 162, 39, 0.5);
+    }
+
+    .hero-ring-dot-1 { top: -6px; left: 50%; transform: translateX(-50%); }
+    .hero-ring-dot-2 { bottom: -6px; left: 50%; transform: translateX(-50%); }
+    .hero-ring-dot-3 { left: -6px; top: 50%; transform: translateY(-50%); }
+    .hero-ring-dot-4 { right: -6px; top: 50%; transform: translateY(-50%); }
+
+    @keyframes ring-rotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* ============================================
+       TRUST STRIP
+       ============================================ */
+    .trust-strip {
+      background: var(--bn-white);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+      padding: var(--bn-space-10) 0;
+    }
+
+    .trust-strip-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 var(--bn-space-6);
+    }
+
+    .trust-strip-label {
+      text-align: center;
+      font-size: var(--bn-text-xs);
+      font-weight: 600;
+      color: var(--bn-gray);
+      text-transform: uppercase;
+      letter-spacing: var(--bn-tracking-widest);
+      margin-bottom: var(--bn-space-8);
+    }
+
+    .trust-strip-logos {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--bn-space-16);
+      flex-wrap: wrap;
+    }
+
+    .trust-logo {
+      opacity: 0.5;
+      filter: grayscale(100%);
+      transition: all var(--bn-transition-base);
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      color: var(--bn-gray-700);
+      letter-spacing: -0.02em;
+    }
+
+    .trust-logo:hover {
+      opacity: 0.8;
+      filter: grayscale(0%);
+    }
+
+    /* ============================================
+       FEATURES SECTION
+       ============================================ */
+    .features {
+      padding: var(--bn-space-24) 0;
+      background: var(--bn-off-white);
+    }
+
+    .features-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 var(--bn-space-6);
+    }
+
+    .features-header {
+      text-align: center;
+      max-width: 640px;
+      margin: 0 auto var(--bn-space-16);
+    }
+
+    .features-header h2 {
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .features-header p {
+      font-size: var(--bn-text-lg);
+    }
+
+    .feature-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--bn-space-16);
+      align-items: center;
+      margin-bottom: var(--bn-space-20);
+    }
+
+    .feature-row:nth-child(even) .feature-content {
+      order: 2;
+    }
+
+    .feature-row:nth-child(even) .feature-visual {
+      order: 1;
+    }
+
+    .feature-content {
+      max-width: 480px;
+    }
+
+    .feature-number {
+      font-size: var(--bn-text-sm);
+      font-weight: 700;
+      color: var(--bn-accent);
+      letter-spacing: var(--bn-tracking-widest);
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .feature-title {
+      font-size: var(--bn-text-3xl);
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .feature-description {
+      font-size: var(--bn-text-base);
+      line-height: 1.7;
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .feature-list {
+      list-style: none;
+    }
+
+    .feature-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--bn-space-3);
+      margin-bottom: var(--bn-space-3);
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray-700);
+    }
+
+    .feature-list-check {
+      width: 20px;
+      height: 20px;
+      background: var(--bn-success-light);
+      color: var(--bn-success);
+      border-radius: var(--bn-radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .feature-list-check svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .feature-visual {
+      position: relative;
+    }
+
+    .feature-card {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-2xl);
+      padding: var(--bn-space-8);
+      box-shadow: var(--bn-shadow-xl);
+      border: 1px solid var(--bn-gray-lighter);
+    }
+
+    .feature-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .feature-card-title {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+    }
+
+    .feature-card-badge {
+      font-size: var(--bn-text-xs);
+      font-weight: 600;
+      color: var(--bn-success);
+      background: var(--bn-success-light);
+      padding: var(--bn-space-1) var(--bn-space-3);
+      border-radius: var(--bn-radius-full);
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: var(--bn-space-1);
+    }
+
+    .calendar-day {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
+      border-radius: var(--bn-radius-md);
+    }
+
+    .calendar-day.active {
+      background: var(--bn-gradient-accent);
+      color: var(--bn-dark);
+      font-weight: 700;
+    }
+
+    .calendar-day.payout {
+      background: var(--bn-success-light);
+      color: var(--bn-success);
+      font-weight: 600;
+    }
+
+    /* Security Visual */
+    .security-visual {
+      display: flex;
+      flex-direction: column;
+      gap: var(--bn-space-4);
+    }
+
+    .security-item {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-xl);
+      padding: var(--bn-space-5);
+      box-shadow: var(--bn-shadow-md);
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-4);
+      border: 1px solid var(--bn-gray-lighter);
+    }
+
+    .security-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--bn-gradient-primary);
+      border-radius: var(--bn-radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--bn-white);
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .security-info h4 {
+      font-size: var(--bn-text-base);
+      margin-bottom: var(--bn-space-1);
+    }
+
+    .security-info p {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
+      margin: 0;
+    }
+
+    /* Transparency Visual */
+    .transparency-card {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-2xl);
+      padding: var(--bn-space-6);
+      box-shadow: var(--bn-shadow-xl);
+      border: 1px solid var(--bn-gray-lighter);
+    }
+
+    .transparency-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--bn-space-5);
+    }
+
+    .transparency-tabs {
+      display: flex;
+      gap: var(--bn-space-1);
+      background: var(--bn-gray-100);
+      padding: var(--bn-space-1);
+      border-radius: var(--bn-radius-full);
+    }
+
+    .transparency-tab {
+      padding: var(--bn-space-2) var(--bn-space-4);
+      font-size: var(--bn-text-xs);
+      font-weight: 600;
+      border-radius: var(--bn-radius-full);
+      color: var(--bn-gray);
+      background: transparent;
+    }
+
+    .transparency-tab.active {
+      background: var(--bn-white);
+      color: var(--bn-dark);
+      box-shadow: var(--bn-shadow-sm);
+    }
+
+    .chart-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: var(--bn-space-3);
+      height: 160px;
+      padding-top: var(--bn-space-4);
+    }
+
+    .chart-bar {
+      flex: 1;
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-md) var(--bn-radius-md) 0 0;
+      position: relative;
+    }
+
+    .chart-bar::after {
+      content: attr(data-label);
+      position: absolute;
+      bottom: -24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+
+    .chart-bar:nth-child(1) { height: 40%; }
+    .chart-bar:nth-child(2) { height: 65%; }
+    .chart-bar:nth-child(3) { height: 55%; }
+    .chart-bar:nth-child(4) { height: 80%; }
+    .chart-bar:nth-child(5) { height: 70%; background: var(--bn-gradient-accent); }
+    .chart-bar:nth-child(6) { height: 90%; }
+
+    /* ============================================
+       CTA SECTION
+       ============================================ */
+    .cta-section {
+      background: var(--bn-gradient-primary);
+      padding: var(--bn-space-24) 0;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-section::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, rgba(201, 162, 39, 0.1) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .cta-container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0 var(--bn-space-6);
+      position: relative;
+      z-index: 1;
+    }
+
+    .cta-title {
+      font-size: clamp(2rem, 4vw, 3rem);
+      color: var(--bn-white);
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .cta-description {
+      font-size: var(--bn-text-lg);
+      color: rgba(255, 255, 255, 0.75);
+      margin-bottom: var(--bn-space-8);
+    }
+
+    .cta-buttons {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--bn-space-4);
+      flex-wrap: wrap;
+    }
+
+    /* ============================================
+       FOOTER
+       ============================================ */
+    .footer {
+      background: var(--bn-dark);
+      color: var(--bn-white);
+      padding: var(--bn-space-16) 0 var(--bn-space-8);
+    }
+
+    .footer-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 var(--bn-space-6);
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr repeat(3, 1fr);
+      gap: var(--bn-space-12);
+      margin-bottom: var(--bn-space-12);
+    }
+
+    .footer-brand {
+      max-width: 320px;
+    }
+
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+      margin-bottom: var(--bn-space-5);
+    }
+
+    .footer-logo-icon {
+      width: 44px;
+      height: 44px;
+      background: var(--bn-gradient-accent);
+      border-radius: var(--bn-radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .footer-logo-text {
+      font-size: var(--bn-text-xl);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .footer-brand p {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: var(--bn-text-sm);
+      line-height: 1.7;
+      margin: 0;
+    }
+
+    .footer-column h4 {
+      font-size: var(--bn-text-sm);
+      font-weight: 700;
+      color: var(--bn-white);
+      text-transform: uppercase;
+      letter-spacing: var(--bn-tracking-wider);
+      margin-bottom: var(--bn-space-5);
+    }
+
+    .footer-links {
+      list-style: none;
+    }
+
+    .footer-links li {
+      margin-bottom: var(--bn-space-3);
+    }
+
+    .footer-links a {
+      font-size: var(--bn-text-sm);
+      color: rgba(255, 255, 255, 0.6);
+      text-decoration: none;
+      transition: color var(--bn-transition-fast);
+    }
+
+    .footer-links a:hover {
+      color: var(--bn-accent);
+    }
+
+    .footer-bottom {
+      padding-top: var(--bn-space-8);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: var(--bn-space-4);
+    }
+
+    .footer-copyright {
+      font-size: var(--bn-text-sm);
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .footer-legal {
+      display: flex;
+      gap: var(--bn-space-6);
+    }
+
+    .footer-legal a {
+      font-size: var(--bn-text-sm);
+      color: rgba(255, 255, 255, 0.5);
+      text-decoration: none;
+      transition: color var(--bn-transition-fast);
+    }
+
+    .footer-legal a:hover {
+      color: var(--bn-white);
+    }
+
+    /* ============================================
+       RESPONSIVE DESIGN
+       ============================================ */
+    @media (max-width: 1024px) {
+      .hero {
+        grid-template-columns: 1fr;
+        min-height: auto;
+        padding-top: calc(var(--nav-height) + var(--bn-space-12));
+        padding-bottom: var(--bn-space-12);
+      }
+
+      .hero-content {
+        max-width: 100%;
+        margin: 0;
+        padding: var(--bn-space-6);
+        text-align: center;
+      }
+
+      .hero-description {
+        max-width: 100%;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .hero-cta {
+        justify-content: center;
+      }
+
+      .hero-visual {
+        display: none;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .nav-mobile-toggle {
+        display: block;
+      }
+
+      .feature-row {
+        grid-template-columns: 1fr;
+        gap: var(--bn-space-10);
+      }
+
+      .feature-row:nth-child(even) .feature-content,
+      .feature-row:nth-child(even) .feature-visual {
+        order: unset;
+      }
+
+      .feature-content {
+        max-width: 100%;
+        text-align: center;
+      }
+
+      .feature-list {
+        display: inline-block;
+        text-align: left;
+      }
+
+      .footer-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .footer-brand {
+        grid-column: span 2;
+        max-width: 100%;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .trust-strip-logos {
+        gap: var(--bn-space-8);
+      }
+
+      .footer-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-brand {
+        grid-column: span 1;
+      }
+
+      .footer-bottom {
+        flex-direction: column;
+        text-align: center;
+      }
+    }
+
+    /* ============================================
+       ANIMATIONS
+       ============================================ */
+    .hero-content {
+      animation: fadeInUp 0.8s var(--bn-ease-out);
+    }
+
+    .hero-badge {
+      animation: fadeInDown 0.6s var(--bn-ease-out) 0.2s backwards;
+    }
+
+    .hero-ring {
+      animation: scaleIn 1s var(--bn-ease-out) 0.4s backwards;
+    }
+
+    .feature-row {
+      opacity: 0;
+      transform: translateY(40px);
+      transition: all 0.8s var(--bn-ease-out);
+    }
+
+    .feature-row.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
 </head>
 <body>
-  <p>Redirecting to login page...</p>
+  <!-- Navigation -->
+  <nav class="nav" id="nav">
+    <div class="nav-container">
+      <a href="index.html" class="nav-logo">
+        <div class="nav-logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <span class="nav-logo-text">Bank Nkhonde</span>
+      </a>
+
+      <div class="nav-links">
+        <a href="#features" class="nav-link">Features</a>
+        <a href="#security" class="nav-link">Security</a>
+        <a href="#about" class="nav-link">About</a>
+        <a href="#contact" class="nav-link">Contact</a>
+      </div>
+
+      <div class="nav-cta">
+        <a href="login.html" class="nav-btn-secondary">Sign In</a>
+        <a href="pages/admin_registration.html" class="btn btn-accent btn-sm">Join a Club</a>
+      </div>
+
+      <button class="nav-mobile-toggle" aria-label="Toggle menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="hero-badge-dot"></span>
+        <span class="hero-badge-text">Now in Malawi</span>
+      </div>
+
+      <h1 class="hero-title">
+        Elevate Your Group's <span class="hero-title-accent">Financial Momentum</span>
+      </h1>
+
+      <p class="hero-description">
+        Bank Nkhonde is the premium digital platform for managing rotating savings and credit associations. 
+        Experience enterprise-grade security, real-time transparency, and automated financial operations.
+      </p>
+
+      <div class="hero-cta">
+        <a href="pages/admin_registration.html" class="btn btn-accent btn-lg">
+          Join a Club
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </a>
+        <a href="login.html" class="hero-cta-link">
+          Already a member? Sign in
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </a>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <div class="hero-ring">
+        <div class="hero-ring-outer">
+          <span class="hero-ring-dot hero-ring-dot-1"></span>
+          <span class="hero-ring-dot hero-ring-dot-2"></span>
+          <span class="hero-ring-dot hero-ring-dot-3"></span>
+          <span class="hero-ring-dot hero-ring-dot-4"></span>
+        </div>
+        <div class="hero-ring-middle"></div>
+        <div class="hero-ring-inner">
+          <svg class="hero-ring-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Trust Strip -->
+  <section class="trust-strip">
+    <div class="trust-strip-container">
+      <p class="trust-strip-label">Trusted by financial institutions across Malawi</p>
+      <div class="trust-strip-logos">
+        <span class="trust-logo">Reserve Bank</span>
+        <span class="trust-logo">FDH Bank</span>
+        <span class="trust-logo">National Bank</span>
+        <span class="trust-logo">Standard Bank</span>
+        <span class="trust-logo">NBS Bank</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="features" id="features">
+    <div class="features-container">
+      <div class="features-header">
+        <h2>Built for Modern Financial Groups</h2>
+        <p>Every feature designed to bring trust, efficiency, and growth to your savings club.</p>
+      </div>
+
+      <!-- Feature 1: Automated Payouts -->
+      <div class="feature-row" data-animate>
+        <div class="feature-content">
+          <span class="feature-number">01</span>
+          <h3 class="feature-title">Automated Payout Calendars</h3>
+          <p class="feature-description">
+            Never miss a payout date. Our intelligent scheduling system automatically tracks contribution cycles 
+            and calculates payout rotations, ensuring every member receives their funds on time.
+          </p>
+          <ul class="feature-list">
+            <li>
+              <span class="feature-list-check">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </span>
+              Smart rotation scheduling
+            </li>
+            <li>
+              <span class="feature-list-check">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </span>
+              Automated reminders via SMS & email
+            </li>
+            <li>
+              <span class="feature-list-check">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </span>
+              Flexible contribution periods
+            </li>
+          </ul>
+        </div>
+        <div class="feature-visual">
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <h4 class="feature-card-title">January 2026</h4>
+              <span class="feature-card-badge">2 Payouts</span>
+            </div>
+            <div class="calendar-grid">
+              <span class="calendar-day">S</span>
+              <span class="calendar-day">M</span>
+              <span class="calendar-day">T</span>
+              <span class="calendar-day">W</span>
+              <span class="calendar-day">T</span>
+              <span class="calendar-day">F</span>
+              <span class="calendar-day">S</span>
+              <span class="calendar-day"></span>
+              <span class="calendar-day"></span>
+              <span class="calendar-day"></span>
+              <span class="calendar-day">1</span>
+              <span class="calendar-day">2</span>
+              <span class="calendar-day">3</span>
+              <span class="calendar-day">4</span>
+              <span class="calendar-day">5</span>
+              <span class="calendar-day">6</span>
+              <span class="calendar-day">7</span>
+              <span class="calendar-day">8</span>
+              <span class="calendar-day">9</span>
+              <span class="calendar-day">10</span>
+              <span class="calendar-day">11</span>
+              <span class="calendar-day active">12</span>
+              <span class="calendar-day">13</span>
+              <span class="calendar-day">14</span>
+              <span class="calendar-day payout">15</span>
+              <span class="calendar-day">16</span>
+              <span class="calendar-day">17</span>
+              <span class="calendar-day">18</span>
+              <span class="calendar-day">19</span>
+              <span class="calendar-day">20</span>
+              <span class="calendar-day">21</span>
+              <span class="calendar-day">22</span>
+              <span class="calendar-day">23</span>
+              <span class="calendar-day">24</span>
+              <span class="calendar-day">25</span>
+              <span class="calendar-day">26</span>
+              <span class="calendar-day">27</span>
+              <span class="calendar-day">28</span>
+              <span class="calendar-day">29</span>
+              <span class="calendar-day payout">30</span>
+              <span class="calendar-day">31</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 2: Security -->
+      <div class="feature-row" data-animate id="security">
+        <div class="feature-content">
+          <span class="feature-number">02</span>
+          <h3 class="feature-title">Enterprise-Grade Security</h3>
+          <p class="feature-description">
+            Your financial data deserves the highest protection. We employ bank-level encryption, 
+            secure authentication, and comprehensive audit trails to keep your group's funds safe.
+          </p>
+          <ul class="feature-list">
+            <li>
+              <span class="feature-list-check">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </span>
+              256-bit SSL encryption
+            </li>
+            <li>
+              <span class="feature-list-check">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </span>
+              Secure member verification
+            </li>
+            <li>
+              <span class="feature-list-check">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </span>
+              Complete transaction audit trails
+            </li>
+          </ul>
+        </div>
+        <div class="feature-visual">
+          <div class="security-visual">
+            <div class="security-item">
+              <div class="security-icon">🔒</div>
+              <div class="security-info">
+                <h4>End-to-End Encryption</h4>
+                <p>All data encrypted in transit and at rest</p>
+              </div>
+            </div>
+            <div class="security-item">
+              <div class="security-icon">🛡️</div>
+              <div class="security-info">
+                <h4>Secure Authentication</h4>
+                <p>Multi-factor authentication for all accounts</p>
+              </div>
+            </div>
+            <div class="security-item">
+              <div class="security-icon">📋</div>
+              <div class="security-info">
+                <h4>Audit Logging</h4>
+                <p>Every action tracked and timestamped</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 3: Transparency -->
+      <div class="feature-row" data-animate>
+        <div class="feature-content">
+          <span class="feature-number">03</span>
+          <h3 class="feature-title">Real-Time Transparency</h3>
+          <p class="feature-description">
+            Build trust with complete visibility. Every member can view contributions, balances, 
+            and loan statuses in real-time, with beautiful reports and analytics.
+          </p>
+          <ul class="feature-list">
+            <li>
+              <span class="feature-list-check">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </span>
+              Live contribution tracking
+            </li>
+            <li>
+              <span class="feature-list-check">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </span>
+              Detailed financial reports
+            </li>
+            <li>
+              <span class="feature-list-check">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </span>
+              Member performance analytics
+            </li>
+          </ul>
+        </div>
+        <div class="feature-visual">
+          <div class="transparency-card">
+            <div class="transparency-header">
+              <h4 style="font-size: var(--bn-text-base); font-weight: 700; margin: 0;">Group Performance</h4>
+              <div class="transparency-tabs">
+                <span class="transparency-tab">Week</span>
+                <span class="transparency-tab active">Month</span>
+                <span class="transparency-tab">Year</span>
+              </div>
+            </div>
+            <div class="chart-bars">
+              <div class="chart-bar" data-label="Jul"></div>
+              <div class="chart-bar" data-label="Aug"></div>
+              <div class="chart-bar" data-label="Sep"></div>
+              <div class="chart-bar" data-label="Oct"></div>
+              <div class="chart-bar" data-label="Nov"></div>
+              <div class="chart-bar" data-label="Dec"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="cta-section">
+    <div class="cta-container">
+      <h2 class="cta-title">Ready to transform your savings group?</h2>
+      <p class="cta-description">
+        Join thousands of groups across Malawi who trust Bank Nkhonde for their financial management.
+      </p>
+      <div class="cta-buttons">
+        <a href="pages/admin_registration.html" class="btn btn-accent btn-xl">
+          Start Your Group
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </a>
+        <a href="login.html" class="btn btn-secondary btn-xl" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); color: white;">
+          Sign In
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer" id="contact">
+    <div class="footer-container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="footer-logo">
+            <div class="footer-logo-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0A1628" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                <path d="M2 17l10 5 10-5"/>
+                <path d="M2 12l10 5 10-5"/>
+              </svg>
+            </div>
+            <span class="footer-logo-text">Bank Nkhonde</span>
+          </div>
+          <p>Empowering communities through collaborative savings. The premium platform for modern rotating savings groups in Malawi.</p>
+        </div>
+
+        <div class="footer-column">
+          <h4>Company</h4>
+          <ul class="footer-links">
+            <li><a href="#about">About Us</a></li>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#">Careers</a></li>
+            <li><a href="#">Press</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-column">
+          <h4>Support</h4>
+          <ul class="footer-links">
+            <li><a href="#">Help Center</a></li>
+            <li><a href="#">Documentation</a></li>
+            <li><a href="#">Contact Us</a></li>
+            <li><a href="#">Status</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-column">
+          <h4>Legal</h4>
+          <ul class="footer-links">
+            <li><a href="#">Privacy Policy</a></li>
+            <li><a href="#">Terms of Service</a></li>
+            <li><a href="#">Security</a></li>
+            <li><a href="#">Compliance</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <span class="footer-copyright">© 2026 Bank Nkhonde. All rights reserved.</span>
+        <div class="footer-legal">
+          <a href="#">Privacy</a>
+          <a href="#">Terms</a>
+          <a href="#">Cookies</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Navigation scroll effect
+    const nav = document.getElementById('nav');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 50) {
+        nav.classList.add('scrolled');
+      } else {
+        nav.classList.remove('scrolled');
+      }
+    });
+
+    // Feature rows animation on scroll
+    const observerOptions = {
+      threshold: 0.2,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, observerOptions);
+
+    document.querySelectorAll('[data-animate]').forEach(el => {
+      observer.observe(el);
+    });
+
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      });
+    });
+  </script>
 </body>
 </html>

@@ -19,7 +19,7 @@ let userGroups = [];
 
 document.addEventListener("DOMContentLoaded", () => {
   const groupSelector = document.getElementById("groupSelector");
-  const membersList = document.getElementById("membersList");
+  const contactsList = document.getElementById("contactsList");
 
   // Auth state
   onAuthStateChanged(auth, async (user) => {
@@ -36,9 +36,12 @@ document.addEventListener("DOMContentLoaded", () => {
     groupSelector.addEventListener("change", async (e) => {
       const groupId = e.target.value;
       if (groupId) {
+        sessionStorage.setItem('selectedGroupId', groupId);
         await loadMembers(groupId);
       } else {
-        membersList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div><p class="empty-state-text">Select a group to view members</p></div>';
+        if (contactsList) {
+          contactsList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div><p class="empty-state-text">Select a group to view members</p></div>';
+        }
       }
     });
   }
@@ -52,8 +55,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!userDoc.exists()) return;
 
       const userData = userDoc.data();
+      
+      // Get selected group from session
+      const selectedGroupId = sessionStorage.getItem('selectedGroupId');
+      
+      // Also check groupMemberships
       const groupMemberships = userData.groupMemberships || [];
-
+      
       userGroups = [];
       for (const membership of groupMemberships) {
         const groupDoc = await getDoc(doc(db, "groups", membership.groupId));
@@ -61,6 +69,18 @@ document.addEventListener("DOMContentLoaded", () => {
           userGroups.push({ ...groupDoc.data(), id: membership.groupId });
         }
       }
+      
+      // Also check if user is admin in any group
+      const groupsRef = collection(db, "groups");
+      const groupsSnapshot = await getDocs(groupsRef);
+      groupsSnapshot.forEach(groupDoc => {
+        const groupData = groupDoc.data();
+        const groupId = groupDoc.id;
+        const isAdmin = groupData.admins?.some(admin => admin.uid === currentUser.uid || admin.email === currentUser.email);
+        if (isAdmin && !userGroups.find(g => g.id === groupId)) {
+          userGroups.push({ ...groupData, id: groupId });
+        }
+      });
 
       // Populate selector
       if (groupSelector) {
@@ -72,9 +92,14 @@ document.addEventListener("DOMContentLoaded", () => {
           groupSelector.appendChild(option);
         });
 
-        // Auto-select first group
-        if (userGroups.length > 0) {
+        // Auto-select from session or first group
+        const selectedGroupId = sessionStorage.getItem('selectedGroupId');
+        if (selectedGroupId && userGroups.find(g => g.id === selectedGroupId)) {
+          groupSelector.value = selectedGroupId;
+          await loadMembers(selectedGroupId);
+        } else if (userGroups.length > 0) {
           groupSelector.value = userGroups[0].id;
+          sessionStorage.setItem('selectedGroupId', userGroups[0].id);
           await loadMembers(userGroups[0].id);
         }
       }
@@ -88,15 +113,18 @@ document.addEventListener("DOMContentLoaded", () => {
    */
   async function loadMembers(groupId) {
     try {
+      const contactsList = document.getElementById("contactsList");
+      if (!contactsList) return;
+
       const membersRef = collection(db, `groups/${groupId}/members`);
       const membersSnapshot = await getDocs(membersRef);
 
       if (membersSnapshot.empty) {
-        membersList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div><p class="empty-state-text">No members found</p></div>';
+        contactsList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div><p class="empty-state-text">No members found</p></div>';
         return;
       }
 
-      membersList.innerHTML = '';
+      contactsList.innerHTML = '';
       const members = [];
 
       membersSnapshot.forEach(doc => {
@@ -112,11 +140,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
       members.forEach(member => {
         const memberElement = createMemberElement(member);
-        membersList.appendChild(memberElement);
+        contactsList.appendChild(memberElement);
       });
     } catch (error) {
       console.error("Error loading members:", error);
-      membersList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">❌</div><p class="empty-state-text">Error loading members</p></div>';
+      const contactsList = document.getElementById("contactsList");
+      if (contactsList) {
+        contactsList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">❌</div><p class="empty-state-text">Error loading members</p></div>';
+      }
     }
   }
 

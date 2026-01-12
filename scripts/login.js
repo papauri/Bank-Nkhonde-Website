@@ -232,20 +232,15 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
-      // Admins go to admin dashboard first, others to user dashboard
-      if (isAdmin) {
-        console.log("✅ Redirecting to admin dashboard");
-        displaySuccess("Login successful! Redirecting to admin dashboard...");
-        setTimeout(() => {
-          window.location.href = "pages/admin_dashboard.html";
-        }, 500);
-      } else {
-        console.log("✅ Redirecting to user dashboard");
-        displaySuccess("Login successful! Redirecting to your dashboard...");
-        setTimeout(() => {
-          window.location.href = "pages/user_dashboard.html";
-        }, 500);
-      }
+      // Store user role for later use
+      sessionStorage.setItem('isAdmin', isAdmin ? 'true' : 'false');
+      
+      // All users go to group selection page first
+      console.log("✅ Redirecting to group selection");
+      displaySuccess("Login successful! Redirecting...");
+      setTimeout(() => {
+        window.location.href = "pages/select_group.html";
+      }, 500);
 
     } catch (error) {
       console.error("❌ Login failed:", error);

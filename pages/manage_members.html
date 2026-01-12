@@ -3,710 +3,739 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#047857">
+  <meta name="description" content="Manage Members - Bank Nkhonde">
+  <meta name="theme-color" content="#0A1628">
   <title>Manage Members - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
-  <link rel="stylesheet" href="../styles/unified-page.css">
+  <link rel="stylesheet" href="../styles/pages.css">
+  <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
-    body {
-      background: var(--bn-gradient-subtle);
-      padding-bottom: 80px;
-    }
-
-    .header-top {
-      display: flex;
-      align-items: center;
-      margin-bottom: var(--bn-spacing-md);
-    }
-
-    .back-btn {
-      background: rgba(255, 255, 255, 0.1);
-      border: none;
-      color: var(--bn-white);
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 20px;
-    }
-
-    .header-title {
-      flex: 1;
-      text-align: center;
-      font-size: var(--bn-font-2xl);
-      margin: 0;
-    }
-
-    .header-actions {
-      width: 40px;
-    }
-
-    /* Group Selector */
-    .group-selector {
-      background: rgba(255, 255, 255, 0.1);
-      padding: var(--bn-spacing-sm);
-      border-radius: var(--bn-radius-md);
-      margin-bottom: var(--bn-spacing-md);
-    }
-
-    .group-selector select {
-      width: 100%;
-      padding: var(--bn-spacing-sm);
-      background: var(--bn-white);
-      border: none;
-      border-radius: var(--bn-radius-sm);
-      font-size: var(--bn-font-base);
-      color: var(--bn-dark);
-    }
-
-    /* Stats Cards */
-    .stats-grid {
+    /* Premium Member Cards */
+    .members-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: var(--bn-spacing-sm);
-      padding: 0 var(--bn-spacing-md);
-      margin-bottom: var(--bn-spacing-md);
-    }
-
-    .stat-card {
-      background: var(--bn-white);
-      padding: var(--bn-spacing-md);
-      border-radius: var(--bn-radius-lg);
-      box-shadow: var(--bn-shadow-sm);
-      text-align: center;
-    }
-
-    .stat-value {
-      font-size: var(--bn-font-2xl);
-      font-weight: 700;
-      color: var(--bn-primary);
-      margin: 4px 0;
-    }
-
-    .stat-label {
-      font-size: var(--bn-font-xs);
-      color: var(--bn-gray);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    /* Action Button */
-    .add-member-btn {
-      margin: 0 var(--bn-spacing-md) var(--bn-spacing-md);
-      width: calc(100% - 32px);
-      padding: var(--bn-spacing-md);
-      background: var(--bn-gradient-primary);
-      color: var(--bn-white);
-      border: none;
-      border-radius: var(--bn-radius-lg);
-      font-size: var(--bn-font-base);
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      cursor: pointer;
-      box-shadow: var(--bn-shadow-md);
-    }
-
-    .add-member-btn:active {
-      transform: scale(0.98);
-    }
-
-    /* Members List */
-    .members-section {
-      padding: 0 var(--bn-spacing-md);
-    }
-
-    .section-title {
-      font-size: var(--bn-font-lg);
-      font-weight: 700;
-      margin-bottom: var(--bn-spacing-sm);
-      color: var(--bn-dark);
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: var(--bn-space-5);
     }
 
     .member-card {
       background: var(--bn-white);
-      padding: var(--bn-spacing-md);
-      border-radius: var(--bn-radius-lg);
-      margin-bottom: var(--bn-spacing-sm);
-      box-shadow: var(--bn-shadow-sm);
+      border-radius: var(--bn-radius-xl);
+      border: 1px solid var(--bn-gray-lighter);
+      overflow: hidden;
+      transition: all var(--bn-transition-base);
+      position: relative;
     }
 
-    .member-header {
+    .member-card:hover {
+      border-color: var(--bn-accent);
+      box-shadow: var(--bn-shadow-lg);
+      transform: translateY(-2px);
+    }
+
+    .member-card-header {
+      background: var(--bn-gradient-primary);
+      padding: var(--bn-space-5);
       display: flex;
       align-items: center;
-      margin-bottom: var(--bn-spacing-sm);
+      gap: var(--bn-space-4);
     }
 
     .member-avatar {
-      width: 50px;
-      height: 50px;
-      border-radius: 50%;
-      background: var(--bn-gradient-primary);
+      width: 64px;
+      height: 64px;
+      border-radius: var(--bn-radius-full);
+      background: rgba(255, 255, 255, 0.15);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: var(--bn-white);
-      font-size: var(--bn-font-lg);
       font-weight: 700;
-      margin-right: var(--bn-spacing-sm);
+      font-size: var(--bn-text-xl);
+      color: var(--bn-white);
+      flex-shrink: 0;
+      overflow: hidden;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .member-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
 
     .member-info {
       flex: 1;
+      min-width: 0;
     }
 
     .member-name {
-      font-size: var(--bn-font-base);
-      font-weight: 600;
-      margin-bottom: 2px;
-      color: var(--bn-dark);
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      color: var(--bn-white);
+      margin-bottom: var(--bn-space-1);
     }
 
-    .member-email {
-      font-size: var(--bn-font-xs);
-      color: var(--bn-gray);
-    }
-
-    .member-role-badge {
-      padding: 4px 12px;
+    .member-role {
+      display: inline-flex;
+      align-items: center;
+      padding: var(--bn-space-1) var(--bn-space-3);
       border-radius: var(--bn-radius-full);
-      font-size: var(--bn-font-xs);
+      font-size: var(--bn-text-xs);
       font-weight: 600;
       text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
 
-    .role-admin {
-      background: rgba(245, 158, 11, 0.1);
-      color: var(--bn-accent-dark);
+    .member-role.admin {
+      background: var(--bn-accent);
+      color: var(--bn-dark);
     }
 
-    .role-member {
-      background: rgba(4, 120, 87, 0.1);
-      color: var(--bn-primary-dark);
+    .member-role.member {
+      background: rgba(255, 255, 255, 0.2);
+      color: var(--bn-white);
     }
 
-    .member-details {
+    .member-card-body {
+      padding: var(--bn-space-5);
+    }
+
+    .member-details-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: var(--bn-spacing-sm);
-      margin-top: var(--bn-spacing-sm);
-      padding-top: var(--bn-spacing-sm);
-      border-top: 1px solid var(--bn-gray-lighter);
+      gap: var(--bn-space-4);
+      margin-bottom: var(--bn-space-5);
     }
 
-    .detail-item {
-      font-size: var(--bn-font-xs);
+    .member-detail {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
 
-    .detail-label {
+    .member-detail-label {
+      font-size: var(--bn-text-xs);
       color: var(--bn-gray);
-      margin-bottom: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
 
-    .detail-value {
+    .member-detail-value {
+      font-size: var(--bn-text-sm);
       font-weight: 600;
       color: var(--bn-dark);
+    }
+
+    .member-detail-value.success {
+      color: var(--bn-success);
+    }
+
+    .member-detail-value.danger {
+      color: var(--bn-danger);
+    }
+
+    .member-financial {
+      display: flex;
+      gap: var(--bn-space-3);
+      padding: var(--bn-space-4);
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-lg);
+      margin-bottom: var(--bn-space-5);
+    }
+
+    .financial-item {
+      flex: 1;
+      text-align: center;
+    }
+
+    .financial-value {
+      font-size: var(--bn-text-base);
+      font-weight: 700;
+      color: var(--bn-dark);
+    }
+
+    .financial-label {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
     }
 
     .member-actions {
       display: flex;
-      gap: var(--bn-spacing-xs);
-      margin-top: var(--bn-spacing-sm);
+      gap: var(--bn-space-2);
     }
 
-    .action-btn {
+    .member-actions .btn {
       flex: 1;
-      padding: var(--bn-spacing-xs);
-      border: 1px solid var(--bn-gray-light);
-      border-radius: var(--bn-radius-sm);
-      background: var(--bn-white);
-      font-size: var(--bn-font-xs);
+      padding: var(--bn-space-3);
+      font-size: var(--bn-text-xs);
+    }
+
+    .add-member-btn {
+      margin-bottom: var(--bn-space-6);
+    }
+
+    /* Filter Tabs */
+    .filter-tabs {
+      display: flex;
+      gap: var(--bn-space-2);
+      padding: var(--bn-space-2);
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-full);
+      margin-bottom: var(--bn-space-6);
+      width: fit-content;
+    }
+
+    .filter-tab {
+      padding: var(--bn-space-2) var(--bn-space-4);
+      border: none;
+      background: transparent;
+      border-radius: var(--bn-radius-full);
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-gray);
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all var(--bn-transition-fast);
     }
 
-    .action-btn:active {
-      background: var(--bn-gray-lighter);
+    .filter-tab.active {
+      background: var(--bn-white);
+      color: var(--bn-dark);
+      box-shadow: var(--bn-shadow-sm);
     }
 
-    /* Modal */
+    .filter-tab:hover:not(.active) {
+      color: var(--bn-dark);
+    }
+
+    /* Search Bar */
+    .search-bar {
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .search-input {
+      width: 100%;
+      max-width: 400px;
+      padding: var(--bn-space-3) var(--bn-space-4);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      font-size: var(--bn-text-sm);
+      background: var(--bn-white);
+      transition: all var(--bn-transition-fast);
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--bn-accent);
+      box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.1);
+    }
+
+    /* Modal Styles */
     .modal-overlay {
-      display: none;
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: var(--z-modal);
+      background: rgba(10, 22, 40, 0.8);
       backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: var(--z-modal);
+      opacity: 0;
+      visibility: hidden;
+      transition: all var(--bn-transition-base);
+      padding: var(--bn-space-4);
     }
 
     .modal-overlay.active {
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
+      opacity: 1;
+      visibility: visible;
     }
 
     .modal-content {
       background: var(--bn-white);
-      border-radius: var(--bn-radius-xl) var(--bn-radius-xl) 0 0;
+      border-radius: var(--bn-radius-2xl);
       width: 100%;
-      max-width: 600px;
+      max-width: 680px;
       max-height: 90vh;
-      overflow-y: auto;
-      padding: var(--bn-spacing-lg);
-      animation: slideUp 0.3s ease;
+      overflow: hidden;
+      transform: scale(0.95) translateY(20px);
+      transition: transform var(--bn-transition-base);
+      display: flex;
+      flex-direction: column;
     }
 
-    @keyframes slideUp {
-      from {
-        transform: translateY(100%);
-      }
-      to {
-        transform: translateY(0);
-      }
+    .modal-overlay.active .modal-content {
+      transform: scale(1) translateY(0);
     }
 
     .modal-header {
+      padding: var(--bn-space-5) var(--bn-space-6);
+      border-bottom: 1px solid var(--bn-gray-lighter);
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      margin-bottom: var(--bn-spacing-lg);
+      justify-content: space-between;
+      flex-shrink: 0;
     }
 
     .modal-title {
-      font-size: var(--bn-font-xl);
+      font-size: var(--bn-text-xl);
       font-weight: 700;
       color: var(--bn-dark);
     }
 
     .modal-close {
-      background: none;
+      width: 36px;
+      height: 36px;
       border: none;
-      font-size: 28px;
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-full);
+      font-size: 1.5rem;
       color: var(--bn-gray);
       cursor: pointer;
-      width: 40px;
-      height: 40px;
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 50%;
+      transition: all var(--bn-transition-fast);
     }
 
-    .modal-close:active {
-      background: var(--bn-gray-lighter);
+    .modal-close:hover {
+      background: var(--bn-danger-light);
+      color: var(--bn-danger);
     }
 
-    .form-group {
-      margin-bottom: var(--bn-spacing-md);
-    }
-
-    .form-label {
-      display: block;
-      font-size: var(--bn-font-sm);
-      font-weight: 600;
-      margin-bottom: var(--bn-spacing-xs);
-      color: var(--bn-dark);
-    }
-
-    .form-input {
-      width: 100%;
-      padding: var(--bn-spacing-sm) var(--bn-spacing-md);
-      border: 1px solid var(--bn-gray-light);
-      border-radius: var(--bn-radius-sm);
-      font-size: var(--bn-font-base);
-      font-family: 'Inter', sans-serif;
-    }
-
-    .form-input:focus {
-      outline: none;
-      border-color: var(--bn-primary);
-      box-shadow: 0 0 0 3px rgba(4, 120, 87, 0.1);
-    }
-
-    .form-select {
-      width: 100%;
-      padding: var(--bn-spacing-sm) var(--bn-spacing-md);
-      border: 1px solid var(--bn-gray-light);
-      border-radius: var(--bn-radius-sm);
-      font-size: var(--bn-font-base);
-      font-family: 'Inter', sans-serif;
-      background: var(--bn-white);
-    }
-
-    .form-actions {
-      display: flex;
-      gap: var(--bn-spacing-sm);
-      margin-top: var(--bn-spacing-lg);
-    }
-
-    .btn-primary {
+    .modal-body {
+      padding: var(--bn-space-6);
+      overflow-y: auto;
       flex: 1;
-      padding: var(--bn-spacing-md);
+    }
+
+    .modal-footer {
+      padding: var(--bn-space-4) var(--bn-space-6);
+      border-top: 1px solid var(--bn-gray-lighter);
+      display: flex;
+      gap: var(--bn-space-3);
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
+
+    /* Form Sections */
+    .form-section {
+      margin-bottom: var(--bn-space-6);
+      padding-bottom: var(--bn-space-6);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+    }
+
+    .form-section:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+
+    .form-section-title {
+      font-size: var(--bn-text-sm);
+      font-weight: 700;
+      color: var(--bn-gray);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--bn-space-4);
+    }
+
+    @media (max-width: 640px) {
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+
+      .members-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .member-details-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Profile Picture Upload */
+    .profile-upload {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--bn-space-3);
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .profile-preview {
+      width: 100px;
+      height: 100px;
+      border-radius: var(--bn-radius-full);
       background: var(--bn-gradient-primary);
-      color: var(--bn-white);
-      border: none;
-      border-radius: var(--bn-radius-lg);
-      font-size: var(--bn-font-base);
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .btn-secondary {
-      flex: 1;
-      padding: var(--bn-spacing-md);
-      background: var(--bn-gray-lighter);
-      color: var(--bn-dark);
-      border: none;
-      border-radius: var(--bn-radius-lg);
-      font-size: var(--bn-font-base);
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    /* Loading */
-    .spinner-overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: var(--z-modal);
+      display: flex;
       align-items: center;
       justify-content: center;
-    }
-
-    .spinner-overlay.active {
-      display: flex;
-    }
-
-    .spinner {
-      width: 50px;
-      height: 50px;
-      border: 4px solid rgba(255, 255, 255, 0.3);
-      border-top-color: var(--bn-white);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    /* Toast */
-    .toast {
-      position: fixed;
-      bottom: 100px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--bn-dark);
+      font-size: 2.5rem;
       color: var(--bn-white);
-      padding: var(--bn-spacing-md) var(--bn-spacing-lg);
-      border-radius: var(--bn-radius-lg);
-      box-shadow: var(--bn-shadow-xl);
-      z-index: var(--z-toast);
-      opacity: 0;
-      transition: opacity 0.3s;
+      overflow: hidden;
+      border: 4px solid var(--bn-accent);
     }
 
-    .toast.show {
-      opacity: 1;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: var(--bn-gray);
-    }
-
-    .empty-state-icon {
-      font-size: 64px;
-      margin-bottom: var(--bn-spacing-md);
-    }
-
-    @media (min-width: 768px) {
-      .stats-grid {
-        grid-template-columns: repeat(4, 1fr);
-      }
-
-      .modal-content {
-        border-radius: var(--bn-radius-xl);
-        max-height: 80vh;
-      }
-
-      .modal-overlay.active {
-        align-items: center;
-      }
+    .profile-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
   </style>
 </head>
 <body>
-  <!-- Header -->
-  <div class="page-header">
-    <div class="header-top">
-      <button class="back-btn" onclick="history.back()">←</button>
-      <h1 class="header-title">Manage Members</h1>
-      <div class="header-actions"></div>
+  <!-- Page Header -->
+  <header class="page-header">
+    <div class="page-header-container">
+      <div class="page-header-top">
+        <div class="page-header-nav">
+          <button class="page-back-btn" onclick="history.back()" aria-label="Go back">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+          </button>
+          <div>
+            <h1 class="page-title">Manage Members</h1>
+            <p class="page-subtitle">Add and manage group members</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="page-group-selector">
+        <select id="groupSelect">
+          <option value="">Select a group...</option>
+        </select>
+      </div>
+
+      <div class="page-stats">
+        <div class="page-stat">
+          <div class="page-stat-value" id="totalMembers">0</div>
+          <div class="page-stat-label">Total</div>
+        </div>
+        <div class="page-stat">
+          <div class="page-stat-value success" id="activeMembers">0</div>
+          <div class="page-stat-label">Active</div>
+        </div>
+        <div class="page-stat">
+          <div class="page-stat-value warning" id="adminCount">0</div>
+          <div class="page-stat-label">Admins</div>
+        </div>
+        <div class="page-stat">
+          <div class="page-stat-value info" id="pendingMembers">0</div>
+          <div class="page-stat-label">Pending</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Page Content -->
+  <main class="page-content">
+    <button class="btn btn-accent btn-block add-member-btn" id="addMemberBtn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      Add New Member
+    </button>
+
+    <!-- Search and Filter -->
+    <div class="search-bar">
+      <input type="text" class="search-input" id="searchMembers" placeholder="Search members by name, email, or phone...">
     </div>
 
-    <!-- Group Selector -->
-    <div class="group-selector">
-      <select id="groupSelect">
-        <option value="">Select a group...</option>
-      </select>
+    <div class="filter-tabs">
+      <button class="filter-tab active" data-filter="all">All</button>
+      <button class="filter-tab" data-filter="admin">Admins</button>
+      <button class="filter-tab" data-filter="member">Members</button>
     </div>
 
-    <!-- Stats -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-value" id="totalMembers">0</div>
-        <div class="stat-label">Total Members</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="activeMembers">0</div>
-        <div class="stat-label">Active</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="adminCount">0</div>
-        <div class="stat-label">Admins</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="pendingMembers">0</div>
-        <div class="stat-label">Pending</div>
+    <!-- Members Grid -->
+    <div class="members-grid" id="membersList">
+      <div class="empty-state" style="grid-column: 1 / -1;">
+        <div class="empty-state-icon">👥</div>
+        <p class="empty-state-text">Select a group to view members</p>
       </div>
     </div>
-  </div>
-
-  <!-- Add Member Button -->
-  <button class="add-member-btn" id="addMemberBtn">
-    <span>➕</span>
-    <span>Add New Member</span>
-  </button>
-
-  <!-- Members List -->
-  <div class="members-section">
-    <h2 class="section-title">Members</h2>
-    <div id="membersList">
-      <!-- Members will be loaded here -->
-    </div>
-  </div>
+  </main>
 
   <!-- Add Member Modal -->
   <div class="modal-overlay" id="addMemberModal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title">Add New Member</h3>
-        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <h2 class="modal-title">Add New Member</h2>
+        <button class="modal-close" id="closeAddMemberModal">&times;</button>
       </div>
-      
-      <form id="addMemberForm" style="max-height: 70vh; overflow-y: auto;">
-        <!-- Profile Picture Section -->
-        <div class="form-group" style="text-align: center; margin-bottom: var(--bn-spacing-lg);">
-          <label class="form-label">Profile Picture</label>
-          <div style="margin-bottom: var(--bn-spacing-sm);">
-            <div id="memberProfilePreview" style="width: 100px; height: 100px; border-radius: 50%; background: rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 36px; color: var(--bn-gray);">👤</div>
-          </div>
-          <button type="button" class="btn-secondary" style="padding: var(--bn-spacing-xs) var(--bn-spacing-md);" onclick="document.getElementById('memberProfilePicture').click()">Upload Photo</button>
-          <input type="file" id="memberProfilePicture" accept="image/*" style="display: none;">
-          <small style="display: block; margin-top: var(--bn-spacing-xs); color: var(--bn-gray); font-size: 12px;">JPG, PNG, max 5MB</small>
-        </div>
-
-        <!-- Personal Information Section -->
-        <div style="border-top: 2px solid var(--bn-gray-lighter); padding-top: var(--bn-spacing-md); margin-top: var(--bn-spacing-md);">
-          <h4 style="margin-bottom: var(--bn-spacing-md); color: var(--bn-dark); font-weight: 600;">Personal Information</h4>
-          
-          <div class="form-group">
-            <label class="form-label">Full Name <span style="color: var(--bn-danger);">*</span></label>
-            <input type="text" class="form-input" id="memberName" required placeholder="Enter full name">
+      <div class="modal-body">
+        <form id="addMemberForm">
+          <!-- Profile Picture -->
+          <div class="profile-upload">
+            <div class="profile-preview" id="memberProfilePreview">👤</div>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('memberProfilePicture').click()">Upload Photo</button>
+            <input type="file" id="memberProfilePicture" accept="image/*" style="display: none;">
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--bn-spacing-md);">
+          <!-- Personal Information -->
+          <div class="form-section">
+            <h4 class="form-section-title">Personal Information</h4>
             <div class="form-group">
-              <label class="form-label">Phone Number <span style="color: var(--bn-danger);">*</span></label>
-              <input type="tel" class="form-input" id="memberPhone" required placeholder="+265 991 234 567">
+              <label class="form-label">Full Name *</label>
+              <input type="text" class="form-input" id="memberName" required placeholder="Enter full name">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Phone Number *</label>
+                <input type="tel" class="form-input" id="memberPhone" required placeholder="+265 991 234 567">
+              </div>
+              <div class="form-group">
+                <label class="form-label">WhatsApp</label>
+                <input type="tel" class="form-input" id="memberWhatsApp" placeholder="Same as phone if empty">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Date of Birth</label>
+                <input type="date" class="form-input" id="memberDOB">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Gender</label>
+                <select class="form-select" id="memberGender">
+                  <option value="">Select...</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </div>
             </div>
             <div class="form-group">
-              <label class="form-label">WhatsApp Number</label>
-              <input type="tel" class="form-input" id="memberWhatsApp" placeholder="Same as phone if not provided">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Address <span style="color: var(--bn-danger);">*</span></label>
-            <textarea class="form-input" id="memberAddress" rows="2" required placeholder="Street address, City, Region"></textarea>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--bn-spacing-md);">
-            <div class="form-group">
-              <label class="form-label">Date of Birth</label>
-              <input type="date" class="form-input" id="memberDateOfBirth">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Gender</label>
-              <select class="form-select" id="memberGender">
-                <option value="">Select...</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-                <option value="prefer_not_to_say">Prefer not to say</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <!-- Professional Information Section -->
-        <div style="border-top: 2px solid var(--bn-gray-lighter); padding-top: var(--bn-spacing-md); margin-top: var(--bn-spacing-md);">
-          <h4 style="margin-bottom: var(--bn-spacing-md); color: var(--bn-dark); font-weight: 600;">Professional Information</h4>
-          
-          <div class="form-group">
-            <label class="form-label">Career/Profession <span style="color: var(--bn-danger);">*</span></label>
-            <input type="text" class="form-input" id="memberCareer" required placeholder="e.g., Teacher, Business Owner, Engineer">
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--bn-spacing-md);">
-            <div class="form-group">
-              <label class="form-label">Job Title</label>
-              <input type="text" class="form-input" id="memberJobTitle" placeholder="e.g., Senior Teacher, CEO">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Workplace/Employer</label>
-              <input type="text" class="form-input" id="memberWorkplace" placeholder="Company or organization name">
+              <label class="form-label">Address *</label>
+              <textarea class="form-textarea" id="memberAddress" rows="2" required placeholder="Street, City, Region"></textarea>
             </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Work Address</label>
-            <textarea class="form-input" id="memberWorkAddress" rows="2" placeholder="Office location"></textarea>
-          </div>
-        </div>
-
-        <!-- Guarantor Information Section -->
-        <div style="border-top: 2px solid var(--bn-gray-lighter); padding-top: var(--bn-spacing-md); margin-top: var(--bn-spacing-md);">
-          <h4 style="margin-bottom: var(--bn-spacing-md); color: var(--bn-dark); font-weight: 600;">Guarantor Information <span style="color: var(--bn-danger);">*</span></h4>
-          <small style="display: block; margin-bottom: var(--bn-spacing-md); color: var(--bn-gray);">A guarantor is required for loan applications</small>
-          
-          <div class="form-group">
-            <label class="form-label">Guarantor Full Name <span style="color: var(--bn-danger);">*</span></label>
-            <input type="text" class="form-input" id="memberGuarantorName" required placeholder="Guarantor's full name">
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--bn-spacing-md);">
-            <div class="form-group">
-              <label class="form-label">Guarantor Phone <span style="color: var(--bn-danger);">*</span></label>
-              <input type="tel" class="form-input" id="memberGuarantorPhone" required placeholder="+265 991 234 567">
+          <!-- Professional Information -->
+          <div class="form-section">
+            <h4 class="form-section-title">Professional Information</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Career/Profession *</label>
+                <input type="text" class="form-input" id="memberCareer" required placeholder="e.g., Teacher">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Job Title</label>
+                <input type="text" class="form-input" id="memberJobTitle" placeholder="e.g., Senior Teacher">
+              </div>
             </div>
-            <div class="form-group">
-              <label class="form-label">Relationship <span style="color: var(--bn-danger);">*</span></label>
-              <select class="form-select" id="memberGuarantorRelationship" required>
-                <option value="">Select...</option>
-                <option value="spouse">Spouse</option>
-                <option value="parent">Parent</option>
-                <option value="sibling">Sibling</option>
-                <option value="relative">Relative</option>
-                <option value="friend">Friend</option>
-                <option value="colleague">Colleague</option>
-                <option value="other">Other</option>
-              </select>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Workplace</label>
+                <input type="text" class="form-input" id="memberWorkplace" placeholder="Company/Organization">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Work Address</label>
+                <input type="text" class="form-input" id="memberWorkAddress" placeholder="Work location">
+              </div>
             </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Guarantor Address</label>
-            <textarea class="form-input" id="memberGuarantorAddress" rows="2" placeholder="Guarantor's address"></textarea>
-          </div>
-        </div>
-
-        <!-- Security Information Section -->
-        <div style="border-top: 2px solid var(--bn-gray-lighter); padding-top: var(--bn-spacing-md); margin-top: var(--bn-spacing-md);">
-          <h4 style="margin-bottom: var(--bn-spacing-md); color: var(--bn-dark); font-weight: 600;">Security Information</h4>
-          
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--bn-spacing-md);">
-            <div class="form-group">
-              <label class="form-label">ID Type</label>
-              <select class="form-select" id="memberIdType">
-                <option value="">Select...</option>
-                <option value="national_id">National ID</option>
-                <option value="passport">Passport</option>
-                <option value="drivers_license">Driver's License</option>
-                <option value="other">Other</option>
-              </select>
+          <!-- Guarantor Information -->
+          <div class="form-section">
+            <h4 class="form-section-title">Guarantor Information</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Guarantor Name *</label>
+                <input type="text" class="form-input" id="memberGuarantorName" required placeholder="Guarantor's full name">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Guarantor Phone *</label>
+                <input type="tel" class="form-input" id="memberGuarantorPhone" required placeholder="+265 991 234 567">
+              </div>
             </div>
-            <div class="form-group">
-              <label class="form-label">ID Number</label>
-              <input type="text" class="form-input" id="memberIdNumber" placeholder="ID number">
-            </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--bn-spacing-md);">
-            <div class="form-group">
-              <label class="form-label">Emergency Contact Name</label>
-              <input type="text" class="form-input" id="memberEmergencyContact" placeholder="Emergency contact person">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Emergency Contact Phone</label>
-              <input type="tel" class="form-input" id="memberEmergencyContactPhone" placeholder="Emergency contact phone">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Relationship *</label>
+                <select class="form-select" id="memberGuarantorRelationship" required>
+                  <option value="">Select...</option>
+                  <option value="spouse">Spouse</option>
+                  <option value="parent">Parent</option>
+                  <option value="sibling">Sibling</option>
+                  <option value="relative">Relative</option>
+                  <option value="friend">Friend</option>
+                  <option value="colleague">Colleague</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Guarantor Address</label>
+                <input type="text" class="form-input" id="memberGuarantorAddress" placeholder="Address">
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Additional Information Section -->
-        <div style="border-top: 2px solid var(--bn-gray-lighter); padding-top: var(--bn-spacing-md); margin-top: var(--bn-spacing-md);">
-          <h4 style="margin-bottom: var(--bn-spacing-md); color: var(--bn-dark); font-weight: 600;">Additional Information</h4>
-          
-          <div class="form-group">
-            <label class="form-label">Email Address <span style="color: var(--bn-danger);">*</span></label>
-            <input type="email" class="form-input" id="memberEmail" required placeholder="member@example.com">
+          <!-- Security & ID -->
+          <div class="form-section">
+            <h4 class="form-section-title">Identification & Security</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">ID Type</label>
+                <select class="form-select" id="memberIdType">
+                  <option value="">Select...</option>
+                  <option value="national_id">National ID</option>
+                  <option value="passport">Passport</option>
+                  <option value="drivers_license">Driver's License</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">ID Number</label>
+                <input type="text" class="form-input" id="memberIdNumber" placeholder="ID Number">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Emergency Contact</label>
+                <input type="text" class="form-input" id="memberEmergencyContact" placeholder="Contact name">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Emergency Phone</label>
+                <input type="tel" class="form-input" id="memberEmergencyPhone" placeholder="+265 991 234 567">
+              </div>
+            </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Role</label>
-            <select class="form-select" id="memberRole">
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
-            </select>
+          <!-- Account & Collateral -->
+          <div class="form-section">
+            <h4 class="form-section-title">Account & Collateral</h4>
+            <div class="form-group">
+              <label class="form-label">Email Address *</label>
+              <input type="email" class="form-input" id="memberEmail" required placeholder="member@example.com">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Role</label>
+                <select class="form-select" id="memberRole">
+                  <option value="member">Member</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Status</label>
+                <select class="form-select" id="memberStatus">
+                  <option value="active">Active</option>
+                  <option value="pending">Pending</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Collateral Description</label>
+              <textarea class="form-textarea" id="memberCollateral" rows="2" placeholder="Describe collateral items..."></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Notes</label>
+              <textarea class="form-textarea" id="memberNotes" rows="2" placeholder="Any additional notes..."></textarea>
+            </div>
           </div>
-
-          <div class="form-group">
-            <label class="form-label">Collateral Description</label>
-            <textarea class="form-input" id="memberCollateral" rows="3" placeholder="Describe any assets that can serve as collateral for loans"></textarea>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Additional Notes</label>
-            <textarea class="form-input" id="memberNotes" rows="3" placeholder="Any additional information"></textarea>
-          </div>
-        </div>
-
-        <div class="form-actions" style="position: sticky; bottom: 0; background: var(--bn-white); padding-top: var(--bn-spacing-md); border-top: 2px solid var(--bn-gray-lighter); margin-top: var(--bn-spacing-lg);">
-          <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
-          <button type="submit" class="btn-primary">Add Member</button>
-        </div>
-      </form>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="cancelAddMember">Cancel</button>
+        <button type="submit" form="addMemberForm" class="btn btn-accent">Add Member</button>
+      </div>
     </div>
   </div>
 
-  <!-- Loading Overlay -->
-  <div class="spinner-overlay" id="loadingOverlay">
-    <div class="spinner"></div>
+  <!-- Edit Member Modal -->
+  <div class="modal-overlay" id="editMemberModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Edit Member</h2>
+        <button class="modal-close" id="closeEditMemberModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="editMemberForm">
+          <input type="hidden" id="editMemberId">
+          
+          <!-- Profile Picture -->
+          <div class="profile-upload">
+            <div class="profile-preview" id="editMemberProfilePreview">👤</div>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('editMemberProfilePicture').click()">Change Photo</button>
+            <input type="file" id="editMemberProfilePicture" accept="image/*" style="display: none;">
+          </div>
+
+          <!-- Edit form fields will be populated by JS -->
+          <div id="editFormFields"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="cancelEditMember">Cancel</button>
+        <button type="submit" form="editMemberForm" class="btn btn-accent">Save Changes</button>
+      </div>
+    </div>
   </div>
 
-  <!-- Toast -->
-  <div class="toast" id="toast"></div>
+  <!-- Delete Confirmation Modal -->
+  <div class="modal-overlay" id="deleteMemberModal">
+    <div class="modal-content" style="max-width: 420px;">
+      <div class="modal-header">
+        <h2 class="modal-title">Remove Member</h2>
+        <button class="modal-close" id="closeDeleteMemberModal">&times;</button>
+      </div>
+      <div class="modal-body" style="text-align: center;">
+        <div style="font-size: 3rem; margin-bottom: var(--bn-space-4);">⚠️</div>
+        <p style="margin-bottom: var(--bn-space-4); color: var(--bn-gray);">
+          Are you sure you want to remove <strong id="deleteMemberName"></strong> from this group?
+        </p>
+        <p style="font-size: var(--bn-text-sm); color: var(--bn-danger);">
+          This action cannot be undone. All payment records will be archived.
+        </p>
+        <input type="hidden" id="deleteMemberId">
+      </div>
+      <div class="modal-footer" style="justify-content: center;">
+        <button type="button" class="btn btn-ghost" id="cancelDeleteMember">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteMember">Remove Member</button>
+      </div>
+    </div>
+  </div>
 
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+  <!-- Mobile Navigation -->
+  <nav class="mobile-nav">
+    <a href="admin_dashboard.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">🏠</span>
+      <span>Home</span>
+    </a>
+    <a href="manage_members.html" class="mobile-nav-item active">
+      <span class="mobile-nav-icon">👥</span>
+      <span>Members</span>
+    </a>
+    <a href="manage_payments.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">💳</span>
+      <span>Payments</span>
+    </a>
+    <a href="settings.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">⚙️</span>
+      <span>Settings</span>
+    </a>
+  </nav>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Loading Overlay -->
+  <div class="spinner-overlay hidden" id="loadingOverlay">
+    <div class="spinner-content">
+      <div class="spinner"></div>
+      <p class="loading-text">Loading...</p>
+    </div>
+  </div>
+
   <script type="module" src="../scripts/manage_members_new.js"></script>
 </body>
 </html>

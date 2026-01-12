@@ -3,764 +3,1424 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Bank Nkhonde Admin Dashboard - Manage your savings groups">
-  <meta name="theme-color" content="#047857">
+  <meta name="description" content="Bank Nkhonde Admin Dashboard - Enterprise ROSCA Management">
+  <meta name="theme-color" content="#0A1628">
   <title>Admin Dashboard - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
-  <link rel="stylesheet" href="../styles/login.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
-    /* Admin Dashboard Specific Styles */
+    /* Admin Dashboard Layout */
+    :root {
+      --sidebar-width: 280px;
+      --topbar-height: 72px;
+    }
+
     body {
+      background: var(--bn-gray-100);
       min-height: 100vh;
-      position: relative;
+    }
+
+    /* ============================================
+       SIDEBAR NAVIGATION
+       ============================================ */
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: var(--sidebar-width);
+      background: var(--bn-dark);
+      z-index: var(--z-fixed);
       display: flex;
       flex-direction: column;
+      transition: transform var(--bn-transition-base);
     }
 
-    .dashboard-main {
-      flex: 1;
-      position: relative;
-      z-index: 1;
+    .sidebar-header {
+      padding: var(--bn-space-6);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
 
-    /* Hero Section */
-    .dashboard-hero {
-      background: var(--bn-gradient-primary);
-      padding: var(--bn-space-4xl) var(--bn-space-xl);
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+      text-decoration: none;
+    }
+
+    .sidebar-logo-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--bn-gradient-accent);
+      border-radius: var(--bn-radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sidebar-logo-icon svg {
+      width: 22px;
+      height: 22px;
+      color: var(--bn-dark);
+    }
+
+    .sidebar-logo-text {
+      font-size: var(--bn-text-lg);
+      font-weight: 800;
       color: var(--bn-white);
+      letter-spacing: -0.02em;
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      padding: var(--bn-space-4) var(--bn-space-3);
+      overflow-y: auto;
+    }
+
+    .sidebar-nav-section {
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .sidebar-nav-label {
+      font-size: var(--bn-text-xs);
+      font-weight: 600;
+      color: var(--bn-gray);
+      text-transform: uppercase;
+      letter-spacing: var(--bn-tracking-wider);
+      padding: var(--bn-space-3) var(--bn-space-4);
+      margin-bottom: var(--bn-space-1);
+    }
+
+    .sidebar-nav-item {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+      padding: var(--bn-space-3) var(--bn-space-4);
+      font-size: var(--bn-text-sm);
+      font-weight: 500;
+      color: var(--bn-gray-400);
+      text-decoration: none;
+      border-radius: var(--bn-radius-lg);
+      transition: all var(--bn-transition-fast);
+      margin-bottom: var(--bn-space-1);
+    }
+
+    .sidebar-nav-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--bn-white);
+    }
+
+    .sidebar-nav-item.active {
+      background: rgba(201, 162, 39, 0.15);
+      color: var(--bn-accent);
+    }
+
+    .sidebar-nav-item svg {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-nav-badge {
+      margin-left: auto;
+      background: var(--bn-danger);
+      color: var(--bn-white);
+      font-size: var(--bn-text-xs);
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: var(--bn-radius-full);
+      min-width: 20px;
+      text-align: center;
+    }
+
+    .sidebar-footer {
+      padding: var(--bn-space-4);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .sidebar-user {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+      padding: var(--bn-space-3);
+      border-radius: var(--bn-radius-lg);
+      cursor: pointer;
+      transition: background var(--bn-transition-fast);
+    }
+
+    .sidebar-user:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .sidebar-user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--bn-radius-full);
+      background: var(--bn-gradient-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: var(--bn-text-sm);
+      color: var(--bn-dark);
+      overflow: hidden;
+    }
+
+    .sidebar-user-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .sidebar-user-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .sidebar-user-name {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-white);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sidebar-user-role {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+
+    /* ============================================
+       MAIN CONTENT AREA
+       ============================================ */
+    .main-content {
+      margin-left: var(--sidebar-width);
+      min-height: 100vh;
+    }
+
+    /* Top Bar */
+    .topbar {
+      position: sticky;
+      top: 0;
+      height: var(--topbar-height);
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+      z-index: var(--z-sticky);
+      padding: 0 var(--bn-space-8);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--bn-space-6);
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-6);
+    }
+
+    .topbar-title {
+      font-size: var(--bn-text-xl);
+      font-weight: 700;
+      color: var(--bn-dark);
+    }
+
+    .topbar-search {
+      position: relative;
+      width: 320px;
+    }
+
+    .topbar-search-input {
+      width: 100%;
+      padding: var(--bn-space-3) var(--bn-space-4) var(--bn-space-3) var(--bn-space-12);
+      font-size: var(--bn-text-sm);
+      background: var(--bn-gray-100);
+      border: 1px solid transparent;
+      border-radius: var(--bn-radius-lg);
+      outline: none;
+      transition: all var(--bn-transition-fast);
+    }
+
+    .topbar-search-input:focus {
+      background: var(--bn-white);
+      border-color: var(--bn-accent);
+      box-shadow: 0 0 0 3px var(--bn-accent-subtle);
+    }
+
+    .topbar-search-icon {
+      position: absolute;
+      left: var(--bn-space-4);
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--bn-gray);
+      pointer-events: none;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+    }
+
+    .topbar-btn {
+      position: relative;
+      width: 40px;
+      height: 40px;
+      border-radius: var(--bn-radius-md);
+      background: var(--bn-gray-100);
+      border: none;
+      color: var(--bn-gray-700);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--bn-transition-fast);
+    }
+
+    .topbar-btn:hover {
+      background: var(--bn-gray-lighter);
+      color: var(--bn-dark);
+    }
+
+    .topbar-btn-badge {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 8px;
+      height: 8px;
+      background: var(--bn-danger);
+      border-radius: 50%;
+      border: 2px solid var(--bn-white);
+    }
+
+    .topbar-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--bn-radius-full);
+      background: var(--bn-gradient-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: var(--bn-text-sm);
+      color: var(--bn-white);
+      cursor: pointer;
+      overflow: hidden;
+      border: 2px solid var(--bn-gray-lighter);
+      transition: border-color var(--bn-transition-fast);
+    }
+
+    .topbar-avatar:hover {
+      border-color: var(--bn-accent);
+    }
+
+    .topbar-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* View Toggle */
+    .view-toggle {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-1);
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-full);
+      padding: 3px;
+    }
+
+    .view-toggle-label {
+      display: none;
+    }
+
+    .view-toggle-btn {
+      padding: var(--bn-space-2) var(--bn-space-4);
+      font-size: var(--bn-text-xs);
+      font-weight: 600;
+      border: none;
+      background: transparent;
+      color: var(--bn-gray);
+      border-radius: var(--bn-radius-full);
+      cursor: pointer;
+      transition: all var(--bn-transition-fast);
+    }
+
+    .view-toggle-btn.active {
+      background: var(--bn-white);
+      color: var(--bn-dark);
+      box-shadow: var(--bn-shadow-sm);
+    }
+
+    .view-toggle-btn:hover:not(.active) {
+      color: var(--bn-dark);
+    }
+
+    @media (max-width: 768px) {
+      .view-toggle {
+        display: none;
+      }
+    }
+
+    .mobile-menu-btn {
+      display: none;
+      background: none;
+      border: none;
+      padding: var(--bn-space-2);
+      cursor: pointer;
+    }
+
+    .mobile-menu-btn span {
+      display: block;
+      width: 24px;
+      height: 2px;
+      background: var(--bn-dark);
+      margin: 5px 0;
+      transition: all var(--bn-transition-fast);
+    }
+
+    /* ============================================
+       DASHBOARD CONTENT
+       ============================================ */
+    .dashboard-content {
+      padding: var(--bn-space-8);
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* System Alerts */
+    .system-alerts {
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .alert-item {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-4);
+      padding: var(--bn-space-4) var(--bn-space-5);
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-lg);
+      border-left: 4px solid var(--bn-success);
+      box-shadow: var(--bn-shadow-sm);
+      margin-bottom: var(--bn-space-3);
+      animation: slideInRight 0.5s var(--bn-ease-out);
+    }
+
+    .alert-item.warning { border-left-color: var(--bn-warning); }
+    .alert-item.danger { border-left-color: var(--bn-danger); }
+    .alert-item.info { border-left-color: var(--bn-info); }
+
+    .alert-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--bn-radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .alert-item .alert-icon { background: var(--bn-success-light); }
+    .alert-item.warning .alert-icon { background: var(--bn-warning-light); }
+    .alert-item.danger .alert-icon { background: var(--bn-danger-light); }
+    .alert-item.info .alert-icon { background: var(--bn-info-light); }
+
+    .alert-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .alert-title {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-dark);
+      margin-bottom: var(--bn-space-1);
+    }
+
+    .alert-time {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+
+    .alert-close {
+      background: none;
+      border: none;
+      color: var(--bn-gray);
+      cursor: pointer;
+      padding: var(--bn-space-1);
+      transition: color var(--bn-transition-fast);
+    }
+
+    .alert-close:hover {
+      color: var(--bn-dark);
+    }
+
+    /* Stats Grid - Single row, compact cards */
+    .stats-grid {
+      display: flex;
+      gap: var(--bn-space-4);
+      margin-bottom: var(--bn-space-6);
+      overflow-x: auto;
+      padding-bottom: var(--bn-space-2);
+    }
+
+    .stat-card {
+      flex: 1;
+      min-width: 160px;
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-space-4) var(--bn-space-5);
+      box-shadow: var(--bn-shadow-sm);
+      border: 1px solid var(--bn-gray-lighter);
+      transition: all var(--bn-transition-base);
+    }
+
+    .stat-card:hover {
+      border-color: var(--bn-accent);
+    }
+
+    .stat-value {
+      font-size: var(--bn-text-xl);
+      font-weight: 800;
+      color: var(--bn-dark);
+      margin-bottom: var(--bn-space-1);
+      font-feature-settings: 'tnum' 1;
+      white-space: nowrap;
+    }
+
+    .stat-label {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Content Grid */
+    .content-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: var(--bn-space-6);
+      margin-bottom: var(--bn-space-8);
+    }
+
+    .content-card {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-xl);
+      box-shadow: var(--bn-shadow-sm);
+      border: 1px solid var(--bn-gray-lighter);
+      overflow: hidden;
+    }
+
+    .content-card-header {
+      padding: var(--bn-space-5) var(--bn-space-6);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .content-card-title {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      color: var(--bn-dark);
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+    }
+
+    .content-card-body {
+      padding: var(--bn-space-6);
+    }
+
+    /* Chart Container */
+    .chart-container {
+      height: 240px;
+      display: flex;
+      align-items: flex-end;
+      gap: var(--bn-space-3);
+      padding: var(--bn-space-4) 0;
+    }
+
+    .chart-bar-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--bn-space-2);
+    }
+
+    .chart-bar {
+      width: 100%;
+      max-width: 48px;
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-md) var(--bn-radius-md) 0 0;
+      transition: all var(--bn-transition-slow);
       position: relative;
       overflow: hidden;
     }
 
-    .dashboard-hero::before {
+    .chart-bar::after {
       content: '';
       position: absolute;
-      top: -50%;
-      right: -20%;
-      width: 800px;
-      height: 800px;
-      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-      border-radius: 50%;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--bn-gradient-accent);
+      height: 0;
+      transition: height 1s var(--bn-ease-out);
+      border-radius: var(--bn-radius-md) var(--bn-radius-md) 0 0;
     }
 
-    .dashboard-hero-content {
-      max-width: 1200px;
-      margin: 0 auto;
-      position: relative;
-      z-index: 1;
+    .chart-bar.animated::after {
+      height: var(--bar-height, 0);
     }
 
-    .dashboard-hero-header {
+    .chart-label {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      font-weight: 500;
+    }
+
+    /* Pending Approvals List */
+    .approval-list {
+      max-height: 320px;
+      overflow-y: auto;
+    }
+
+    .approval-item {
       display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: var(--bn-space-2xl);
-      flex-wrap: wrap;
-      gap: var(--bn-space-lg);
-    }
-
-    .dashboard-hero-title h1 {
-      font-size: clamp(2rem, 4vw, 3rem);
-      font-weight: 800;
-      margin: 0 0 var(--bn-space-sm) 0;
-      color: var(--bn-white);
-      line-height: 1.2;
-    }
-
-    .dashboard-hero-title p {
-      font-size: 1.125rem;
-      color: rgba(255, 255, 255, 0.9);
-      margin: 0;
-    }
-
-    .dashboard-hero-actions {
-      display: flex;
-      gap: var(--bn-space-sm);
-    }
-
-    .hero-action-btn {
-      width: 48px;
-      height: 48px;
+      align-items: center;
+      gap: var(--bn-space-4);
+      padding: var(--bn-space-4);
       border-radius: var(--bn-radius-lg);
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(10px);
-      color: var(--bn-white);
+      transition: background var(--bn-transition-fast);
+      cursor: pointer;
+    }
+
+    .approval-item:hover {
+      background: var(--bn-gray-100);
+    }
+
+    .approval-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--bn-radius-full);
+      background: var(--bn-gradient-primary);
       display: flex;
       align-items: center;
       justify-content: center;
-      cursor: pointer;
-      transition: all var(--bn-transition-base);
-      font-size: 1.25rem;
-      text-decoration: none;
-    }
-
-    .hero-action-btn:hover {
-      background: rgba(255, 255, 255, 0.2);
-      border-color: rgba(255, 255, 255, 0.5);
-      transform: translateY(-2px);
-    }
-
-    .hero-stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: var(--bn-space-xl);
-      margin-top: var(--bn-space-2xl);
-    }
-
-    .hero-stat {
-      text-align: center;
-    }
-
-    .hero-stat-label {
-      font-size: 0.875rem;
       font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: rgba(255, 255, 255, 0.8);
-      margin-bottom: var(--bn-space-sm);
-    }
-
-    .hero-stat-value {
-      font-size: clamp(1.75rem, 3vw, 2.5rem);
-      font-weight: 800;
+      font-size: var(--bn-text-sm);
       color: var(--bn-white);
-      margin: 0;
-      line-height: 1.2;
+      flex-shrink: 0;
     }
 
-    /* Main Content Container */
-    .dashboard-content {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: var(--bn-space-4xl) var(--bn-space-xl);
+    .approval-info {
+      flex: 1;
+      min-width: 0;
     }
 
-    /* Professional Container */
-    .content-container {
-      background: var(--bn-white);
-      border-radius: var(--bn-radius-xl);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-      padding: var(--bn-space-2xl);
-      margin-bottom: var(--bn-space-xl);
-      border: 1px solid var(--bn-gray-lighter);
+    .approval-name {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-dark);
+      margin-bottom: var(--bn-space-1);
     }
 
-    .container-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--bn-space-xl);
-      padding-bottom: var(--bn-space-lg);
-      border-bottom: 2px solid var(--bn-gray-lighter);
+    .approval-detail {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
     }
 
-    .container-title {
-      font-size: 1.5rem;
+    .approval-amount {
+      font-size: var(--bn-text-sm);
       font-weight: 700;
       color: var(--bn-dark);
-      margin: 0;
+      text-align: right;
+    }
+
+    .approval-type {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+
+    .approval-actions {
+      display: flex;
+      gap: var(--bn-space-2);
+    }
+
+    .approval-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--bn-radius-md);
+      border: none;
+      cursor: pointer;
       display: flex;
       align-items: center;
-      gap: var(--bn-space-sm);
+      justify-content: center;
+      transition: all var(--bn-transition-fast);
     }
 
-    .container-title-icon {
-      font-size: 1.75rem;
+    .approval-btn-approve {
+      background: var(--bn-success-light);
+      color: var(--bn-success);
     }
 
-    /* Stats Grid */
-    .stats-grid {
+    .approval-btn-approve:hover {
+      background: var(--bn-success);
+      color: var(--bn-white);
+    }
+
+    .approval-btn-reject {
+      background: var(--bn-danger-light);
+      color: var(--bn-danger);
+    }
+
+    .approval-btn-reject:hover {
+      background: var(--bn-danger);
+      color: var(--bn-white);
+    }
+
+    /* Quick Actions Grid - Minimal cards */
+    .actions-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: var(--bn-space-lg);
-    }
-
-    .stat-box {
-      text-align: center;
-      padding: var(--bn-space-lg);
-      background: var(--bn-gray-lighter);
-      border-radius: var(--bn-radius-lg);
-    }
-
-    .stat-box-label {
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: var(--bn-gray);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: var(--bn-space-sm);
-    }
-
-    .stat-box-value {
-      font-size: clamp(1.5rem, 2.5vw, 2rem);
-      font-weight: 800;
-      color: var(--bn-dark);
-      margin: 0;
-    }
-
-    .stat-box-value.success {
-      color: #10b981;
-    }
-
-    .stat-box-value.info {
-      color: #3b82f6;
-    }
-
-    .stat-box-value.warning {
-      color: #f59e0b;
-    }
-
-    .stat-box-value.danger {
-      color: #ef4444;
-    }
-
-    /* Action Grid */
-    .action-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: var(--bn-space-md);
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: var(--bn-space-3);
     }
 
     .action-card {
       display: flex;
       align-items: center;
-      gap: var(--bn-space-md);
-      padding: var(--bn-space-lg);
-      background: var(--bn-gray-lighter);
+      justify-content: center;
+      padding: var(--bn-space-4);
+      background: var(--bn-gray-100);
       border-radius: var(--bn-radius-lg);
+      border: none;
       text-decoration: none;
-      color: var(--bn-dark);
       transition: all var(--bn-transition-base);
-      border: 2px solid transparent;
     }
 
     .action-card:hover {
-      background: var(--bn-white);
-      border-color: var(--bn-primary);
+      background: var(--bn-accent);
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
 
-    .action-icon {
-      width: 56px;
-      height: 56px;
-      background: var(--bn-gradient-primary);
-      border-radius: var(--bn-radius-lg);
+    .action-card:hover .action-label {
+      color: var(--bn-dark);
+    }
+
+    .action-label {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-dark);
+      text-align: center;
+      transition: color var(--bn-transition-fast);
+    }
+
+    /* Groups Section */
+    .groups-section {
+      margin-top: var(--bn-space-8);
+    }
+
+    .section-header {
       display: flex;
       align-items: center;
-      justify-content: center;
-      font-size: 1.75rem;
-      flex-shrink: 0;
+      justify-content: space-between;
+      margin-bottom: var(--bn-space-5);
     }
 
-    .action-info h3 {
-      font-size: 1.125rem;
+    .section-title {
+      font-size: var(--bn-text-xl);
       font-weight: 700;
       color: var(--bn-dark);
-      margin: 0 0 var(--bn-space-xs) 0;
     }
 
-    .action-info p {
-      font-size: 0.875rem;
-      color: var(--bn-gray);
-      margin: 0;
+    .groups-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--bn-space-5);
     }
 
-    /* List Items */
-    .list-item {
-      padding: var(--bn-space-lg);
-      border-bottom: 1px solid var(--bn-gray-lighter);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .list-item:last-child {
-      border-bottom: none;
-    }
-
-    .list-item:hover {
-      background: var(--bn-gray-lighter);
-    }
-
-    /* Group Cards */
     .group-card {
-      display: block;
-      padding: var(--bn-space-lg);
-      background: var(--bn-gray-lighter);
-      border-radius: var(--bn-radius-lg);
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-xl);
+      padding: var(--bn-space-6);
+      border: 1px solid var(--bn-gray-lighter);
       text-decoration: none;
-      color: var(--bn-dark);
       transition: all var(--bn-transition-base);
-      border: 2px solid transparent;
-      margin-bottom: var(--bn-space-md);
     }
 
     .group-card:hover {
-      background: var(--bn-white);
-      border-color: var(--bn-primary);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      border-color: var(--bn-accent);
+      box-shadow: var(--bn-shadow-lg);
+      transform: translateY(-4px);
     }
 
-    .group-card h4 {
-      font-size: 1.125rem;
+    .group-name {
+      font-size: var(--bn-text-lg);
       font-weight: 700;
       color: var(--bn-dark);
-      margin: 0 0 var(--bn-space-sm) 0;
+      margin-bottom: var(--bn-space-2);
     }
 
-    .group-info {
+    .group-stats {
       display: flex;
-      gap: var(--bn-space-lg);
-      font-size: 0.875rem;
-      color: var(--bn-gray);
+      gap: var(--bn-space-6);
+      margin-top: var(--bn-space-4);
+      padding-top: var(--bn-space-4);
+      border-top: 1px solid var(--bn-gray-lighter);
     }
 
-    /* Approval Items */
-    .approval-item {
-      padding: var(--bn-space-lg);
-      background: var(--bn-gray-lighter);
-      border-radius: var(--bn-radius-lg);
-      margin-bottom: var(--bn-space-md);
-      border: 2px solid transparent;
+    .group-stat-item {
+      flex: 1;
     }
 
-    .approval-item:hover {
-      background: var(--bn-white);
-      border-color: var(--bn-primary);
-    }
-
-    .approval-header {
-      margin-bottom: var(--bn-space-md);
-    }
-
-    .approval-info h4 {
-      font-size: 1rem;
+    .group-stat-value {
+      font-size: var(--bn-text-lg);
       font-weight: 700;
       color: var(--bn-dark);
-      margin: 0 0 var(--bn-space-xs) 0;
     }
 
-    .approval-info p {
-      font-size: 0.875rem;
+    .group-stat-label {
+      font-size: var(--bn-text-xs);
       color: var(--bn-gray);
-      margin: 0;
-    }
-
-    .approval-actions {
-      display: flex;
-      gap: var(--bn-space-sm);
-    }
-
-    .btn-approve {
-      background: var(--bn-success);
-      color: var(--bn-white);
-    }
-
-    .btn-approve:hover {
-      background: #059669;
-    }
-
-    .btn-reject {
-      background: var(--bn-danger);
-      color: var(--bn-white);
-    }
-
-    .btn-reject:hover {
-      background: #dc2626;
     }
 
     /* Empty State */
     .empty-state {
       text-align: center;
-      padding: var(--bn-space-3xl);
-      color: var(--bn-gray);
+      padding: var(--bn-space-12) var(--bn-space-6);
     }
 
     .empty-state-icon {
-      font-size: 64px;
-      margin-bottom: var(--bn-space-md);
-      opacity: 0.5;
+      font-size: 48px;
+      margin-bottom: var(--bn-space-4);
+      opacity: 0.4;
     }
 
     .empty-state-text {
-      font-size: 1rem;
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
     }
 
-    /* Badge */
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: var(--bn-space-xs);
-      padding: 0.25rem 0.75rem;
-      font-size: 0.75rem;
-      font-weight: 600;
-      border-radius: var(--bn-radius-full);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      background: rgba(239, 68, 68, 0.1);
-      color: #ef4444;
-    }
-
-    .badge.hidden {
-      display: none;
-    }
-
-    /* Footer */
-    .dashboard-footer {
-      background: var(--bn-dark);
-      color: var(--bn-white);
-      padding: var(--bn-space-2xl) var(--bn-space-xl);
-      margin-top: auto;
-      position: relative;
-      z-index: 1;
-    }
-
-    .footer-content {
-      max-width: 1200px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: var(--bn-space-xl);
-    }
-
-    .footer-section h4 {
-      font-size: 1rem;
-      font-weight: 700;
-      margin: 0 0 var(--bn-space-md) 0;
-      color: var(--bn-white);
-    }
-
-    .footer-section p,
-    .footer-section a {
-      font-size: 0.875rem;
-      color: rgba(255, 255, 255, 0.7);
-      text-decoration: none;
-      display: block;
-      margin-bottom: var(--bn-space-xs);
-      transition: color var(--bn-transition-base);
-    }
-
-    .footer-section a:hover {
-      color: var(--bn-white);
-    }
-
-    .footer-bottom {
-      max-width: 1200px;
-      margin: var(--bn-space-xl) auto 0;
-      padding-top: var(--bn-space-xl);
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      text-align: center;
-      font-size: 0.875rem;
-      color: rgba(255, 255, 255, 0.6);
-    }
-
-    /* Loading Overlay */
-    .spinner-overlay {
+    /* ============================================
+       TOAST CONTAINER
+       ============================================ */
+    .toast-container {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(15, 23, 42, 0.8);
-      backdrop-filter: blur(4px);
+      top: var(--bn-space-6);
+      right: var(--bn-space-6);
+      z-index: var(--z-toast);
       display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
+      flex-direction: column;
+      gap: var(--bn-space-3);
+      max-width: 400px;
     }
 
-    .spinner-overlay.hidden {
-      display: none;
-    }
-
-    .spinner-content {
-      text-align: center;
-      color: var(--bn-white);
-    }
-
-    .spinner {
-      width: 50px;
-      height: 50px;
-      border: 4px solid rgba(255, 255, 255, 0.3);
-      border-top-color: var(--bn-white);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin: 0 auto var(--bn-space-md);
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .loading-text {
-      font-size: 1rem;
-      margin: 0;
-    }
-
-    /* Responsive */
-    @media (max-width: 1023px) {
-      .dashboard-hero {
-        padding: var(--bn-space-3xl) var(--bn-space-lg);
-      }
-
-      .dashboard-content {
-        padding: var(--bn-space-2xl) var(--bn-space-lg);
-      }
-
-      .content-container {
-        padding: var(--bn-space-xl);
-      }
-
-      .hero-stats {
+    /* ============================================
+       RESPONSIVE
+       ============================================ */
+    @media (max-width: 1280px) {
+      .stats-grid {
         grid-template-columns: repeat(2, 1fr);
       }
 
-      .action-grid {
+      .content-grid {
         grid-template-columns: 1fr;
+      }
+
+      .groups-grid {
+        grid-template-columns: repeat(2, 1fr);
       }
     }
 
-    @media (max-width: 640px) {
-      .dashboard-hero-header {
-        flex-direction: column;
-        align-items: flex-start;
+    @media (max-width: 1024px) {
+      .sidebar {
+        transform: translateX(-100%);
       }
 
-      .hero-stats {
-        grid-template-columns: 1fr;
+      .sidebar.open {
+        transform: translateX(0);
+      }
+
+      .main-content {
+        margin-left: 0;
+      }
+
+      .mobile-menu-btn {
+        display: block;
+      }
+
+      .topbar-search {
+        display: none;
+      }
+
+      .actions-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .dashboard-content {
+        padding: var(--bn-space-4);
+      }
+
+      .topbar {
+        padding: 0 var(--bn-space-4);
       }
 
       .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--bn-space-3);
+      }
+
+      .stat-card {
+        min-width: auto;
+        padding: var(--bn-space-3) var(--bn-space-4);
+      }
+
+      .stat-value {
+        font-size: var(--bn-text-lg);
+      }
+
+      .groups-grid {
         grid-template-columns: 1fr;
       }
 
-      .footer-content {
-        grid-template-columns: 1fr;
+      .actions-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .content-grid {
+        gap: var(--bn-space-4);
+      }
+
+      .content-card-body {
+        padding: var(--bn-space-4);
+      }
+    }
+
+    /* ============================================
+       MOBILE BOTTOM NAV
+       ============================================ */
+    .mobile-nav {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--bn-white);
+      border-top: 1px solid var(--bn-gray-lighter);
+      padding: var(--bn-space-2) 0;
+      z-index: var(--z-fixed);
+    }
+
+    @media (max-width: 1024px) {
+      .mobile-nav {
+        display: flex;
+        justify-content: space-around;
+      }
+
+      .dashboard-content {
+        padding-bottom: calc(var(--bn-space-8) + 70px);
+      }
+    }
+
+    .mobile-nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--bn-space-1);
+      padding: var(--bn-space-2) var(--bn-space-4);
+      text-decoration: none;
+      color: var(--bn-gray);
+      font-size: var(--bn-text-xs);
+      font-weight: 500;
+      transition: color var(--bn-transition-fast);
+    }
+
+    .mobile-nav-item.active {
+      color: var(--bn-accent);
+    }
+
+    .mobile-nav-icon {
+      font-size: 1.25rem;
+    }
+
+    /* Sidebar Overlay */
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 22, 40, 0.5);
+      z-index: calc(var(--z-fixed) - 1);
+    }
+
+    @media (max-width: 1024px) {
+      .sidebar-overlay.open {
+        display: block;
       }
     }
   </style>
 </head>
 <body>
-  <!-- Background Decoration (same as login.html) -->
-  <div class="login-bg">
-    <div class="login-bg-shape login-bg-shape-1"></div>
-    <div class="login-bg-shape login-bg-shape-2"></div>
-    <div class="login-bg-shape login-bg-shape-3"></div>
-  </div>
+  <!-- Sidebar Overlay -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-  <!-- Main Dashboard -->
-  <div class="dashboard-main">
-    <!-- Hero Section -->
-    <div class="dashboard-hero">
-      <div class="dashboard-hero-content">
-        <div class="dashboard-hero-header">
-          <div class="dashboard-hero-title">
-            <h1>Admin Dashboard</h1>
-            <p>Welcome, <span id="adminName">Admin</span></p>
-          </div>
-          <div class="dashboard-hero-actions">
-            <button class="hero-action-btn" id="switchViewBtn" aria-label="Switch to User View" title="Switch to User View">
-              🔄
-            </button>
-            <button class="hero-action-btn" id="logoutBtn" aria-label="Logout" title="Logout">
-              🚪
-            </button>
-          </div>
+  <!-- Sidebar Navigation -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="../index.html" class="sidebar-logo">
+        <div class="sidebar-logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
         </div>
-        <div class="hero-stats">
-          <div class="hero-stat">
-            <div class="hero-stat-label">Total Collections</div>
-            <div class="hero-stat-value" id="totalCollections">MWK 0</div>
-          </div>
-          <div class="hero-stat">
-            <div class="hero-stat-label">Active Loans</div>
-            <div class="hero-stat-value" id="activeLoans">0</div>
-          </div>
-          <div class="hero-stat">
-            <div class="hero-stat-label">Pending Approvals</div>
-            <div class="hero-stat-value" id="pendingApprovals">0</div>
-          </div>
-          <div class="hero-stat">
-            <div class="hero-stat-label">Total Arrears</div>
-            <div class="hero-stat-value" id="totalArrears">MWK 0</div>
-          </div>
-        </div>
-      </div>
+        <span class="sidebar-logo-text">Bank Nkhonde</span>
+      </a>
     </div>
 
-    <!-- Main Content -->
-    <div class="dashboard-content">
-      <!-- Pending Approvals Container -->
-      <div class="content-container">
-        <div class="container-header">
-          <h2 class="container-title">
-            <span class="container-title-icon">⏳</span>
-            Pending Approvals
-            <span class="badge hidden" id="pendingBadge">0</span>
-          </h2>
+    <nav class="sidebar-nav">
+      <div class="sidebar-nav-section">
+        <div class="sidebar-nav-label">Main</div>
+        <a href="admin_dashboard.html" class="sidebar-nav-item active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+          Dashboard
+        </a>
+        <a href="analytics.html" class="sidebar-nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+          Analytics
+        </a>
+        <a href="financial_reports.html" class="sidebar-nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          Reports
+        </a>
+      </div>
+
+      <div class="sidebar-nav-section">
+        <div class="sidebar-nav-label">Management</div>
+        <a href="manage_loans.html" class="sidebar-nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="1" x2="12" y2="23"/>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+          Manage Loans
+          <span class="sidebar-nav-badge" id="loansBadge" style="display: none;">0</span>
+        </a>
+        <a href="manage_payments.html" class="sidebar-nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+            <line x1="1" y1="10" x2="23" y2="10"/>
+          </svg>
+          Payments
+          <span class="sidebar-nav-badge" id="paymentsBadge" style="display: none;">0</span>
+        </a>
+        <a href="manage_members.html" class="sidebar-nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          Members
+        </a>
+        <a href="contributions_overview.html" class="sidebar-nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+          Contributions
+        </a>
+        <a href="interest_penalties.html" class="sidebar-nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          Interest & Penalties
+        </a>
+      </div>
+
+      <div class="sidebar-nav-section">
+        <div class="sidebar-nav-label">Communications</div>
+        <a href="broadcast_notifications.html" class="sidebar-nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          Broadcast
+        </a>
+        <a href="settings.html" class="sidebar-nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          Settings
+        </a>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user" id="sidebarUser">
+        <a href="settings.html" class="sidebar-user-avatar" id="sidebarUserAvatar" title="Settings & Profile">
+          <img id="sidebarProfilePic" src="" alt="Profile" style="display: none;">
+          <span id="sidebarUserInitials">A</span>
+        </a>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-name" id="sidebarUserName">Admin</div>
+          <div class="sidebar-user-role">Administrator</div>
         </div>
-        <div id="pendingApprovalsList">
-          <div class="empty-state">
-            <div class="empty-state-icon">✅</div>
-            <p class="empty-state-text">No pending approvals</p>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--bn-gray);">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Top Bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Open menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <h1 class="topbar-title">Dashboard</h1>
+        <div class="topbar-search">
+          <svg class="topbar-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" class="topbar-search-input" placeholder="Search members, groups, transactions...">
+        </div>
+      </div>
+      <div class="topbar-right">
+        <!-- View Mode Toggle -->
+        <div class="view-toggle">
+          <span class="view-toggle-label">Admin</span>
+          <button class="view-toggle-btn active" id="adminViewBtn" title="Admin Dashboard">Admin</button>
+          <button class="view-toggle-btn" id="userViewBtn" title="User Dashboard" onclick="window.location.href='user_dashboard.html'">User</button>
+        </div>
+        <button class="topbar-btn" id="selectGroupBtn" aria-label="Select Group" title="Select Group" onclick="window.location.href='select_group.html'">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 3h18v18H3zM12 8v8M8 12h8"/>
+          </svg>
+        </button>
+        <button class="topbar-btn" id="notificationsBtn" aria-label="Notifications">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span class="topbar-btn-badge" id="notificationBadge" style="display: none;"></span>
+        </button>
+        <a href="settings.html" class="topbar-avatar" id="topbarAvatar" title="Settings & Profile">
+          <img id="topbarProfilePic" src="" alt="Profile" style="display: none;">
+          <span id="topbarUserInitials">A</span>
+        </a>
+      </div>
+    </header>
+
+    <!-- Dashboard Content -->
+    <div class="dashboard-content">
+      <!-- System Alerts -->
+      <div class="system-alerts" id="systemAlerts">
+        <!-- Alerts will be dynamically inserted here -->
+      </div>
+
+      <!-- Stats Grid - Compact single row -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="totalCollections">MWK 0</div>
+          <div class="stat-label">Collections</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="activeLoans">0</div>
+          <div class="stat-label">Active Loans</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="pendingApprovals">0</div>
+          <div class="stat-label">Pending</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="totalArrears">MWK 0</div>
+          <div class="stat-label">Arrears</div>
+        </div>
+      </div>
+
+      <!-- Content Grid -->
+      <div class="content-grid">
+        <!-- Chart Card -->
+        <div class="content-card">
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="20" x2="18" y2="10"/>
+                <line x1="12" y1="20" x2="12" y2="4"/>
+                <line x1="6" y1="20" x2="6" y2="14"/>
+              </svg>
+              Collection Trends
+            </h2>
+            <select class="form-select" style="width: auto; padding: var(--bn-space-2) var(--bn-space-4); font-size: var(--bn-text-sm);">
+              <option>Last 6 months</option>
+              <option>Last year</option>
+              <option>All time</option>
+            </select>
+          </div>
+          <div class="content-card-body">
+            <div class="chart-container" id="chartContainer">
+              <div class="chart-bar-wrapper">
+                <div class="chart-bar" style="height: 180px; --bar-height: 40%;"></div>
+                <span class="chart-label">Jul</span>
+              </div>
+              <div class="chart-bar-wrapper">
+                <div class="chart-bar" style="height: 180px; --bar-height: 65%;"></div>
+                <span class="chart-label">Aug</span>
+              </div>
+              <div class="chart-bar-wrapper">
+                <div class="chart-bar" style="height: 180px; --bar-height: 55%;"></div>
+                <span class="chart-label">Sep</span>
+              </div>
+              <div class="chart-bar-wrapper">
+                <div class="chart-bar" style="height: 180px; --bar-height: 80%;"></div>
+                <span class="chart-label">Oct</span>
+              </div>
+              <div class="chart-bar-wrapper">
+                <div class="chart-bar" style="height: 180px; --bar-height: 70%;"></div>
+                <span class="chart-label">Nov</span>
+              </div>
+              <div class="chart-bar-wrapper">
+                <div class="chart-bar" style="height: 180px; --bar-height: 90%;"></div>
+                <span class="chart-label">Dec</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pending Approvals Card -->
+        <div class="content-card">
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              Pending Approvals
+            </h2>
+            <a href="approve_registrations.html" class="btn btn-ghost btn-sm">View All</a>
+          </div>
+          <div class="content-card-body">
+            <div class="approval-list" id="pendingApprovalsList">
+              <div class="empty-state">
+                <div class="empty-state-icon">✅</div>
+                <p class="empty-state-text">No pending approvals</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Quick Actions Container -->
-      <div class="content-container">
-        <div class="container-header">
-          <h2 class="container-title">
-            <span class="container-title-icon">⚡</span>
+      <!-- Quick Actions -->
+      <div class="content-card">
+        <div class="content-card-header">
+          <h2 class="content-card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
             Quick Actions
           </h2>
         </div>
-        <div class="action-grid">
-          <a href="manage_loans.html" class="action-card">
-            <div class="action-icon">💰</div>
-            <div class="action-info">
-              <h3>Manage Loans</h3>
-              <p>Approve and track loan requests</p>
-            </div>
-          </a>
-          
-          <a href="manage_payments.html" class="action-card">
-            <div class="action-icon">💵</div>
-            <div class="action-info">
-              <h3>Manage Payments</h3>
-              <p>Approve contributions and payments</p>
-            </div>
-          </a>
-          
-          <a href="manage_members.html" class="action-card">
-            <div class="action-icon">👥</div>
-            <div class="action-info">
-              <h3>Manage Members</h3>
-              <p>Add, edit, and remove members</p>
-            </div>
-          </a>
-          
-          <a href="contributions_overview.html" class="action-card">
-            <div class="action-icon">📈</div>
-            <div class="action-info">
-              <h3>Contributions Overview</h3>
-              <p>Track monthly contributions</p>
-            </div>
-          </a>
-          
-          <a href="seed_money_overview.html" class="action-card">
-            <div class="action-icon">🌱</div>
-            <div class="action-info">
-              <h3>Seed Money Status</h3>
-              <p>Monitor seed money payments</p>
-            </div>
-          </a>
-          
-          <a href="interest_penalties.html" class="action-card">
-            <div class="action-icon">⚖️</div>
-            <div class="action-info">
-              <h3>Interest & Penalties</h3>
-              <p>View and edit rates</p>
-            </div>
-          </a>
-          
-          <a href="financial_reports.html" class="action-card">
-            <div class="action-icon">📊</div>
-            <div class="action-info">
-              <h3>Financial Reports</h3>
-              <p>Generate comprehensive reports</p>
-            </div>
-          </a>
-          
-          <a href="analytics.html" class="action-card">
-            <div class="action-icon">📉</div>
-            <div class="action-info">
-              <h3>Analytics</h3>
-              <p>View detailed analytics</p>
-            </div>
-          </a>
-          
-          <a href="broadcast_notifications.html" class="action-card">
-            <div class="action-icon">📢</div>
-            <div class="action-info">
-              <h3>Broadcast Messages</h3>
-              <p>Send notifications to members</p>
-            </div>
-          </a>
+        <div class="content-card-body">
+          <div class="actions-grid">
+            <a href="manage_loans.html" class="action-card">
+              <span class="action-label">Loans</span>
+            </a>
+            <a href="manage_payments.html" class="action-card">
+              <span class="action-label">Payments</span>
+            </a>
+            <a href="manage_members.html" class="action-card">
+              <span class="action-label">Members</span>
+            </a>
+            <a href="contributions_overview.html" class="action-card">
+              <span class="action-label">Contributions</span>
+            </a>
+            <a href="seed_money_overview.html" class="action-card">
+              <span class="action-label">Seed Money</span>
+            </a>
+            <a href="broadcast_notifications.html" class="action-card">
+              <span class="action-label">Broadcast</span>
+            </a>
+          </div>
         </div>
       </div>
 
-      <!-- Managed Groups Container -->
-      <div class="content-container">
-        <div class="container-header">
-          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-            <h2 class="container-title" style="margin: 0;">
-              <span class="container-title-icon">📁</span>
-              Your Groups
-            </h2>
-            <a href="admin_registration.html" class="btn btn-primary btn-sm" style="text-decoration: none;">+ Create New</a>
-          </div>
+      <!-- Groups Section -->
+      <div class="groups-section">
+        <div class="section-header">
+          <h2 class="section-title">Your Groups</h2>
+          <a href="admin_registration.html" class="btn btn-accent btn-sm">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Create Group
+          </a>
         </div>
-        <div id="groupsList">
-          <div class="empty-state">
+        <div class="groups-grid" id="groupsList">
+          <div class="empty-state" style="grid-column: span 3;">
             <div class="empty-state-icon">📁</div>
             <p class="empty-state-text">Loading groups...</p>
           </div>
         </div>
       </div>
     </div>
-  </div>
+  </main>
 
-  <!-- Footer -->
-  <footer class="dashboard-footer">
-    <div class="footer-content">
-      <div class="footer-section">
-        <h4>Bank Nkhonde</h4>
-        <p>Empowering communities through collaborative savings. Manage your ROSCA group with ease and transparency.</p>
-      </div>
-      <div class="footer-section">
-        <h4>Quick Links</h4>
-        <a href="admin_dashboard.html">Dashboard</a>
-        <a href="manage_members.html">Members</a>
-        <a href="analytics.html">Analytics</a>
-        <a href="settings.html">Settings</a>
-      </div>
-      <div class="footer-section">
-        <h4>Support</h4>
-        <a href="#">Help Center</a>
-        <a href="#">Documentation</a>
-        <a href="#">Contact Us</a>
-      </div>
-      <div class="footer-section">
-        <h4>Legal</h4>
-        <a href="#">Privacy Policy</a>
-        <a href="#">Terms of Service</a>
-        <a href="#">Security</a>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <p>&copy; 2024 Bank Nkhonde. All rights reserved.</p>
-    </div>
-  </footer>
+  <!-- Mobile Bottom Navigation -->
+  <nav class="mobile-nav">
+    <a href="admin_dashboard.html" class="mobile-nav-item active">
+      <span class="mobile-nav-icon">🏠</span>
+      <span>Home</span>
+    </a>
+    <a href="manage_loans.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">💰</span>
+      <span>Loans</span>
+    </a>
+    <a href="manage_payments.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">💳</span>
+      <span>Payments</span>
+    </a>
+    <a href="analytics.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">📊</span>
+      <span>Analytics</span>
+    </a>
+    <a href="settings.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">⚙️</span>
+      <span>Settings</span>
+    </a>
+  </nav>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
 
   <!-- Loading Overlay -->
   <div class="spinner-overlay hidden" id="spinner">
     <div class="spinner-content">
       <div class="spinner"></div>
-      <p class="loading-text">Loading admin dashboard...</p>
+      <p class="loading-text">Loading dashboard...</p>
     </div>
   </div>
 
+  <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+  <script>
+    // Mobile menu toggle
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+    mobileMenuBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+      sidebarOverlay.classList.toggle('open');
+    });
+
+    sidebarOverlay.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      sidebarOverlay.classList.remove('open');
+    });
+
+    // Animate chart bars on load
+    setTimeout(() => {
+      document.querySelectorAll('.chart-bar').forEach(bar => {
+        bar.classList.add('animated');
+      });
+    }, 500);
+
+    // Toast notification system
+    function showToast(message, type = 'success', duration = 4000) {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      
+      const icons = {
+        success: '✓',
+        warning: '⚠',
+        danger: '✕',
+        info: 'ℹ'
+      };
+
+      toast.innerHTML = `
+        <div class="toast-icon">${icons[type] || icons.info}</div>
+        <div class="toast-content">
+          <p class="toast-message">${message}</p>
+        </div>
+        <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+      `;
+
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.add('exiting');
+        setTimeout(() => toast.remove(), 300);
+      }, duration);
+    }
+
+    // Demo alert
+    function addSystemAlert(title, type = 'success') {
+      const container = document.getElementById('systemAlerts');
+      const icons = {
+        success: '✓',
+        warning: '⚠',
+        danger: '✕',
+        info: 'ℹ'
+      };
+
+      const alert = document.createElement('div');
+      alert.className = `alert-item ${type}`;
+      alert.innerHTML = `
+        <div class="alert-icon">${icons[type]}</div>
+        <div class="alert-content">
+          <div class="alert-title">${title}</div>
+          <div class="alert-time">Just now</div>
+        </div>
+        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+      `;
+
+      container.insertBefore(alert, container.firstChild);
+
+      // Auto-remove after 10 seconds
+      setTimeout(() => {
+        if (alert.parentElement) {
+          alert.style.opacity = '0';
+          alert.style.transform = 'translateX(100%)';
+          setTimeout(() => alert.remove(), 300);
+        }
+      }, 10000);
+    }
+  </script>
   <script type="module" src="../scripts/admin_dashboard.js"></script>
 </body>
 </html>

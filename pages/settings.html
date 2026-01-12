@@ -4,88 +4,457 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Settings - Bank Nkhonde">
+  <meta name="theme-color" content="#0A1628">
   <title>Settings - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
-  <link rel="stylesheet" href="../styles/unified-page.css">
+  <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
+  <style>
+    .profile-picture-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: var(--bn-space-8);
+      margin-bottom: var(--bn-space-6);
+      background: var(--bn-gradient-primary);
+      border-radius: var(--bn-radius-2xl);
+    }
+
+    .profile-picture-wrapper {
+      position: relative;
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .profile-picture {
+      width: 120px;
+      height: 120px;
+      border-radius: var(--bn-radius-full);
+      background: rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      color: var(--bn-white);
+      border: 4px solid var(--bn-accent);
+      overflow: hidden;
+    }
+
+    .profile-picture img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .profile-picture-edit {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 36px;
+      height: 36px;
+      border-radius: var(--bn-radius-full);
+      background: var(--bn-accent);
+      border: 3px solid var(--bn-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all var(--bn-transition-fast);
+    }
+
+    .profile-picture-edit:hover {
+      transform: scale(1.1);
+    }
+
+    .profile-picture-edit svg {
+      width: 16px;
+      height: 16px;
+      color: var(--bn-dark);
+    }
+
+    .profile-name {
+      font-size: var(--bn-text-xl);
+      font-weight: 700;
+      color: var(--bn-white);
+      margin-bottom: var(--bn-space-1);
+    }
+
+    .profile-email {
+      font-size: var(--bn-text-sm);
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .settings-tabs {
+      display: flex;
+      gap: var(--bn-space-2);
+      padding: var(--bn-space-2);
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-full);
+      margin-bottom: var(--bn-space-6);
+      overflow-x: auto;
+    }
+
+    .settings-tab {
+      padding: var(--bn-space-3) var(--bn-space-5);
+      border: none;
+      background: transparent;
+      border-radius: var(--bn-radius-full);
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-gray);
+      cursor: pointer;
+      transition: all var(--bn-transition-fast);
+      white-space: nowrap;
+    }
+
+    .settings-tab.active {
+      background: var(--bn-white);
+      color: var(--bn-dark);
+      box-shadow: var(--bn-shadow-sm);
+    }
+
+    .settings-tab:hover:not(.active) {
+      color: var(--bn-dark);
+    }
+
+    .settings-panel {
+      display: none;
+    }
+
+    .settings-panel.active {
+      display: block;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--bn-space-4);
+    }
+
+    .form-section {
+      margin-bottom: var(--bn-space-6);
+      padding-bottom: var(--bn-space-6);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+    }
+
+    .form-section:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+
+    .form-section-title {
+      font-size: var(--bn-text-sm);
+      font-weight: 700;
+      color: var(--bn-gray);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: var(--bn-space-4);
+    }
+
+    @media (max-width: 640px) {
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
-  <div class="page-wrapper">
-    <div class="page-bg-shape"></div>
-
-    <div class="page-header">
-      <div class="page-header-content">
-        <div class="page-header-top">
+  <!-- Page Header -->
+  <header class="page-header">
+    <div class="page-header-container">
+      <div class="page-header-top">
+        <div class="page-header-nav">
+          <button class="page-back-btn" onclick="history.back()" aria-label="Go back">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+          </button>
           <div>
-            <button onclick="history.back()" class="page-header-btn" style="position: absolute; left: var(--bn-spacing-md); top: var(--bn-spacing-lg);">←</button>
-            <h1 class="page-title" style="margin-left: 50px;">Settings</h1>
+            <h1 class="page-title">Settings</h1>
+            <p class="page-subtitle">Manage your account</p>
           </div>
         </div>
       </div>
     </div>
+  </header>
 
-    <div class="page-content">
-      <!-- Profile Section -->
-      <div class="content-section">
-        <div class="content-section-header">
-          <h2 class="content-section-title">Profile</h2>
+  <!-- Page Content -->
+  <main class="page-content">
+    <!-- Profile Picture Section -->
+    <div class="profile-picture-section">
+      <div class="profile-picture-wrapper">
+        <div class="profile-picture" id="profilePicture">
+          <span id="profileInitials">U</span>
+          <img id="profileImage" src="" alt="Profile" style="display: none;">
         </div>
-        <form id="profileForm">
-          <div class="form-group">
-            <label class="form-label">Full Name</label>
-            <input type="text" id="fullName" class="form-input" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Email</label>
-            <input type="email" id="email" class="form-input" disabled>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Phone Number</label>
-            <input type="tel" id="phone" class="form-input" required>
-          </div>
-          <button type="submit" class="btn btn-primary btn-block">Save Changes</button>
-        </form>
+        <label for="profilePictureInput" class="profile-picture-edit" title="Change photo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+        </label>
+        <input type="file" id="profilePictureInput" accept="image/*" style="display: none;">
       </div>
+      <div class="profile-name" id="profileName">User Name</div>
+      <div class="profile-email" id="profileEmail">email@example.com</div>
+    </div>
 
-      <!-- Password Section -->
-      <div class="content-section">
+    <!-- Settings Tabs -->
+    <div class="settings-tabs">
+      <button class="settings-tab active" data-panel="personal">Personal</button>
+      <button class="settings-tab" data-panel="professional">Professional</button>
+      <button class="settings-tab" data-panel="security">Security</button>
+      <button class="settings-tab" data-panel="account">Account</button>
+    </div>
+
+    <!-- Personal Information Panel -->
+    <div class="settings-panel active" id="personalPanel">
+      <section class="content-section">
+        <div class="content-section-body">
+          <form id="personalForm">
+            <div class="form-section">
+              <h4 class="form-section-title">Basic Information</h4>
+              <div class="form-group">
+                <label class="form-label">Full Name *</label>
+                <input type="text" id="fullName" class="form-input" required placeholder="Your full name">
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Email Address</label>
+                  <input type="email" id="email" class="form-input" disabled>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Phone Number *</label>
+                  <input type="tel" id="phone" class="form-input" required placeholder="+265 991 234 567">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">WhatsApp</label>
+                  <input type="tel" id="whatsappNumber" class="form-input" placeholder="WhatsApp number">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Date of Birth</label>
+                  <input type="date" id="dateOfBirth" class="form-input">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Gender</label>
+                  <select id="gender" class="form-select">
+                    <option value="">Select...</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Address</label>
+                  <input type="text" id="address" class="form-input" placeholder="Your address">
+                </div>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <h4 class="form-section-title">Emergency Contact</h4>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Contact Name</label>
+                  <input type="text" id="emergencyContact" class="form-input" placeholder="Emergency contact name">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Contact Phone</label>
+                  <input type="tel" id="emergencyContactPhone" class="form-input" placeholder="Emergency phone">
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-accent btn-block">Save Personal Info</button>
+          </form>
+        </div>
+      </section>
+    </div>
+
+    <!-- Professional Information Panel -->
+    <div class="settings-panel" id="professionalPanel">
+      <section class="content-section">
+        <div class="content-section-body">
+          <form id="professionalForm">
+            <div class="form-section">
+              <h4 class="form-section-title">Work Information</h4>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Career/Profession</label>
+                  <input type="text" id="career" class="form-input" placeholder="e.g., Teacher, Engineer">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Job Title</label>
+                  <input type="text" id="jobTitle" class="form-input" placeholder="e.g., Senior Teacher">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Workplace</label>
+                  <input type="text" id="workplace" class="form-input" placeholder="Company/Organization">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Work Address</label>
+                  <input type="text" id="workAddress" class="form-input" placeholder="Work location">
+                </div>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <h4 class="form-section-title">Guarantor Information</h4>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Guarantor Name</label>
+                  <input type="text" id="guarantorName" class="form-input" placeholder="Guarantor's full name">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Guarantor Phone</label>
+                  <input type="tel" id="guarantorPhone" class="form-input" placeholder="Guarantor's phone">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Relationship</label>
+                  <select id="guarantorRelationship" class="form-select">
+                    <option value="">Select...</option>
+                    <option value="spouse">Spouse</option>
+                    <option value="parent">Parent</option>
+                    <option value="sibling">Sibling</option>
+                    <option value="relative">Relative</option>
+                    <option value="friend">Friend</option>
+                    <option value="colleague">Colleague</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Guarantor Address</label>
+                  <input type="text" id="guarantorAddress" class="form-input" placeholder="Guarantor's address">
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-accent btn-block">Save Professional Info</button>
+          </form>
+        </div>
+      </section>
+    </div>
+
+    <!-- Security Panel -->
+    <div class="settings-panel" id="securityPanel">
+      <section class="content-section">
+        <div class="content-section-body">
+          <form id="securityForm">
+            <div class="form-section">
+              <h4 class="form-section-title">Identification</h4>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">ID Type</label>
+                  <select id="idType" class="form-select">
+                    <option value="">Select...</option>
+                    <option value="national_id">National ID</option>
+                    <option value="passport">Passport</option>
+                    <option value="drivers_license">Driver's License</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">ID Number</label>
+                  <input type="text" id="idNumber" class="form-input" placeholder="Your ID number">
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-accent btn-block">Save Security Info</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="content-section" style="margin-top: var(--bn-space-6);">
         <div class="content-section-header">
           <h2 class="content-section-title">Change Password</h2>
         </div>
-        <form id="passwordForm">
-          <div class="form-group">
-            <label class="form-label">Current Password</label>
-            <input type="password" id="currentPassword" class="form-input" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">New Password</label>
-            <input type="password" id="newPassword" class="form-input" required minlength="6">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Confirm New Password</label>
-            <input type="password" id="confirmPassword" class="form-input" required>
-          </div>
-          <button type="submit" class="btn btn-primary btn-block">Change Password</button>
-        </form>
-      </div>
+        <div class="content-section-body">
+          <form id="passwordForm">
+            <div class="form-group">
+              <label class="form-label">Current Password *</label>
+              <input type="password" id="currentPassword" class="form-input" required placeholder="Enter current password">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">New Password *</label>
+                <input type="password" id="newPassword" class="form-input" required minlength="6" placeholder="At least 6 characters">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Confirm Password *</label>
+                <input type="password" id="confirmPassword" class="form-input" required placeholder="Confirm new password">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Change Password</button>
+          </form>
+        </div>
+      </section>
+    </div>
 
-      <!-- Account Actions -->
-      <div class="content-section">
+    <!-- Account Panel -->
+    <div class="settings-panel" id="accountPanel">
+      <section class="content-section">
         <div class="content-section-header">
           <h2 class="content-section-title">Account Actions</h2>
         </div>
-        <button class="btn btn-danger btn-block" id="logoutBtn">Logout</button>
-      </div>
-    </div>
-  </div>
+        <div class="content-section-body">
+          <div style="display: flex; flex-direction: column; gap: var(--bn-space-4);">
+            <button class="btn btn-ghost btn-block" id="resendVerificationBtn">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+              Resend Email Verification
+            </button>
+            <button class="btn btn-danger btn-block" id="logoutBtn">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              Logout
+            </button>
+          </div>
+        </div>
+      </section>
 
+      <section class="content-section" style="margin-top: var(--bn-space-6);">
+        <div class="content-section-header">
+          <h2 class="content-section-title" style="color: var(--bn-danger);">Danger Zone</h2>
+        </div>
+        <div class="content-section-body">
+          <p style="font-size: var(--bn-text-sm); color: var(--bn-gray); margin-bottom: var(--bn-space-4);">
+            Once you delete your account, there is no going back. Please be certain.
+          </p>
+          <button class="btn btn-ghost btn-block" style="color: var(--bn-danger); border-color: var(--bn-danger);" id="deleteAccountBtn" disabled>
+            Delete Account (Contact Admin)
+          </button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Mobile Navigation -->
   <nav class="mobile-nav">
-    <a href="admin_dashboard.html" class="mobile-nav-item">
+    <a href="user_dashboard.html" class="mobile-nav-item">
       <span class="mobile-nav-icon">🏠</span>
-      <span>Dashboard</span>
+      <span>Home</span>
+    </a>
+    <a href="contacts.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">👥</span>
+      <span>Contacts</span>
+    </a>
+    <a href="user_analytics.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">📊</span>
+      <span>Analytics</span>
     </a>
     <a href="settings.html" class="mobile-nav-item active">
       <span class="mobile-nav-icon">⚙️</span>
@@ -93,16 +462,17 @@
     </a>
   </nav>
 
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Loading Spinner -->
   <div class="spinner-overlay hidden" id="spinner">
     <div class="spinner-content">
       <div class="spinner"></div>
-      <p class="loading-text">Loading settings...</p>
+      <p class="loading-text">Saving...</p>
     </div>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module" src="../scripts/settings.js"></script>
 </body>
 </html>

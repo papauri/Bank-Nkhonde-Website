@@ -3,363 +3,152 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Bank Nkhonde User Dashboard - Manage your savings and loans">
-  <meta name="theme-color" content="#047857">
+  <meta name="description" content="Dashboard - Bank Nkhonde">
+  <meta name="theme-color" content="#0A1628">
   <title>Dashboard - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
-  <link rel="stylesheet" href="../styles/mobile-design-system.css">
+  <link rel="stylesheet" href="../styles/dashboard.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
-  <style>
-    body {
-      background: var(--bn-gray-lighter);
-      padding-bottom: 80px;
-    }
-
-    .dashboard-header {
-      background: var(--bn-gradient-primary);
-      color: var(--bn-white);
-      padding: var(--bn-spacing-lg) var(--bn-spacing-md);
-      margin: 0;
-      border-radius: 0 0 var(--bn-radius-xl) var(--bn-radius-xl);
-      box-shadow: var(--bn-shadow-lg);
-    }
-
-    .header-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--bn-spacing-md);
-    }
-
-    .user-greeting h1 {
-      font-size: var(--bn-font-xl);
-      margin-bottom: 4px;
-      color: var(--bn-white);
-    }
-
-    .user-greeting p {
-      font-size: var(--bn-font-sm);
-      opacity: 0.9;
-      margin: 0;
-    }
-
-    .header-actions {
-      display: flex;
-      gap: var(--bn-spacing-xs);
-    }
-
-    .icon-btn {
-      width: 40px;
-      height: 40px;
-      background: rgba(255, 255, 255, 0.2);
-      border: none;
-      border-radius: 50%;
-      color: var(--bn-white);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      backdrop-filter: blur(10px);
-      font-size: 20px;
-    }
-
-    .icon-btn:active {
-      background: rgba(255, 255, 255, 0.3);
-    }
-
-    .balance-card {
-      background: rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(20px);
-      border-radius: var(--bn-radius-lg);
-      padding: var(--bn-spacing-md);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-
-    .balance-label {
-      font-size: var(--bn-font-sm);
-      opacity: 0.9;
-      margin-bottom: 4px;
-    }
-
-    .balance-amount {
-      font-size: 32px;
-      font-weight: 700;
-      margin: 0;
-    }
-
-    .balance-subtext {
-      font-size: var(--bn-font-xs);
-      opacity: 0.8;
-      margin-top: 4px;
-    }
-
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--bn-spacing-md);
-    }
-
-    .section-title {
-      font-size: var(--bn-font-lg);
-      font-weight: 700;
-      color: var(--bn-dark);
-      margin: 0;
-    }
-
-    .section-link {
-      font-size: var(--bn-font-sm);
-      color: var(--bn-primary);
-      text-decoration: none;
-      font-weight: 600;
-    }
-
-    .pending-badge {
-      background: var(--bn-danger);
-      color: var(--bn-white);
-      font-size: var(--bn-font-xs);
-      padding: 2px 8px;
-      border-radius: var(--bn-radius-full);
-      margin-left: 8px;
-      font-weight: 600;
-    }
-
-    .list-item {
-      background: var(--bn-white);
-      padding: var(--bn-spacing-md);
-      border-radius: var(--bn-radius-md);
-      margin-bottom: var(--bn-spacing-sm);
-      box-shadow: var(--bn-shadow-sm);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      text-decoration: none;
-      color: var(--bn-dark);
-    }
-
-    .list-item:active {
-      transform: scale(0.98);
-      box-shadow: var(--bn-shadow-md);
-    }
-
-    .list-item-content h4 {
-      font-size: var(--bn-font-base);
-      font-weight: 600;
-      margin: 0 0 4px 0;
-      color: var(--bn-dark);
-    }
-
-    .list-item-content p {
-      font-size: var(--bn-font-sm);
-      color: var(--bn-gray);
-      margin: 0;
-    }
-
-    .list-item-meta {
-      text-align: right;
-    }
-
-    .list-item-amount {
-      font-size: var(--bn-font-lg);
-      font-weight: 700;
-      color: var(--bn-dark);
-    }
-
-    .list-item-status {
-      font-size: var(--bn-font-xs);
-      padding: 4px 8px;
-      border-radius: var(--bn-radius-sm);
-      font-weight: 600;
-      margin-top: 4px;
-      display: inline-block;
-    }
-
-    .status-pending {
-      background: rgba(245, 158, 11, 0.1);
-      color: var(--bn-warning);
-    }
-
-    .status-approved {
-      background: rgba(16, 185, 129, 0.1);
-      color: var(--bn-success);
-    }
-
-    .status-overdue {
-      background: rgba(239, 68, 68, 0.1);
-      color: var(--bn-danger);
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: var(--bn-spacing-xl) var(--bn-spacing-md);
-      color: var(--bn-gray);
-    }
-
-    .empty-state-icon {
-      font-size: 48px;
-      margin-bottom: var(--bn-spacing-sm);
-      opacity: 0.5;
-    }
-
-    .empty-state p {
-      margin: 0;
-      font-size: var(--bn-font-sm);
-    }
-
-    .group-selector {
-      background: var(--bn-white);
-      padding: var(--bn-spacing-sm);
-      border-radius: var(--bn-radius-md);
-      margin: var(--bn-spacing-md);
-      box-shadow: var(--bn-shadow-sm);
-    }
-
-    .group-selector select {
-      width: 100%;
-      padding: 12px;
-      border: 2px solid var(--bn-gray-light);
-      border-radius: var(--bn-radius-sm);
-      font-size: var(--bn-font-base);
-      font-weight: 600;
-      color: var(--bn-dark);
-      background: var(--bn-white);
-      cursor: pointer;
-    }
-  </style>
 </head>
 <body>
-  <!-- Dashboard Header -->
-  <div class="dashboard-header">
-    <div class="header-top">
-      <div class="user-greeting">
-        <h1>Hello, <span id="userName">User</span>! 👋</h1>
-        <p id="groupName">Loading group...</p>
+  <!-- Header -->
+  <header class="dashboard-header">
+    <div class="header-container">
+      <div class="header-left">
+        <a href="user_dashboard_new.html" class="header-brand">
+          <div class="brand-icon">
+            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="20" cy="20" r="16" stroke="#D4AF37" stroke-width="3"/>
+              <circle cx="20" cy="20" r="8" fill="#D4AF37"/>
+            </svg>
+          </div>
+          <span class="brand-text">Bank <span class="text-accent">Nkhonde</span></span>
+        </a>
       </div>
-      <div class="header-actions">
-        <button class="icon-btn" id="notificationBtn" aria-label="Notifications">
-          🔔
+
+      <div class="header-search">
+        <input type="search" placeholder="Search..." class="search-input" id="globalSearch">
+      </div>
+
+      <div class="header-right">
+        <button class="header-btn" id="notificationBtn" aria-label="Notifications">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span class="notification-badge" id="notificationBadge"></span>
         </button>
-        <button class="icon-btn" id="settingsBtn" aria-label="Settings">
-          ⚙️
-        </button>
+        <div class="profile-dropdown">
+          <button class="profile-btn" id="profileBtn">
+            <img src="" alt="Profile" class="profile-avatar" id="profileAvatar">
+          </button>
+          <div class="profile-menu" id="profileMenu">
+            <a href="settings.html" class="profile-menu-item">Settings</a>
+            <button class="profile-menu-item" id="logoutBtn">Sign Out</button>
+          </div>
+        </div>
       </div>
     </div>
+  </header>
 
-    <div class="balance-card">
-      <p class="balance-label">Your Total Savings</p>
-      <h2 class="balance-amount" id="totalSavings">MWK 0.00</h2>
-      <p class="balance-subtext">Last updated: <span id="lastUpdated">Just now</span></p>
+  <!-- Dashboard Hero -->
+  <section class="dashboard-hero">
+    <div class="hero-container">
+      <div class="hero-content">
+        <p class="hero-greeting">Welcome back</p>
+        <h1 class="hero-title" id="userName">Loading...</h1>
+        <p class="hero-subtitle">Track your contributions and manage your groups</p>
+      </div>
+
+      <div class="hero-stats">
+        <div class="stat-card">
+          <div class="stat-value success" id="totalContributed">MWK 0</div>
+          <div class="stat-label">Total Contributed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value info" id="activeLoans">0</div>
+          <div class="stat-label">Active Loans</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value warning" id="pendingPayments">0</div>
+          <div class="stat-label">Pending Payments</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value danger" id="arrears">MWK 0</div>
+          <div class="stat-label">Arrears</div>
+        </div>
+      </div>
     </div>
-  </div>
-
-  <!-- Group Selector (if user is in multiple groups) -->
-  <div class="group-selector hidden" id="groupSelector">
-    <select id="groupSelect">
-      <option value="">Select a group...</option>
-    </select>
-  </div>
+  </section>
 
   <!-- Main Content -->
-  <div class="mobile-container">
-    <!-- Quick Stats -->
-    <div class="stats-grid">
-      <div class="stat-card success">
-        <div class="stat-label">Paid</div>
-        <div class="stat-value" id="totalPaid">MWK 0</div>
-      </div>
-      <div class="stat-card warning">
-        <div class="stat-label">Pending</div>
-        <div class="stat-value" id="totalPending">MWK 0</div>
-      </div>
-      <div class="stat-card danger">
-        <div class="stat-label">Arrears</div>
-        <div class="stat-value" id="totalArrears">MWK 0</div>
-      </div>
-      <div class="stat-card info">
-        <div class="stat-label">Loans</div>
-        <div class="stat-value" id="activeLoans">0</div>
+  <main class="dashboard-main">
+    <div class="dashboard-container">
+      <div class="dashboard-grid">
+        <!-- Quick Actions -->
+        <section class="dashboard-section">
+          <div class="section-header">
+            <h2 class="section-title">Quick Actions</h2>
+          </div>
+          <div class="action-grid">
+            <button class="action-card" id="requestLoanBtn">
+              <span class="action-title">Request Loan</span>
+            </button>
+            <button class="action-card" id="uploadPaymentBtn">
+              <span class="action-title">Upload Payment</span>
+            </button>
+            <a href="user_analytics.html" class="action-card">
+              <span class="action-title">My Analytics</span>
+            </a>
+            <a href="contacts.html" class="action-card">
+              <span class="action-title">Contacts</span>
+            </a>
+          </div>
+        </section>
+
+        <!-- Notifications -->
+        <section class="dashboard-section">
+          <div class="section-header">
+            <h2 class="section-title">Notifications</h2>
+          </div>
+          <div class="section-content" id="notifications">
+            <div class="empty-state">
+              <div class="empty-state-icon">🔔</div>
+              <p class="empty-state-text">No new notifications</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Upcoming Payments -->
+        <section class="dashboard-section">
+          <div class="section-header">
+            <h2 class="section-title">Upcoming Payments</h2>
+          </div>
+          <div class="section-content" id="upcomingPayments">
+            <div class="empty-state">
+              <div class="empty-state-icon">📅</div>
+              <p class="empty-state-text">No upcoming payments</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- My Groups -->
+        <section class="dashboard-section">
+          <div class="section-header">
+            <h2 class="section-title">My Groups</h2>
+          </div>
+          <div class="section-content" id="userGroups">
+            <div class="empty-state">
+              <div class="empty-state-icon">👥</div>
+              <p class="empty-state-text">You haven't joined any groups yet</p>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
-
-    <!-- Quick Actions -->
-    <section>
-      <div class="section-header">
-        <h2 class="section-title">Quick Actions</h2>
-      </div>
-      <div class="actions-grid">
-        <a href="#" class="action-card" id="makePaymentBtn">
-          <span class="action-icon">💰</span>
-          <h3>Make Payment</h3>
-          <p>Pay dues</p>
-        </a>
-        <a href="#" class="action-card" id="requestLoanBtn">
-          <span class="action-icon">💵</span>
-          <h3>Request Loan</h3>
-          <p>Borrow funds</p>
-        </a>
-        <a href="#" class="action-card" id="viewHistoryBtn">
-          <span class="action-icon">📊</span>
-          <h3>History</h3>
-          <p>View records</p>
-        </a>
-        <a href="#" class="action-card" id="viewReportsBtn">
-          <span class="action-icon">📋</span>
-          <h3>Reports</h3>
-          <p>Financial</p>
-        </a>
-      </div>
-    </section>
-
-    <!-- Pending Payments -->
-    <section>
-      <div class="section-header">
-        <h2 class="section-title">
-          Pending Payments
-          <span class="pending-badge hidden" id="pendingCount">0</span>
-        </h2>
-        <a href="#" class="section-link" id="viewAllPayments">View All</a>
-      </div>
-      <div id="pendingPaymentsList">
-        <div class="empty-state">
-          <div class="empty-state-icon">✅</div>
-          <p>No pending payments</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Active Loans -->
-    <section>
-      <div class="section-header">
-        <h2 class="section-title">Active Loans</h2>
-        <a href="#" class="section-link" id="viewAllLoans">View All</a>
-      </div>
-      <div id="activeLoansList">
-        <div class="empty-state">
-          <div class="empty-state-icon">💵</div>
-          <p>No active loans</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Recent Activity -->
-    <section>
-      <div class="section-header">
-        <h2 class="section-title">Recent Activity</h2>
-      </div>
-      <div id="recentActivityList">
-        <div class="empty-state">
-          <div class="empty-state-icon">📜</div>
-          <p>No recent activity</p>
-        </div>
-      </div>
-    </section>
-  </div>
+  </main>
 
   <!-- Mobile Navigation -->
   <nav class="mobile-nav">
@@ -367,31 +156,97 @@
       <span class="mobile-nav-icon">🏠</span>
       <span>Home</span>
     </a>
-    <a href="#" class="mobile-nav-item" id="navPayments">
-      <span class="mobile-nav-icon">💰</span>
-      <span>Payments</span>
+    <a href="group_page.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">👥</span>
+      <span>Groups</span>
     </a>
-    <a href="#" class="mobile-nav-item" id="navLoans">
-      <span class="mobile-nav-icon">💵</span>
-      <span>Loans</span>
+    <a href="user_analytics.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">📊</span>
+      <span>Analytics</span>
     </a>
-    <a href="#" class="mobile-nav-item" id="navProfile">
-      <span class="mobile-nav-icon">👤</span>
-      <span>Profile</span>
+    <a href="settings.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">⚙️</span>
+      <span>Settings</span>
     </a>
   </nav>
+
+  <!-- Loan Request Modal -->
+  <div class="modal-overlay hidden" id="loanModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Request a Loan</h3>
+        <button class="modal-close" id="closeLoanModal" aria-label="Close">&times;</button>
+      </div>
+      <form id="loanForm" class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Group</label>
+          <select id="loanGroup" class="form-select" required>
+            <option value="">Select group...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Amount (MWK)</label>
+          <input type="number" id="loanAmount" class="form-input" required placeholder="Enter amount">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Purpose</label>
+          <textarea id="loanPurpose" class="form-textarea" rows="3" required placeholder="Describe the purpose of the loan"></textarea>
+        </div>
+        <button type="submit" class="btn btn-accent btn-block">Submit Request</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Payment Upload Modal -->
+  <div class="modal-overlay hidden" id="paymentModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Upload Payment Proof</h3>
+        <button class="modal-close" id="closePaymentModal" aria-label="Close">&times;</button>
+      </div>
+      <form id="paymentForm" class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Group</label>
+          <select id="paymentGroup" class="form-select" required>
+            <option value="">Select group...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Payment Type</label>
+          <select id="paymentType" class="form-select" required>
+            <option value="contribution">Contribution</option>
+            <option value="seed_money">Seed Money</option>
+            <option value="loan_repayment">Loan Repayment</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Amount (MWK)</label>
+          <input type="number" id="paymentAmount" class="form-input" required placeholder="Enter amount">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Payment Receipt</label>
+          <input type="file" id="paymentReceipt" class="form-input" accept="image/*" required>
+        </div>
+        <button type="submit" class="btn btn-accent btn-block">Submit Payment</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
 
   <!-- Loading Overlay -->
   <div class="spinner-overlay hidden" id="spinner">
     <div class="spinner-content">
       <div class="spinner"></div>
-      <p class="loading-text">Loading your dashboard...</p>
+      <p class="loading-text">Loading...</p>
     </div>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-storage-compat.js"></script>
   <script type="module" src="../scripts/user_dashboard_new.js"></script>
 </body>
 </html>
