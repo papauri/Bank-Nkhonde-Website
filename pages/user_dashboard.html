@@ -3,697 +3,776 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Bank Nkhonde User Dashboard - Manage your savings and loans">
+  <meta name="description" content="Bank Nkhonde User Dashboard - Track your savings and loans">
   <meta name="theme-color" content="#047857">
-  <title>User Dashboard - Bank Nkhonde</title>
+  <title>My Dashboard - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
-  <link rel="stylesheet" href="../styles/login.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
-    /* User Dashboard Specific Styles */
+    /* Dashboard Layout */
     body {
-      min-height: 100vh;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      background: var(--bn-gradient-dark);
+      background: var(--bn-gray-100);
+      padding-top: 72px;
     }
 
-    .dashboard-main {
-      flex: 1;
-      position: relative;
-      z-index: 1;
+    .dashboard {
+      min-height: calc(100vh - 72px);
     }
 
-    /* Hero Section */
-    .dashboard-hero {
-      background: var(--bn-gradient-primary);
-      padding: var(--bn-space-4xl) var(--bn-space-xl);
-      color: var(--bn-white);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .dashboard-hero::before {
-      content: '';
-      position: absolute;
-      top: -50%;
-      right: -20%;
-      width: 800px;
-      height: 800px;
-      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-      border-radius: 50%;
-      animation: pulse 15s infinite ease-in-out;
-    }
-
-    @keyframes pulse {
-      0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
-      50% { transform: translate(-20px, -20px) scale(1.1); opacity: 0.8; }
-    }
-
-    .dashboard-hero-content {
-      max-width: 1200px;
+    .main-content {
+      max-width: 1400px;
       margin: 0 auto;
-      position: relative;
-      z-index: 1;
+      padding: var(--bn-space-8);
     }
 
-    .dashboard-hero-header {
+    /* Page Header */
+    .page-header {
+      margin-bottom: var(--bn-space-8);
+    }
+
+    .page-header-top {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: var(--bn-space-2xl);
+      gap: var(--bn-space-4);
       flex-wrap: wrap;
-      gap: var(--bn-space-lg);
     }
 
-    .dashboard-hero-title h1 {
-      font-size: clamp(2rem, 4vw, 3rem);
-      font-weight: 800;
-      margin: 0 0 var(--bn-space-sm) 0;
-      color: var(--bn-white);
-      line-height: 1.2;
+    .page-title {
+      font-size: var(--bn-text-3xl);
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin-bottom: var(--bn-space-1);
     }
 
-    .dashboard-hero-title p {
-      font-size: 1.125rem;
-      color: rgba(255, 255, 255, 0.9);
-      margin: 0;
+    .page-subtitle {
+      color: var(--bn-gray-500);
+      font-size: var(--bn-text-base);
     }
 
-    .dashboard-hero-actions {
-      display: flex;
-      gap: var(--bn-space-sm);
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--bn-space-6);
+      margin-bottom: var(--bn-space-8);
     }
 
-    .hero-action-btn {
-      width: 48px;
-      height: 48px;
-      border-radius: var(--bn-radius-lg);
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(10px);
-      color: var(--bn-white);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
+    .stat-card {
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-200);
+      border-radius: var(--bn-radius-xl);
+      padding: var(--bn-space-6);
       transition: all var(--bn-transition-base);
-      font-size: 1.25rem;
-      text-decoration: none;
     }
 
-    .hero-action-btn:hover {
-      background: rgba(255, 255, 255, 0.2);
-      border-color: rgba(255, 255, 255, 0.5);
+    .stat-card:hover {
+      box-shadow: var(--bn-shadow-md);
       transform: translateY(-2px);
     }
 
-    .hero-stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: var(--bn-space-xl);
-      margin-top: var(--bn-space-2xl);
-    }
-
-    .hero-stat {
-      background: rgba(255, 255, 255, 0.15);
-      border-radius: var(--bn-radius-lg);
-      padding: var(--bn-space-lg);
-      text-align: center;
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      transition: all var(--bn-transition-base);
-    }
-
-    .hero-stat:hover {
-      background: rgba(255, 255, 255, 0.2);
-      transform: translateY(-4px);
-    }
-
-    .hero-stat-label {
-      font-size: 0.875rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: rgba(255, 255, 255, 0.8);
-      margin-bottom: var(--bn-space-sm);
-    }
-
-    .hero-stat-value {
-      font-size: clamp(1.75rem, 3vw, 2.5rem);
-      font-weight: 800;
-      color: var(--bn-white);
-      margin: 0;
-      line-height: 1.2;
-    }
-
-    /* Main Content Container */
-    .dashboard-content {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: var(--bn-space-4xl) var(--bn-space-xl);
-    }
-
-    /* Professional Container */
-    .content-container {
-      background: var(--bn-white);
-      border-radius: var(--bn-radius-xl);
-      box-shadow: var(--bn-shadow-lg);
-      padding: var(--bn-space-2xl);
-      margin-bottom: var(--bn-space-xl);
-      border: 1px solid var(--bn-gray-lighter);
-      transition: all var(--bn-transition-base);
-    }
-
-    .content-container:hover {
-      box-shadow: var(--bn-shadow-xl);
-    }
-
-    .container-header {
+    .stat-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--bn-radius-md);
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      margin-bottom: var(--bn-space-xl);
-      padding-bottom: var(--bn-space-lg);
-      border-bottom: 2px solid var(--bn-gray-lighter);
+      justify-content: center;
+      font-size: 1.25rem;
+      margin-bottom: var(--bn-space-3);
     }
 
-    .container-title {
-      font-size: 1.5rem;
+    .stat-icon.primary { background: var(--bn-primary-100); }
+    .stat-icon.success { background: var(--bn-success-light); }
+    .stat-icon.warning { background: var(--bn-warning-light); }
+    .stat-icon.danger { background: var(--bn-danger-light); }
+
+    .stat-value {
+      font-size: var(--bn-text-2xl);
       font-weight: 700;
       color: var(--bn-dark);
-      margin: 0;
+      font-family: var(--bn-font-mono);
+      margin-bottom: var(--bn-space-1);
+    }
+
+    .stat-label {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray-500);
+      font-weight: 500;
+    }
+
+    /* Content Grid */
+    .content-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: var(--bn-space-6);
+    }
+
+    /* Section Card */
+    .section-card {
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-200);
+      border-radius: var(--bn-radius-xl);
+      overflow: hidden;
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .section-header {
       display: flex;
       align-items: center;
-      gap: var(--bn-space-sm);
+      justify-content: space-between;
+      padding: var(--bn-space-5) var(--bn-space-6);
+      border-bottom: 1px solid var(--bn-gray-200);
     }
 
-    .container-title-icon {
-      font-size: 1.75rem;
+    .section-title {
+      font-size: var(--bn-text-base);
+      font-weight: 600;
+      color: var(--bn-dark);
+      margin: 0;
     }
 
-    /* Action Grid */
-    .action-grid {
+    .section-body {
+      padding: var(--bn-space-6);
+    }
+
+    /* Quick Actions */
+    .actions-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: var(--bn-space-md);
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--bn-space-4);
     }
 
     .action-card {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: var(--bn-space-md);
-      padding: var(--bn-space-lg);
-      background: linear-gradient(135deg, var(--bn-gray-lighter) 0%, var(--bn-white) 100%);
+      gap: var(--bn-space-3);
+      padding: var(--bn-space-5);
+      background: var(--bn-gray-50);
+      border: 1px solid var(--bn-gray-200);
       border-radius: var(--bn-radius-lg);
       text-decoration: none;
       color: var(--bn-dark);
       transition: all var(--bn-transition-base);
-      border: 2px solid transparent;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .action-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: var(--bn-gradient-primary);
-      opacity: 0;
-      transition: opacity var(--bn-transition-base);
+      text-align: center;
+      cursor: pointer;
     }
 
     .action-card:hover {
+      background: var(--bn-white);
       border-color: var(--bn-primary);
-      transform: translateY(-4px);
       box-shadow: var(--bn-shadow-md);
-    }
-
-    .action-card:hover::before {
-      opacity: 0.05;
+      transform: translateY(-2px);
     }
 
     .action-icon {
-      width: 56px;
-      height: 56px;
+      width: 48px;
+      height: 48px;
       background: var(--bn-gradient-primary);
-      border-radius: var(--bn-radius-lg);
+      border-radius: var(--bn-radius-md);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.75rem;
-      flex-shrink: 0;
-      position: relative;
-      z-index: 1;
-      box-shadow: var(--bn-shadow-sm);
+      font-size: 1.5rem;
     }
 
-    .action-info {
-      flex: 1;
-      position: relative;
-      z-index: 1;
+    .action-label {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
     }
 
-    .action-info h3 {
-      font-size: 1.125rem;
-      font-weight: 700;
-      color: var(--bn-dark);
-      margin: 0 0 var(--bn-space-xs) 0;
-    }
-
-    .action-info p {
-      font-size: 0.875rem;
-      color: var(--bn-gray);
-      margin: 0;
-    }
-
-    /* Group Cards */
-    .group-card {
-      display: block;
-      padding: var(--bn-space-lg);
-      background: linear-gradient(135deg, var(--bn-gray-lighter) 0%, var(--bn-white) 100%);
-      border-radius: var(--bn-radius-lg);
-      text-decoration: none;
-      color: var(--bn-dark);
-      transition: all var(--bn-transition-base);
-      border: 2px solid transparent;
-      margin-bottom: var(--bn-space-md);
-    }
-
-    .group-card:hover {
-      background: var(--bn-white);
-      border-color: var(--bn-primary);
-      transform: translateY(-2px);
-      box-shadow: var(--bn-shadow-md);
-    }
-
-    .group-card h4 {
-      font-size: 1.125rem;
-      font-weight: 700;
-      color: var(--bn-dark);
-      margin: 0 0 var(--bn-space-sm) 0;
-    }
-
-    .group-info {
+    /* Notification List */
+    .notification-list {
       display: flex;
-      gap: var(--bn-space-lg);
-      font-size: 0.875rem;
-      color: var(--bn-gray);
+      flex-direction: column;
     }
 
-    /* Notification Items */
     .notification-item {
-      padding: var(--bn-space-lg);
-      background: linear-gradient(135deg, var(--bn-gray-lighter) 0%, var(--bn-white) 100%);
-      border-radius: var(--bn-radius-lg);
-      margin-bottom: var(--bn-space-md);
-      border-left: 4px solid var(--bn-primary);
-      transition: all var(--bn-transition-base);
+      display: flex;
+      align-items: flex-start;
+      gap: var(--bn-space-4);
+      padding: var(--bn-space-4);
+      border-radius: var(--bn-radius-md);
+      transition: background var(--bn-transition-fast);
+      cursor: pointer;
     }
 
     .notification-item:hover {
-      background: var(--bn-white);
-      transform: translateX(4px);
-      box-shadow: var(--bn-shadow-sm);
+      background: var(--bn-gray-50);
     }
 
     .notification-item.unread {
-      border-left-color: var(--bn-info);
-      background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, var(--bn-white) 100%);
+      background: var(--bn-info-light);
+    }
+
+    .notification-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--bn-radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      background: var(--bn-primary-100);
+      flex-shrink: 0;
+    }
+
+    .notification-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .notification-title {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-dark);
+      margin-bottom: 2px;
+    }
+
+    .notification-message {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray-600);
+      line-height: 1.5;
+    }
+
+    .notification-time {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray-500);
+      margin-top: var(--bn-space-1);
+    }
+
+    /* Payment List */
+    .payment-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--bn-space-3);
+    }
+
+    .payment-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--bn-space-4);
+      background: var(--bn-gray-50);
+      border-radius: var(--bn-radius-lg);
+      transition: all var(--bn-transition-fast);
+    }
+
+    .payment-item:hover {
+      background: var(--bn-white);
+      box-shadow: var(--bn-shadow-sm);
+    }
+
+    .payment-info {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+    }
+
+    .payment-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--bn-warning-light);
+      border-radius: var(--bn-radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+    }
+
+    .payment-details h4 {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-dark);
+      margin: 0 0 2px 0;
+    }
+
+    .payment-details p {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray-500);
+      margin: 0;
+    }
+
+    .payment-amount {
+      text-align: right;
+    }
+
+    .payment-amount .amount {
+      font-size: var(--bn-text-base);
+      font-weight: 700;
+      color: var(--bn-dark);
+      font-family: var(--bn-font-mono);
+    }
+
+    .payment-amount .due-date {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray-500);
+    }
+
+    .payment-amount .overdue {
+      color: var(--bn-danger);
+      font-weight: 600;
+    }
+
+    /* Groups List */
+    .groups-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--bn-space-3);
+    }
+
+    .group-item {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-4);
+      padding: var(--bn-space-4);
+      background: var(--bn-gray-50);
+      border-radius: var(--bn-radius-lg);
+      text-decoration: none;
+      color: var(--bn-dark);
+      transition: all var(--bn-transition-fast);
+    }
+
+    .group-item:hover {
+      background: var(--bn-white);
+      box-shadow: var(--bn-shadow-sm);
+    }
+
+    .group-icon {
+      width: 44px;
+      height: 44px;
+      background: var(--bn-gradient-primary);
+      border-radius: var(--bn-radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      flex-shrink: 0;
+    }
+
+    .group-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .group-name {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-dark);
+      margin-bottom: 2px;
+    }
+
+    .group-meta {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray-500);
     }
 
     /* Empty State */
     .empty-state {
-      text-align: center;
-      padding: var(--bn-space-3xl);
-      color: var(--bn-gray);
+      padding: var(--bn-space-10);
     }
 
-    .empty-state-icon {
-      font-size: 64px;
-      margin-bottom: var(--bn-space-md);
-      opacity: 0.5;
-    }
-
-    .empty-state-text {
-      font-size: 1rem;
-    }
-
-    /* Badge */
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: var(--bn-space-xs);
-      padding: 0.25rem 0.75rem;
-      font-size: 0.75rem;
-      font-weight: 600;
-      border-radius: var(--bn-radius-full);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      background: rgba(239, 68, 68, 0.1);
-      color: #ef4444;
-    }
-
-    .badge.hidden {
-      display: none;
-    }
-
-    /* Footer */
-    .dashboard-footer {
-      background: var(--bn-dark);
-      color: var(--bn-white);
-      padding: var(--bn-space-3xl) var(--bn-space-xl);
-      margin-top: auto;
+    /* User Dropdown */
+    .user-dropdown {
       position: relative;
-      z-index: 1;
     }
 
-    .footer-content {
-      max-width: 1200px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: var(--bn-space-xl);
-    }
-
-    .footer-section h4 {
-      font-size: 1rem;
-      font-weight: 700;
-      margin: 0 0 var(--bn-space-md) 0;
-      color: var(--bn-white);
-    }
-
-    .footer-section p,
-    .footer-section a {
-      font-size: 0.875rem;
-      color: rgba(255, 255, 255, 0.7);
-      text-decoration: none;
-      display: block;
-      margin-bottom: var(--bn-space-xs);
-      transition: color var(--bn-transition-base);
-    }
-
-    .footer-section a:hover {
-      color: var(--bn-primary-light);
-    }
-
-    .footer-bottom {
-      max-width: 1200px;
-      margin: var(--bn-space-xl) auto 0;
-      padding-top: var(--bn-space-xl);
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      text-align: center;
-      font-size: 0.875rem;
-      color: rgba(255, 255, 255, 0.6);
-    }
-
-    /* Loading Overlay */
-    .spinner-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
+    .user-dropdown-menu {
+      position: absolute;
+      top: calc(100% + 8px);
       right: 0;
-      bottom: 0;
-      background: rgba(15, 23, 42, 0.8);
-      backdrop-filter: blur(4px);
+      min-width: 200px;
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-200);
+      border-radius: var(--bn-radius-lg);
+      box-shadow: var(--bn-shadow-xl);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-10px);
+      transition: all var(--bn-transition-fast);
+      z-index: var(--bn-z-dropdown);
+    }
+
+    .user-dropdown.active .user-dropdown-menu {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    .user-dropdown-item {
       display: flex;
       align-items: center;
-      justify-content: center;
-      z-index: 9999;
+      gap: var(--bn-space-3);
+      padding: var(--bn-space-3) var(--bn-space-4);
+      color: var(--bn-gray-700);
+      text-decoration: none;
+      font-size: var(--bn-text-sm);
+      transition: background var(--bn-transition-fast);
+      cursor: pointer;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
     }
 
-    .spinner-overlay.hidden {
-      display: none;
+    .user-dropdown-item:hover {
+      background: var(--bn-gray-50);
     }
 
-    .spinner-content {
-      text-align: center;
-      color: var(--bn-white);
+    .user-dropdown-divider {
+      height: 1px;
+      background: var(--bn-gray-200);
+      margin: var(--bn-space-2) 0;
     }
 
-    .spinner {
-      width: 50px;
-      height: 50px;
-      border: 4px solid rgba(255, 255, 255, 0.3);
-      border-top-color: var(--bn-white);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin: 0 auto var(--bn-space-md);
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .loading-text {
-      font-size: 1rem;
-      margin: 0;
+    /* Mobile Nav */
+    .mobile-nav-container {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      height: 100%;
     }
 
     /* Responsive */
-    @media (max-width: 1023px) {
-      .dashboard-hero {
-        padding: var(--bn-space-3xl) var(--bn-space-lg);
-      }
-
-      .dashboard-content {
-        padding: var(--bn-space-2xl) var(--bn-space-lg);
-      }
-
-      .content-container {
-        padding: var(--bn-space-xl);
-      }
-
-      .hero-stats {
+    @media (max-width: 1200px) {
+      .stats-grid {
         grid-template-columns: repeat(2, 1fr);
       }
 
-      .action-grid {
+      .content-grid {
         grid-template-columns: 1fr;
+      }
+
+      .actions-grid {
+        grid-template-columns: repeat(2, 1fr);
       }
     }
 
-    @media (max-width: 640px) {
-      .dashboard-hero-header {
+    @media (max-width: 768px) {
+      .main-content {
+        padding: var(--bn-space-4);
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .actions-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .page-header-top {
         flex-direction: column;
-        align-items: flex-start;
       }
+    }
 
-      .hero-stats {
-        grid-template-columns: 1fr;
-      }
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 15, 26, 0.8);
+      backdrop-filter: var(--bn-glass-blur);
+      -webkit-backdrop-filter: var(--bn-glass-blur);
+      z-index: var(--bn-z-modal-backdrop);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--bn-space-4);
+      opacity: 0;
+      visibility: hidden;
+      transition: all var(--bn-transition-base);
+    }
 
-      .footer-content {
-        grid-template-columns: 1fr;
-      }
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal-content {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-2xl);
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: var(--bn-shadow-2xl);
+      transform: scale(0.95) translateY(20px);
+      transition: transform var(--bn-transition-base);
+      padding: var(--bn-space-6);
+    }
+
+    .modal-overlay.active .modal-content {
+      transform: scale(1) translateY(0);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .modal-title {
+      font-size: var(--bn-text-xl);
+      font-weight: 600;
+      color: var(--bn-dark);
+      margin: 0;
+    }
+
+    .modal-close {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      color: var(--bn-gray-400);
+      cursor: pointer;
+      border-radius: var(--bn-radius-md);
+      transition: all var(--bn-transition-fast);
+      font-size: 1.5rem;
+    }
+
+    .modal-close:hover {
+      background: var(--bn-gray-100);
+      color: var(--bn-gray-600);
     }
   </style>
 </head>
 <body>
-  <!-- Background Decoration (same as login.html) -->
-  <div class="login-bg">
-    <div class="login-bg-shape login-bg-shape-1"></div>
-    <div class="login-bg-shape login-bg-shape-2"></div>
-    <div class="login-bg-shape login-bg-shape-3"></div>
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="navbar-container">
+      <a href="../index.html" class="navbar-brand">
+        <div class="navbar-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <span class="navbar-title">Bank Nkhonde</span>
+      </a>
+      
+      <div class="navbar-menu">
+        <a href="user_dashboard.html" class="navbar-link active">Dashboard</a>
+        <a href="group_page.html" class="navbar-link">My Groups</a>
+        <a href="contacts.html" class="navbar-link">Members</a>
+      </div>
+      
+      <div class="navbar-actions">
+        <div class="user-dropdown" id="userDropdown">
+          <div class="navbar-avatar" id="navAvatar">
+            <span id="avatarInitials">U</span>
+          </div>
+          <div class="user-dropdown-menu">
+            <div class="user-dropdown-item" style="pointer-events: none;">
+              <span id="dropdownUserName" style="font-weight: 600;">User</span>
+            </div>
+            <div class="user-dropdown-divider"></div>
+            <a href="settings.html" class="user-dropdown-item">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+              </svg>
+              Settings
+            </a>
+            <button class="user-dropdown-item" id="switchViewButton" style="display: none;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="8.5" cy="7" r="4"/>
+                <path d="M20 8v6M23 11h-6"/>
+              </svg>
+              Switch to Admin View
+            </button>
+            <div class="user-dropdown-divider"></div>
+            <button class="user-dropdown-item" id="logoutBtn" style="color: var(--bn-danger);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16,17 21,12 16,7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <button class="navbar-toggle" id="navToggle">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Dashboard Content -->
+  <div class="dashboard">
+    <div class="main-content">
+      <!-- Page Header -->
+      <div class="page-header">
+        <div class="page-header-top">
+          <div>
+            <h1 class="page-title">My Dashboard</h1>
+            <p class="page-subtitle">Welcome back, <span id="userName">User</span></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon primary">💰</div>
+          <div class="stat-value" id="totalContributed">MWK 0</div>
+          <div class="stat-label">Total Contributed</div>
+        </div>
+        
+        <div class="stat-card">
+          <div class="stat-icon success">📈</div>
+          <div class="stat-value" id="activeLoans">MWK 0</div>
+          <div class="stat-label">Active Loans</div>
+        </div>
+        
+        <div class="stat-card">
+          <div class="stat-icon warning">⏳</div>
+          <div class="stat-value" id="pendingPayments">MWK 0</div>
+          <div class="stat-label">Pending Payments</div>
+        </div>
+        
+        <div class="stat-card">
+          <div class="stat-icon danger">⚠️</div>
+          <div class="stat-value" id="totalArrears">MWK 0</div>
+          <div class="stat-label">Arrears/Penalties</div>
+        </div>
+      </div>
+
+      <!-- Content Grid -->
+      <div class="content-grid">
+        <!-- Main Column -->
+        <div style="display: flex; flex-direction: column; gap: var(--bn-space-6);">
+          <!-- Quick Actions -->
+          <div class="section-card">
+            <div class="section-header">
+              <h2 class="section-title">Quick Actions</h2>
+            </div>
+            <div class="section-body">
+              <div class="actions-grid">
+                <button id="requestLoanBtn" class="action-card">
+                  <div class="action-icon">💰</div>
+                  <span class="action-label">Request Loan</span>
+                </button>
+                <button id="uploadPaymentBtn" class="action-card">
+                  <div class="action-icon">📤</div>
+                  <span class="action-label">Upload Payment</span>
+                </button>
+                <button id="viewMembersBtn" class="action-card">
+                  <div class="action-icon">👥</div>
+                  <span class="action-label">View Members</span>
+                </button>
+                <button id="viewRulesBtn" class="action-card">
+                  <div class="action-icon">📋</div>
+                  <span class="action-label">View Rules</span>
+                </button>
+                <button id="messagesBtn" class="action-card">
+                  <div class="action-icon">💬</div>
+                  <span class="action-label">Messages</span>
+                </button>
+                <button id="editProfileBtn" class="action-card">
+                  <div class="action-icon">⚙️</div>
+                  <span class="action-label">Edit Profile</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Notifications -->
+          <div class="section-card">
+            <div class="section-header">
+              <h2 class="section-title">Notifications</h2>
+              <span class="badge badge-info hidden" id="unreadBadge">0</span>
+            </div>
+            <div class="section-body">
+              <div class="notification-list" id="notificationsList">
+                <div class="empty-state">
+                  <div class="empty-state-icon">📬</div>
+                  <p class="empty-state-title">No notifications</p>
+                  <p class="empty-state-text">You're all caught up!</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Upcoming Payments -->
+          <div class="section-card">
+            <div class="section-header">
+              <h2 class="section-title">Upcoming Payments</h2>
+            </div>
+            <div class="section-body">
+              <div class="payment-list" id="upcomingPayments">
+                <div class="empty-state">
+                  <div class="empty-state-icon">📅</div>
+                  <p class="empty-state-title">No upcoming payments</p>
+                  <p class="empty-state-text">You have no payments due.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sidebar Column -->
+        <div style="display: flex; flex-direction: column; gap: var(--bn-space-6);">
+          <!-- Your Groups -->
+          <div class="section-card">
+            <div class="section-header">
+              <h2 class="section-title">Your Groups</h2>
+            </div>
+            <div class="section-body">
+              <div class="groups-list" id="groupList">
+                <div class="empty-state">
+                  <div class="empty-state-icon">📁</div>
+                  <p class="empty-state-text">Loading groups...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- Main Dashboard -->
-  <div class="dashboard-main">
-    <!-- Hero Section -->
-    <div class="dashboard-hero">
-      <div class="dashboard-hero-content">
-        <div class="dashboard-hero-header">
-          <div class="dashboard-hero-title">
-            <h1>My Dashboard</h1>
-            <p>Welcome, <span id="userName">User</span></p>
-          </div>
-          <div class="dashboard-hero-actions">
-            <button class="hero-action-btn" id="switchViewButton" aria-label="Switch to Admin View" title="Switch to Admin View" style="display:none;">
-              👨‍💼
-            </button>
-            <button class="hero-action-btn" id="logoutBtn" aria-label="Logout" title="Logout">
-              🚪
-            </button>
-          </div>
-        </div>
-        <div class="hero-stats">
-          <div class="hero-stat">
-            <div class="hero-stat-label">Total Contributed</div>
-            <div class="hero-stat-value" id="totalContributed">MWK 0</div>
-          </div>
-          <div class="hero-stat">
-            <div class="hero-stat-label">Active Loans</div>
-            <div class="hero-stat-value" id="activeLoans">MWK 0</div>
-          </div>
-          <div class="hero-stat">
-            <div class="hero-stat-label">Pending Payments</div>
-            <div class="hero-stat-value" id="pendingPayments">MWK 0</div>
-          </div>
-          <div class="hero-stat">
-            <div class="hero-stat-label">Arrears/Penalties</div>
-            <div class="hero-stat-value" id="totalArrears">MWK 0</div>
-          </div>
-        </div>
-      </div>
+  <!-- Mobile Bottom Navigation -->
+  <nav class="mobile-nav">
+    <div class="mobile-nav-container">
+      <a href="user_dashboard.html" class="mobile-nav-item active">
+        <span class="mobile-nav-icon">🏠</span>
+        <span>Home</span>
+      </a>
+      <a href="group_page.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">📁</span>
+        <span>Groups</span>
+      </a>
+      <a href="contacts.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">👥</span>
+        <span>Members</span>
+      </a>
+      <a href="settings.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">⚙️</span>
+        <span>Settings</span>
+      </a>
     </div>
-
-    <!-- Main Content -->
-    <div class="dashboard-content">
-      <!-- Notifications Container -->
-      <div class="content-container">
-        <div class="container-header">
-          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-            <h2 class="container-title" style="margin: 0;">
-              <span class="container-title-icon">📬</span>
-              Notifications
-            </h2>
-            <span class="badge hidden" id="unreadBadge">0</span>
-          </div>
-        </div>
-        <div id="notificationsList">
-          <div class="empty-state">
-            <div class="empty-state-icon">📬</div>
-            <p class="empty-state-text">No notifications</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Quick Actions Container -->
-      <div class="content-container">
-        <div class="container-header">
-          <h2 class="container-title">
-            <span class="container-title-icon">⚡</span>
-            Quick Actions
-          </h2>
-        </div>
-        <div class="action-grid">
-          <button id="requestLoanBtn" class="action-card" style="border: none; background: linear-gradient(135deg, var(--bn-gray-lighter) 0%, var(--bn-white) 100%); cursor: pointer;">
-            <div class="action-icon">💰</div>
-            <div class="action-info">
-              <h3>Request Loan</h3>
-              <p>Apply for a new loan</p>
-            </div>
-          </button>
-          
-          <button id="uploadPaymentBtn" class="action-card" style="border: none; background: linear-gradient(135deg, var(--bn-gray-lighter) 0%, var(--bn-white) 100%); cursor: pointer;">
-            <div class="action-icon">📤</div>
-            <div class="action-info">
-              <h3>Upload Payment</h3>
-              <p>Submit payment proof</p>
-            </div>
-          </button>
-          
-          <button id="viewMembersBtn" class="action-card" style="border: none; background: linear-gradient(135deg, var(--bn-gray-lighter) 0%, var(--bn-white) 100%); cursor: pointer;">
-            <div class="action-icon">👥</div>
-            <div class="action-info">
-              <h3>View Members</h3>
-              <p>See group members</p>
-            </div>
-          </button>
-          
-          <button id="viewRulesBtn" class="action-card" style="border: none; background: linear-gradient(135deg, var(--bn-gray-lighter) 0%, var(--bn-white) 100%); cursor: pointer;">
-            <div class="action-icon">📋</div>
-            <div class="action-info">
-              <h3>View Rules</h3>
-              <p>Group rules and regulations</p>
-            </div>
-          </button>
-          
-          <button id="messagesBtn" class="action-card" style="border: none; background: linear-gradient(135deg, var(--bn-gray-lighter) 0%, var(--bn-white) 100%); cursor: pointer;">
-            <div class="action-icon">💬</div>
-            <div class="action-info">
-              <h3>Messages</h3>
-              <p>Contact admin</p>
-            </div>
-          </button>
-          
-          <button id="editProfileBtn" class="action-card" style="border: none; background: linear-gradient(135deg, var(--bn-gray-lighter) 0%, var(--bn-white) 100%); cursor: pointer;">
-            <div class="action-icon">⚙️</div>
-            <div class="action-info">
-              <h3>Edit Profile</h3>
-              <p>Update your information</p>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      <!-- Upcoming Payments Container -->
-      <div class="content-container">
-        <div class="container-header">
-          <h2 class="container-title">
-            <span class="container-title-icon">📅</span>
-            Upcoming Payments
-          </h2>
-        </div>
-        <div id="upcomingPayments">
-          <div class="empty-state">
-            <div class="empty-state-icon">📅</div>
-            <p class="empty-state-text">No upcoming payments</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- User Groups Container -->
-      <div class="content-container">
-        <div class="container-header">
-          <h2 class="container-title">
-            <span class="container-title-icon">📁</span>
-            Your Groups
-          </h2>
-        </div>
-        <div id="groupList">
-          <div class="empty-state">
-            <div class="empty-state-icon">📁</div>
-            <p class="empty-state-text">Loading your groups...</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Footer -->
-  <footer class="dashboard-footer">
-    <div class="footer-content">
-      <div class="footer-section">
-        <h4>Bank Nkhonde</h4>
-        <p>Empowering communities through collaborative savings. Track your contributions, manage loans, and grow wealth together.</p>
-      </div>
-      <div class="footer-section">
-        <h4>Quick Links</h4>
-        <a href="user_dashboard.html">Dashboard</a>
-        <a href="group_page.html">My Groups</a>
-        <a href="settings.html">Settings</a>
-      </div>
-      <div class="footer-section">
-        <h4>Support</h4>
-        <a href="#">Help Center</a>
-        <a href="#">Contact Admin</a>
-        <a href="#">FAQs</a>
-      </div>
-      <div class="footer-section">
-        <h4>Legal</h4>
-        <a href="#">Privacy Policy</a>
-        <a href="#">Terms of Service</a>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <p>&copy; 2024 Bank Nkhonde. All rights reserved.</p>
-    </div>
-  </footer>
+  </nav>
 
   <!-- Request Loan Modal -->
   <div class="modal-overlay hidden" id="loanModal">
     <div class="modal-content">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--bn-space-lg);">
-        <h2 style="margin: 0;">Request a Loan</h2>
-        <button id="closeLoanModal" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+      <div class="modal-header">
+        <h2 class="modal-title">Request a Loan</h2>
+        <button class="modal-close" id="closeLoanModal">&times;</button>
       </div>
       <form id="loanRequestForm">
         <div class="form-group">
@@ -729,9 +808,9 @@
   <!-- Upload Payment Modal -->
   <div class="modal-overlay hidden" id="paymentModal">
     <div class="modal-content">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--bn-space-lg);">
-        <h2 style="margin: 0;">Upload Payment Proof</h2>
-        <button id="closePaymentModal" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+      <div class="modal-header">
+        <h2 class="modal-title">Upload Payment Proof</h2>
+        <button class="modal-close" id="closePaymentModal">&times;</button>
       </div>
       <form id="paymentUploadForm">
         <div class="form-group">
@@ -767,17 +846,33 @@
     </div>
   </div>
 
-  <!-- Loading Overlay -->
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Loading Spinner -->
   <div class="spinner-overlay hidden" id="spinner">
-    <div class="spinner-content">
-      <div class="spinner"></div>
-      <p class="loading-text">Loading dashboard...</p>
-    </div>
+    <div class="spinner"></div>
+    <p class="loading-text">Loading dashboard...</p>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module" src="../scripts/user_dashboard.js"></script>
+  
+  <script>
+    // User dropdown toggle
+    document.getElementById('navAvatar').addEventListener('click', function() {
+      document.getElementById('userDropdown').classList.toggle('active');
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+      const dropdown = document.getElementById('userDropdown');
+      if (!dropdown.contains(e.target)) {
+        dropdown.classList.remove('active');
+      }
+    });
+  </script>
 </body>
 </html>

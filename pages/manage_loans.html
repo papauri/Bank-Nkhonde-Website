@@ -4,109 +4,132 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Manage Loans - Bank Nkhonde">
+  <meta name="theme-color" content="#047857">
   <title>Manage Loans - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
-  <link rel="stylesheet" href="../styles/dashboard.css">
+  <link rel="stylesheet" href="../styles/unified-page.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
 </head>
 <body>
-  <!-- Background Decoration -->
-  <div class="dashboard-bg">
-    <div class="dashboard-bg-shape dashboard-bg-shape-1"></div>
-    <div class="dashboard-bg-shape dashboard-bg-shape-2"></div>
-    <div class="dashboard-bg-shape dashboard-bg-shape-3"></div>
-  </div>
-
-  <!-- Main Container -->
-  <div class="dashboard-container">
-    <!-- Header -->
-    <div class="dashboard-header">
-      <div class="dashboard-header-top">
-        <div class="dashboard-header-title">
-          <h1>Manage Loans</h1>
-          <p>Approve and track loan requests</p>
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="navbar-container">
+      <a href="../index.html" class="navbar-brand">
+        <div class="navbar-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
         </div>
-        <div class="dashboard-header-actions">
-          <button class="dashboard-header-btn" onclick="history.back()" aria-label="Back">←</button>
-          <button class="dashboard-header-btn" id="refreshBtn" aria-label="Refresh">🔄</button>
+        <span class="navbar-title">Bank Nkhonde</span>
+      </a>
+      
+      <div class="navbar-menu">
+        <a href="admin_dashboard.html" class="navbar-link">Dashboard</a>
+        <a href="manage_loans.html" class="navbar-link active">Loans</a>
+        <a href="manage_payments.html" class="navbar-link">Payments</a>
+        <a href="analytics.html" class="navbar-link">Analytics</a>
+        <a href="manage_members.html" class="navbar-link">Members</a>
+      </div>
+      
+      <div class="navbar-actions">
+        <div class="user-dropdown" id="userDropdown">
+          <div class="navbar-avatar" id="navAvatar">A</div>
+          <div class="user-dropdown-menu">
+            <a href="settings.html" class="user-dropdown-item">Settings</a>
+            <div class="user-dropdown-divider"></div>
+            <button class="user-dropdown-item" id="logoutBtn" style="color: var(--bn-danger);">Sign Out</button>
+          </div>
         </div>
       </div>
     </div>
+  </nav>
 
-    <!-- Main Content -->
-    <div style="margin-top: var(--bn-space-xl);">
-      <!-- Group Selector -->
-      <div class="content-section" style="margin-bottom: var(--bn-space-lg);">
-        <select id="groupSelector" class="form-input" style="width: 100%;">
-          <option value="">Select a group...</option>
-        </select>
-      </div>
-      <div class="page-header-content">
+  <!-- Main Content -->
+  <div class="page-wrapper">
+    <div class="main-content">
+      <!-- Page Header -->
+      <div class="page-header">
         <div class="page-header-top">
           <div>
-            <button onclick="history.back()" class="page-header-btn" style="position: absolute; left: var(--bn-spacing-md); top: var(--bn-spacing-lg);">←</button>
-            <h1 class="page-title" style="margin-left: 50px;">Manage Loans</h1>
+            <h1 class="page-title">Manage Loans</h1>
+            <p class="page-subtitle">Approve and track loan requests</p>
           </div>
-          <div class="page-header-actions">
-            <button class="page-header-btn" id="refreshBtn" aria-label="Refresh">🔄</button>
+          <div class="page-actions">
+            <button class="btn btn-secondary" onclick="history.back()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
+              Back
+            </button>
+            <button class="btn btn-ghost" id="refreshBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 4v6h-6M1 20v-6h6"/>
+                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+              </svg>
+              Refresh
+            </button>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="page-content">
       <!-- Group Selector -->
       <div class="group-selector">
-        <select id="groupSelector" class="form-select" style="background: transparent; border: none; color: white; width: 100%; padding: var(--bn-spacing-xs) 0;">
+        <select id="groupSelector" class="form-select">
           <option value="">Select a group...</option>
         </select>
       </div>
 
-      <!-- Statistics -->
-      <div class="stats-grid" style="margin-bottom: var(--bn-space-xl);">
-        <div class="stat-card warning">
-          <div class="stat-label">Pending Requests</div>
+      <!-- Stats Grid -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon warning">⏳</div>
           <div class="stat-value" id="pendingCount">0</div>
+          <div class="stat-label">Pending Requests</div>
         </div>
-        <div class="stat-card info">
-          <div class="stat-label">Active Loans</div>
+        <div class="stat-card">
+          <div class="stat-icon info">📊</div>
           <div class="stat-value" id="activeCount">0</div>
+          <div class="stat-label">Active Loans</div>
         </div>
-        <div class="stat-card success">
-          <div class="stat-label">Total Disbursed</div>
+        <div class="stat-card">
+          <div class="stat-icon success">💰</div>
           <div class="stat-value" id="totalDisbursed">MWK 0</div>
+          <div class="stat-label">Total Disbursed</div>
         </div>
-        <div class="stat-card danger">
-          <div class="stat-label">Outstanding</div>
+        <div class="stat-card">
+          <div class="stat-icon danger">⚠️</div>
           <div class="stat-value" id="totalOutstanding">MWK 0</div>
+          <div class="stat-label">Outstanding</div>
         </div>
       </div>
 
       <!-- Pending Loan Requests -->
-      <div class="content-section">
-        <div class="content-section-header">
-          <h2 class="content-section-title">Pending Loan Requests</h2>
+      <div class="section-card">
+        <div class="section-header">
+          <h2 class="section-title">Pending Loan Requests</h2>
         </div>
-        <div id="pendingLoansList">
+        <div class="section-body" id="pendingLoansList">
           <div class="empty-state">
             <div class="empty-state-icon">💰</div>
-            <p class="empty-state-text">No pending loan requests</p>
+            <p class="empty-state-title">No pending requests</p>
+            <p class="empty-state-text">All loan requests have been processed.</p>
           </div>
         </div>
       </div>
 
       <!-- Active Loans -->
-      <div class="content-section">
-        <div class="content-section-header">
-          <h2 class="content-section-title">Active Loans</h2>
+      <div class="section-card">
+        <div class="section-header">
+          <h2 class="section-title">Active Loans</h2>
         </div>
-        <div id="activeLoansList">
+        <div class="section-body" id="activeLoansList">
           <div class="empty-state">
             <div class="empty-state-icon">📋</div>
-            <p class="empty-state-text">No active loans</p>
+            <p class="empty-state-title">No active loans</p>
+            <p class="empty-state-text">There are no active loans at the moment.</p>
           </div>
         </div>
       </div>
@@ -115,34 +138,50 @@
 
   <!-- Mobile Navigation -->
   <nav class="mobile-nav">
-    <a href="admin_dashboard.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">🏠</span>
-      <span>Dashboard</span>
-    </a>
-    <a href="manage_loans.html" class="mobile-nav-item active">
-      <span class="mobile-nav-icon">💰</span>
-      <span>Loans</span>
-    </a>
-    <a href="manage_payments.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">💵</span>
-      <span>Payments</span>
-    </a>
-    <a href="settings.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">⚙️</span>
-      <span>Settings</span>
-    </a>
+    <div class="mobile-nav-container">
+      <a href="admin_dashboard.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">🏠</span>
+        <span>Home</span>
+      </a>
+      <a href="manage_loans.html" class="mobile-nav-item active">
+        <span class="mobile-nav-icon">💰</span>
+        <span>Loans</span>
+      </a>
+      <a href="manage_payments.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">💵</span>
+        <span>Payments</span>
+      </a>
+      <a href="settings.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">⚙️</span>
+        <span>Settings</span>
+      </a>
+    </div>
   </nav>
 
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Loading Spinner -->
   <div class="spinner-overlay hidden" id="spinner">
-    <div class="spinner-content">
-      <div class="spinner"></div>
-      <p class="loading-text">Loading loans...</p>
-    </div>
+    <div class="spinner"></div>
+    <p class="loading-text">Loading loans...</p>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module" src="../scripts/manage_loans.js"></script>
+  
+  <script>
+    document.getElementById('navAvatar').addEventListener('click', function() {
+      document.getElementById('userDropdown').classList.toggle('active');
+    });
+    document.addEventListener('click', function(e) {
+      const dropdown = document.getElementById('userDropdown');
+      if (!dropdown.contains(e.target)) {
+        dropdown.classList.remove('active');
+      }
+    });
+  </script>
 </body>
 </html>

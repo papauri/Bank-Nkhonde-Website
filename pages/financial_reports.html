@@ -4,106 +4,254 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Financial Reports - Bank Nkhonde">
+  <meta name="theme-color" content="#047857">
   <title>Financial Reports - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
   <link rel="stylesheet" href="../styles/unified-page.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
+  <style>
+    .report-card {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-4);
+      padding: var(--bn-space-5);
+      background: var(--bn-gray-50);
+      border: 1px solid var(--bn-gray-200);
+      border-radius: var(--bn-radius-lg);
+      cursor: pointer;
+      transition: all var(--bn-transition-base);
+      margin-bottom: var(--bn-space-3);
+    }
+
+    .report-card:hover {
+      background: var(--bn-white);
+      border-color: var(--bn-primary);
+      box-shadow: var(--bn-shadow-md);
+    }
+
+    .report-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--bn-gradient-primary);
+      border-radius: var(--bn-radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .report-info {
+      flex: 1;
+    }
+
+    .report-title {
+      font-size: var(--bn-text-base);
+      font-weight: 600;
+      color: var(--bn-dark);
+      margin-bottom: 2px;
+    }
+
+    .report-description {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray-500);
+    }
+  </style>
 </head>
 <body>
-  <div class="page-wrapper">
-    <div class="page-bg-shape"></div>
-
-    <div class="page-header">
-      <div class="page-header-content">
-        <div class="page-header-top">
-          <div>
-            <button onclick="history.back()" class="page-header-btn" style="position: absolute; left: var(--bn-spacing-md); top: var(--bn-spacing-lg);">←</button>
-            <h1 class="page-title" style="margin-left: 50px;">Financial Reports</h1>
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="navbar-container">
+      <a href="../index.html" class="navbar-brand">
+        <div class="navbar-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <span class="navbar-title">Bank Nkhonde</span>
+      </a>
+      
+      <div class="navbar-menu">
+        <a href="admin_dashboard.html" class="navbar-link">Dashboard</a>
+        <a href="manage_loans.html" class="navbar-link">Loans</a>
+        <a href="manage_payments.html" class="navbar-link">Payments</a>
+        <a href="analytics.html" class="navbar-link">Analytics</a>
+        <a href="manage_members.html" class="navbar-link">Members</a>
+      </div>
+      
+      <div class="navbar-actions">
+        <div class="user-dropdown" id="userDropdown">
+          <div class="navbar-avatar" id="navAvatar">A</div>
+          <div class="user-dropdown-menu">
+            <a href="settings.html" class="user-dropdown-item">Settings</a>
+            <div class="user-dropdown-divider"></div>
+            <button class="user-dropdown-item" id="logoutBtn" style="color: var(--bn-danger);">Sign Out</button>
           </div>
         </div>
       </div>
     </div>
+  </nav>
 
-    <div class="page-content">
+  <!-- Main Content -->
+  <div class="page-wrapper">
+    <div class="main-content">
+      <!-- Page Header -->
+      <div class="page-header">
+        <div class="page-header-top">
+          <div>
+            <h1 class="page-title">Financial Reports</h1>
+            <p class="page-subtitle">Generate comprehensive financial reports</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-secondary" onclick="history.back()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
+              Back
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group Selector -->
       <div class="group-selector">
-        <select id="groupSelector" class="form-select" style="background: transparent; border: none; color: white; width: 100%; padding: var(--bn-spacing-xs) 0;">
+        <select id="groupSelector" class="form-select">
           <option value="">Select a group...</option>
         </select>
       </div>
 
-      <div class="form-section">
-        <div class="form-group">
-          <label class="form-label">Report Type</label>
-          <select id="reportType" class="form-select">
-            <option value="monthly">Monthly Report</option>
-            <option value="yearly">Yearly Report</option>
-            <option value="cycle">Cycle Report</option>
-            <option value="custom">Custom Period</option>
-          </select>
+      <!-- Available Reports -->
+      <div class="section-card">
+        <div class="section-header">
+          <h2 class="section-title">Available Reports</h2>
         </div>
-        <div class="form-group" id="periodSelector">
-          <label class="form-label">Select Period</label>
-          <input type="month" id="periodInput" class="form-input" value="">
+        <div class="section-body">
+          <div class="report-card" id="contributionsReport">
+            <div class="report-icon">📊</div>
+            <div class="report-info">
+              <div class="report-title">Contributions Report</div>
+              <div class="report-description">Monthly and yearly contribution summaries</div>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--bn-gray-400);">
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
+          </div>
+
+          <div class="report-card" id="loansReport">
+            <div class="report-icon">💰</div>
+            <div class="report-info">
+              <div class="report-title">Loans Report</div>
+              <div class="report-description">Active loans, repayments, and interest earned</div>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--bn-gray-400);">
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
+          </div>
+
+          <div class="report-card" id="membersReport">
+            <div class="report-icon">👥</div>
+            <div class="report-info">
+              <div class="report-title">Members Report</div>
+              <div class="report-description">Member standings and payment history</div>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--bn-gray-400);">
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
+          </div>
+
+          <div class="report-card" id="arrearsReport">
+            <div class="report-icon">⚠️</div>
+            <div class="report-info">
+              <div class="report-title">Arrears Report</div>
+              <div class="report-description">Outstanding payments and penalties</div>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--bn-gray-400);">
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
+          </div>
+
+          <div class="report-card" id="fullReport">
+            <div class="report-icon">📈</div>
+            <div class="report-info">
+              <div class="report-title">Full Financial Report</div>
+              <div class="report-description">Complete financial overview for meetings</div>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--bn-gray-400);">
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
+          </div>
         </div>
-        <button class="btn btn-primary btn-block" id="generateReportBtn">Generate Report</button>
       </div>
 
-      <div id="reportContent" style="display: none;">
-        <div class="content-section">
-          <div class="content-section-header">
-            <h2 class="content-section-title">Report Summary</h2>
-          </div>
-          <div id="reportSummary"></div>
+      <!-- Report Output -->
+      <div class="section-card" id="reportOutput" style="display: none;">
+        <div class="section-header">
+          <h2 class="section-title" id="reportTitle">Report</h2>
+          <button class="btn btn-primary btn-sm" id="downloadReport">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download
+          </button>
         </div>
-
-        <div class="content-section">
-          <div class="content-section-header">
-            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-              <h2 class="content-section-title" style="margin: 0;">Report Details</h2>
-              <div>
-                <button class="btn btn-secondary btn-sm" id="exportPdfBtn">Export PDF</button>
-                <button class="btn btn-secondary btn-sm" id="exportExcelBtn">Export Excel</button>
-              </div>
-            </div>
-          </div>
-          <div id="reportDetails"></div>
+        <div class="section-body" id="reportContent">
+          <!-- Report content will be generated here -->
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Mobile Navigation -->
   <nav class="mobile-nav">
-    <a href="admin_dashboard.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">🏠</span>
-      <span>Dashboard</span>
-    </a>
-    <a href="financial_reports.html" class="mobile-nav-item active">
-      <span class="mobile-nav-icon">📊</span>
-      <span>Reports</span>
-    </a>
-    <a href="analytics.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">📉</span>
-      <span>Analytics</span>
-    </a>
-    <a href="settings.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">⚙️</span>
-      <span>Settings</span>
-    </a>
+    <div class="mobile-nav-container">
+      <a href="admin_dashboard.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">🏠</span>
+        <span>Home</span>
+      </a>
+      <a href="analytics.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">📉</span>
+        <span>Analytics</span>
+      </a>
+      <a href="financial_reports.html" class="mobile-nav-item active">
+        <span class="mobile-nav-icon">📊</span>
+        <span>Reports</span>
+      </a>
+      <a href="settings.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">⚙️</span>
+        <span>Settings</span>
+      </a>
+    </div>
   </nav>
 
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Loading Spinner -->
   <div class="spinner-overlay hidden" id="spinner">
-    <div class="spinner-content">
-      <div class="spinner"></div>
-      <p class="loading-text">Generating report...</p>
-    </div>
+    <div class="spinner"></div>
+    <p class="loading-text">Generating report...</p>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module" src="../scripts/financial_reports.js"></script>
+  
+  <script>
+    document.getElementById('navAvatar').addEventListener('click', function() {
+      document.getElementById('userDropdown').classList.toggle('active');
+    });
+    document.addEventListener('click', function(e) {
+      const dropdown = document.getElementById('userDropdown');
+      if (!dropdown.contains(e.target)) {
+        dropdown.classList.remove('active');
+      }
+    });
+  </script>
 </body>
 </html>

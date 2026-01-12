@@ -3,177 +3,171 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Accept Group Invitation - Bank Nkhonde">
+  <meta name="theme-color" content="#047857">
   <title>Accept Invitation - Bank Nkhonde</title>
-  <link rel="stylesheet" href="../styles/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
     body {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: var(--bn-dark);
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: var(--bn-space-8);
     }
+
     .invitation-container {
-      background: white;
-      padding: 40px;
-      border-radius: 16px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      width: 100%;
       max-width: 500px;
-      width: 100%;
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-2xl);
+      box-shadow: var(--bn-shadow-2xl);
+      overflow: hidden;
     }
-    .invitation-container h1 {
-      color: #1e293b;
-      margin-bottom: 10px;
-      font-size: 28px;
-    }
-    .invitation-container p {
-      color: #64748b;
-      margin-bottom: 20px;
-    }
-    .invitation-details {
-      background: #f8fafc;
-      padding: 20px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-    }
-    .invitation-details h3 {
-      color: #1e293b;
-      margin-bottom: 10px;
-      font-size: 18px;
-    }
-    .invitation-details p {
-      margin: 5px 0;
-      color: #475569;
-    }
-    .form-group {
-      margin-bottom: 20px;
-    }
-    .form-group label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: 600;
-      color: #1e293b;
-    }
-    .form-group input {
-      width: 100%;
-      padding: 12px;
-      border: 2px solid #e2e8f0;
-      border-radius: 8px;
-      font-size: 16px;
-      transition: all 0.3s ease;
-    }
-    .form-group input:focus {
-      outline: none;
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
-    .form-group input[readonly] {
-      background: #f1f5f9;
-      cursor: not-allowed;
-    }
-    .btn {
-      width: 100%;
-      padding: 14px;
-      background: linear-gradient(135deg, #3b82f6, #2563eb);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-    .btn:hover {
-      background: #1d4ed8;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-    }
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .error-message {
-      color: #ef4444;
-      font-size: 14px;
-      margin-top: 10px;
-    }
-    .success-message {
-      color: #059669;
-      font-size: 14px;
-      margin-top: 10px;
-    }
-    .expired-invitation {
+
+    .invitation-header {
+      background: var(--bn-gradient-primary);
+      padding: var(--bn-space-8);
       text-align: center;
-      color: #ef4444;
+      color: var(--bn-white);
     }
-    .password-requirements {
-      font-size: 12px;
-      color: #6b7280;
-      margin-top: 5px;
+
+    .invitation-icon {
+      width: 80px;
+      height: 80px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: var(--bn-radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto var(--bn-space-4);
+      font-size: 2rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .invitation-title {
+      font-size: var(--bn-text-2xl);
+      font-weight: 700;
+      margin-bottom: var(--bn-space-2);
+    }
+
+    .invitation-subtitle {
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .invitation-body {
+      padding: var(--bn-space-8);
+    }
+
+    .group-info {
+      background: var(--bn-gray-50);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-space-6);
+      margin-bottom: var(--bn-space-6);
+      text-align: center;
+    }
+
+    .group-name {
+      font-size: var(--bn-text-xl);
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin-bottom: var(--bn-space-2);
+    }
+
+    .group-description {
+      color: var(--bn-gray-500);
+      font-size: var(--bn-text-sm);
+    }
+
+    .invitation-actions {
+      display: flex;
+      gap: var(--bn-space-4);
+    }
+
+    .invitation-actions .btn {
+      flex: 1;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: var(--bn-space-4);
+      }
+
+      .invitation-header,
+      .invitation-body {
+        padding: var(--bn-space-6);
+      }
+
+      .invitation-actions {
+        flex-direction: column;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="invitation-container" id="invitationContainer">
-    <h1>🎉 Join Bank Nkhonde</h1>
-    <p>You've been invited to join a savings group!</p>
-    
-    <div id="loadingMessage">
-      <p>Loading invitation details...</p>
+  <div class="invitation-container">
+    <div class="invitation-header">
+      <div class="invitation-icon">✉️</div>
+      <h1 class="invitation-title">Group Invitation</h1>
+      <p class="invitation-subtitle">You've been invited to join a savings group</p>
     </div>
 
-    <div id="invitationForm" style="display: none;">
-      <div class="invitation-details">
-        <h3>Invitation Details</h3>
-        <p><strong>Group:</strong> <span id="groupName">-</span></p>
-        <p><strong>Invited by:</strong> <span id="invitedBy">-</span></p>
+    <div class="invitation-body">
+      <div class="group-info">
+        <div class="group-name" id="groupName">Loading...</div>
+        <div class="group-description" id="groupDescription">Please wait while we load the invitation details.</div>
       </div>
 
-      <form id="acceptInvitationForm">
+      <form id="acceptForm">
         <div class="form-group">
-          <label for="fullName">Full Name</label>
-          <input type="text" id="fullName" required placeholder="Enter your full name">
+          <label class="form-label">Your Full Name</label>
+          <input type="text" id="fullName" class="form-input" placeholder="Enter your full name" required>
         </div>
 
         <div class="form-group">
-          <label for="email">Email Address</label>
-          <input type="email" id="email" readonly>
+          <label class="form-label">Email Address</label>
+          <input type="email" id="email" class="form-input" placeholder="you@example.com" required>
         </div>
 
         <div class="form-group">
-          <label for="phone">Phone Number</label>
-          <input type="tel" id="phone" required placeholder="Enter your phone number">
+          <label class="form-label">Phone Number</label>
+          <input type="tel" id="phone" class="form-input" placeholder="+265 XXX XXX XXX" required>
         </div>
 
         <div class="form-group">
-          <label for="password">Create Password</label>
-          <input type="password" id="password" required placeholder="Create a strong password">
-          <div class="password-requirements">
-            Password must be at least 6 characters long
-          </div>
+          <label class="form-label">Create Password</label>
+          <input type="password" id="password" class="form-input" placeholder="Create a strong password" required minlength="6">
         </div>
 
-        <div class="form-group">
-          <label for="confirmPassword">Confirm Password</label>
-          <input type="password" id="confirmPassword" required placeholder="Confirm your password">
+        <div class="invitation-actions">
+          <button type="button" class="btn btn-secondary" onclick="window.location.href='../login.html'">
+            Decline
+          </button>
+          <button type="submit" class="btn btn-primary">
+            Accept & Join
+          </button>
         </div>
-
-        <button type="submit" class="btn" id="submitBtn">Create Account & Join Group</button>
-        
-        <p class="error-message" id="errorMessage" style="display: none;"></p>
-        <p class="success-message" id="successMessage" style="display: none;"></p>
       </form>
-    </div>
-
-    <div id="expiredMessage" style="display: none;">
-      <div class="expired-invitation">
-        <h2>❌ Invitation Expired</h2>
-        <p>This invitation has expired or is invalid. Please contact the person who invited you to send a new invitation.</p>
-      </div>
     </div>
   </div>
 
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Loading Spinner -->
+  <div class="spinner-overlay hidden" id="spinner">
+    <div class="spinner"></div>
+    <p class="loading-text">Processing invitation...</p>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module" src="../scripts/accept_invitation.js"></script>
 </body>
 </html>
