@@ -3,14 +3,815 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Bank Nkhonde - A digital platform for managing ROSCAs">
-  <title>Bank Nkhonde</title>
-  <script>
-    // Redirect to login page
-    window.location.href = "login.html";
-  </script>
+  <meta name="description" content="Bank Nkhonde - Elevate Your Group's Financial Momentum. Premium digital ROSCA platform for Malawian savings groups.">
+  <meta name="theme-color" content="#047857">
+  <title>Bank Nkhonde - Premium Group Savings Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles/design-system.css">
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <style>
+    /* Landing Page Specific Styles */
+    body {
+      background: var(--bn-dark);
+      color: var(--bn-white);
+    }
+
+    /* Hero Section */
+    .hero {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--bn-gradient-mesh);
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .hero-content {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: var(--bn-space-16) var(--bn-space-12);
+      position: relative;
+      z-index: 2;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+      padding: var(--bn-space-2) var(--bn-space-4);
+      background: var(--bn-glass-bg);
+      border: 1px solid var(--bn-glass-border);
+      border-radius: var(--bn-radius-full);
+      font-size: var(--bn-text-sm);
+      font-weight: 500;
+      color: var(--bn-gray-300);
+      margin-bottom: var(--bn-space-6);
+      width: fit-content;
+      backdrop-filter: var(--bn-glass-blur);
+    }
+
+    .hero-badge-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--bn-success);
+      border-radius: var(--bn-radius-full);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .hero-title {
+      font-size: clamp(2.5rem, 5vw, 4rem);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      color: var(--bn-white);
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .hero-title span {
+      background: var(--bn-gradient-gold);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-description {
+      font-size: var(--bn-text-lg);
+      color: var(--bn-gray-400);
+      line-height: 1.7;
+      max-width: 500px;
+      margin-bottom: var(--bn-space-8);
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: var(--bn-space-4);
+      flex-wrap: wrap;
+    }
+
+    .hero-visual {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      background: radial-gradient(circle at center, rgba(4, 120, 87, 0.1) 0%, transparent 70%);
+    }
+
+    .hero-rings {
+      position: relative;
+      width: 400px;
+      height: 400px;
+    }
+
+    .hero-ring {
+      position: absolute;
+      border: 2px solid;
+      border-radius: var(--bn-radius-full);
+      animation: ringRotate 20s linear infinite;
+    }
+
+    .hero-ring-1 {
+      inset: 0;
+      border-color: rgba(212, 168, 83, 0.3);
+      animation-duration: 25s;
+    }
+
+    .hero-ring-2 {
+      inset: 40px;
+      border-color: rgba(4, 120, 87, 0.4);
+      animation-duration: 20s;
+      animation-direction: reverse;
+    }
+
+    .hero-ring-3 {
+      inset: 80px;
+      border-color: rgba(212, 168, 83, 0.5);
+      animation-duration: 15s;
+    }
+
+    .hero-ring-center {
+      position: absolute;
+      inset: 120px;
+      background: var(--bn-gradient-primary);
+      border-radius: var(--bn-radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--bn-shadow-glow);
+    }
+
+    .hero-ring-center svg {
+      width: 80px;
+      height: 80px;
+      color: var(--bn-white);
+    }
+
+    @keyframes ringRotate {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Trust Strip */
+    .trust-strip {
+      padding: var(--bn-space-12) var(--bn-space-8);
+      background: var(--bn-dark-secondary);
+      border-top: 1px solid var(--bn-glass-border);
+      border-bottom: 1px solid var(--bn-glass-border);
+    }
+
+    .trust-strip-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .trust-strip-label {
+      font-size: var(--bn-text-sm);
+      font-weight: 500;
+      color: var(--bn-gray-500);
+      text-transform: uppercase;
+      letter-spacing: var(--bn-tracking-widest);
+      margin-bottom: var(--bn-space-8);
+    }
+
+    .trust-strip-logos {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: var(--bn-space-12);
+      flex-wrap: wrap;
+      filter: grayscale(100%) brightness(0.7);
+      opacity: 0.6;
+    }
+
+    .trust-logo {
+      height: 32px;
+      font-size: var(--bn-text-lg);
+      font-weight: 600;
+      color: var(--bn-gray-400);
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+    }
+
+    /* Features Section */
+    .features {
+      padding: var(--bn-space-24) var(--bn-space-8);
+      background: var(--bn-dark);
+      position: relative;
+    }
+
+    .features::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--bn-gradient-mesh);
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
+    .features-header {
+      max-width: 600px;
+      margin: 0 auto var(--bn-space-16);
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .features-title {
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 700;
+      color: var(--bn-white);
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .features-subtitle {
+      color: var(--bn-gray-400);
+      font-size: var(--bn-text-lg);
+    }
+
+    .features-grid {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: var(--bn-space-20);
+      position: relative;
+      z-index: 1;
+    }
+
+    .feature-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--bn-space-12);
+      align-items: center;
+    }
+
+    .feature-row:nth-child(even) {
+      direction: rtl;
+    }
+
+    .feature-row:nth-child(even) > * {
+      direction: ltr;
+    }
+
+    .feature-content {
+      padding: var(--bn-space-8);
+    }
+
+    .feature-number {
+      font-size: var(--bn-text-sm);
+      font-weight: 700;
+      color: var(--bn-accent);
+      margin-bottom: var(--bn-space-4);
+      text-transform: uppercase;
+      letter-spacing: var(--bn-tracking-widest);
+    }
+
+    .feature-title {
+      font-size: var(--bn-text-2xl);
+      font-weight: 600;
+      color: var(--bn-white);
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .feature-description {
+      color: var(--bn-gray-400);
+      line-height: 1.8;
+      font-size: var(--bn-text-base);
+    }
+
+    .feature-visual {
+      background: var(--bn-glass-bg);
+      border: 1px solid var(--bn-glass-border);
+      border-radius: var(--bn-radius-2xl);
+      padding: var(--bn-space-8);
+      backdrop-filter: var(--bn-glass-blur);
+      aspect-ratio: 4/3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .feature-icon {
+      width: 120px;
+      height: 120px;
+      background: var(--bn-gradient-primary);
+      border-radius: var(--bn-radius-xl);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      box-shadow: var(--bn-shadow-glow);
+    }
+
+    /* Stats Section */
+    .stats {
+      padding: var(--bn-space-20) var(--bn-space-8);
+      background: var(--bn-gradient-primary);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stats::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      opacity: 0.5;
+    }
+
+    .stats-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--bn-space-8);
+      position: relative;
+      z-index: 1;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-number {
+      font-size: clamp(2.5rem, 4vw, 3.5rem);
+      font-weight: 700;
+      color: var(--bn-white);
+      line-height: 1;
+      margin-bottom: var(--bn-space-2);
+      font-family: var(--bn-font-mono);
+    }
+
+    .stat-label {
+      font-size: var(--bn-text-sm);
+      color: rgba(255, 255, 255, 0.8);
+      font-weight: 500;
+    }
+
+    /* CTA Section */
+    .cta {
+      padding: var(--bn-space-24) var(--bn-space-8);
+      background: var(--bn-dark-secondary);
+      text-align: center;
+    }
+
+    .cta-container {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .cta-title {
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 700;
+      color: var(--bn-white);
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .cta-description {
+      color: var(--bn-gray-400);
+      font-size: var(--bn-text-lg);
+      margin-bottom: var(--bn-space-8);
+    }
+
+    /* Footer */
+    .footer {
+      padding: var(--bn-space-16) var(--bn-space-8);
+      background: var(--bn-dark);
+      border-top: 1px solid var(--bn-glass-border);
+    }
+
+    .footer-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: var(--bn-space-12);
+      margin-bottom: var(--bn-space-12);
+    }
+
+    .footer-brand {
+      max-width: 300px;
+    }
+
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .footer-logo-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--bn-gradient-primary);
+      border-radius: var(--bn-radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .footer-logo-icon svg {
+      width: 24px;
+      height: 24px;
+      color: var(--bn-white);
+    }
+
+    .footer-logo-text {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      color: var(--bn-white);
+    }
+
+    .footer-description {
+      color: var(--bn-gray-500);
+      font-size: var(--bn-text-sm);
+      line-height: 1.7;
+    }
+
+    .footer-column h4 {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-white);
+      text-transform: uppercase;
+      letter-spacing: var(--bn-tracking-wide);
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .footer-links {
+      list-style: none;
+    }
+
+    .footer-links li {
+      margin-bottom: var(--bn-space-3);
+    }
+
+    .footer-links a {
+      color: var(--bn-gray-500);
+      text-decoration: none;
+      font-size: var(--bn-text-sm);
+      transition: color var(--bn-transition-fast);
+    }
+
+    .footer-links a:hover {
+      color: var(--bn-white);
+    }
+
+    .footer-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: var(--bn-space-8);
+      border-top: 1px solid var(--bn-glass-border);
+    }
+
+    .footer-copyright {
+      color: var(--bn-gray-600);
+      font-size: var(--bn-text-sm);
+    }
+
+    .footer-legal {
+      display: flex;
+      gap: var(--bn-space-6);
+    }
+
+    .footer-legal a {
+      color: var(--bn-gray-500);
+      text-decoration: none;
+      font-size: var(--bn-text-sm);
+      transition: color var(--bn-transition-fast);
+    }
+
+    .footer-legal a:hover {
+      color: var(--bn-white);
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .hero {
+        grid-template-columns: 1fr;
+        min-height: auto;
+      }
+
+      .hero-content {
+        padding: var(--bn-space-20) var(--bn-space-6);
+        text-align: center;
+        align-items: center;
+      }
+
+      .hero-visual {
+        display: none;
+      }
+
+      .feature-row,
+      .feature-row:nth-child(even) {
+        grid-template-columns: 1fr;
+        direction: ltr;
+      }
+
+      .footer-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .stats-container {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .hero-actions {
+        flex-direction: column;
+        width: 100%;
+      }
+
+      .hero-actions .btn {
+        width: 100%;
+      }
+
+      .footer-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-bottom {
+        flex-direction: column;
+        gap: var(--bn-space-4);
+        text-align: center;
+      }
+
+      .stats-container {
+        grid-template-columns: 1fr 1fr;
+        gap: var(--bn-space-6);
+      }
+    }
+  </style>
 </head>
 <body>
-  <p>Redirecting to login page...</p>
+  <!-- Navigation -->
+  <nav class="navbar">
+    <div class="navbar-container">
+      <a href="index.html" class="navbar-brand">
+        <div class="navbar-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <span class="navbar-title">Bank Nkhonde</span>
+      </a>
+      
+      <div class="navbar-menu">
+        <a href="#features" class="navbar-link">Features</a>
+        <a href="#about" class="navbar-link">About</a>
+        <a href="#contact" class="navbar-link">Contact</a>
+      </div>
+      
+      <div class="navbar-actions">
+        <a href="login.html" class="btn btn-ghost" style="color: var(--bn-gray-300);">Sign In</a>
+        <a href="pages/admin_registration.html" class="btn btn-primary">Get Started</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="hero-badge-dot"></span>
+        Trusted by Savings Groups Across Malawi
+      </div>
+      
+      <h1 class="hero-title">
+        Elevate Your Group's <span>Financial Momentum</span>
+      </h1>
+      
+      <p class="hero-description">
+        Bank Nkhonde is a premium digital platform designed to transform how Malawian savings groups manage contributions, loans, and payouts with enterprise-grade security and transparency.
+      </p>
+      
+      <div class="hero-actions">
+        <a href="pages/admin_registration.html" class="btn btn-primary btn-xl">
+          Join a Club
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </a>
+        <a href="login.html" class="btn btn-secondary btn-xl" style="border-color: var(--bn-glass-border); color: var(--bn-white); background: var(--bn-glass-bg);">
+          Sign In
+        </a>
+      </div>
+    </div>
+    
+    <div class="hero-visual">
+      <div class="hero-rings">
+        <div class="hero-ring hero-ring-1"></div>
+        <div class="hero-ring hero-ring-2"></div>
+        <div class="hero-ring hero-ring-3"></div>
+        <div class="hero-ring-center">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Trust Strip -->
+  <section class="trust-strip">
+    <div class="trust-strip-content">
+      <div class="trust-strip-label">Trusted & Secured</div>
+      <div class="trust-strip-logos">
+        <div class="trust-logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          Reserve Bank of Malawi
+        </div>
+        <div class="trust-logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0110 0v4"/>
+          </svg>
+          256-bit Encryption
+        </div>
+        <div class="trust-logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+            <polyline points="22,4 12,14.01 9,11.01"/>
+          </svg>
+          GDPR Compliant
+        </div>
+        <div class="trust-logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 16v-4M12 8h.01"/>
+          </svg>
+          24/7 Support
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="features" id="features">
+    <div class="features-header">
+      <h2 class="features-title">Built for Modern Savings Groups</h2>
+      <p class="features-subtitle">Enterprise-grade features designed specifically for ROSCA management.</p>
+    </div>
+    
+    <div class="features-grid">
+      <!-- Feature 1 -->
+      <div class="feature-row">
+        <div class="feature-content">
+          <div class="feature-number">Feature 01</div>
+          <h3 class="feature-title">Automated Payout Calendars</h3>
+          <p class="feature-description">
+            Never miss a payout again. Our intelligent scheduling system automatically manages rotation cycles, sends reminders, and ensures every member receives their share on time. View upcoming payouts, track history, and maintain perfect transparency.
+          </p>
+        </div>
+        <div class="feature-visual">
+          <div class="feature-icon">📅</div>
+        </div>
+      </div>
+
+      <!-- Feature 2 -->
+      <div class="feature-row">
+        <div class="feature-content">
+          <div class="feature-number">Feature 02</div>
+          <h3 class="feature-title">Biometric Verification</h3>
+          <p class="feature-description">
+            Bank-level security for your group's finances. Multi-factor authentication, fingerprint login, and facial recognition ensure only authorized members can access funds. Every transaction is verified, logged, and immutably recorded.
+          </p>
+        </div>
+        <div class="feature-visual">
+          <div class="feature-icon">🔐</div>
+        </div>
+      </div>
+
+      <!-- Feature 3 -->
+      <div class="feature-row">
+        <div class="feature-content">
+          <div class="feature-number">Feature 03</div>
+          <h3 class="feature-title">Real-time Transparency</h3>
+          <p class="feature-description">
+            Full visibility into every contribution, loan, and expense. Interactive dashboards show fund balances, member standings, and financial health at a glance. Export detailed reports anytime for audits or meetings.
+          </p>
+        </div>
+        <div class="feature-visual">
+          <div class="feature-icon">📊</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats Section -->
+  <section class="stats">
+    <div class="stats-container">
+      <div class="stat-item">
+        <div class="stat-number">500+</div>
+        <div class="stat-label">Active Groups</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number">MWK 2B+</div>
+        <div class="stat-label">Funds Managed</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number">15K+</div>
+        <div class="stat-label">Members</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number">99.9%</div>
+        <div class="stat-label">Uptime</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="cta" id="about">
+    <div class="cta-container">
+      <h2 class="cta-title">Ready to Transform Your Savings Group?</h2>
+      <p class="cta-description">
+        Join hundreds of Malawian savings groups already using Bank Nkhonde to manage their finances with confidence and clarity.
+      </p>
+      <a href="pages/admin_registration.html" class="btn btn-accent btn-xl">
+        Create Your Group Today
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+      </a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer" id="contact">
+    <div class="footer-container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="footer-logo">
+            <div class="footer-logo-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              </svg>
+            </div>
+            <span class="footer-logo-text">Bank Nkhonde</span>
+          </div>
+          <p class="footer-description">
+            Empowering Malawian communities through secure, transparent, and efficient digital savings group management.
+          </p>
+        </div>
+        
+        <div class="footer-column">
+          <h4>Features</h4>
+          <ul class="footer-links">
+            <li><a href="#">Contribution Tracking</a></li>
+            <li><a href="#">Loan Management</a></li>
+            <li><a href="#">Payout Scheduling</a></li>
+            <li><a href="#">Financial Reports</a></li>
+          </ul>
+        </div>
+        
+        <div class="footer-column">
+          <h4>Support</h4>
+          <ul class="footer-links">
+            <li><a href="#">Help Center</a></li>
+            <li><a href="#">Documentation</a></li>
+            <li><a href="#">Contact Us</a></li>
+            <li><a href="#">FAQs</a></li>
+          </ul>
+        </div>
+        
+        <div class="footer-column">
+          <h4>Legal</h4>
+          <ul class="footer-links">
+            <li><a href="#">Privacy Policy</a></li>
+            <li><a href="#">Terms of Service</a></li>
+            <li><a href="#">Security</a></li>
+            <li><a href="#">Compliance</a></li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="footer-bottom">
+        <p class="footer-copyright">&copy; 2026 Bank Nkhonde. All rights reserved.</p>
+        <div class="footer-legal">
+          <a href="#">Privacy</a>
+          <a href="#">Terms</a>
+          <a href="#">Cookies</a>
+        </div>
+      </div>
+    </div>
+  </footer>
 </body>
 </html>

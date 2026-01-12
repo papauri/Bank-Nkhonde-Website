@@ -4,87 +4,184 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Interest & Penalties - Bank Nkhonde">
+  <meta name="theme-color" content="#047857">
   <title>Interest & Penalties - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
   <link rel="stylesheet" href="../styles/unified-page.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
 </head>
 <body>
-  <div class="page-wrapper">
-    <div class="page-bg-shape"></div>
-
-    <div class="page-header">
-      <div class="page-header-content">
-        <div class="page-header-top">
-          <div>
-            <button onclick="history.back()" class="page-header-btn" style="position: absolute; left: var(--bn-spacing-md); top: var(--bn-spacing-lg);">←</button>
-            <h1 class="page-title" style="margin-left: 50px;">Interest & Penalties</h1>
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="navbar-container">
+      <a href="../index.html" class="navbar-brand">
+        <div class="navbar-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <span class="navbar-title">Bank Nkhonde</span>
+      </a>
+      
+      <div class="navbar-menu">
+        <a href="admin_dashboard.html" class="navbar-link">Dashboard</a>
+        <a href="manage_loans.html" class="navbar-link">Loans</a>
+        <a href="manage_payments.html" class="navbar-link">Payments</a>
+        <a href="analytics.html" class="navbar-link">Analytics</a>
+      </div>
+      
+      <div class="navbar-actions">
+        <div class="user-dropdown" id="userDropdown">
+          <div class="navbar-avatar" id="navAvatar">A</div>
+          <div class="user-dropdown-menu">
+            <a href="settings.html" class="user-dropdown-item">Settings</a>
+            <div class="user-dropdown-divider"></div>
+            <button class="user-dropdown-item" id="logoutBtn" style="color: var(--bn-danger);">Sign Out</button>
           </div>
         </div>
       </div>
     </div>
+  </nav>
 
-    <div class="page-content">
-      <div class="group-selector">
-        <select id="groupSelector" class="form-select" style="background: transparent; border: none; color: white; width: 100%; padding: var(--bn-spacing-xs) 0;">
-          <option value="">Select a group...</option>
-        </select>
-      </div>
-
-      <div class="content-section">
-        <div class="content-section-header">
-          <h2 class="content-section-title">Current Rates</h2>
-        </div>
-        <div id="ratesList">
-          <div class="empty-state">
-            <div class="empty-state-icon">⚖️</div>
-            <p class="empty-state-text">Select a group to view rates</p>
+  <!-- Main Content -->
+  <div class="page-wrapper">
+    <div class="main-content">
+      <!-- Page Header -->
+      <div class="page-header">
+        <div class="page-header-top">
+          <div>
+            <h1 class="page-title">Interest & Penalties</h1>
+            <p class="page-subtitle">View and manage rates</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-secondary" onclick="history.back()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
+              Back
+            </button>
           </div>
         </div>
       </div>
 
-      <div class="content-section">
-        <div class="content-section-header">
-          <h2 class="content-section-title">Penalties Applied This Month</h2>
+      <!-- Group Selector -->
+      <div class="group-selector">
+        <select id="groupSelector" class="form-select">
+          <option value="">Select a group...</option>
+        </select>
+      </div>
+
+      <!-- Current Rates -->
+      <div class="section-card">
+        <div class="section-header">
+          <h2 class="section-title">Current Rates</h2>
+          <button class="btn btn-primary btn-sm" id="editRatesBtn">Edit Rates</button>
         </div>
-        <div id="penaltiesList">
+        <div class="section-body">
+          <div class="stats-grid" style="margin-bottom: 0;">
+            <div class="stat-card">
+              <div class="stat-icon primary">💰</div>
+              <div class="stat-value" id="loanInterestRate">10%</div>
+              <div class="stat-label">Loan Interest Rate</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon warning">⚠️</div>
+              <div class="stat-value" id="latePenaltyRate">5%</div>
+              <div class="stat-label">Late Payment Penalty</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon info">📈</div>
+              <div class="stat-value" id="maxLoanMultiplier">3x</div>
+              <div class="stat-label">Max Loan Multiplier</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon success">📅</div>
+              <div class="stat-value" id="gracePeriod">7 days</div>
+              <div class="stat-label">Grace Period</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Penalties Summary -->
+      <div class="section-card">
+        <div class="section-header">
+          <h2 class="section-title">Penalties Summary</h2>
+        </div>
+        <div class="section-body" id="penaltiesList">
           <div class="empty-state">
-            <div class="empty-state-icon">📋</div>
-            <p class="empty-state-text">No penalties applied this month</p>
+            <div class="empty-state-icon">⚖️</div>
+            <p class="empty-state-title">No penalties recorded</p>
+            <p class="empty-state-text">Penalties will appear here when applied.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interest Earned -->
+      <div class="section-card">
+        <div class="section-header">
+          <h2 class="section-title">Interest Earned</h2>
+        </div>
+        <div class="section-body" id="interestList">
+          <div class="empty-state">
+            <div class="empty-state-icon">📈</div>
+            <p class="empty-state-title">No interest recorded</p>
+            <p class="empty-state-text">Interest from loans will appear here.</p>
           </div>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Mobile Navigation -->
   <nav class="mobile-nav">
-    <a href="admin_dashboard.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">🏠</span>
-      <span>Dashboard</span>
-    </a>
-    <a href="interest_penalties.html" class="mobile-nav-item active">
-      <span class="mobile-nav-icon">⚖️</span>
-      <span>Rates</span>
-    </a>
-    <a href="settings.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">⚙️</span>
-      <span>Settings</span>
-    </a>
+    <div class="mobile-nav-container">
+      <a href="admin_dashboard.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">🏠</span>
+        <span>Home</span>
+      </a>
+      <a href="manage_loans.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">💰</span>
+        <span>Loans</span>
+      </a>
+      <a href="interest_penalties.html" class="mobile-nav-item active">
+        <span class="mobile-nav-icon">⚖️</span>
+        <span>Rates</span>
+      </a>
+      <a href="settings.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">⚙️</span>
+        <span>Settings</span>
+      </a>
+    </div>
   </nav>
 
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Loading Spinner -->
   <div class="spinner-overlay hidden" id="spinner">
-    <div class="spinner-content">
-      <div class="spinner"></div>
-      <p class="loading-text">Loading rates...</p>
-    </div>
+    <div class="spinner"></div>
+    <p class="loading-text">Loading rates...</p>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module" src="../scripts/interest_penalties.js"></script>
+  
+  <script>
+    document.getElementById('navAvatar').addEventListener('click', function() {
+      document.getElementById('userDropdown').classList.toggle('active');
+    });
+    document.addEventListener('click', function(e) {
+      const dropdown = document.getElementById('userDropdown');
+      if (!dropdown.contains(e.target)) {
+        dropdown.classList.remove('active');
+      }
+    });
+  </script>
 </body>
 </html>

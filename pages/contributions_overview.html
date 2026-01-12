@@ -4,109 +4,263 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Contributions Overview - Bank Nkhonde">
+  <meta name="theme-color" content="#047857">
   <title>Contributions Overview - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
   <link rel="stylesheet" href="../styles/unified-page.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
+  <style>
+    .contribution-item {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-4);
+      padding: var(--bn-space-4);
+      background: var(--bn-gray-50);
+      border-radius: var(--bn-radius-lg);
+      margin-bottom: var(--bn-space-3);
+    }
+
+    .contribution-avatar {
+      width: 40px;
+      height: 40px;
+      background: var(--bn-gradient-primary);
+      border-radius: var(--bn-radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--bn-white);
+      font-weight: 700;
+      font-size: var(--bn-text-sm);
+    }
+
+    .contribution-info {
+      flex: 1;
+    }
+
+    .contribution-name {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-dark);
+    }
+
+    .contribution-meta {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray-500);
+    }
+
+    .contribution-amount {
+      text-align: right;
+    }
+
+    .contribution-amount .amount {
+      font-size: var(--bn-text-base);
+      font-weight: 700;
+      color: var(--bn-dark);
+      font-family: var(--bn-font-mono);
+    }
+
+    .contribution-amount .status {
+      font-size: var(--bn-text-xs);
+      font-weight: 600;
+    }
+
+    .contribution-amount .status.paid {
+      color: var(--bn-success);
+    }
+
+    .contribution-amount .status.pending {
+      color: var(--bn-warning);
+    }
+
+    .contribution-amount .status.overdue {
+      color: var(--bn-danger);
+    }
+
+    .month-selector {
+      display: flex;
+      gap: var(--bn-space-4);
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .month-selector select {
+      flex: 1;
+    }
+  </style>
 </head>
 <body>
-  <div class="page-wrapper">
-    <div class="page-bg-shape"></div>
-
-    <div class="page-header">
-      <div class="page-header-content">
-        <div class="page-header-top">
-          <div>
-            <button onclick="history.back()" class="page-header-btn" style="position: absolute; left: var(--bn-spacing-md); top: var(--bn-spacing-lg);">←</button>
-            <h1 class="page-title" style="margin-left: 50px;">Contributions Overview</h1>
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="navbar-container">
+      <a href="../index.html" class="navbar-brand">
+        <div class="navbar-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <span class="navbar-title">Bank Nkhonde</span>
+      </a>
+      
+      <div class="navbar-menu">
+        <a href="admin_dashboard.html" class="navbar-link">Dashboard</a>
+        <a href="manage_loans.html" class="navbar-link">Loans</a>
+        <a href="manage_payments.html" class="navbar-link">Payments</a>
+        <a href="analytics.html" class="navbar-link">Analytics</a>
+        <a href="manage_members.html" class="navbar-link">Members</a>
+      </div>
+      
+      <div class="navbar-actions">
+        <div class="user-dropdown" id="userDropdown">
+          <div class="navbar-avatar" id="navAvatar">A</div>
+          <div class="user-dropdown-menu">
+            <a href="settings.html" class="user-dropdown-item">Settings</a>
+            <div class="user-dropdown-divider"></div>
+            <button class="user-dropdown-item" id="logoutBtn" style="color: var(--bn-danger);">Sign Out</button>
           </div>
         </div>
       </div>
     </div>
+  </nav>
 
-    <div class="page-content">
+  <!-- Main Content -->
+  <div class="page-wrapper">
+    <div class="main-content">
+      <!-- Page Header -->
+      <div class="page-header">
+        <div class="page-header-top">
+          <div>
+            <h1 class="page-title">Contributions Overview</h1>
+            <p class="page-subtitle">Track monthly contributions for all members</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-secondary" onclick="history.back()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
+              Back
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group Selector -->
       <div class="group-selector">
-        <select id="groupSelector" class="form-select" style="background: transparent; border: none; color: white; width: 100%; padding: var(--bn-spacing-xs) 0;">
+        <select id="groupSelector" class="form-select">
           <option value="">Select a group...</option>
         </select>
       </div>
 
-      <div class="form-section" style="margin-bottom: var(--bn-spacing-lg);">
-        <label class="form-label">Select Month</label>
-        <input type="month" id="monthSelector" class="form-input" value="">
+      <!-- Month Selector -->
+      <div class="month-selector">
+        <select id="yearSelector" class="form-select">
+          <option value="2026">2026</option>
+          <option value="2025">2025</option>
+          <option value="2024">2024</option>
+        </select>
+        <select id="monthSelector" class="form-select">
+          <option value="1">January</option>
+          <option value="2">February</option>
+          <option value="3">March</option>
+          <option value="4">April</option>
+          <option value="5">May</option>
+          <option value="6">June</option>
+          <option value="7">July</option>
+          <option value="8">August</option>
+          <option value="9">September</option>
+          <option value="10">October</option>
+          <option value="11">November</option>
+          <option value="12">December</option>
+        </select>
       </div>
 
-      <div class="stats-section">
-        <div class="stats-grid">
-          <div class="stat-item info">
-            <div class="stat-label">Total Expected</div>
-            <div class="stat-value" id="totalExpected">MWK 0</div>
-          </div>
-          <div class="stat-item success">
-            <div class="stat-label">Total Collected</div>
-            <div class="stat-value" id="totalCollected">MWK 0</div>
-          </div>
-          <div class="stat-item warning">
-            <div class="stat-label">Total Pending</div>
-            <div class="stat-value" id="totalPending">MWK 0</div>
-          </div>
-          <div class="stat-item danger">
-            <div class="stat-label">Total Arrears</div>
-            <div class="stat-value" id="totalArrears">MWK 0</div>
-          </div>
+      <!-- Stats Grid -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon primary">💰</div>
+          <div class="stat-value" id="totalExpected">MWK 0</div>
+          <div class="stat-label">Expected</div>
         </div>
-        <div class="stat-item" style="margin-top: var(--bn-spacing-md);">
-          <div class="stat-label">Compliance Rate</div>
-          <div class="stat-value" id="complianceRate">0%</div>
+        <div class="stat-card">
+          <div class="stat-icon success">✓</div>
+          <div class="stat-value" id="totalCollected">MWK 0</div>
+          <div class="stat-label">Collected</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon danger">⚠️</div>
+          <div class="stat-value" id="totalPending">MWK 0</div>
+          <div class="stat-label">Pending</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon info">📊</div>
+          <div class="stat-value" id="collectionRate">0%</div>
+          <div class="stat-label">Collection Rate</div>
         </div>
       </div>
 
-      <div class="content-section">
-        <div class="content-section-header">
-          <h2 class="content-section-title">Member Contributions</h2>
+      <!-- Contributions List -->
+      <div class="section-card">
+        <div class="section-header">
+          <h2 class="section-title">Member Contributions</h2>
         </div>
-        <div id="contributionsTable">
+        <div class="section-body" id="contributionsList">
           <div class="empty-state">
             <div class="empty-state-icon">📊</div>
-            <p class="empty-state-text">Select a group to view contributions</p>
+            <p class="empty-state-title">No contributions data</p>
+            <p class="empty-state-text">Select a group to view contributions.</p>
           </div>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Mobile Navigation -->
   <nav class="mobile-nav">
-    <a href="admin_dashboard.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">🏠</span>
-      <span>Dashboard</span>
-    </a>
-    <a href="contributions_overview.html" class="mobile-nav-item active">
-      <span class="mobile-nav-icon">📈</span>
-      <span>Contributions</span>
-    </a>
-    <a href="financial_reports.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">📊</span>
-      <span>Reports</span>
-    </a>
-    <a href="settings.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">⚙️</span>
-      <span>Settings</span>
-    </a>
+    <div class="mobile-nav-container">
+      <a href="admin_dashboard.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">🏠</span>
+        <span>Home</span>
+      </a>
+      <a href="manage_payments.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">💵</span>
+        <span>Payments</span>
+      </a>
+      <a href="contributions_overview.html" class="mobile-nav-item active">
+        <span class="mobile-nav-icon">📊</span>
+        <span>Contrib.</span>
+      </a>
+      <a href="settings.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">⚙️</span>
+        <span>Settings</span>
+      </a>
+    </div>
   </nav>
 
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Loading Spinner -->
   <div class="spinner-overlay hidden" id="spinner">
-    <div class="spinner-content">
-      <div class="spinner"></div>
-      <p class="loading-text">Loading contributions...</p>
-    </div>
+    <div class="spinner"></div>
+    <p class="loading-text">Loading contributions...</p>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module" src="../scripts/contributions_overview.js"></script>
+  
+  <script>
+    document.getElementById('navAvatar').addEventListener('click', function() {
+      document.getElementById('userDropdown').classList.toggle('active');
+    });
+    document.addEventListener('click', function(e) {
+      const dropdown = document.getElementById('userDropdown');
+      if (!dropdown.contains(e.target)) {
+        dropdown.classList.remove('active');
+      }
+    });
+  </script>
 </body>
 </html>

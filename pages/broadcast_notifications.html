@@ -4,135 +4,182 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Broadcast Notifications - Bank Nkhonde">
+  <meta name="theme-color" content="#047857">
   <title>Broadcast Notifications - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
   <link rel="stylesheet" href="../styles/unified-page.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
+  <style>
+    .broadcast-form {
+      max-width: 700px;
+    }
+
+    .broadcast-history {
+      margin-top: var(--bn-space-6);
+    }
+
+    .broadcast-item {
+      display: flex;
+      gap: var(--bn-space-4);
+      padding: var(--bn-space-4);
+      background: var(--bn-gray-50);
+      border-radius: var(--bn-radius-lg);
+      margin-bottom: var(--bn-space-3);
+    }
+
+    .broadcast-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--bn-info-light);
+      border-radius: var(--bn-radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      flex-shrink: 0;
+    }
+
+    .broadcast-content {
+      flex: 1;
+    }
+
+    .broadcast-title {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-dark);
+      margin-bottom: 2px;
+    }
+
+    .broadcast-message {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray-600);
+      line-height: 1.5;
+      margin-bottom: var(--bn-space-2);
+    }
+
+    .broadcast-meta {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray-500);
+    }
+  </style>
 </head>
 <body>
-  <div class="page-wrapper">
-    <!-- Background Shapes -->
-    <div class="page-bg-shape"></div>
-
-    <!-- Page Header -->
-    <div class="page-header">
-      <div class="page-header-content">
-        <div class="page-header-top">
-          <div>
-            <h1 class="page-title">Broadcast Notifications</h1>
-            <p class="page-subtitle">Send messages to your group members</p>
-          </div>
-          <div class="page-header-actions">
-            <button class="page-header-btn" id="backBtn" aria-label="Back" title="Back">
-              ←
-            </button>
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="navbar-container">
+      <a href="../index.html" class="navbar-brand">
+        <div class="navbar-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <span class="navbar-title">Bank Nkhonde</span>
+      </a>
+      
+      <div class="navbar-menu">
+        <a href="admin_dashboard.html" class="navbar-link">Dashboard</a>
+        <a href="manage_loans.html" class="navbar-link">Loans</a>
+        <a href="manage_payments.html" class="navbar-link">Payments</a>
+        <a href="analytics.html" class="navbar-link">Analytics</a>
+        <a href="manage_members.html" class="navbar-link">Members</a>
+      </div>
+      
+      <div class="navbar-actions">
+        <div class="user-dropdown" id="userDropdown">
+          <div class="navbar-avatar" id="navAvatar">A</div>
+          <div class="user-dropdown-menu">
+            <a href="settings.html" class="user-dropdown-item">Settings</a>
+            <div class="user-dropdown-divider"></div>
+            <button class="user-dropdown-item" id="logoutBtn" style="color: var(--bn-danger);">Sign Out</button>
           </div>
         </div>
       </div>
     </div>
+  </nav>
 
-    <!-- Main Content -->
-    <div class="page-content">
-      <!-- Quick Templates Section -->
-      <div class="content-section">
-        <div class="content-section-header">
-          <h2 class="content-section-title">Quick Templates</h2>
-          <p class="content-section-subtitle">Send pre-filled notifications</p>
+  <!-- Main Content -->
+  <div class="page-wrapper">
+    <div class="main-content">
+      <!-- Page Header -->
+      <div class="page-header">
+        <div class="page-header-top">
+          <div>
+            <h1 class="page-title">Broadcast Notifications</h1>
+            <p class="page-subtitle">Send messages to all group members</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-secondary" onclick="history.back()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
+              Back
+            </button>
+          </div>
         </div>
-        <div class="template-grid">
-          <button class="template-card" data-template="payment_reminder">
-            <div class="template-icon">💵</div>
-            <h3>Payment Reminder</h3>
-            <p>Remind members about upcoming payments</p>
-          </button>
-          
-          <button class="template-card" data-template="meeting_announcement">
-            <div class="template-icon">📅</div>
-            <h3>Meeting Announcement</h3>
-            <p>Announce group meetings</p>
-          </button>
-          
-          <button class="template-card" data-template="loan_available">
-            <div class="template-icon">💰</div>
-            <h3>Loan Available</h3>
-            <p>Notify about available loans</p>
-          </button>
-          
-          <button class="template-card" data-template="payment_received">
-            <div class="template-icon">✅</div>
-            <h3>Payment Confirmed</h3>
-            <p>Confirm payment receipt</p>
-          </button>
-          
-          <button class="template-card" data-template="custom">
-            <div class="template-icon">✉️</div>
-            <h3>Custom Message</h3>
-            <p>Send a custom message</p>
-          </button>
-        </div>
+      </div>
+
+      <!-- Group Selector -->
+      <div class="group-selector">
+        <select id="groupSelector" class="form-select">
+          <option value="">Select a group...</option>
+        </select>
       </div>
 
       <!-- Broadcast Form -->
-      <div class="content-section">
-        <div class="content-section-header">
-          <h2 class="content-section-title">Create Broadcast</h2>
+      <div class="section-card">
+        <div class="section-header">
+          <h2 class="section-title">Send Broadcast</h2>
         </div>
-        <form id="broadcastForm">
-          <div class="form-group">
-            <label for="groupSelect" class="form-label">Select Group <span class="required">*</span></label>
-            <select id="groupSelect" class="form-input" required>
-              <option value="">Choose a group...</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="notificationTitle" class="form-label">Title <span class="required">*</span></label>
-            <input type="text" id="notificationTitle" class="form-input" placeholder="Enter notification title" required>
-          </div>
-
-          <div class="form-group">
-            <label for="notificationMessage" class="form-label">Message <span class="required">*</span></label>
-            <textarea id="notificationMessage" class="form-input" rows="6" placeholder="Enter your message..." required></textarea>
-          </div>
-
-          <div class="form-group">
-            <label for="notificationType" class="form-label">Type</label>
-            <select id="notificationType" class="form-input">
-              <option value="info">Information</option>
-              <option value="warning">Warning</option>
-              <option value="urgent">Urgent</option>
-              <option value="success">Success</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="checkbox-wrapper">
-              <input type="checkbox" id="allowReplies" checked>
-              <span class="checkbox-label">Allow members to reply</span>
-            </label>
-          </div>
-
-          <button type="submit" id="sendBroadcastBtn" class="btn btn-primary btn-lg btn-block">
-            <span class="btn-text">Send Broadcast</span>
-            <svg class="btn-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-        </form>
+        <div class="section-body">
+          <form id="broadcastForm" class="broadcast-form">
+            <div class="form-group">
+              <label class="form-label">Notification Type</label>
+              <select id="notificationType" class="form-select" required>
+                <option value="">Select type...</option>
+                <option value="announcement">Announcement</option>
+                <option value="reminder">Payment Reminder</option>
+                <option value="meeting">Meeting Notice</option>
+                <option value="alert">Important Alert</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Title</label>
+              <input type="text" id="notificationTitle" class="form-input" placeholder="Enter notification title" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Message</label>
+              <textarea id="notificationMessage" class="form-textarea" rows="5" placeholder="Enter your message..." required></textarea>
+            </div>
+            <div class="form-group">
+              <label style="display: flex; align-items: center; gap: var(--bn-space-2); cursor: pointer;">
+                <input type="checkbox" id="allowReplies" style="width: 18px; height: 18px; accent-color: var(--bn-primary);">
+                <span class="form-label" style="margin: 0;">Allow members to reply</span>
+              </label>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+              Send Broadcast
+            </button>
+          </form>
+        </div>
       </div>
 
       <!-- Recent Broadcasts -->
-      <div class="content-section">
-        <div class="content-section-header">
-          <h2 class="content-section-title">Recent Broadcasts</h2>
+      <div class="section-card broadcast-history">
+        <div class="section-header">
+          <h2 class="section-title">Recent Broadcasts</h2>
         </div>
-        <div id="recentBroadcastsList">
+        <div class="section-body" id="broadcastHistory">
           <div class="empty-state">
             <div class="empty-state-icon">📢</div>
-            <p class="empty-state-text">No broadcasts yet</p>
+            <p class="empty-state-title">No broadcasts yet</p>
+            <p class="empty-state-text">Your broadcast history will appear here.</p>
           </div>
         </div>
       </div>
@@ -141,27 +188,50 @@
 
   <!-- Mobile Navigation -->
   <nav class="mobile-nav">
-    <a href="admin_dashboard.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">🏠</span>
-      <span>Dashboard</span>
-    </a>
-    <a href="broadcast_notifications.html" class="mobile-nav-item active">
-      <span class="mobile-nav-icon">📢</span>
-      <span>Broadcast</span>
-    </a>
-    <a href="manage_members.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">👥</span>
-      <span>Members</span>
-    </a>
-    <a href="settings.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">⚙️</span>
-      <span>Settings</span>
-    </a>
+    <div class="mobile-nav-container">
+      <a href="admin_dashboard.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">🏠</span>
+        <span>Home</span>
+      </a>
+      <a href="manage_members.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">👥</span>
+        <span>Members</span>
+      </a>
+      <a href="broadcast_notifications.html" class="mobile-nav-item active">
+        <span class="mobile-nav-icon">📢</span>
+        <span>Broadcast</span>
+      </a>
+      <a href="settings.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">⚙️</span>
+        <span>Settings</span>
+      </a>
+    </div>
   </nav>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Loading Spinner -->
+  <div class="spinner-overlay hidden" id="spinner">
+    <div class="spinner"></div>
+    <p class="loading-text">Sending broadcast...</p>
+  </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module" src="../scripts/broadcast_notifications.js"></script>
+  
+  <script>
+    document.getElementById('navAvatar').addEventListener('click', function() {
+      document.getElementById('userDropdown').classList.toggle('active');
+    });
+    document.addEventListener('click', function(e) {
+      const dropdown = document.getElementById('userDropdown');
+      if (!dropdown.contains(e.target)) {
+        dropdown.classList.remove('active');
+      }
+    });
+  </script>
 </body>
 </html>

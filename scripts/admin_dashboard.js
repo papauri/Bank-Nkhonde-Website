@@ -440,17 +440,33 @@ function showSpinner(show) {
 /**
  * Show toast notification
  */
-function showToast(message, type = "info") {
-  const toast = document.createElement("div");
-  toast.className = `toast ${type}`;
-  toast.textContent = message;
-  document.body.appendChild(toast);
+function showToast(message, type = "success") {
+  const container = document.getElementById("toastContainer") || document.body;
   
-  setTimeout(() => toast.classList.add("show"), 100);
+  const icons = {
+    success: '✓',
+    error: '✕',
+    warning: '⚠',
+    info: 'ℹ'
+  };
+  
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `
+    <div class="toast-icon">${icons[type] || icons.info}</div>
+    <div class="toast-content">
+      <div class="toast-message">${message}</div>
+    </div>
+    <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+  `;
+  
+  container.appendChild(toast);
+  
+  // Auto remove after 4 seconds
   setTimeout(() => {
-    toast.classList.remove("show");
+    toast.classList.add("toast-exit");
     setTimeout(() => toast.remove(), 300);
-  }, 3000);
+  }, 4000);
 }
 
 /**

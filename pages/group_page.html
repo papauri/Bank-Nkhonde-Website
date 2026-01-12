@@ -1,136 +1,343 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Bank Nkhonde Group Details">
-  <meta name="theme-color" content="#282c34">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-  <title>Group Details</title>
+  <meta name="description" content="Group Details - Bank Nkhonde">
+  <meta name="theme-color" content="#047857">
+  <title>Group Details - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
   <link rel="stylesheet" href="../styles/unified-page.css">
-  <link rel="stylesheet" href="../styles/group_details.css">
-  <link rel="stylesheet" href="../styles/group_table.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@12.3.1/dist/handsontable.full.min.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
-</head>
+  <style>
+    .group-header {
+      background: var(--bn-gradient-primary);
+      border-radius: var(--bn-radius-xl);
+      padding: var(--bn-space-8);
+      color: var(--bn-white);
+      margin-bottom: var(--bn-space-8);
+      position: relative;
+      overflow: hidden;
+    }
 
+    .group-header::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -20%;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+
+    .group-header-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .group-name {
+      font-size: var(--bn-text-3xl);
+      font-weight: 700;
+      margin-bottom: var(--bn-space-2);
+    }
+
+    .group-description {
+      color: rgba(255, 255, 255, 0.85);
+      font-size: var(--bn-text-base);
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .group-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--bn-space-4);
+    }
+
+    .group-stat {
+      text-align: center;
+      padding: var(--bn-space-4);
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: var(--bn-radius-lg);
+      backdrop-filter: blur(10px);
+    }
+
+    .group-stat-value {
+      font-size: var(--bn-text-xl);
+      font-weight: 700;
+      color: var(--bn-white);
+      font-family: var(--bn-font-mono);
+    }
+
+    .group-stat-label {
+      font-size: var(--bn-text-xs);
+      color: rgba(255, 255, 255, 0.8);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 4px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: var(--bn-space-2);
+      margin-bottom: var(--bn-space-6);
+      border-bottom: 1px solid var(--bn-gray-200);
+      padding-bottom: var(--bn-space-2);
+    }
+
+    .tab-btn {
+      padding: var(--bn-space-3) var(--bn-space-4);
+      background: none;
+      border: none;
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-gray-500);
+      cursor: pointer;
+      border-radius: var(--bn-radius-md);
+      transition: all var(--bn-transition-fast);
+    }
+
+    .tab-btn:hover {
+      color: var(--bn-dark);
+      background: var(--bn-gray-100);
+    }
+
+    .tab-btn.active {
+      color: var(--bn-primary);
+      background: var(--bn-primary-100);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @media (max-width: 768px) {
+      .group-stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .tabs {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+      }
+
+      .tab-btn {
+        white-space: nowrap;
+      }
+    }
+  </style>
+</head>
 <body>
-  <div class="page-wrapper">
-    <div class="page-bg-shape"></div>
-    
-    <div class="page-header">
-      <div class="page-header-content">
-        <div class="page-header-top">
-          <div>
-            <button onclick="history.back()" class="page-header-btn" style="position: absolute; left: var(--bn-spacing-md); top: var(--bn-spacing-lg);">←</button>
-            <h1 class="page-title" style="margin-left: 50px;" id="groupTitle">Group Details</h1>
-          </div>
-          <div class="page-header-actions">
-            <button class="page-header-btn" id="manageMembersButton" title="Manage Members">👥</button>
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="navbar-container">
+      <a href="../index.html" class="navbar-brand">
+        <div class="navbar-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <span class="navbar-title">Bank Nkhonde</span>
+      </a>
+      
+      <div class="navbar-menu">
+        <a href="user_dashboard.html" class="navbar-link">Dashboard</a>
+        <a href="group_page.html" class="navbar-link active">My Groups</a>
+        <a href="contacts.html" class="navbar-link">Members</a>
+      </div>
+      
+      <div class="navbar-actions">
+        <div class="user-dropdown" id="userDropdown">
+          <div class="navbar-avatar" id="navAvatar">U</div>
+          <div class="user-dropdown-menu">
+            <a href="settings.html" class="user-dropdown-item">Settings</a>
+            <div class="user-dropdown-divider"></div>
+            <button class="user-dropdown-item" id="logoutBtn" style="color: var(--bn-danger);">Sign Out</button>
           </div>
         </div>
       </div>
     </div>
-    
-  <div class="page-content">
+  </nav>
 
-    <!-- 🔹 GROUP INFO SECTION -->
-    <section class="group-info">
-      <h2>Group Information</h2>
-      <div class="info-grid">
-        <div class="info-item"><span class="label">Group Name</span><span id="groupName" class="value">Loading...</span></div>
-        <div class="info-item"><span class="label">Created On</span><span id="groupCreated" class="value">Loading...</span></div>
-        <div class="info-item"><span class="label">Seed Money</span><span id="seedMoney" class="value">Loading...</span></div>
-        <div class="info-item"><span class="label">Interest Rate</span><span id="interestRate" class="value">Loading...</span></div>
-        <div class="info-item"><span class="label">Monthly Contribution</span><span id="monthlyContribution" class="value">Loading...</span></div>
-        <div class="info-item"><span class="label">Loan Penalty</span><span id="loanPenalty" class="value">Loading...</span></div>
-        <div class="info-item"><span class="label">Monthly Penalty</span><span id="monthlyPenalty" class="value">Loading...</span></div>
-        <div class="info-item"><span class="label">Number of Members</span><span id="groupMembersCount" class="value">Loading...</span></div>
-      </div>
-    </section>
-
-    <!-- 🔹 LOAN SECTION -->
-    <section class="loans">
-      <h2>Loan Details</h2>
-      <ul id="loanList" class="list">Loading loan details...</ul>
-    </section>
-
-    <!-- 🔹 PAYMENTS SECTION -->
-    <section id="paymentsSection" class="payments-section">
-      <h2>Confirmed Payments</h2>
-      <p>These payments have been approved by the admin.</p>
-      <div id="confirmedPaymentsContainer" class="payments-container">
-        <!-- Payments dynamically populated here -->
-      </div>
-    </section>
-
-    <section id="pendingApprovalSection" class="pending-approval-section">
-      <h2>Payments Awaiting Admin Approval</h2>
-      <p>These payments have been made but are awaiting admin confirmation.</p>
-      <div id="pendingApprovalContainer" class="payments-container">
-        <!-- Pending approvals dynamically populated here -->
-      </div>
-    </section>
-
-    <section id="unpaidContributionsSection" class="unpaid-contributions-section">
-      <h2>Unpaid Contributions</h2>
-      <p>These contributions are due but have not been paid yet.</p>
-      <div id="unpaidContributionsContainer" class="payments-container">
-        <!-- Unpaid contributions dynamically populated here -->
-      </div>
-    </section>
-
-    <!-- 🔹 GROUP MEMBERS SECTION -->
-    <section class="interactive-table">
-      <h2>Group Members</h2>
-      <div id="membersList">Loading group members...</div>
-
-      <h2>Member Data</h2>
-      <div id="memberDataContainer" style="display: none;">
-        <h3 id="memberName"></h3>
-        <div id="memberTableContainer">Select a member to view their contributions.</div>
-        <div id="manualPaymentContainer"></div>
+  <!-- Main Content -->
+  <div class="page-wrapper">
+    <div class="main-content">
+      <!-- Group Header -->
+      <div class="group-header">
+        <div class="group-header-content">
+          <h1 class="group-name" id="groupName">Loading...</h1>
+          <p class="group-description" id="groupDescription">Loading group details...</p>
+          
+          <div class="group-stats">
+            <div class="group-stat">
+              <div class="group-stat-value" id="memberCount">0</div>
+              <div class="group-stat-label">Members</div>
+            </div>
+            <div class="group-stat">
+              <div class="group-stat-value" id="totalFunds">MWK 0</div>
+              <div class="group-stat-label">Total Funds</div>
+            </div>
+            <div class="group-stat">
+              <div class="group-stat-value" id="monthlyContrib">MWK 0</div>
+              <div class="group-stat-label">Monthly</div>
+            </div>
+            <div class="group-stat">
+              <div class="group-stat-value" id="activeLoans">0</div>
+              <div class="group-stat-label">Active Loans</div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <h2>Seed Money Overview</h2>
-      <div id="seedMoneyContainer">Loading seed money...</div>
-    </section>
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="overview">Overview</button>
+        <button class="tab-btn" data-tab="members">Members</button>
+        <button class="tab-btn" data-tab="payments">Payments</button>
+        <button class="tab-btn" data-tab="loans">Loans</button>
+        <button class="tab-btn" data-tab="rules">Rules</button>
+      </div>
 
-    <!-- 🔹 LOADING SPINNER -->
-    <div id="spinnerOverlay" class="spinner-overlay hidden">
-      <div class="spinner-content">
-        <div class="spinner"></div>
-        <p class="loading-text">Loading group details...</p>
+      <!-- Tab Contents -->
+      <div class="tab-content active" id="tab-overview">
+        <div class="section-card">
+          <div class="section-header">
+            <h2 class="section-title">Group Overview</h2>
+          </div>
+          <div class="section-body" id="overviewContent">
+            <div class="empty-state">
+              <div class="empty-state-icon">📊</div>
+              <p class="empty-state-text">Loading overview...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-members">
+        <div class="section-card">
+          <div class="section-header">
+            <h2 class="section-title">Group Members</h2>
+          </div>
+          <div class="section-body" id="membersContent">
+            <div class="empty-state">
+              <div class="empty-state-icon">👥</div>
+              <p class="empty-state-text">Loading members...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-payments">
+        <div class="section-card">
+          <div class="section-header">
+            <h2 class="section-title">Payment History</h2>
+          </div>
+          <div class="section-body" id="paymentsContent">
+            <div class="empty-state">
+              <div class="empty-state-icon">💵</div>
+              <p class="empty-state-text">Loading payments...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-loans">
+        <div class="section-card">
+          <div class="section-header">
+            <h2 class="section-title">Loan History</h2>
+          </div>
+          <div class="section-body" id="loansContent">
+            <div class="empty-state">
+              <div class="empty-state-icon">💰</div>
+              <p class="empty-state-text">Loading loans...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-rules">
+        <div class="section-card">
+          <div class="section-header">
+            <h2 class="section-title">Group Rules & Regulations</h2>
+          </div>
+          <div class="section-body" id="rulesContent">
+            <div class="empty-state">
+              <div class="empty-state-icon">📋</div>
+              <p class="empty-state-text">Loading rules...</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
-  </div>
-  
+
+  <!-- Mobile Navigation -->
   <nav class="mobile-nav">
-    <a href="user_dashboard.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">🏠</span>
-      <span>Dashboard</span>
-    </a>
-    <a href="group_page.html" class="mobile-nav-item active">
-      <span class="mobile-nav-icon">👥</span>
-      <span>Groups</span>
-    </a>
-    <a href="settings.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">⚙️</span>
-      <span>Settings</span>
-    </a>
+    <div class="mobile-nav-container">
+      <a href="user_dashboard.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">🏠</span>
+        <span>Home</span>
+      </a>
+      <a href="group_page.html" class="mobile-nav-item active">
+        <span class="mobile-nav-icon">📁</span>
+        <span>Groups</span>
+      </a>
+      <a href="contacts.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">👥</span>
+        <span>Members</span>
+      </a>
+      <a href="settings.html" class="mobile-nav-item">
+        <span class="mobile-nav-icon">⚙️</span>
+        <span>Settings</span>
+      </a>
+    </div>
   </nav>
 
-  <!-- 🔹 INCLUDE JAVASCRIPT FILES -->
-  <script type="module" src="../scripts/group_details.js"></script>
-  <script type="module" src="../scripts/group_table.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/handsontable@12.3.1/dist/handsontable.full.min.js"></script>
-</body>
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
 
+  <!-- Loading Spinner -->
+  <div class="spinner-overlay hidden" id="spinner">
+    <div class="spinner"></div>
+    <p class="loading-text">Loading group details...</p>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+  <script type="module" src="../scripts/group_details.js"></script>
+  
+  <script>
+    // User dropdown
+    document.getElementById('navAvatar').addEventListener('click', function() {
+      document.getElementById('userDropdown').classList.toggle('active');
+    });
+    document.addEventListener('click', function(e) {
+      const dropdown = document.getElementById('userDropdown');
+      if (!dropdown.contains(e.target)) {
+        dropdown.classList.remove('active');
+      }
+    });
+
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const tabId = this.dataset.tab;
+        
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        
+        this.classList.add('active');
+        document.getElementById('tab-' + tabId).classList.add('active');
+      });
+    });
+  </script>
+</body>
 </html>
