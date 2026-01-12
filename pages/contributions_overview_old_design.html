@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Contributions Overview - Bank Nkhonde">
+  <title>Contributions Overview - Bank Nkhonde</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/unified-page.css">
+  <link rel="icon" type="image/png" href="../assets/favicon.png">
+</head>
+<body>
+  <div class="page-wrapper">
+    <div class="page-bg-shape"></div>
+
+    <div class="page-header">
+      <div class="page-header-content">
+        <div class="page-header-top">
+          <div>
+            <button onclick="history.back()" class="page-header-btn" style="position: absolute; left: var(--bn-spacing-md); top: var(--bn-spacing-lg);">←</button>
+            <h1 class="page-title" style="margin-left: 50px;">Contributions Overview</h1>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-content">
+      <div class="group-selector">
+        <select id="groupSelector" class="form-select" style="background: transparent; border: none; color: white; width: 100%; padding: var(--bn-spacing-xs) 0;">
+          <option value="">Select a group...</option>
+        </select>
+      </div>
+
+      <div class="form-section" style="margin-bottom: var(--bn-spacing-lg);">
+        <label class="form-label">Select Month</label>
+        <input type="month" id="monthSelector" class="form-input" value="">
+      </div>
+
+      <div class="stats-section">
+        <div class="stats-grid">
+          <div class="stat-item info">
+            <div class="stat-label">Total Expected</div>
+            <div class="stat-value" id="totalExpected">MWK 0</div>
+          </div>
+          <div class="stat-item success">
+            <div class="stat-label">Total Collected</div>
+            <div class="stat-value" id="totalCollected">MWK 0</div>
+          </div>
+          <div class="stat-item warning">
+            <div class="stat-label">Total Pending</div>
+            <div class="stat-value" id="totalPending">MWK 0</div>
+          </div>
+          <div class="stat-item danger">
+            <div class="stat-label">Total Arrears</div>
+            <div class="stat-value" id="totalArrears">MWK 0</div>
+          </div>
+        </div>
+        <div class="stat-item" style="margin-top: var(--bn-spacing-md);">
+          <div class="stat-label">Compliance Rate</div>
+          <div class="stat-value" id="complianceRate">0%</div>
+        </div>
+      </div>
+
+      <div class="content-section">
+        <div class="content-section-header">
+          <h2 class="content-section-title">Member Contributions</h2>
+        </div>
+        <div id="contributionsTable">
+          <div class="empty-state">
+            <div class="empty-state-icon">📊</div>
+            <p class="empty-state-text">Select a group to view contributions</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="mobile-nav">
+    <a href="admin_dashboard.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">🏠</span>
+      <span>Dashboard</span>
+    </a>
+    <a href="contributions_overview.html" class="mobile-nav-item active">
+      <span class="mobile-nav-icon">📈</span>
+      <span>Contributions</span>
+    </a>
+    <a href="financial_reports.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">📊</span>
+      <span>Reports</span>
+    </a>
+    <a href="settings.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">⚙️</span>
+      <span>Settings</span>
+    </a>
+  </nav>
+
+  <div class="spinner-overlay hidden" id="spinner">
+    <div class="spinner-content">
+      <div class="spinner"></div>
+      <p class="loading-text">Loading contributions...</p>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+  <script type="module" src="../scripts/contributions_overview.js"></script>
+</body>
+</html>

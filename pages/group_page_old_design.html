@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Bank Nkhonde Group Details">
+  <meta name="theme-color" content="#282c34">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <title>Group Details</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/unified-page.css">
+  <link rel="stylesheet" href="../styles/group_details.css">
+  <link rel="stylesheet" href="../styles/group_table.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@12.3.1/dist/handsontable.full.min.css">
+  <link rel="icon" type="image/png" href="../assets/favicon.png">
+</head>
+
+<body>
+  <div class="page-wrapper">
+    <div class="page-bg-shape"></div>
+    
+    <div class="page-header">
+      <div class="page-header-content">
+        <div class="page-header-top">
+          <div>
+            <button onclick="history.back()" class="page-header-btn" style="position: absolute; left: var(--bn-spacing-md); top: var(--bn-spacing-lg);">←</button>
+            <h1 class="page-title" style="margin-left: 50px;" id="groupTitle">Group Details</h1>
+          </div>
+          <div class="page-header-actions">
+            <button class="page-header-btn" id="manageMembersButton" title="Manage Members">👥</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+  <div class="page-content">
+
+    <!-- 🔹 GROUP INFO SECTION -->
+    <section class="group-info">
+      <h2>Group Information</h2>
+      <div class="info-grid">
+        <div class="info-item"><span class="label">Group Name</span><span id="groupName" class="value">Loading...</span></div>
+        <div class="info-item"><span class="label">Created On</span><span id="groupCreated" class="value">Loading...</span></div>
+        <div class="info-item"><span class="label">Seed Money</span><span id="seedMoney" class="value">Loading...</span></div>
+        <div class="info-item"><span class="label">Interest Rate</span><span id="interestRate" class="value">Loading...</span></div>
+        <div class="info-item"><span class="label">Monthly Contribution</span><span id="monthlyContribution" class="value">Loading...</span></div>
+        <div class="info-item"><span class="label">Loan Penalty</span><span id="loanPenalty" class="value">Loading...</span></div>
+        <div class="info-item"><span class="label">Monthly Penalty</span><span id="monthlyPenalty" class="value">Loading...</span></div>
+        <div class="info-item"><span class="label">Number of Members</span><span id="groupMembersCount" class="value">Loading...</span></div>
+      </div>
+    </section>
+
+    <!-- 🔹 LOAN SECTION -->
+    <section class="loans">
+      <h2>Loan Details</h2>
+      <ul id="loanList" class="list">Loading loan details...</ul>
+    </section>
+
+    <!-- 🔹 PAYMENTS SECTION -->
+    <section id="paymentsSection" class="payments-section">
+      <h2>Confirmed Payments</h2>
+      <p>These payments have been approved by the admin.</p>
+      <div id="confirmedPaymentsContainer" class="payments-container">
+        <!-- Payments dynamically populated here -->
+      </div>
+    </section>
+
+    <section id="pendingApprovalSection" class="pending-approval-section">
+      <h2>Payments Awaiting Admin Approval</h2>
+      <p>These payments have been made but are awaiting admin confirmation.</p>
+      <div id="pendingApprovalContainer" class="payments-container">
+        <!-- Pending approvals dynamically populated here -->
+      </div>
+    </section>
+
+    <section id="unpaidContributionsSection" class="unpaid-contributions-section">
+      <h2>Unpaid Contributions</h2>
+      <p>These contributions are due but have not been paid yet.</p>
+      <div id="unpaidContributionsContainer" class="payments-container">
+        <!-- Unpaid contributions dynamically populated here -->
+      </div>
+    </section>
+
+    <!-- 🔹 GROUP MEMBERS SECTION -->
+    <section class="interactive-table">
+      <h2>Group Members</h2>
+      <div id="membersList">Loading group members...</div>
+
+      <h2>Member Data</h2>
+      <div id="memberDataContainer" style="display: none;">
+        <h3 id="memberName"></h3>
+        <div id="memberTableContainer">Select a member to view their contributions.</div>
+        <div id="manualPaymentContainer"></div>
+      </div>
+
+      <h2>Seed Money Overview</h2>
+      <div id="seedMoneyContainer">Loading seed money...</div>
+    </section>
+
+    <!-- 🔹 LOADING SPINNER -->
+    <div id="spinnerOverlay" class="spinner-overlay hidden">
+      <div class="spinner-content">
+        <div class="spinner"></div>
+        <p class="loading-text">Loading group details...</p>
+      </div>
+    </div>
+  </div>
+  </div>
+  
+  <nav class="mobile-nav">
+    <a href="user_dashboard.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">🏠</span>
+      <span>Dashboard</span>
+    </a>
+    <a href="group_page.html" class="mobile-nav-item active">
+      <span class="mobile-nav-icon">👥</span>
+      <span>Groups</span>
+    </a>
+    <a href="settings.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">⚙️</span>
+      <span>Settings</span>
+    </a>
+  </nav>
+
+  <!-- 🔹 INCLUDE JAVASCRIPT FILES -->
+  <script type="module" src="../scripts/group_details.js"></script>
+  <script type="module" src="../scripts/group_table.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/handsontable@12.3.1/dist/handsontable.full.min.js"></script>
+</body>
+
+</html>

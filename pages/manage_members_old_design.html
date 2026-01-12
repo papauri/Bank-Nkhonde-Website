@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#047857">
+  <title>Manage Members - Bank Nkhonde</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/unified-page.css">
+  <style>
+    body {
+      background: var(--bn-gradient-subtle);
+      padding-bottom: 80px;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      margin-bottom: var(--bn-spacing-md);
+    }
+
+    .back-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: var(--bn-white);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 20px;
+    }
+
+    .header-title {
+      flex: 1;
+      text-align: center;
+      font-size: var(--bn-font-2xl);
+      margin: 0;
+    }
+
+    .header-actions {
+      width: 40px;
+    }
+
+    /* Group Selector */
+    .group-selector {
+      background: rgba(255, 255, 255, 0.1);
+      padding: var(--bn-spacing-sm);
+      border-radius: var(--bn-radius-md);
+      margin-bottom: var(--bn-spacing-md);
+    }
+
+    .group-selector select {
+      width: 100%;
+      padding: var(--bn-spacing-sm);
+      background: var(--bn-white);
+      border: none;
+      border-radius: var(--bn-radius-sm);
+      font-size: var(--bn-font-base);
+      color: var(--bn-dark);
+    }
+
+    /* Stats Cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--bn-spacing-sm);
+      padding: 0 var(--bn-spacing-md);
+      margin-bottom: var(--bn-spacing-md);
+    }
+
+    .stat-card {
+      background: var(--bn-white);
+      padding: var(--bn-spacing-md);
+      border-radius: var(--bn-radius-lg);
+      box-shadow: var(--bn-shadow-sm);
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: var(--bn-font-2xl);
+      font-weight: 700;
+      color: var(--bn-primary);
+      margin: 4px 0;
+    }
+
+    .stat-label {
+      font-size: var(--bn-font-xs);
+      color: var(--bn-gray);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Action Button */
+    .add-member-btn {
+      margin: 0 var(--bn-spacing-md) var(--bn-spacing-md);
+      width: calc(100% - 32px);
+      padding: var(--bn-spacing-md);
+      background: var(--bn-gradient-primary);
+      color: var(--bn-white);
+      border: none;
+      border-radius: var(--bn-radius-lg);
+      font-size: var(--bn-font-base);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      box-shadow: var(--bn-shadow-md);
+    }
+
+    .add-member-btn:active {
+      transform: scale(0.98);
+    }
+
+    /* Members List */
+    .members-section {
+      padding: 0 var(--bn-spacing-md);
+    }
+
+    .section-title {
+      font-size: var(--bn-font-lg);
+      font-weight: 700;
+      margin-bottom: var(--bn-spacing-sm);
+      color: var(--bn-dark);
+    }
+
+    .member-card {
+      background: var(--bn-white);
+      padding: var(--bn-spacing-md);
+      border-radius: var(--bn-radius-lg);
+      margin-bottom: var(--bn-spacing-sm);
+      box-shadow: var(--bn-shadow-sm);
+    }
+
+    .member-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: var(--bn-spacing-sm);
+    }
+
+    .member-avatar {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: var(--bn-gradient-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--bn-white);
+      font-size: var(--bn-font-lg);
+      font-weight: 700;
+      margin-right: var(--bn-spacing-sm);
+    }
+
+    .member-info {
+      flex: 1;
+    }
+
+    .member-name {
+      font-size: var(--bn-font-base);
+      font-weight: 600;
+      margin-bottom: 2px;
+      color: var(--bn-dark);
+    }
+
+    .member-email {
+      font-size: var(--bn-font-xs);
+      color: var(--bn-gray);
+    }
+
+    .member-role-badge {
+      padding: 4px 12px;
+      border-radius: var(--bn-radius-full);
+      font-size: var(--bn-font-xs);
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .role-admin {
+      background: rgba(245, 158, 11, 0.1);
+      color: var(--bn-accent-dark);
+    }
+
+    .role-member {
+      background: rgba(4, 120, 87, 0.1);
+      color: var(--bn-primary-dark);
+    }
+
+    .member-details {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--bn-spacing-sm);
+      margin-top: var(--bn-spacing-sm);
+      padding-top: var(--bn-spacing-sm);
+      border-top: 1px solid var(--bn-gray-lighter);
+    }
+
+    .detail-item {
+      font-size: var(--bn-font-xs);
+    }
+
+    .detail-label {
+      color: var(--bn-gray);
+      margin-bottom: 2px;
+    }
+
+    .detail-value {
+      font-weight: 600;
+      color: var(--bn-dark);
+    }
+
+    .member-actions {
+      display: flex;
+      gap: var(--bn-spacing-xs);
+      margin-top: var(--bn-spacing-sm);
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: var(--bn-spacing-xs);
+      border: 1px solid var(--bn-gray-light);
+      border-radius: var(--bn-radius-sm);
+      background: var(--bn-white);
+      font-size: var(--bn-font-xs);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .action-btn:active {
+      background: var(--bn-gray-lighter);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: var(--z-modal);
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-overlay.active {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-xl) var(--bn-radius-xl) 0 0;
+      width: 100%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: var(--bn-spacing-lg);
+      animation: slideUp 0.3s ease;
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(100%);
+      }
+      to {
+        transform: translateY(0);
+      }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--bn-spacing-lg);
+    }
+
+    .modal-title {
+      font-size: var(--bn-font-xl);
+      font-weight: 700;
+      color: var(--bn-dark);
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 28px;
+      color: var(--bn-gray);
+      cursor: pointer;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+    }
+
+    .modal-close:active {
+      background: var(--bn-gray-lighter);
+    }
+
+    .form-group {
+      margin-bottom: var(--bn-spacing-md);
+    }
+
+    .form-label {
+      display: block;
+      font-size: var(--bn-font-sm);
+      font-weight: 600;
+      margin-bottom: var(--bn-spacing-xs);
+      color: var(--bn-dark);
+    }
+
+    .form-input {
+      width: 100%;
+      padding: var(--bn-spacing-sm) var(--bn-spacing-md);
+      border: 1px solid var(--bn-gray-light);
+      border-radius: var(--bn-radius-sm);
+      font-size: var(--bn-font-base);
+      font-family: 'Inter', sans-serif;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--bn-primary);
+      box-shadow: 0 0 0 3px rgba(4, 120, 87, 0.1);
+    }
+
+    .form-select {
+      width: 100%;
+      padding: var(--bn-spacing-sm) var(--bn-spacing-md);
+      border: 1px solid var(--bn-gray-light);
+      border-radius: var(--bn-radius-sm);
+      font-size: var(--bn-font-base);
+      font-family: 'Inter', sans-serif;
+      background: var(--bn-white);
+    }
+
+    .form-actions {
+      display: flex;
+      gap: var(--bn-spacing-sm);
+      margin-top: var(--bn-spacing-lg);
+    }
+
+    .btn-primary {
+      flex: 1;
+      padding: var(--bn-spacing-md);
+      background: var(--bn-gradient-primary);
+      color: var(--bn-white);
+      border: none;
+      border-radius: var(--bn-radius-lg);
+      font-size: var(--bn-font-base);
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-secondary {
+      flex: 1;
+      padding: var(--bn-spacing-md);
+      background: var(--bn-gray-lighter);
+      color: var(--bn-dark);
+      border: none;
+      border-radius: var(--bn-radius-lg);
+      font-size: var(--bn-font-base);
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Loading */
+    .spinner-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: var(--z-modal);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .spinner-overlay.active {
+      display: flex;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top-color: var(--bn-white);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bn-dark);
+      color: var(--bn-white);
+      padding: var(--bn-spacing-md) var(--bn-spacing-lg);
+      border-radius: var(--bn-radius-lg);
+      box-shadow: var(--bn-shadow-xl);
+      z-index: var(--z-toast);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .toast.show {
+      opacity: 1;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--bn-gray);
+    }
+
+    .empty-state-icon {
+      font-size: 64px;
+      margin-bottom: var(--bn-spacing-md);
+    }
+
+    @media (min-width: 768px) {
+      .stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .modal-content {
+        border-radius: var(--bn-radius-xl);
+        max-height: 80vh;
+      }
+
+      .modal-overlay.active {
+        align-items: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-top">
+      <button class="back-btn" onclick="history.back()">←</button>
+      <h1 class="header-title">Manage Members</h1>
+      <div class="header-actions"></div>
+    </div>
+
+    <!-- Group Selector -->
+    <div class="group-selector">
+      <select id="groupSelect">
+        <option value="">Select a group...</option>
+      </select>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="totalMembers">0</div>
+        <div class="stat-label">Total Members</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="activeMembers">0</div>
+        <div class="stat-label">Active</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="adminCount">0</div>
+        <div class="stat-label">Admins</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="pendingMembers">0</div>
+        <div class="stat-label">Pending</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Member Button -->
+  <button class="add-member-btn" id="addMemberBtn">
+    <span>➕</span>
+    <span>Add New Member</span>
+  </button>
+
+  <!-- Members List -->
+  <div class="members-section">
+    <h2 class="section-title">Members</h2>
+    <div id="membersList">
+      <!-- Members will be loaded here -->
+    </div>
+  </div>
+
+  <!-- Add Member Modal -->
+  <div class="modal-overlay" id="addMemberModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Add New Member</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      
+      <form id="addMemberForm" style="max-height: 70vh; overflow-y: auto;">
+        <!-- Profile Picture Section -->
+        <div class="form-group" style="text-align: center; margin-bottom: var(--bn-spacing-lg);">
+          <label class="form-label">Profile Picture</label>
+          <div style="margin-bottom: var(--bn-spacing-sm);">
+            <div id="memberProfilePreview" style="width: 100px; height: 100px; border-radius: 50%; background: rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 36px; color: var(--bn-gray);">👤</div>
+          </div>
+          <button type="button" class="btn-secondary" style="padding: var(--bn-spacing-xs) var(--bn-spacing-md);" onclick="document.getElementById('memberProfilePicture').click()">Upload Photo</button>
+          <input type="file" id="memberProfilePicture" accept="image/*" style="display: none;">
+          <small style="display: block; margin-top: var(--bn-spacing-xs); color: var(--bn-gray); font-size: 12px;">JPG, PNG, max 5MB</small>
+        </div>
+
+        <!-- Personal Information Section -->
+        <div style="border-top: 2px solid var(--bn-gray-lighter); padding-top: var(--bn-spacing-md); margin-top: var(--bn-spacing-md);">
+          <h4 style="margin-bottom: var(--bn-spacing-md); color: var(--bn-dark); font-weight: 600;">Personal Information</h4>
+          
+          <div class="form-group">
+            <label class="form-label">Full Name <span style="color: var(--bn-danger);">*</span></label>
+            <input type="text" class="form-input" id="memberName" required placeholder="Enter full name">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--bn-spacing-md);">
+            <div class="form-group">
+              <label class="form-label">Phone Number <span style="color: var(--bn-danger);">*</span></label>
+              <input type="tel" class="form-input" id="memberPhone" required placeholder="+265 991 234 567">
+            </div>
+            <div class="form-group">
+              <label class="form-label">WhatsApp Number</label>
+              <input type="tel" class="form-input" id="memberWhatsApp" placeholder="Same as phone if not provided">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Address <span style="color: var(--bn-danger);">*</span></label>
+            <textarea class="form-input" id="memberAddress" rows="2" required placeholder="Street address, City, Region"></textarea>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--bn-spacing-md);">
+            <div class="form-group">
+              <label class="form-label">Date of Birth</label>
+              <input type="date" class="form-input" id="memberDateOfBirth">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Gender</label>
+              <select class="form-select" id="memberGender">
+                <option value="">Select...</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+                <option value="prefer_not_to_say">Prefer not to say</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Professional Information Section -->
+        <div style="border-top: 2px solid var(--bn-gray-lighter); padding-top: var(--bn-spacing-md); margin-top: var(--bn-spacing-md);">
+          <h4 style="margin-bottom: var(--bn-spacing-md); color: var(--bn-dark); font-weight: 600;">Professional Information</h4>
+          
+          <div class="form-group">
+            <label class="form-label">Career/Profession <span style="color: var(--bn-danger);">*</span></label>
+            <input type="text" class="form-input" id="memberCareer" required placeholder="e.g., Teacher, Business Owner, Engineer">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--bn-spacing-md);">
+            <div class="form-group">
+              <label class="form-label">Job Title</label>
+              <input type="text" class="form-input" id="memberJobTitle" placeholder="e.g., Senior Teacher, CEO">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Workplace/Employer</label>
+              <input type="text" class="form-input" id="memberWorkplace" placeholder="Company or organization name">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Work Address</label>
+            <textarea class="form-input" id="memberWorkAddress" rows="2" placeholder="Office location"></textarea>
+          </div>
+        </div>
+
+        <!-- Guarantor Information Section -->
+        <div style="border-top: 2px solid var(--bn-gray-lighter); padding-top: var(--bn-spacing-md); margin-top: var(--bn-spacing-md);">
+          <h4 style="margin-bottom: var(--bn-spacing-md); color: var(--bn-dark); font-weight: 600;">Guarantor Information <span style="color: var(--bn-danger);">*</span></h4>
+          <small style="display: block; margin-bottom: var(--bn-spacing-md); color: var(--bn-gray);">A guarantor is required for loan applications</small>
+          
+          <div class="form-group">
+            <label class="form-label">Guarantor Full Name <span style="color: var(--bn-danger);">*</span></label>
+            <input type="text" class="form-input" id="memberGuarantorName" required placeholder="Guarantor's full name">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--bn-spacing-md);">
+            <div class="form-group">
+              <label class="form-label">Guarantor Phone <span style="color: var(--bn-danger);">*</span></label>
+              <input type="tel" class="form-input" id="memberGuarantorPhone" required placeholder="+265 991 234 567">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Relationship <span style="color: var(--bn-danger);">*</span></label>
+              <select class="form-select" id="memberGuarantorRelationship" required>
+                <option value="">Select...</option>
+                <option value="spouse">Spouse</option>
+                <option value="parent">Parent</option>
+                <option value="sibling">Sibling</option>
+                <option value="relative">Relative</option>
+                <option value="friend">Friend</option>
+                <option value="colleague">Colleague</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Guarantor Address</label>
+            <textarea class="form-input" id="memberGuarantorAddress" rows="2" placeholder="Guarantor's address"></textarea>
+          </div>
+        </div>
+
+        <!-- Security Information Section -->
+        <div style="border-top: 2px solid var(--bn-gray-lighter); padding-top: var(--bn-spacing-md); margin-top: var(--bn-spacing-md);">
+          <h4 style="margin-bottom: var(--bn-spacing-md); color: var(--bn-dark); font-weight: 600;">Security Information</h4>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--bn-spacing-md);">
+            <div class="form-group">
+              <label class="form-label">ID Type</label>
+              <select class="form-select" id="memberIdType">
+                <option value="">Select...</option>
+                <option value="national_id">National ID</option>
+                <option value="passport">Passport</option>
+                <option value="drivers_license">Driver's License</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">ID Number</label>
+              <input type="text" class="form-input" id="memberIdNumber" placeholder="ID number">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--bn-spacing-md);">
+            <div class="form-group">
+              <label class="form-label">Emergency Contact Name</label>
+              <input type="text" class="form-input" id="memberEmergencyContact" placeholder="Emergency contact person">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Emergency Contact Phone</label>
+              <input type="tel" class="form-input" id="memberEmergencyContactPhone" placeholder="Emergency contact phone">
+            </div>
+          </div>
+        </div>
+
+        <!-- Additional Information Section -->
+        <div style="border-top: 2px solid var(--bn-gray-lighter); padding-top: var(--bn-spacing-md); margin-top: var(--bn-spacing-md);">
+          <h4 style="margin-bottom: var(--bn-spacing-md); color: var(--bn-dark); font-weight: 600;">Additional Information</h4>
+          
+          <div class="form-group">
+            <label class="form-label">Email Address <span style="color: var(--bn-danger);">*</span></label>
+            <input type="email" class="form-input" id="memberEmail" required placeholder="member@example.com">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Role</label>
+            <select class="form-select" id="memberRole">
+              <option value="member">Member</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Collateral Description</label>
+            <textarea class="form-input" id="memberCollateral" rows="3" placeholder="Describe any assets that can serve as collateral for loans"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Additional Notes</label>
+            <textarea class="form-input" id="memberNotes" rows="3" placeholder="Any additional information"></textarea>
+          </div>
+        </div>
+
+        <div class="form-actions" style="position: sticky; bottom: 0; background: var(--bn-white); padding-top: var(--bn-spacing-md); border-top: 2px solid var(--bn-gray-lighter); margin-top: var(--bn-spacing-lg);">
+          <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn-primary">Add Member</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="spinner-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+  <script type="module" src="../scripts/manage_members_new.js"></script>
+</body>
+</html>
