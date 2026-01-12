@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Broadcast Notifications - Bank Nkhonde">
+  <title>Broadcast Notifications - Bank Nkhonde</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/unified-page.css">
+  <link rel="icon" type="image/png" href="../assets/favicon.png">
+</head>
+<body>
+  <div class="page-wrapper">
+    <!-- Background Shapes -->
+    <div class="page-bg-shape"></div>
+
+    <!-- Page Header -->
+    <div class="page-header">
+      <div class="page-header-content">
+        <div class="page-header-top">
+          <div>
+            <h1 class="page-title">Broadcast Notifications</h1>
+            <p class="page-subtitle">Send messages to your group members</p>
+          </div>
+          <div class="page-header-actions">
+            <button class="page-header-btn" id="backBtn" aria-label="Back" title="Back">
+              ←
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="page-content">
+      <!-- Quick Templates Section -->
+      <div class="content-section">
+        <div class="content-section-header">
+          <h2 class="content-section-title">Quick Templates</h2>
+          <p class="content-section-subtitle">Send pre-filled notifications</p>
+        </div>
+        <div class="template-grid">
+          <button class="template-card" data-template="payment_reminder">
+            <div class="template-icon">💵</div>
+            <h3>Payment Reminder</h3>
+            <p>Remind members about upcoming payments</p>
+          </button>
+          
+          <button class="template-card" data-template="meeting_announcement">
+            <div class="template-icon">📅</div>
+            <h3>Meeting Announcement</h3>
+            <p>Announce group meetings</p>
+          </button>
+          
+          <button class="template-card" data-template="loan_available">
+            <div class="template-icon">💰</div>
+            <h3>Loan Available</h3>
+            <p>Notify about available loans</p>
+          </button>
+          
+          <button class="template-card" data-template="payment_received">
+            <div class="template-icon">✅</div>
+            <h3>Payment Confirmed</h3>
+            <p>Confirm payment receipt</p>
+          </button>
+          
+          <button class="template-card" data-template="custom">
+            <div class="template-icon">✉️</div>
+            <h3>Custom Message</h3>
+            <p>Send a custom message</p>
+          </button>
+        </div>
+      </div>
+
+      <!-- Broadcast Form -->
+      <div class="content-section">
+        <div class="content-section-header">
+          <h2 class="content-section-title">Create Broadcast</h2>
+        </div>
+        <form id="broadcastForm">
+          <div class="form-group">
+            <label for="groupSelect" class="form-label">Select Group <span class="required">*</span></label>
+            <select id="groupSelect" class="form-input" required>
+              <option value="">Choose a group...</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="notificationTitle" class="form-label">Title <span class="required">*</span></label>
+            <input type="text" id="notificationTitle" class="form-input" placeholder="Enter notification title" required>
+          </div>
+
+          <div class="form-group">
+            <label for="notificationMessage" class="form-label">Message <span class="required">*</span></label>
+            <textarea id="notificationMessage" class="form-input" rows="6" placeholder="Enter your message..." required></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="notificationType" class="form-label">Type</label>
+            <select id="notificationType" class="form-input">
+              <option value="info">Information</option>
+              <option value="warning">Warning</option>
+              <option value="urgent">Urgent</option>
+              <option value="success">Success</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-wrapper">
+              <input type="checkbox" id="allowReplies" checked>
+              <span class="checkbox-label">Allow members to reply</span>
+            </label>
+          </div>
+
+          <button type="submit" id="sendBroadcastBtn" class="btn btn-primary btn-lg btn-block">
+            <span class="btn-text">Send Broadcast</span>
+            <svg class="btn-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </form>
+      </div>
+
+      <!-- Recent Broadcasts -->
+      <div class="content-section">
+        <div class="content-section-header">
+          <h2 class="content-section-title">Recent Broadcasts</h2>
+        </div>
+        <div id="recentBroadcastsList">
+          <div class="empty-state">
+            <div class="empty-state-icon">📢</div>
+            <p class="empty-state-text">No broadcasts yet</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Navigation -->
+  <nav class="mobile-nav">
+    <a href="admin_dashboard.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">🏠</span>
+      <span>Dashboard</span>
+    </a>
+    <a href="broadcast_notifications.html" class="mobile-nav-item active">
+      <span class="mobile-nav-icon">📢</span>
+      <span>Broadcast</span>
+    </a>
+    <a href="manage_members.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">👥</span>
+      <span>Members</span>
+    </a>
+    <a href="settings.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">⚙️</span>
+      <span>Settings</span>
+    </a>
+  </nav>
+
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+  <script type="module" src="../scripts/broadcast_notifications.js"></script>
+</body>
+</html>

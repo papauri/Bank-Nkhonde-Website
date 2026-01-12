@@ -4,105 +4,462 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Settings - Bank Nkhonde">
+  <meta name="theme-color" content="#047857">
   <title>Settings - Bank Nkhonde</title>
+  
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
   <link rel="stylesheet" href="../styles/design-system.css">
-  <link rel="stylesheet" href="../styles/unified-page.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
+  
+  <style>
+    :root {
+      --bn-font-sans: 'Manrope', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    
+    body {
+      font-family: var(--bn-font-sans);
+      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+    
+    .page-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: var(--bn-space-3xl) var(--bn-space-2xl);
+    }
+    
+    .back-button {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--bn-space-sm);
+      padding: var(--bn-space-md) var(--bn-space-xl);
+      background: var(--bn-white);
+      border: 2px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-xl);
+      color: var(--bn-dark);
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.875rem;
+      transition: all var(--bn-transition-base);
+      cursor: pointer;
+      margin-bottom: var(--bn-space-2xl);
+    }
+    
+    .back-button:hover {
+      border-color: var(--bn-primary);
+      background: var(--bn-primary);
+      color: var(--bn-white);
+      transform: translateX(-6px);
+      box-shadow: var(--bn-shadow-md);
+    }
+    
+    .page-header {
+      margin-bottom: var(--bn-space-3xl);
+      text-align: center;
+    }
+    
+    .page-title {
+      font-size: clamp(2.5rem, 5vw, 3.5rem);
+      font-weight: 800;
+      color: var(--bn-dark);
+      margin-bottom: var(--bn-space-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--bn-space-lg);
+    }
+    
+    .page-title-icon {
+      font-size: 3.5rem;
+    }
+    
+    .page-description {
+      font-size: 1.125rem;
+      color: var(--bn-gray);
+    }
+    
+    .settings-section {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-xl);
+      padding: var(--bn-space-2xl);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+      margin-bottom: var(--bn-space-2xl);
+      border: 1px solid var(--bn-gray-lighter);
+      transition: all var(--bn-transition-base);
+    }
+    
+    .settings-section:hover {
+      border-color: var(--bn-gray-light);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    }
+    
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-md);
+      margin-bottom: var(--bn-space-xl);
+      padding-bottom: var(--bn-space-lg);
+      border-bottom: 2px solid var(--bn-gray-lighter);
+    }
+    
+    .section-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--bn-gradient-primary);
+      border-radius: var(--bn-radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+    }
+    
+    .section-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--bn-dark);
+      margin: 0;
+    }
+    
+    .form-group-modern {
+      margin-bottom: var(--bn-space-xl);
+    }
+    
+    .form-label-modern {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin-bottom: var(--bn-space-sm);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .form-input-modern {
+      width: 100%;
+      padding: var(--bn-space-md) var(--bn-space-lg);
+      font-size: 1rem;
+      font-family: var(--bn-font-sans);
+      color: var(--bn-dark);
+      background: var(--bn-gray-lighter);
+      border: 2px solid transparent;
+      border-radius: var(--bn-radius-lg);
+      transition: all var(--bn-transition-base);
+    }
+    
+    .form-input-modern:focus {
+      outline: none;
+      background: var(--bn-white);
+      border-color: var(--bn-gold);
+      box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.1);
+    }
+    
+    .form-input-modern:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    .btn-modern-primary {
+      width: 100%;
+      padding: var(--bn-space-lg) var(--bn-space-2xl);
+      font-size: 1.125rem;
+      font-weight: 700;
+      background: var(--bn-gradient-primary);
+      color: var(--bn-white);
+      border: none;
+      border-radius: var(--bn-radius-xl);
+      cursor: pointer;
+      transition: all var(--bn-transition-base);
+      box-shadow: 0 4px 16px rgba(4, 120, 87, 0.2);
+    }
+    
+    .btn-modern-primary:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(4, 120, 87, 0.3);
+    }
+    
+    .btn-modern-danger {
+      width: 100%;
+      padding: var(--bn-space-lg) var(--bn-space-2xl);
+      font-size: 1.125rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      color: var(--bn-white);
+      border: none;
+      border-radius: var(--bn-radius-xl);
+      cursor: pointer;
+      transition: all var(--bn-transition-base);
+      box-shadow: 0 4px 16px rgba(239, 68, 68, 0.2);
+    }
+    
+    .btn-modern-danger:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(239, 68, 68, 0.3);
+    }
+    
+    @media (max-width: 640px) {
+      .page-container {
+        padding: var(--bn-space-2xl) var(--bn-space-lg);
+      }
+      
+      .page-title {
+        font-size: 2rem;
+        flex-direction: column;
+        gap: var(--bn-space-md);
+      }
+      
+      .settings-section {
+        padding: var(--bn-space-xl);
+      }
+    }
+  </style>
 </head>
 <body>
-  <div class="page-wrapper">
-    <div class="page-bg-shape"></div>
-
+  <div class="page-container">
+    <button onclick="history.back()" class="back-button">
+      ← Back to Dashboard
+    </button>
+    
     <div class="page-header">
-      <div class="page-header-content">
-        <div class="page-header-top">
-          <div>
-            <button onclick="history.back()" class="page-header-btn" style="position: absolute; left: var(--bn-spacing-md); top: var(--bn-spacing-lg);">←</button>
-            <h1 class="page-title" style="margin-left: 50px;">Settings</h1>
-          </div>
-        </div>
-      </div>
+      <h1 class="page-title">
+        <span class="page-title-icon">⚙️</span>
+        Settings
+      </h1>
+      <p class="page-description">Manage your account settings and preferences</p>
     </div>
-
-    <div class="page-content">
-      <!-- Profile Section -->
-      <div class="content-section">
-        <div class="content-section-header">
-          <h2 class="content-section-title">Profile</h2>
-        </div>
-        <form id="profileForm">
-          <div class="form-group">
-            <label class="form-label">Full Name</label>
-            <input type="text" id="fullName" class="form-input" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Email</label>
-            <input type="email" id="email" class="form-input" disabled>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Phone Number</label>
-            <input type="tel" id="phone" class="form-input" required>
-          </div>
-          <button type="submit" class="btn btn-primary btn-block">Save Changes</button>
-        </form>
+    
+    <!-- Profile Section -->
+    <section class="settings-section">
+      <div class="section-header">
+        <div class="section-icon">👤</div>
+        <h2 class="section-title">Profile Information</h2>
       </div>
-
-      <!-- Password Section -->
-      <div class="content-section">
-        <div class="content-section-header">
-          <h2 class="content-section-title">Change Password</h2>
+      
+      <form id="profileForm">
+        <div class="form-group-modern">
+          <label for="fullName" class="form-label-modern">Full Name</label>
+          <input 
+            type="text" 
+            id="fullName" 
+            class="form-input-modern" 
+            placeholder="Enter your full name"
+            required
+          >
         </div>
-        <form id="passwordForm">
-          <div class="form-group">
-            <label class="form-label">Current Password</label>
-            <input type="password" id="currentPassword" class="form-input" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">New Password</label>
-            <input type="password" id="newPassword" class="form-input" required minlength="6">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Confirm New Password</label>
-            <input type="password" id="confirmPassword" class="form-input" required>
-          </div>
-          <button type="submit" class="btn btn-primary btn-block">Change Password</button>
-        </form>
-      </div>
-
-      <!-- Account Actions -->
-      <div class="content-section">
-        <div class="content-section-header">
-          <h2 class="content-section-title">Account Actions</h2>
+        
+        <div class="form-group-modern">
+          <label for="email" class="form-label-modern">Email Address</label>
+          <input 
+            type="email" 
+            id="email" 
+            class="form-input-modern" 
+            placeholder="your@email.com"
+            disabled
+          >
+          <p style="font-size: 0.75rem; color: var(--bn-gray); margin-top: var(--bn-space-xs);">
+            Contact support to change your email address
+          </p>
         </div>
-        <button class="btn btn-danger btn-block" id="logoutBtn">Logout</button>
+        
+        <div class="form-group-modern">
+          <label for="phone" class="form-label-modern">Phone Number</label>
+          <input 
+            type="tel" 
+            id="phone" 
+            class="form-input-modern" 
+            placeholder="+265 xxx xxx xxx"
+            required
+          >
+        </div>
+        
+        <button type="submit" class="btn-modern-primary">
+          💾 Save Changes
+        </button>
+      </form>
+    </section>
+    
+    <!-- Password Section -->
+    <section class="settings-section">
+      <div class="section-header">
+        <div class="section-icon">🔐</div>
+        <h2 class="section-title">Change Password</h2>
       </div>
-    </div>
+      
+      <form id="passwordForm">
+        <div class="form-group-modern">
+          <label for="currentPassword" class="form-label-modern">Current Password</label>
+          <input 
+            type="password" 
+            id="currentPassword" 
+            class="form-input-modern" 
+            placeholder="Enter current password"
+            required
+          >
+        </div>
+        
+        <div class="form-group-modern">
+          <label for="newPassword" class="form-label-modern">New Password</label>
+          <input 
+            type="password" 
+            id="newPassword" 
+            class="form-input-modern" 
+            placeholder="Enter new password"
+            required
+            minlength="6"
+          >
+          <p style="font-size: 0.75rem; color: var(--bn-gray); margin-top: var(--bn-space-xs);">
+            Minimum 6 characters required
+          </p>
+        </div>
+        
+        <div class="form-group-modern">
+          <label for="confirmPassword" class="form-label-modern">Confirm New Password</label>
+          <input 
+            type="password" 
+            id="confirmPassword" 
+            class="form-input-modern" 
+            placeholder="Confirm new password"
+            required
+          >
+        </div>
+        
+        <button type="submit" class="btn-modern-primary">
+          🔒 Update Password
+        </button>
+      </form>
+    </section>
+    
+    <!-- Account Actions -->
+    <section class="settings-section">
+      <div class="section-header">
+        <div class="section-icon">🚪</div>
+        <h2 class="section-title">Account Actions</h2>
+      </div>
+      
+      <button class="btn-modern-danger" id="logoutBtn">
+        🚪 Logout
+      </button>
+    </section>
   </div>
-
-  <nav class="mobile-nav">
-    <a href="admin_dashboard.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">🏠</span>
-      <span>Dashboard</span>
-    </a>
-    <a href="settings.html" class="mobile-nav-item active">
-      <span class="mobile-nav-icon">⚙️</span>
-      <span>Settings</span>
-    </a>
-  </nav>
-
-  <div class="spinner-overlay hidden" id="spinner">
-    <div class="spinner-content">
-      <div class="spinner"></div>
-      <p class="loading-text">Loading settings...</p>
-    </div>
-  </div>
-
+  
+  <!-- Firebase Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
-  <script type="module" src="../scripts/settings.js"></script>
+  
+  <script type="module">
+    import { auth, db } from '../scripts/firebase-config.js';
+    
+    // Show spinner
+    function showSpinner() {
+      document.body.style.cursor = 'wait';
+    }
+    
+    function hideSpinner() {
+      document.body.style.cursor = 'default';
+    }
+    
+    // Load user data
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        window.location.href = '../login.html';
+        return;
+      }
+      
+      // Load profile
+      const userDoc = await db.collection('users').doc(user.uid).get();
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        document.getElementById('fullName').value = userData.fullName || '';
+        document.getElementById('email').value = user.email || '';
+        document.getElementById('phone').value = userData.phoneNumber || '';
+      }
+    });
+    
+    // Profile form submission
+    document.getElementById('profileForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      showSpinner();
+      
+      try {
+        const user = auth.currentUser;
+        await db.collection('users').doc(user.uid).update({
+          fullName: document.getElementById('fullName').value,
+          phoneNumber: document.getElementById('phone').value,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        alert('✅ Profile updated successfully!');
+      } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Failed to update profile: ' + error.message);
+      } finally {
+        hideSpinner();
+      }
+    });
+    
+    // Password form submission
+    document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const currentPassword = document.getElementById('currentPassword').value;
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      
+      if (newPassword !== confirmPassword) {
+        alert('❌ New passwords do not match!');
+        return;
+      }
+      
+      if (newPassword.length < 6) {
+        alert('❌ Password must be at least 6 characters!');
+        return;
+      }
+      
+      showSpinner();
+      
+      try {
+        const user = auth.currentUser;
+        const credential = firebase.auth.EmailAuthProvider.credential(user.email, currentPassword);
+        
+        // Re-authenticate
+        await user.reauthenticateWithCredential(credential);
+        
+        // Update password
+        await user.updatePassword(newPassword);
+        
+        alert('✅ Password updated successfully!');
+        document.getElementById('passwordForm').reset();
+      } catch (error) {
+        console.error('Error:', error);
+        if (error.code === 'auth/wrong-password') {
+          alert('❌ Current password is incorrect!');
+        } else {
+          alert('❌ Failed to update password: ' + error.message);
+        }
+      } finally {
+        hideSpinner();
+      }
+    });
+    
+    // Logout
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      if (confirm('Are you sure you want to logout?')) {
+        showSpinner();
+        try {
+          await auth.signOut();
+          window.location.href = '../login.html';
+        } catch (error) {
+          console.error('Error:', error);
+          alert('❌ Failed to logout: ' + error.message);
+          hideSpinner();
+        }
+      }
+    });
+  </script>
 </body>
 </html>
