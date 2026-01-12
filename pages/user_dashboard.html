@@ -6,636 +6,283 @@
   <meta name="description" content="Bank Nkhonde User Dashboard - Manage your savings and loans">
   <title>User Dashboard - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../styles/user_dashboard.css">
-  <style>
-    /* Additional User Dashboard Styles */
-    .quick-actions {
-      background: var(--user-card-bg);
-      padding: 20px;
-      border-radius: 12px;
-      margin-bottom: 20px;
-      box-shadow: var(--user-shadow);
-      border: 1px solid var(--user-border);
-    }
-    
-    .quick-actions h2 {
-      font-size: 18px;
-      margin-bottom: 16px;
-      color: var(--user-text);
-      font-weight: 600;
-    }
-    
-    .actions-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 12px;
-    }
-    
-    .action-card {
-      background: var(--user-bg);
-      border: 1px solid var(--user-border);
-      border-radius: 10px;
-      padding: 16px 12px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      text-align: center;
-      min-height: 100px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-    }
-    
-    .action-card:hover {
-      background: var(--user-card-bg);
-      border-color: var(--user-primary);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }
-    
-    .action-card .action-icon {
-      font-size: 28px;
-      margin-bottom: 8px;
-    }
-    
-    .action-card h3 {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--user-text);
-      margin: 0;
-    }
-    
-    /* Financial Overview Card */
-    .financial-overview {
-      background: var(--user-card-bg);
-      padding: 20px;
-      border-radius: 12px;
-      margin-bottom: 20px;
-      box-shadow: var(--user-shadow);
-      border: 1px solid var(--user-border);
-    }
-    
-    .financial-overview h2 {
-      font-size: 18px;
-      margin-bottom: 16px;
-      color: var(--user-text);
-      font-weight: 600;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    
-    .overview-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 12px;
-    }
-    
-    .overview-card {
-      background: var(--user-bg);
-      padding: 16px;
-      border-radius: 10px;
-      border-left: 4px solid var(--user-primary);
-    }
-    
-    .overview-card.success { border-left-color: #059669; }
-    .overview-card.warning { border-left-color: #d97706; }
-    .overview-card.danger { border-left-color: #dc2626; }
-    .overview-card.info { border-left-color: #0284c7; }
-    
-    .overview-card h4 {
-      font-size: 11px;
-      color: var(--user-text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 6px;
-    }
-    
-    .overview-card .value {
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--user-text);
-    }
-    
-    /* Notifications Badge */
-    .notification-badge {
-      background: #dc2626;
-      color: white;
-      font-size: 11px;
-      padding: 2px 8px;
-      border-radius: 10px;
-      font-weight: 600;
-    }
-    
-    /* Upcoming Payments Section */
-    .upcoming-section {
-      background: var(--user-card-bg);
-      padding: 20px;
-      border-radius: 12px;
-      margin-bottom: 20px;
-      box-shadow: var(--user-shadow);
-      border: 1px solid var(--user-border);
-    }
-    
-    .upcoming-section h2 {
-      font-size: 18px;
-      margin-bottom: 16px;
-      color: var(--user-text);
-      font-weight: 600;
-    }
-    
-    .payment-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px;
-      background: var(--user-bg);
-      border-radius: 8px;
-      margin-bottom: 8px;
-      border: 1px solid var(--user-border);
-    }
-    
-    .payment-item:last-child {
-      margin-bottom: 0;
-    }
-    
-    .payment-info h4 {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--user-text);
-      margin-bottom: 2px;
-    }
-    
-    .payment-info p {
-      font-size: 12px;
-      color: var(--user-text-muted);
-      margin: 0;
-    }
-    
-    .payment-amount {
-      text-align: right;
-    }
-    
-    .payment-amount .amount {
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--user-text);
-    }
-    
-    .payment-amount .due-date {
-      font-size: 11px;
-      color: var(--user-text-muted);
-    }
-    
-    .payment-amount .overdue {
-      color: #dc2626;
-      font-weight: 600;
-    }
-    
-    /* Empty State */
-    .empty-state {
-      text-align: center;
-      padding: 30px;
-      color: var(--user-text-muted);
-    }
-    
-    .empty-state .icon {
-      font-size: 40px;
-      margin-bottom: 10px;
-    }
-    
-    /* Modal Styles */
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.5);
-      z-index: 1000;
-      justify-content: center;
-      align-items: center;
-    }
-    
-    .modal-overlay.active {
-      display: flex;
-    }
-    
-    .modal-content {
-      background: white;
-      border-radius: 12px;
-      max-width: 500px;
-      width: 90%;
-      max-height: 90vh;
-      overflow-y: auto;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-    }
-    
-    .modal-header {
-      padding: 20px;
-      border-bottom: 1px solid var(--user-border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    
-    .modal-header h2 {
-      font-size: 18px;
-      font-weight: 600;
-      margin: 0;
-    }
-    
-    .modal-close {
-      background: none;
-      border: none;
-      font-size: 24px;
-      cursor: pointer;
-      color: var(--user-text-muted);
-    }
-    
-    .modal-body {
-      padding: 20px;
-    }
-    
-    .form-group {
-      margin-bottom: 16px;
-    }
-    
-    .form-group label {
-      display: block;
-      font-size: 14px;
-      font-weight: 500;
-      margin-bottom: 6px;
-      color: var(--user-text);
-    }
-    
-    .form-group input,
-    .form-group select,
-    .form-group textarea {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid var(--user-border);
-      border-radius: 8px;
-      font-size: 14px;
-    }
-    
-    .form-group input:focus,
-    .form-group select:focus,
-    .form-group textarea:focus {
-      outline: none;
-      border-color: var(--user-primary);
-    }
-    
-    .btn-primary {
-      background: var(--user-primary);
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-weight: 600;
-      cursor: pointer;
-      width: 100%;
-    }
-    
-    .btn-primary:hover {
-      background: var(--user-primary-dark);
-    }
-    
-    /* Profile Section */
-    .profile-card {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 8px;
-      margin-bottom: 10px;
-    }
-    
-    .profile-avatar {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background: var(--user-secondary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
-      color: white;
-      overflow: hidden;
-    }
-    
-    .profile-avatar img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    
-    .profile-info h3 {
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 2px;
-    }
-    
-    .profile-info p {
-      font-size: 12px;
-      opacity: 0.8;
-      margin: 0;
-    }
-    
-    /* Responsive */
-    @media (max-width: 768px) {
-      .actions-grid {
-        grid-template-columns: repeat(3, 1fr);
-      }
-      
-      .overview-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-    
-    @media (max-width: 480px) {
-      .actions-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-  </style>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/dashboard.css">
+  <link rel="icon" type="image/png" href="../assets/favicon.png">
 </head>
 <body>
-  <div class="container">
-    <!-- Header Section -->
-    <header class="header">
-      <h1 id="dashboardTitle">My Dashboard</h1>
-      <button id="logoutButton" class="logout">Logout</button>
-    </header>
+  <!-- Background Decoration -->
+  <div class="dashboard-bg">
+    <div class="dashboard-bg-shape dashboard-bg-shape-1"></div>
+    <div class="dashboard-bg-shape dashboard-bg-shape-2"></div>
+    <div class="dashboard-bg-shape dashboard-bg-shape-3"></div>
+  </div>
 
-    <!-- Welcome Message with Profile -->
-    <div class="welcome">
-      <div class="profile-card">
-        <div class="profile-avatar" id="profileAvatar">
-          <span id="profileInitials">U</span>
+  <!-- Main Container -->
+  <div class="dashboard-container">
+    <!-- Header -->
+    <div class="dashboard-header">
+      <div class="dashboard-header-top">
+        <div class="dashboard-header-title">
+          <h1>My Dashboard</h1>
+          <p>Welcome, <span id="userName">User</span></p>
         </div>
-        <div class="profile-info">
-          <h3 id="userName">Loading...</h3>
-          <p id="userEmail">Loading...</p>
+        <div class="dashboard-header-actions">
+          <button class="dashboard-header-btn" id="switchViewButton" aria-label="Switch to Admin View" title="Switch to Admin View" style="display:none;">
+            👨‍💼
+          </button>
+          <button class="dashboard-header-btn" id="logoutBtn" aria-label="Logout" title="Logout">
+            🚪
+          </button>
         </div>
       </div>
-      <p class="info-text" id="membershipInfo">Member since: Loading...</p>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card success">
+        <div class="stat-label">Total Contributed</div>
+        <div class="stat-value" id="totalContributed">MWK 0</div>
+      </div>
+      <div class="stat-card info">
+        <div class="stat-label">Active Loans</div>
+        <div class="stat-value" id="activeLoans">MWK 0</div>
+      </div>
+      <div class="stat-card warning">
+        <div class="stat-label">Pending Payments</div>
+        <div class="stat-value" id="pendingPayments">MWK 0</div>
+      </div>
+      <div class="stat-card danger">
+        <div class="stat-label">Arrears/Penalties</div>
+        <div class="stat-value" id="totalArrears">MWK 0</div>
+      </div>
+    </div>
+
+    <!-- Notifications Section -->
+    <div class="content-section">
+      <div class="content-section-header">
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <h2 class="content-section-title" style="margin: 0;">Notifications</h2>
+          <span class="badge badge-danger hidden" id="unreadBadge">0</span>
+        </div>
+      </div>
+      <div id="notificationsList">
+        <div class="empty-state">
+          <div class="empty-state-icon">📬</div>
+          <p class="empty-state-text">No notifications</p>
+        </div>
+      </div>
     </div>
 
     <!-- Quick Actions -->
-    <section class="quick-actions">
-      <h2>Quick Actions</h2>
-      <div class="actions-grid">
-        <button id="requestLoanBtn" class="action-card">
-          <span class="action-icon">💰</span>
-          <h3>Request Loan</h3>
+    <div class="content-section">
+      <div class="content-section-header">
+        <h2 class="content-section-title">Quick Actions</h2>
+      </div>
+      <div class="action-list">
+        <button id="requestLoanBtn" class="action-item" style="cursor: pointer;">
+          <div class="action-item-left">
+            <div class="action-icon">💰</div>
+            <div class="action-info">
+              <h3>Request Loan</h3>
+              <p>Apply for a new loan</p>
+            </div>
+          </div>
+          <div class="action-item-right">→</div>
         </button>
-        <button id="uploadPaymentBtn" class="action-card">
-          <span class="action-icon">📤</span>
-          <h3>Upload Payment</h3>
+        
+        <button id="uploadPaymentBtn" class="action-item" style="cursor: pointer;">
+          <div class="action-item-left">
+            <div class="action-icon">📤</div>
+            <div class="action-info">
+              <h3>Upload Payment</h3>
+              <p>Submit payment proof</p>
+            </div>
+          </div>
+          <div class="action-item-right">→</div>
         </button>
-        <button id="viewMembersBtn" class="action-card">
-          <span class="action-icon">👥</span>
-          <h3>Members</h3>
+        
+        <button id="viewMembersBtn" class="action-item" style="cursor: pointer;">
+          <div class="action-item-left">
+            <div class="action-icon">👥</div>
+            <div class="action-info">
+              <h3>View Members</h3>
+              <p>See group members</p>
+            </div>
+          </div>
+          <div class="action-item-right">→</div>
         </button>
-        <button id="viewRulesBtn" class="action-card">
-          <span class="action-icon">📋</span>
-          <h3>Rules</h3>
+        
+        <button id="viewRulesBtn" class="action-item" style="cursor: pointer;">
+          <div class="action-item-left">
+            <div class="action-icon">📋</div>
+            <div class="action-info">
+              <h3>View Rules</h3>
+              <p>Group rules and regulations</p>
+            </div>
+          </div>
+          <div class="action-item-right">→</div>
         </button>
-        <button id="messagesBtn" class="action-card">
-          <span class="action-icon">💬</span>
-          <h3>Messages</h3>
+        
+        <button id="messagesBtn" class="action-item" style="cursor: pointer;">
+          <div class="action-item-left">
+            <div class="action-icon">💬</div>
+            <div class="action-info">
+              <h3>Messages</h3>
+              <p>Contact admin</p>
+            </div>
+          </div>
+          <div class="action-item-right">→</div>
         </button>
-        <button id="editProfileBtn" class="action-card">
-          <span class="action-icon">⚙️</span>
-          <h3>Profile</h3>
+        
+        <button id="editProfileBtn" class="action-item" style="cursor: pointer;">
+          <div class="action-item-left">
+            <div class="action-icon">⚙️</div>
+            <div class="action-info">
+              <h3>Edit Profile</h3>
+              <p>Update your information</p>
+            </div>
+          </div>
+          <div class="action-item-right">→</div>
         </button>
       </div>
-    </section>
-
-    <!-- Financial Overview -->
-    <section class="financial-overview">
-      <h2>
-        My Financial Summary
-        <span class="notification-badge" id="alertBadge" style="display:none;">0</span>
-      </h2>
-      <div class="overview-grid">
-        <div class="overview-card success">
-          <h4>Total Contributed</h4>
-          <div class="value" id="totalContributed">MWK 0</div>
-        </div>
-        <div class="overview-card info">
-          <h4>Active Loans</h4>
-          <div class="value" id="activeLoans">MWK 0</div>
-        </div>
-        <div class="overview-card warning">
-          <h4>Pending Payments</h4>
-          <div class="value" id="pendingPayments">MWK 0</div>
-        </div>
-        <div class="overview-card danger">
-          <h4>Arrears/Penalties</h4>
-          <div class="value" id="totalArrears">MWK 0</div>
-        </div>
-      </div>
-    </section>
+    </div>
 
     <!-- Upcoming Payments -->
-    <section class="upcoming-section">
-      <h2>Upcoming Payments</h2>
+    <div class="content-section">
+      <div class="content-section-header">
+        <h2 class="content-section-title">Upcoming Payments</h2>
+      </div>
       <div id="upcomingPayments">
         <div class="empty-state">
-          <div class="icon">📅</div>
-          <p>No upcoming payments</p>
+          <div class="empty-state-icon">📅</div>
+          <p class="empty-state-text">No upcoming payments</p>
         </div>
       </div>
-    </section>
+    </div>
 
     <!-- User Groups -->
-    <section class="groups">
-      <h2>Your Groups</h2>
-      <ul id="groupList" class="group-list">
-        <li>Loading your groups...</li>
-      </ul>
-    </section>
-
-    <!-- Footer Navigation -->
-    <footer class="footer">
-      <button id="switchViewButton" class="button" style="display:none;">Admin View</button>
-      <button id="settingsButton" class="button">Settings</button>
-    </footer>
+    <div class="content-section">
+      <div class="content-section-header">
+        <h2 class="content-section-title">Your Groups</h2>
+      </div>
+      <div id="groupList">
+        <div class="empty-state">
+          <div class="empty-state-icon">📁</div>
+          <p class="empty-state-text">Loading your groups...</p>
+        </div>
+      </div>
+    </div>
   </div>
 
+  <!-- Mobile Navigation -->
+  <nav class="mobile-nav">
+    <a href="user_dashboard.html" class="mobile-nav-item active">
+      <span class="mobile-nav-icon">🏠</span>
+      <span>Dashboard</span>
+    </a>
+    <a href="group_page.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">👥</span>
+      <span>Groups</span>
+    </a>
+    <a href="settings.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">⚙️</span>
+      <span>Settings</span>
+    </a>
+  </nav>
+
   <!-- Request Loan Modal -->
-  <div class="modal-overlay" id="loanModal">
+  <div class="modal-overlay hidden" id="loanModal">
     <div class="modal-content">
-      <div class="modal-header">
-        <h2>Request a Loan</h2>
-        <button class="modal-close" id="closeLoanModal">&times;</button>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--bn-spacing-lg);">
+        <h2 style="margin: 0;">Request a Loan</h2>
+        <button id="closeLoanModal" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
       </div>
-      <div class="modal-body">
-        <form id="loanRequestForm">
-          <div class="form-group">
-            <label for="loanGroup">Select Group</label>
-            <select id="loanGroup" required>
-              <option value="">Choose a group...</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="loanAmount">Loan Amount (MWK)</label>
-            <input type="number" id="loanAmount" placeholder="Enter amount" required min="1000">
-          </div>
-          <div class="form-group">
-            <label for="loanPurpose">Purpose</label>
-            <select id="loanPurpose" required>
-              <option value="">Select purpose...</option>
-              <option value="business">Business</option>
-              <option value="education">Education</option>
-              <option value="medical">Medical</option>
-              <option value="emergency">Emergency</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="loanDescription">Description (Optional)</label>
-            <textarea id="loanDescription" rows="3" placeholder="Brief description of loan purpose..."></textarea>
-          </div>
-          <div class="form-group">
-            <label for="repaymentMonths">Repayment Period</label>
-            <select id="repaymentMonths" required>
-              <option value="1">1 Month</option>
-              <option value="2">2 Months</option>
-              <option value="3">3 Months</option>
-            </select>
-          </div>
-          <button type="submit" class="btn-primary">Submit Loan Request</button>
-        </form>
-      </div>
+      <form id="loanRequestForm">
+        <div class="form-group">
+          <label class="form-label">Select Group</label>
+          <select id="loanGroup" class="form-select" required>
+            <option value="">Choose a group...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Loan Amount (MWK)</label>
+          <input type="number" id="loanAmount" class="form-input" placeholder="Enter amount" required min="1000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Purpose</label>
+          <select id="loanPurpose" class="form-select" required>
+            <option value="">Select purpose...</option>
+            <option value="business">Business</option>
+            <option value="education">Education</option>
+            <option value="medical">Medical</option>
+            <option value="emergency">Emergency</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description (Optional)</label>
+          <textarea id="loanDescription" class="form-textarea" rows="3" placeholder="Brief description..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Submit Loan Request</button>
+      </form>
     </div>
   </div>
 
   <!-- Upload Payment Modal -->
-  <div class="modal-overlay" id="paymentModal">
+  <div class="modal-overlay hidden" id="paymentModal">
     <div class="modal-content">
-      <div class="modal-header">
-        <h2>Upload Payment Proof</h2>
-        <button class="modal-close" id="closePaymentModal">&times;</button>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--bn-spacing-lg);">
+        <h2 style="margin: 0;">Upload Payment Proof</h2>
+        <button id="closePaymentModal" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
       </div>
-      <div class="modal-body">
-        <form id="paymentUploadForm">
-          <div class="form-group">
-            <label for="paymentGroup">Select Group</label>
-            <select id="paymentGroup" required>
-              <option value="">Choose a group...</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="paymentType">Payment Type</label>
-            <select id="paymentType" required>
-              <option value="">Select type...</option>
-              <option value="seed_money">Seed Money</option>
-              <option value="monthly_contribution">Monthly Contribution</option>
-              <option value="loan_repayment">Loan Repayment</option>
-              <option value="penalty">Penalty Payment</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="paymentAmount">Amount Paid (MWK)</label>
-            <input type="number" id="paymentAmount" placeholder="Enter amount" required min="1">
-          </div>
-          <div class="form-group">
-            <label for="paymentDate">Payment Date</label>
-            <input type="date" id="paymentDate" required>
-          </div>
-          <div class="form-group">
-            <label for="paymentProof">Proof of Payment (Screenshot/Receipt)</label>
-            <input type="file" id="paymentProof" accept="image/*,.pdf" required>
-          </div>
-          <div class="form-group">
-            <label for="paymentNotes">Notes (Optional)</label>
-            <textarea id="paymentNotes" rows="2" placeholder="Transaction reference, bank details, etc."></textarea>
-          </div>
-          <button type="submit" class="btn-primary">Submit Payment</button>
-        </form>
-      </div>
+      <form id="paymentUploadForm">
+        <div class="form-group">
+          <label class="form-label">Select Group</label>
+          <select id="paymentGroup" class="form-select" required>
+            <option value="">Choose a group...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Payment Type</label>
+          <select id="paymentType" class="form-select" required>
+            <option value="">Select type...</option>
+            <option value="seed_money">Seed Money</option>
+            <option value="monthly_contribution">Monthly Contribution</option>
+            <option value="loan_repayment">Loan Repayment</option>
+            <option value="penalty">Penalty Payment</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Amount Paid (MWK)</label>
+          <input type="number" id="paymentAmount" class="form-input" placeholder="Enter amount" required min="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Payment Date</label>
+          <input type="date" id="paymentDate" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Proof of Payment</label>
+          <input type="file" id="paymentProof" class="form-input" accept="image/*,.pdf" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Submit Payment</button>
+      </form>
     </div>
   </div>
 
-  <!-- Edit Profile Modal -->
-  <div class="modal-overlay" id="profileModal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Edit Profile</h2>
-        <button class="modal-close" id="closeProfileModal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <form id="profileEditForm">
-          <div class="form-group" style="text-align: center; margin-bottom: 20px;">
-            <div class="profile-avatar" style="width: 80px; height: 80px; font-size: 32px; margin: 0 auto 10px;">
-              <span id="editProfileInitials">U</span>
-            </div>
-            <input type="file" id="profilePicture" accept="image/*" style="display: none;">
-            <button type="button" id="changePhotoBtn" class="btn-primary" style="width: auto; padding: 8px 16px; font-size: 12px;">Change Photo</button>
-          </div>
-          <div class="form-group">
-            <label for="editFullName">Full Name</label>
-            <input type="text" id="editFullName" required>
-          </div>
-          <div class="form-group">
-            <label for="editPhone">Phone Number</label>
-            <input type="tel" id="editPhone" required>
-          </div>
-          <div class="form-group">
-            <label for="editWhatsApp">WhatsApp Number</label>
-            <input type="tel" id="editWhatsApp">
-          </div>
-          <button type="submit" class="btn-primary">Save Changes</button>
-        </form>
-      </div>
+  <!-- Loading Overlay -->
+  <div class="spinner-overlay hidden" id="spinner">
+    <div class="spinner-content">
+      <div class="spinner"></div>
+      <p class="loading-text">Loading dashboard...</p>
     </div>
   </div>
 
-  <!-- Message Modal -->
-  <div class="modal-overlay" id="messageModal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Send Message to Admin</h2>
-        <button class="modal-close" id="closeMessageModal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <form id="messageForm">
-          <div class="form-group">
-            <label for="messageGroup">Select Group</label>
-            <select id="messageGroup" required>
-              <option value="">Choose a group...</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="messageCategory">Category</label>
-            <select id="messageCategory" required>
-              <option value="">Select category...</option>
-              <option value="payment">Payment Query</option>
-              <option value="loan">Loan Query</option>
-              <option value="account">Account Issue</option>
-              <option value="general">General Question</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="messageSubject">Subject</label>
-            <input type="text" id="messageSubject" placeholder="Brief subject..." required>
-          </div>
-          <div class="form-group">
-            <label for="messageContent">Message</label>
-            <textarea id="messageContent" rows="4" placeholder="Type your message..." required></textarea>
-          </div>
-          <button type="submit" class="btn-primary">Send Message</button>
-        </form>
-      </div>
-    </div>
-  </div>
-
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module" src="../scripts/user_dashboard.js"></script>
 </body>
 </html>

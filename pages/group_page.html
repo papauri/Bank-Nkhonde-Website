@@ -9,21 +9,36 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
   <title>Group Details</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/unified-page.css">
   <link rel="stylesheet" href="../styles/group_details.css">
   <link rel="stylesheet" href="../styles/group_table.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@12.3.1/dist/handsontable.full.min.css">
+  <link rel="icon" type="image/png" href="../assets/favicon.png">
 </head>
 
 <body>
-  <div class="container">
-    <!-- 🔹 HEADER SECTION -->
-    <header class="header">
-      <h1 id="groupTitle">Group Details</h1>
-      <div class="header-buttons">
-        <button id="manageMembersButton" class="button manage">Manage Members</button>
-        <button id="backButton" class="button back">Back to Dashboard</button>
+  <div class="page-wrapper">
+    <div class="page-bg-shape"></div>
+    
+    <div class="page-header">
+      <div class="page-header-content">
+        <div class="page-header-top">
+          <div>
+            <button onclick="history.back()" class="page-header-btn" style="position: absolute; left: var(--bn-spacing-md); top: var(--bn-spacing-lg);">←</button>
+            <h1 class="page-title" style="margin-left: 50px;" id="groupTitle">Group Details</h1>
+          </div>
+          <div class="page-header-actions">
+            <button class="page-header-btn" id="manageMembersButton" title="Manage Members">👥</button>
+          </div>
+        </div>
       </div>
-    </header>
+    </div>
+    
+  <div class="page-content">
 
     <!-- 🔹 GROUP INFO SECTION -->
     <section class="group-info">
@@ -88,10 +103,29 @@
     </section>
 
     <!-- 🔹 LOADING SPINNER -->
-    <div id="spinnerOverlay" class="spinner-overlay" style="display: none;">
-      <div class="spinner"></div>
+    <div id="spinnerOverlay" class="spinner-overlay hidden">
+      <div class="spinner-content">
+        <div class="spinner"></div>
+        <p class="loading-text">Loading group details...</p>
+      </div>
     </div>
   </div>
+  </div>
+  
+  <nav class="mobile-nav">
+    <a href="user_dashboard.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">🏠</span>
+      <span>Dashboard</span>
+    </a>
+    <a href="group_page.html" class="mobile-nav-item active">
+      <span class="mobile-nav-icon">👥</span>
+      <span>Groups</span>
+    </a>
+    <a href="settings.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">⚙️</span>
+      <span>Settings</span>
+    </a>
+  </nav>
 
   <!-- 🔹 INCLUDE JAVASCRIPT FILES -->
   <script type="module" src="../scripts/group_details.js"></script>

@@ -24,9 +24,6 @@ let currentGroup = null;
 // DOM Elements
 const spinner = document.getElementById("spinner");
 const adminName = document.getElementById("adminName");
-const totalFunds = document.getElementById("totalFunds");
-const totalMembers = document.getElementById("totalMembers");
-const totalGroups = document.getElementById("totalGroups");
 const totalCollections = document.getElementById("totalCollections");
 const activeLoans = document.getElementById("activeLoans");
 const pendingApprovals = document.getElementById("pendingApprovals");
@@ -71,7 +68,9 @@ function setupEventListeners() {
   });
   
   document.getElementById("switchViewBtn")?.addEventListener("click", () => {
-    window.location.href = "user_dashboard_new.html";
+    // Store current view preference in sessionStorage
+    sessionStorage.setItem("viewMode", "user");
+    window.location.href = "user_dashboard.html";
   });
 }
 
@@ -110,6 +109,18 @@ async function loadAdminData() {
       
       if (adminGroups.length > 0) {
         currentGroup = adminGroups[0];
+        
+        // Check if profile is completed
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (!userData.profileCompleted) {
+            // Redirect to profile completion
+            window.location.href = "pages/complete_profile.html";
+            return;
+          }
+        }
+        
         await loadDashboardStats();
         await loadGroups();
         await loadPendingApprovals();
@@ -152,20 +163,29 @@ async function loadDashboardStats() {
       // Count pending approvals (payments, loans, registrations)
       const currentYear = new Date().getFullYear();
       
-      // Pending payments
-      const paymentsRef = collection(db, "groups", group.groupId, "payments");
-      const paymentsSnapshot = await getDocs(paymentsRef);
-      paymentsSnapshot.forEach(async (paymentDoc) => {
-        const paymentType = paymentDoc.id;
-        const membersRef = collection(db, "groups", group.groupId, "payments", paymentType);
-        const membersSnapshot = await getDocs(membersRef);
-        membersSnapshot.forEach(async (memberDoc) => {
-          const memberPaymentsRef = collection(db, "groups", group.groupId, "payments", paymentType, memberDoc.id);
-          const q = query(memberPaymentsRef, where("approvalStatus", "==", "pending"));
-          const pendingSnapshot = await getDocs(q);
-          pendingApprovalsCount += pendingSnapshot.size;
+      // Pending payments - Query through members since payment structure uses subcollections
+      const membersRef = collection(db, "groups", group.groupId, "members");
+      const membersSnapshot = await getDocs(membersRef);
+      
+      for (const memberDoc of membersSnapshot.docs) {
+        const userId = memberDoc.id;
+        
+        // Check Seed Money payments
+        const seedMoneyRef = doc(db, `groups/${group.groupId}/payments/${currentYear}_SeedMoney/${userId}/PaymentDetails`);
+        const seedMoneyDoc = await getDoc(seedMoneyRef);
+        if (seedMoneyDoc.exists() && seedMoneyDoc.data().approvalStatus === "pending") {
+          pendingApprovalsCount++;
+        }
+        
+        // Check Monthly Contributions - need to check each month
+        const monthlyContributionsRef = collection(db, `groups/${group.groupId}/payments/${currentYear}_MonthlyContributions/${userId}`);
+        const monthlySnapshot = await getDocs(monthlyContributionsRef);
+        monthlySnapshot.forEach(monthDoc => {
+          if (monthDoc.data().approvalStatus === "pending") {
+            pendingApprovalsCount++;
+          }
         });
-      });
+      }
       
       // Pending loans
       const loansRef = collection(db, "groups", group.groupId, "loans");
@@ -174,10 +194,7 @@ async function loadDashboardStats() {
       pendingApprovalsCount += pendingLoansSnapshot.size;
     }
     
-    // Update UI
-    totalFunds.textContent = formatCurrency(totalFundsAmount);
-    totalMembers.textContent = totalMembersCount;
-    totalGroups.textContent = adminGroups.length;
+    // Update UI (remove totalFunds, totalMembers, totalGroups as they're not in new design)
     totalCollections.textContent = formatCurrency(totalCollectionsAmount);
     activeLoans.textContent = activeLoansCount;
     pendingApprovals.textContent = pendingApprovalsCount;
@@ -245,32 +262,59 @@ async function loadPendingApprovals() {
         });
       });
       
-      // Get pending payment approvals
+      // Get pending payment approvals - Query through members
       const currentYear = new Date().getFullYear();
-      const paymentTypes = [`${currentYear}_SeedMoney`, `${currentYear}_MonthlyContribution`];
+      const membersRef = collection(db, "groups", group.groupId, "members");
+      const membersSnapshot = await getDocs(membersRef);
       
-      for (const paymentType of paymentTypes) {
+      for (const memberDoc of membersSnapshot.docs) {
+        const userId = memberDoc.id;
+        const memberData = memberDoc.data();
+        
+        // Check Seed Money payments
         try {
-          const paymentsRef = collection(db, "groups", group.groupId, "payments", paymentType);
-          const membersSnapshot = await getDocs(paymentsRef);
-          
-          for (const memberDoc of membersSnapshot.docs) {
-            const memberPaymentsRef = collection(db, "groups", group.groupId, "payments", paymentType, memberDoc.id);
-            const q = query(memberPaymentsRef, where("approvalStatus", "==", "pending"));
-            const pendingSnapshot = await getDocs(q);
-            
-            pendingSnapshot.forEach(doc => {
+          const seedMoneyRef = doc(db, `groups/${group.groupId}/payments/${currentYear}_SeedMoney/${userId}/PaymentDetails`);
+          const seedMoneyDoc = await getDoc(seedMoneyRef);
+          if (seedMoneyDoc.exists()) {
+            const paymentData = seedMoneyDoc.data();
+            if (paymentData.approvalStatus === "pending") {
               allPending.push({
-                ...doc.data(),
-                id: doc.id,
+                ...paymentData,
+                id: seedMoneyRef.id,
                 type: "payment",
+                paymentType: "Seed Money",
+                memberName: memberData.fullName,
+                memberId: userId,
                 groupId: group.groupId,
                 groupName: group.groupName
               });
-            });
+            }
           }
         } catch (error) {
-          console.log(`No ${paymentType} payments found`);
+          // Payment document doesn't exist yet
+        }
+        
+        // Check Monthly Contributions
+        try {
+          const monthlyContributionsRef = collection(db, `groups/${group.groupId}/payments/${currentYear}_MonthlyContributions/${userId}`);
+          const monthlySnapshot = await getDocs(monthlyContributionsRef);
+          monthlySnapshot.forEach(monthDoc => {
+            const paymentData = monthDoc.data();
+            if (paymentData.approvalStatus === "pending") {
+              allPending.push({
+                ...paymentData,
+                id: monthDoc.id,
+                type: "payment",
+                paymentType: "Monthly Contribution",
+                memberName: memberData.fullName,
+                memberId: userId,
+                groupId: group.groupId,
+                groupName: group.groupName
+              });
+            }
+          });
+        } catch (error) {
+          // Payment collection doesn't exist yet
         }
       }
     }
@@ -354,12 +398,20 @@ async function handleApproval(item, approve) {
     } else if (item.type === "payment") {
       // Update payment approval status
       const paymentRef = doc(db, "groups", item.groupId, "payments", item.paymentType, item.userId, item.id);
-      await updateDoc(paymentRef, {
+      const updateData = {
         approvalStatus: approve ? "approved" : "rejected",
         approvedBy: currentUser.uid,
         approvedAt: Timestamp.now(),
         updatedAt: Timestamp.now()
-      });
+      };
+      
+      // Automatically set status to completed when approved
+      if (approve) {
+        updateData.paymentStatus = "completed";
+        updateData.status = "completed";
+      }
+      
+      await updateDoc(paymentRef, updateData);
     }
     
     showToast(`Successfully ${approve ? "approved" : "rejected"}`, "success");

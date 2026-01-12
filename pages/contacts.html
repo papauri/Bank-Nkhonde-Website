@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Contacts - Bank Nkhonde">
+  <title>Contacts - Bank Nkhonde</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/dashboard.css">
+  <link rel="icon" type="image/png" href="../assets/favicon.png">
+</head>
+<body>
+  <!-- Background Decoration -->
+  <div class="dashboard-bg">
+    <div class="dashboard-bg-shape dashboard-bg-shape-1"></div>
+    <div class="dashboard-bg-shape dashboard-bg-shape-2"></div>
+    <div class="dashboard-bg-shape dashboard-bg-shape-3"></div>
+  </div>
+
+  <!-- Main Container -->
+  <div class="dashboard-container">
+    <!-- Header -->
+    <div class="dashboard-header">
+      <div class="dashboard-header-top">
+        <div class="dashboard-header-title">
+          <h1>Contacts</h1>
+          <p>Group members and administrators</p>
+        </div>
+        <div class="dashboard-header-actions">
+          <button class="dashboard-header-btn" onclick="history.back()" aria-label="Back">←</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Group Selector -->
+    <div class="content-section" style="margin-bottom: var(--bn-space-lg);">
+      <select id="groupSelector" class="form-input" style="width: 100%;">
+        <option value="">Select a group...</option>
+      </select>
+    </div>
+
+    <!-- Members List -->
+    <div class="content-section">
+      <div class="content-section-header">
+        <h2 class="content-section-title">Group Members</h2>
+      </div>
+      <div id="membersList">
+        <div class="empty-state">
+          <div class="empty-state-icon">👥</div>
+          <p class="empty-state-text">Select a group to view members</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Navigation -->
+  <nav class="mobile-nav">
+    <a href="user_dashboard.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">🏠</span>
+      <span>Dashboard</span>
+    </a>
+    <a href="contacts.html" class="mobile-nav-item active">
+      <span class="mobile-nav-icon">👥</span>
+      <span>Contacts</span>
+    </a>
+    <a href="settings.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">⚙️</span>
+      <span>Settings</span>
+    </a>
+  </nav>
+
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+  <script type="module" src="../scripts/contacts.js"></script>
+</body>
+</html>

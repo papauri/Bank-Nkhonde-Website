@@ -3,66 +3,108 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Seed Money Overview</title>
-  <link rel="stylesheet" href="../styles/manage_page.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@12.3.1/dist/handsontable.full.min.css">
+  <meta name="description" content="Seed Money Overview - Bank Nkhonde">
+  <title>Seed Money Overview - Bank Nkhonde</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/unified-page.css">
+  <link rel="icon" type="image/png" href="../assets/favicon.png">
 </head>
 <body>
-  <div class="container">
-    <header class="header">
-      <h1>Seed Money Overview</h1>
-      <button id="backButton" class="button back">Back to Dashboard</button>
-    </header>
+  <div class="page-wrapper">
+    <div class="page-bg-shape"></div>
 
-    <!-- Group Selector -->
-    <section class="selector-section">
-      <label for="groupSelector">Select Group:</label>
-      <select id="groupSelector" class="group-select">
-        <option value="">Loading groups...</option>
-      </select>
-    </section>
+    <div class="page-header">
+      <div class="page-header-content">
+        <div class="page-header-top">
+          <div>
+            <button onclick="history.back()" class="page-header-btn" style="position: absolute; left: var(--bn-spacing-md); top: var(--bn-spacing-lg);">←</button>
+            <h1 class="page-title" style="margin-left: 50px;">Seed Money Overview</h1>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    <!-- Seed Money Statistics -->
-    <section class="stats-section">
-      <div class="stat-card green">
-        <h3>Total Required</h3>
-        <p id="totalRequired" class="stat-value">MWK 0</p>
+    <div class="page-content">
+      <div class="group-selector">
+        <select id="groupSelector" class="form-select" style="background: transparent; border: none; color: white; width: 100%; padding: var(--bn-spacing-xs) 0;">
+          <option value="">Select a group...</option>
+        </select>
       </div>
-      <div class="stat-card blue">
-        <h3>Total Paid</h3>
-        <p id="totalPaid" class="stat-value">MWK 0</p>
-      </div>
-      <div class="stat-card orange">
-        <h3>Pending Approval</h3>
-        <p id="totalPending" class="stat-value">MWK 0</p>
-      </div>
-      <div class="stat-card red">
-        <h3>Outstanding</h3>
-        <p id="totalOutstanding" class="stat-value">MWK 0</p>
-      </div>
-      <div class="stat-card purple">
-        <h3>Completion Rate</h3>
-        <p id="completionRate" class="stat-value">0%</p>
-      </div>
-    </section>
 
-    <!-- Seed Money Table -->
-    <section class="table-section">
-      <h2>Seed Money Status by Member</h2>
-      <div id="seedMoneyTable" class="data-table">
-        <p>Select a group to view seed money status</p>
+      <div class="stats-section">
+        <div class="stats-grid">
+          <div class="stat-item info">
+            <div class="stat-label">Total Required</div>
+            <div class="stat-value" id="totalRequired">MWK 0</div>
+          </div>
+          <div class="stat-item success">
+            <div class="stat-label">Total Paid</div>
+            <div class="stat-value" id="totalPaid">MWK 0</div>
+          </div>
+          <div class="stat-item warning">
+            <div class="stat-label">Pending Approval</div>
+            <div class="stat-value" id="pendingApproval">MWK 0</div>
+          </div>
+          <div class="stat-item danger">
+            <div class="stat-label">Outstanding</div>
+            <div class="stat-value" id="outstanding">MWK 0</div>
+          </div>
+        </div>
+        <div class="stat-item" style="margin-top: var(--bn-spacing-md);">
+          <div class="stat-label">Completion Rate</div>
+          <div class="stat-value" id="completionRate">0%</div>
+        </div>
       </div>
-    </section>
 
-    <!-- Quick Actions -->
-    <section class="actions-section">
-      <button id="approveAllBtn" class="button primary">Approve All Pending</button>
-      <button id="sendReminderBtn" class="button secondary">Send Reminders</button>
-      <button id="exportBtn" class="button secondary">Export to Excel</button>
-    </section>
+      <div class="content-section">
+        <div class="content-section-header">
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <h2 class="content-section-title" style="margin: 0;">Seed Money Status</h2>
+            <button class="btn btn-primary btn-sm" id="approveAllBtn">Approve All Pending</button>
+          </div>
+        </div>
+        <div id="seedMoneyTable">
+          <div class="empty-state">
+            <div class="empty-state-icon">🌱</div>
+            <p class="empty-state-text">Select a group to view seed money status</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/handsontable@12.3.1/dist/handsontable.full.min.js"></script>
+  <nav class="mobile-nav">
+    <a href="admin_dashboard.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">🏠</span>
+      <span>Dashboard</span>
+    </a>
+    <a href="seed_money_overview.html" class="mobile-nav-item active">
+      <span class="mobile-nav-icon">🌱</span>
+      <span>Seed Money</span>
+    </a>
+    <a href="financial_reports.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">📊</span>
+      <span>Reports</span>
+    </a>
+    <a href="settings.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">⚙️</span>
+      <span>Settings</span>
+    </a>
+  </nav>
+
+  <div class="spinner-overlay hidden" id="spinner">
+    <div class="spinner-content">
+      <div class="spinner"></div>
+      <p class="loading-text">Loading seed money data...</p>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module" src="../scripts/seed_money_overview.js"></script>
 </body>
 </html>

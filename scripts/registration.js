@@ -30,16 +30,32 @@ document.addEventListener("DOMContentLoaded", () => {
   const loadingMessage = document.getElementById("loadingMessage");
   const formFields = document.querySelectorAll("#registrationForm input, button");
 
+
   // ✅ Ensure Intl-Tel-Input loads correctly
   let iti;
-  setTimeout(() => {
-    iti = window.intlTelInput(phoneInput, {
-      initialCountry: "mw", // Default to Malawi
-      preferredCountries: ["mw", "us", "gb"], 
-      separateDialCode: true,
-      utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.min.js",
-    });
-  }, 100); // Delay to avoid initialization issues
+  
+  function initializeIntlTelInput() {
+    if (typeof window.intlTelInput !== 'undefined') {
+      iti = window.intlTelInput(phoneInput, {
+        initialCountry: "mw", // Default to Malawi (dial code 265)
+        preferredCountries: ["mw", "us", "gb", "za", "tz", "zm"], 
+        separateDialCode: true,
+        utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.min.js",
+        allowDropdown: true, // Allow changing country
+        nationalMode: false, // Show dial code
+      });
+    } else {
+      // Retry if library not loaded yet
+      setTimeout(initializeIntlTelInput, 100);
+    }
+  }
+  
+  // Try to initialize immediately, then retry if needed
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeIntlTelInput);
+  } else {
+    setTimeout(initializeIntlTelInput, 100);
+  }
 
   // ✅ Loading Overlay Functions
   function toggleLoadingOverlay(show = true, message = "Processing... Please wait.") {
@@ -52,6 +68,89 @@ document.addEventListener("DOMContentLoaded", () => {
   // ✅ Enable/Disable Form Fields
   function toggleFormFields(enable = true) {
     formFields.forEach((field) => (field.disabled = !enable));
+  }
+
+  // ✅ Dialog Functions
+  function showSuccessDialog(title, message, buttonText = "OK", onClose = null) {
+    const successDialog = document.getElementById("successDialog");
+    const successDialogTitle = document.getElementById("successDialogTitle");
+    const successDialogMessage = document.getElementById("successDialogMessage");
+    const successDialogButton = document.getElementById("successDialogButton");
+    
+    if (!successDialog || !successDialogTitle || !successDialogMessage || !successDialogButton) {
+      console.error("Dialog elements not found");
+      alert(`${title}\n\n${message}`);
+      if (onClose && typeof onClose === 'function') {
+        onClose();
+      }
+      return;
+    }
+    
+    successDialogTitle.textContent = title;
+    successDialogMessage.textContent = message;
+    successDialogButton.textContent = buttonText;
+    
+    // Remove any existing click handlers
+    const newButton = successDialogButton.cloneNode(true);
+    successDialogButton.parentNode.replaceChild(newButton, successDialogButton);
+    
+    // Add click handler
+    newButton.addEventListener("click", () => {
+      closeSuccessDialog();
+      if (onClose && typeof onClose === 'function') {
+        onClose();
+      }
+    });
+    
+    successDialog.classList.remove("hidden");
+  }
+
+  function closeSuccessDialog() {
+    const successDialog = document.getElementById("successDialog");
+    if (successDialog) {
+      successDialog.classList.add("hidden");
+    }
+  }
+
+  function showErrorDialog(title, message, buttonText = "Close", onClose = null) {
+    const errorDialog = document.getElementById("errorDialog");
+    const errorDialogTitle = document.getElementById("errorDialogTitle");
+    const errorDialogMessage = document.getElementById("errorDialogMessage");
+    const errorDialogButton = document.getElementById("errorDialogButton");
+    
+    if (!errorDialog || !errorDialogTitle || !errorDialogMessage || !errorDialogButton) {
+      console.error("Dialog elements not found");
+      alert(`${title}\n\n${message}`);
+      if (onClose && typeof onClose === 'function') {
+        onClose();
+      }
+      return;
+    }
+    
+    errorDialogTitle.textContent = title;
+    errorDialogMessage.textContent = message;
+    errorDialogButton.textContent = buttonText;
+    
+    // Remove any existing click handlers
+    const newButton = errorDialogButton.cloneNode(true);
+    errorDialogButton.parentNode.replaceChild(newButton, errorDialogButton);
+    
+    // Add click handler
+    newButton.addEventListener("click", () => {
+      closeErrorDialog();
+      if (onClose && typeof onClose === 'function') {
+        onClose();
+      }
+    });
+    
+    errorDialog.classList.remove("hidden");
+  }
+
+  function closeErrorDialog() {
+    const errorDialog = document.getElementById("errorDialog");
+    if (errorDialog) {
+      errorDialog.classList.add("hidden");
+    }
   }
 
   // ✅ Validate Required Fields
@@ -100,9 +199,21 @@ document.addEventListener("DOMContentLoaded", () => {
       return `${fieldName} is required.`;
     }
 
-    let parsedValue = parseFloat(value);
-    if (isNaN(parsedValue) || parsedValue < minValue || parsedValue > maxValue) {
-      return `${fieldName} must be a valid ${isPercentage ? "percentage" : "amount"} between ${minValue} and ${maxValue}.`;
+    // Remove commas for parsing
+    const cleanedValue = String(value).replace(/,/g, '');
+    let parsedValue = parseFloat(cleanedValue);
+    
+    if (isNaN(parsedValue)) {
+      return `${fieldName} must be a valid ${isPercentage ? "percentage" : "amount"}.`;
+    }
+    
+    if (parsedValue < minValue || parsedValue > maxValue) {
+      return `${fieldName} must be between ${minValue} and ${maxValue}${isPercentage ? '%' : ''}.`;
+    }
+
+    // For percentages, ensure max is 100
+    if (isPercentage && parsedValue > 100) {
+      return `${fieldName} cannot exceed 100%.`;
     }
 
     // Ensure up to two decimal places
@@ -122,9 +233,19 @@ document.addEventListener("DOMContentLoaded", () => {
   
     if (phoneInput.value.trim() === "") return false; // Ensure input is not empty
   
-    if (!iti.isValidNumber()) {
-      phoneInput.insertAdjacentHTML("afterend", `<p id="${errorElementId}" style="color: red;">Invalid phone number. Please check your input.</p>`);
-      return false;
+    // Check if intlTelInput is initialized and validate
+    if (iti && typeof iti.isValidNumber === 'function') {
+      if (!iti.isValidNumber()) {
+        phoneInput.insertAdjacentHTML("afterend", `<p id="${errorElementId}" style="color: red;">Invalid phone number. Please check your input.</p>`);
+        return false;
+      }
+    } else {
+      // Fallback validation if intlTelInput not loaded yet
+      const phoneValue = phoneInput.value.trim();
+      if (!phoneValue.startsWith('+') && !phoneValue.startsWith('265')) {
+        phoneInput.insertAdjacentHTML("afterend", `<p id="${errorElementId}" style="color: red;">Please enter a valid phone number with country code.</p>`);
+        return false;
+      }
     }
   
     return true;
@@ -156,8 +277,10 @@ document.addEventListener("DOMContentLoaded", () => {
       // ✅ Convert and validate numeric fields
       const seedMoney = parseFloat(groupData.seedMoney);
       const loanInterestMonth1 = parseFloat(groupData.loanInterestMonth1);
-      const loanInterestMonth2 = parseFloat(groupData.loanInterestMonth2);
-      const loanInterestMonth3 = parseFloat(groupData.loanInterestMonth3);
+      // Month 2 defaults to Month 1 if not provided
+      const loanInterestMonth2 = groupData.loanInterestMonth2 ? parseFloat(groupData.loanInterestMonth2) : loanInterestMonth1;
+      // Month 3+ defaults to Month 2 (or Month 1 if Month 2 not provided)
+      const loanInterestMonth3 = groupData.loanInterestMonth3 ? parseFloat(groupData.loanInterestMonth3) : loanInterestMonth2;
       const monthlyContribution = parseFloat(groupData.monthlyContribution);
       const loanPenalty = parseFloat(groupData.loanPenalty);
       const monthlyPenalty = parseFloat(groupData.monthlyPenalty);
@@ -193,11 +316,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // ✅ Create the Firebase Auth user first
       toggleLoadingOverlay(true, "Creating your user account...");
+      console.log("🔹 Creating user with email:", email);
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       userId = user.uid;
 
       console.log("✅ Admin user created successfully:", userId);
+      console.log("✅ User email verified:", user.emailVerified);
 
       // ✅ Use Firestore Batch Write for efficiency
       const batch = writeBatch(db);
@@ -219,33 +344,46 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Structured rules object for flexibility
         rules: {
+          // Seed Money: Same amount for all members, can be paid in full or within maxPaymentMonths
           seedMoney: {
-            amount: seedMoney,
-            dueDate: seedMoneyDueDate,
-            required: true,
-            allowPartialPayment: false
+            amount: seedMoney,                    // Same for all members in group (MWK)
+            dueDate: seedMoneyDueDate,             // Initial due date
+            required: true,                        // Must be fully paid (cannot be skipped)
+            allowPartialPayment: true,             // Can pay in installments
+            maxPaymentMonths: 2,                   // Default: 2 months to complete payment (admin can change)
+            mustBeFullyPaid: true                  // Must be fully paid within maxPaymentMonths
           },
+          // Monthly Contribution: Same amount for all members, due same day each month
           monthlyContribution: {
-            amount: monthlyContribution,
+            amount: monthlyContribution,           // Same for all members in group (MWK)
             required: true,
-            dayOfMonth: new Date(groupData.cycleStartDate).getDate(),
-            allowPartialPayment: true
+            dayOfMonth: new Date(groupData.cycleStartDate).getDate(), // Same due day for all (e.g., 5th)
+            allowPartialPayment: true              // Can pay partial amounts
           },
+          // Loan Interest: Different rates per month (tiered system)
+          // Month 1: Interest on full loan amount
+          // Month 2: Interest on remaining balance (if different rate)
+          // Month 3+: Interest on remaining balance (if different rate)
           loanInterest: {
-            month1: loanInterestMonth1,
-            month2: loanInterestMonth2,
-            month3AndBeyond: loanInterestMonth3,
-            description: "Tiered interest rates for loan repayments"
+            month1: loanInterestMonth1,           // % interest for 1st month of loan repayment
+            month2: loanInterestMonth2,           // % interest for 2nd month (defaults to month1 if not provided)
+            month3AndBeyond: loanInterestMonth3,   // % interest for 3rd+ months (defaults to month2 or month1)
+            description: "Tiered interest rates - different % per month based on remaining loan balance",
+            calculationMethod: "balance_based"     // Interest calculated on remaining balance each month
           },
+          // Loan Penalty: % extra on top of monthly loan payment if missed deadline
           loanPenalty: {
-            rate: loanPenalty,
-            type: "percentage",
-            gracePeriodDays: 0
+            rate: loanPenalty,                     // % penalty (same for all members in group)
+            type: "percentage",                    // Applied as percentage of missed payment
+            gracePeriodDays: 0,                    // Days before penalty applies
+            description: "Percentage penalty added to missed loan payment amount"
           },
+          // Monthly Penalty: % extra for missed monthly contributions
           monthlyPenalty: {
-            rate: monthlyPenalty,
-            type: "percentage",
-            gracePeriodDays: 0
+            rate: monthlyPenalty,                  // % penalty (same for all members in group)
+            type: "percentage",                    // Applied as percentage of missed contribution
+            gracePeriodDays: 0,                    // Days before penalty applies
+            description: "Percentage penalty added to missed monthly contribution amount"
           },
           cycleDuration: {
             startDate: cycleStartDate,
@@ -254,12 +392,21 @@ document.addEventListener("DOMContentLoaded", () => {
             autoRenew: false
           },
           loanRules: {
-            maxLoanAmount: 0, // To be set by admin
+            maxLoanAmount: 0,                      // To be set by admin
             minLoanAmount: 0,
             maxActiveLoansByMember: 1,
             requireCollateral: true,
             minRepaymentMonths: 1,
-            maxRepaymentMonths: 12
+            maxRepaymentMonths: 3,                 // Max 3 months repayment (based on loan amount)
+            // Loan repayment period determined by amount:
+            // - Loans < MWK 500,000: Max 2 months
+            // - Loans >= MWK 500,000: Max 3 months
+            repaymentCalculation: {
+              method: "tiered_interest",           // Different interest % per month
+              month1Calculation: "loanAmount * (month1Interest / 100)", // Interest on full amount
+              month2Calculation: "remainingBalance * (month2Interest / 100)", // Interest on remaining
+              month3Calculation: "remainingBalance * (month3Interest / 100)"  // Interest on remaining
+            }
           },
           customRules: []
         },
@@ -336,7 +483,10 @@ document.addEventListener("DOMContentLoaded", () => {
           lastMemberAdded: Timestamp.now(),
           lastMeetingDate: null,
           lastBadgeConfigUpdate: null
-        }
+        },
+        
+        // Currency
+        currency: "MWK"
       });
 
       // ✅ Add Admin as a Member with improved structure
@@ -410,7 +560,8 @@ document.addEventListener("DOMContentLoaded", () => {
           imageUrl: "",
           uploadedAt: null,
           verifiedBy: ""
-        }
+        },
+        currency: "MWK"
       });
 
       // ✅ Create Monthly Contributions Payment Year Document
@@ -432,6 +583,8 @@ document.addEventListener("DOMContentLoaded", () => {
           userId,
           fullName: name,
           paymentType: "Monthly Contribution",
+          month: date.month,
+          year: date.year,
           totalAmount: monthlyContribution,
           amountPaid: 0,
           arrears: monthlyContribution,
@@ -446,7 +599,8 @@ document.addEventListener("DOMContentLoaded", () => {
             imageUrl: "",
             uploadedAt: null,
             verifiedBy: ""
-          }
+          },
+          currency: "MWK"
         });
       });
 
@@ -513,7 +667,8 @@ registrationForm.addEventListener("submit", async (e) => {
 
   // ✅ Collect data from form fields
   const name = document.getElementById("name").value.trim();
-  const phone = document.getElementById("phone").value.trim();
+  // Get phone number in international format (e.g., +265991234567)
+  const phone = iti && iti.isValidNumber() ? iti.getNumber() : document.getElementById("phone").value.trim();
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
   const groupName = document.getElementById("groupName").value.trim();
@@ -600,16 +755,36 @@ registrationForm.addEventListener("submit", async (e) => {
     }
 
     // ✅ Wait for manual approval from Senior Admin
-    toggleLoadingOverlay(true, "⏳ Registration code pending approval by Senior Admin...\n\nYour code: " + registrationKey + "\n\nPlease wait while an administrator reviews your request.");
+    toggleLoadingOverlay(true, `⏳ Registration code pending approval by Senior Admin...\n\nYour code: ${registrationKey}\n\nPlease wait while an administrator reviews your request.`);
     
     try {
       await pollForApproval(registrationKey, 600000); // Wait up to 10 minutes
+      
+      // Show success dialog when approved
+      toggleLoadingOverlay(false);
+      showSuccessDialog(
+        "Registration Approved! 🎉",
+        `Your registration code has been approved by the administrator. We're now creating your account and setting up your group. This will only take a moment.`,
+        "Creating Account...",
+        () => {
+          toggleLoadingOverlay(true, "✅ Registration approved! Creating your account...");
+        }
+      );
+      
+      // Wait a moment for user to see the success message
+      await new Promise(resolve => setTimeout(resolve, 2000));
       toggleLoadingOverlay(true, "✅ Registration approved! Creating your account...");
     } catch (approvalError) {
-      alert(approvalError.message);
-      submitButton.disabled = false;
-      toggleFormFields(true);
       toggleLoadingOverlay(false);
+      showErrorDialog(
+        "Approval Timeout",
+        approvalError.message || "Your registration code was not approved within the time limit. Please contact an administrator or try again later.",
+        "OK",
+        () => {
+          submitButton.disabled = false;
+          toggleFormFields(true);
+        }
+      );
       return;
     }
 
@@ -635,25 +810,101 @@ registrationForm.addEventListener("submit", async (e) => {
     await createUserAndGroupWithKey(name, email, password, groupData, registrationKey);
 
     // ✅ Auto-login the user after successful registration
+    // Add a small delay to ensure the account is fully created
     toggleLoadingOverlay(true, "Logging you in...");
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+    
     try {
+      console.log("🔹 Attempting auto-login with email:", email);
       await signInWithEmailAndPassword(auth, email, password);
+      console.log("✅ Auto-login successful");
+      
+      // Send welcome email (non-blocking, optional)
+      // Note: Email service may have CORS issues - this is handled gracefully
+      try {
+        const { sendRegistrationWelcome } = await import('./emailService.js');
+        sendRegistrationWelcome(email, name, groupData.groupName).catch(err => {
+          console.warn("Email service unavailable (non-critical):", err.message);
+        });
+      } catch (emailError) {
+        console.warn("Email service not available (non-critical)");
+      }
+      
       toggleLoadingOverlay(false);
-      alert("Registration complete! Welcome to your admin dashboard.");
-      window.location.href = "admin_dashboard.html"; // Redirect to admin dashboard
+      
+      // Wait a moment to ensure DOM is ready
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Show success dialog
+      showSuccessDialog(
+        "Registration Complete! 🎉",
+        `Welcome to Bank Nkhonde! Your account and group "${groupData.groupName}" have been successfully created. Please complete your profile to continue.`,
+        "Complete Profile",
+        () => {
+          window.location.href = "complete_profile.html";
+        }
+      );
     } catch (loginError) {
-      console.error("❌ Auto-login failed:", loginError.message);
+      console.error("❌ Auto-login failed:", loginError.code, loginError.message);
       toggleLoadingOverlay(false);
-      alert("Registration complete! Please login with your credentials.");
-      window.location.href = "../login.html"; // Redirect to login
+      
+      // Get user-friendly error message
+      let errorMessage = "We couldn't automatically log you in. ";
+      if (loginError.code === "auth/invalid-login-credentials" || loginError.code === "auth/invalid-credential") {
+        errorMessage += "This might be because your account needs a moment to be fully activated. ";
+      } else if (loginError.code === "auth/user-disabled") {
+        errorMessage += "Your account has been disabled. Please contact support. ";
+      } else if (loginError.code === "auth/network-request-failed") {
+        errorMessage += "There was a network error. Please check your internet connection. ";
+      } else {
+        errorMessage += `Error: ${loginError.message}. `;
+      }
+      errorMessage += "Please log in manually with your email and password.";
+      
+      showErrorDialog(
+        "Auto-Login Failed",
+        errorMessage,
+        "Go to Login",
+        () => {
+          window.location.href = "../login.html";
+        }
+      );
     }
 
   } catch (error) {
     console.error("❌ Error during registration:", error.message);
-    alert(`An error occurred: ${error.message}`);
-    toggleFormFields(true);
     toggleLoadingOverlay(false);
-    submitButton.disabled = false;
+    
+    let errorTitle = "Registration Error";
+    let errorMessage = error.message;
+    
+    // Provide user-friendly error messages
+    if (error.code === "auth/email-already-in-use") {
+      errorTitle = "Email Already Registered";
+      errorMessage = "An account with this email already exists. Please use a different email or log in instead.";
+    } else if (error.code === "auth/invalid-email") {
+      errorTitle = "Invalid Email";
+      errorMessage = "The email address you entered is not valid. Please check and try again.";
+    } else if (error.code === "auth/weak-password") {
+      errorTitle = "Weak Password";
+      errorMessage = "Your password is too weak. Please use a stronger password (at least 6 characters with numbers or special characters).";
+    } else if (error.code === "auth/network-request-failed") {
+      errorTitle = "Network Error";
+      errorMessage = "There was a network error. Please check your internet connection and try again.";
+    } else if (error.message.includes("permission")) {
+      errorTitle = "Permission Denied";
+      errorMessage = "You don't have permission to perform this action. Please contact support.";
+    }
+    
+    showErrorDialog(
+      errorTitle,
+      errorMessage,
+      "OK",
+      () => {
+        toggleFormFields(true);
+        submitButton.disabled = false;
+      }
+    );
   }
 });
 

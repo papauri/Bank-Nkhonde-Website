@@ -3,123 +3,113 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Financial Analytics</title>
-  <link rel="stylesheet" href="../styles/analytics.css">
+  <meta name="description" content="Analytics - Bank Nkhonde">
+  <title>Analytics - Bank Nkhonde</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/unified-page.css">
+  <link rel="icon" type="image/png" href="../assets/favicon.png">
 </head>
 <body>
-  <div class="container">
-    <!-- Header -->
-    <header class="header">
-      <h1>Financial Analytics</h1>
-      <button id="backButton" class="button back">Back to Dashboard</button>
-    </header>
+  <div class="page-wrapper">
+    <div class="page-bg-shape"></div>
 
-    <!-- Group Selector -->
-    <section class="group-selector">
-      <label for="groupSelect">Select Group:</label>
-      <select id="groupSelect">
-        <option value="">Loading groups...</option>
-      </select>
-    </section>
-
-    <!-- Group Financial Summary -->
-    <section class="financial-summary">
-      <h2>Group Financial Overview</h2>
-      <div class="summary-grid">
-        <div class="summary-card">
-          <div class="card-icon">💰</div>
-          <div class="card-content">
-            <h3>Total Collected</h3>
-            <p class="amount" id="totalCollected">MWK 0.00</p>
-          </div>
-        </div>
-        <div class="summary-card">
-          <div class="card-icon">📊</div>
-          <div class="card-content">
-            <h3>Total Expected</h3>
-            <p class="amount" id="totalExpected">MWK 0.00</p>
-          </div>
-        </div>
-        <div class="summary-card">
-          <div class="card-icon">⚠️</div>
-          <div class="card-content">
-            <h3>Total Arrears</h3>
-            <p class="amount warning" id="totalArrears">MWK 0.00</p>
-          </div>
-        </div>
-        <div class="summary-card">
-          <div class="card-icon">✅</div>
-          <div class="card-content">
-            <h3>Collection Rate</h3>
-            <p class="amount" id="collectionRate">0%</p>
+    <div class="page-header">
+      <div class="page-header-content">
+        <div class="page-header-top">
+          <div>
+            <button onclick="history.back()" class="page-header-btn" style="position: absolute; left: var(--bn-spacing-md); top: var(--bn-spacing-lg);">←</button>
+            <h1 class="page-title" style="margin-left: 50px;">Analytics</h1>
           </div>
         </div>
       </div>
-    </section>
+    </div>
 
-    <!-- Member Performance -->
-    <section class="member-performance">
-      <h2>Member Payment Performance</h2>
-      <div id="memberPerformanceTable">
-        <p>Select a group to view member performance</p>
+    <div class="page-content">
+      <div class="group-selector">
+        <select id="groupSelector" class="form-select" style="background: transparent; border: none; color: white; width: 100%; padding: var(--bn-spacing-xs) 0;">
+          <option value="">Select a group...</option>
+        </select>
       </div>
-    </section>
 
-    <!-- Payment Trends -->
-    <section class="payment-trends">
-      <h2>Payment Status Summary</h2>
-      <div class="trends-grid">
-        <div class="trend-card">
-          <h3>Fully Paid Members</h3>
-          <p class="trend-number success" id="fullyPaidCount">0</p>
-        </div>
-        <div class="trend-card">
-          <h3>Partially Paid Members</h3>
-          <p class="trend-number warning" id="partiallyPaidCount">0</p>
-        </div>
-        <div class="trend-card">
-          <h3>Unpaid Members</h3>
-          <p class="trend-number danger" id="unpaidCount">0</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Loan Analytics -->
-    <section class="loan-analytics">
-      <h2>Loan Summary</h2>
-      <div class="summary-grid">
-        <div class="summary-card">
-          <div class="card-icon">🏦</div>
-          <div class="card-content">
-            <h3>Total Loans Issued</h3>
-            <p class="amount" id="totalLoansIssued">MWK 0.00</p>
+      <div class="stats-section">
+        <div class="stats-grid">
+          <div class="stat-item info">
+            <div class="stat-label">Total Income</div>
+            <div class="stat-value" id="totalIncome">MWK 0</div>
           </div>
-        </div>
-        <div class="summary-card">
-          <div class="card-icon">💵</div>
-          <div class="card-content">
-            <h3>Loans Repaid</h3>
-            <p class="amount" id="loansRepaid">MWK 0.00</p>
+          <div class="stat-item danger">
+            <div class="stat-label">Total Expenses</div>
+            <div class="stat-value" id="totalExpenses">MWK 0</div>
           </div>
-        </div>
-        <div class="summary-card">
-          <div class="card-icon">📉</div>
-          <div class="card-content">
-            <h3>Outstanding Loans</h3>
-            <p class="amount warning" id="outstandingLoans">MWK 0.00</p>
+          <div class="stat-item success">
+            <div class="stat-label">Net Profit</div>
+            <div class="stat-value" id="netProfit">MWK 0</div>
           </div>
-        </div>
-        <div class="summary-card">
-          <div class="card-icon">👥</div>
-          <div class="card-content">
-            <h3>Active Borrowers</h3>
-            <p class="amount" id="activeBorrowers">0</p>
+          <div class="stat-item warning">
+            <div class="stat-label">Loan Interest</div>
+            <div class="stat-value" id="loanInterest">MWK 0</div>
           </div>
         </div>
       </div>
-    </section>
+
+      <div class="content-section">
+        <div class="content-section-header">
+          <h2 class="content-section-title">Financial Trends</h2>
+        </div>
+        <div id="chartsContainer">
+          <div class="empty-state">
+            <div class="empty-state-icon">📉</div>
+            <p class="empty-state-text">Select a group to view analytics</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="content-section">
+        <div class="content-section-header">
+          <h2 class="content-section-title">Member Performance</h2>
+        </div>
+        <div id="memberPerformance">
+          <div class="empty-state">
+            <div class="empty-state-icon">👥</div>
+            <p class="empty-state-text">Loading member performance data...</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
+  <nav class="mobile-nav">
+    <a href="admin_dashboard.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">🏠</span>
+      <span>Dashboard</span>
+    </a>
+    <a href="analytics.html" class="mobile-nav-item active">
+      <span class="mobile-nav-icon">📉</span>
+      <span>Analytics</span>
+    </a>
+    <a href="financial_reports.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">📊</span>
+      <span>Reports</span>
+    </a>
+    <a href="settings.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">⚙️</span>
+      <span>Settings</span>
+    </a>
+  </nav>
+
+  <div class="spinner-overlay hidden" id="spinner">
+    <div class="spinner-content">
+      <div class="spinner"></div>
+      <p class="loading-text">Loading analytics...</p>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module" src="../scripts/analytics.js"></script>
 </body>
 </html>

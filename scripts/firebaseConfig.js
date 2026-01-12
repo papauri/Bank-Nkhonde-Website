@@ -36,6 +36,10 @@ import {
   uploadBytes,
   getDownloadURL, // ✅ Removed redundant `storage` declaration
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
+import {
+  getFunctions,
+  httpsCallable,
+} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
 
 // Firebase configuration
 const firebaseConfig = {
@@ -52,6 +56,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 const storage = getStorage(app);  // ✅ This is the only `storage` definition
+const functions = getFunctions(app);
 
 // Export Firebase services and commonly used functions
 export {
@@ -87,4 +92,6 @@ export {
   arrayRemove,
   orderBy,
   limit,
+  functions,
+  httpsCallable,
 };

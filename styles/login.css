@@ -455,3 +455,73 @@ body {
     transform: translateY(0);
   }
 }
+
+/* ============================================
+   ERROR & SUCCESS MESSAGES
+   ============================================ */
+.form-error,
+.form-success {
+  margin-top: var(--bn-space-md);
+  padding: var(--bn-space-md);
+  border-radius: var(--bn-radius-md);
+  animation: slideInDown 0.3s ease-out;
+}
+
+.form-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--bn-danger);
+}
+
+.form-success {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: var(--bn-success);
+}
+
+.error-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bn-space-xs);
+}
+
+.error-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--bn-danger);
+  margin-bottom: var(--bn-space-xs);
+}
+
+.error-title {
+  font-size: var(--bn-font-lg);
+  font-weight: 700;
+  color: var(--bn-danger);
+  margin-bottom: var(--bn-space-xs);
+}
+
+.error-text {
+  font-size: var(--bn-font-base);
+  color: var(--bn-dark);
+  line-height: 1.5;
+  margin-bottom: var(--bn-space-xs);
+}
+
+.error-suggestion {
+  font-size: var(--bn-font-sm);
+  color: var(--bn-gray);
+  font-style: italic;
+  margin-top: var(--bn-space-xs);
+  padding-top: var(--bn-space-xs);
+  border-top: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -3,230 +3,100 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#047857">
+  <meta name="description" content="Settings - Bank Nkhonde">
   <title>Settings - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
-  <link rel="stylesheet" href="../styles/mobile-design-system.css">
-  <style>
-    body {
-      background: var(--bn-gray-lighter);
-      padding-bottom: 80px;
-    }
-
-    .settings-header {
-      background: var(--bn-white);
-      box-shadow: var(--bn-shadow-sm);
-      padding: var(--bn-spacing-md);
-      display: flex;
-      align-items: center;
-      gap: var(--bn-spacing-md);
-      position: sticky;
-      top: 0;
-      z-index: var(--z-sticky);
-    }
-
-    .back-btn {
-      min-width: var(--bn-touch-target);
-      min-height: var(--bn-touch-target);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: none;
-      border: none;
-      color: var(--bn-dark);
-      font-size: 24px;
-      cursor: pointer;
-      border-radius: var(--bn-radius-sm);
-    }
-
-    .back-btn:active {
-      background: var(--bn-gray-lighter);
-    }
-
-    .settings-header h1 {
-      font-size: var(--bn-font-xl);
-      margin: 0;
-    }
-
-    .settings-section {
-      background: var(--bn-white);
-      border-radius: var(--bn-radius-lg);
-      padding: var(--bn-spacing-md);
-      margin-bottom: var(--bn-spacing-md);
-      box-shadow: var(--bn-shadow-sm);
-    }
-
-    .settings-section h2 {
-      font-size: var(--bn-font-lg);
-      font-weight: 700;
-      color: var(--bn-dark);
-      margin: 0 0 var(--bn-spacing-md) 0;
-      padding-bottom: var(--bn-spacing-sm);
-      border-bottom: 2px solid var(--bn-gray-lighter);
-    }
-
-    .setting-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: var(--bn-spacing-md) 0;
-      border-bottom: 1px solid var(--bn-gray-lighter);
-    }
-
-    .setting-item:last-child {
-      border-bottom: none;
-    }
-
-    .setting-info h4 {
-      font-size: var(--bn-font-base);
-      font-weight: 600;
-      color: var(--bn-dark);
-      margin: 0 0 4px 0;
-    }
-
-    .setting-info p {
-      font-size: var(--bn-font-sm);
-      color: var(--bn-gray);
-      margin: 0;
-    }
-
-    .setting-value {
-      font-size: var(--bn-font-base);
-      color: var(--bn-dark);
-      font-weight: 600;
-    }
-
-    .danger-zone {
-      border: 2px solid var(--bn-danger);
-    }
-
-    .danger-zone h2 {
-      color: var(--bn-danger);
-    }
-  </style>
+  <link rel="stylesheet" href="../styles/unified-page.css">
+  <link rel="icon" type="image/png" href="../assets/favicon.png">
 </head>
 <body>
-  <div class="settings-header">
-    <button class="back-btn" onclick="history.back()">←</button>
-    <h1>Settings</h1>
+  <div class="page-wrapper">
+    <div class="page-bg-shape"></div>
+
+    <div class="page-header">
+      <div class="page-header-content">
+        <div class="page-header-top">
+          <div>
+            <button onclick="history.back()" class="page-header-btn" style="position: absolute; left: var(--bn-spacing-md); top: var(--bn-spacing-lg);">←</button>
+            <h1 class="page-title" style="margin-left: 50px;">Settings</h1>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-content">
+      <!-- Profile Section -->
+      <div class="content-section">
+        <div class="content-section-header">
+          <h2 class="content-section-title">Profile</h2>
+        </div>
+        <form id="profileForm">
+          <div class="form-group">
+            <label class="form-label">Full Name</label>
+            <input type="text" id="fullName" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" id="email" class="form-input" disabled>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone Number</label>
+            <input type="tel" id="phone" class="form-input" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Save Changes</button>
+        </form>
+      </div>
+
+      <!-- Password Section -->
+      <div class="content-section">
+        <div class="content-section-header">
+          <h2 class="content-section-title">Change Password</h2>
+        </div>
+        <form id="passwordForm">
+          <div class="form-group">
+            <label class="form-label">Current Password</label>
+            <input type="password" id="currentPassword" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">New Password</label>
+            <input type="password" id="newPassword" class="form-input" required minlength="6">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirm New Password</label>
+            <input type="password" id="confirmPassword" class="form-input" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Change Password</button>
+        </form>
+      </div>
+
+      <!-- Account Actions -->
+      <div class="content-section">
+        <div class="content-section-header">
+          <h2 class="content-section-title">Account Actions</h2>
+        </div>
+        <button class="btn btn-danger btn-block" id="logoutBtn">Logout</button>
+      </div>
+    </div>
   </div>
 
-  <div class="mobile-container">
-    <!-- Profile Settings -->
-    <section class="settings-section">
-      <h2>Profile</h2>
-      <div class="setting-item">
-        <div class="setting-info">
-          <h4>Full Name</h4>
-          <p id="userName">Loading...</p>
-        </div>
-        <button class="btn btn-sm btn-ghost" onclick="editProfile()">Edit</button>
-      </div>
-      <div class="setting-item">
-        <div class="setting-info">
-          <h4>Email</h4>
-          <p id="userEmail">Loading...</p>
-        </div>
-      </div>
-      <div class="setting-item">
-        <div class="setting-info">
-          <h4>Phone Number</h4>
-          <p id="userPhone">Loading...</p>
-        </div>
-        <button class="btn btn-sm btn-ghost" onclick="editPhone()">Edit</button>
-      </div>
-    </section>
+  <nav class="mobile-nav">
+    <a href="admin_dashboard.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">🏠</span>
+      <span>Dashboard</span>
+    </a>
+    <a href="settings.html" class="mobile-nav-item active">
+      <span class="mobile-nav-icon">⚙️</span>
+      <span>Settings</span>
+    </a>
+  </nav>
 
-    <!-- Account Settings -->
-    <section class="settings-section">
-      <h2>Account</h2>
-      <div class="setting-item">
-        <div class="setting-info">
-          <h4>Change Password</h4>
-          <p>Update your account password</p>
-        </div>
-        <button class="btn btn-sm btn-secondary" onclick="changePassword()">Change</button>
-      </div>
-      <div class="setting-item">
-        <div class="setting-info">
-          <h4>Email Verification</h4>
-          <p id="emailVerificationStatus">Checking...</p>
-        </div>
-        <button class="btn btn-sm btn-ghost hidden" id="verifyEmailBtn" onclick="verifyEmail()">Verify</button>
-      </div>
-    </section>
-
-    <!-- Notifications -->
-    <section class="settings-section">
-      <h2>Notifications</h2>
-      <div class="setting-item">
-        <div class="setting-info">
-          <h4>Payment Reminders</h4>
-          <p>Notify me before payments are due</p>
-        </div>
-        <label class="switch">
-          <input type="checkbox" checked>
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="setting-item">
-        <div class="setting-info">
-          <h4>Loan Updates</h4>
-          <p>Notify me about loan status changes</p>
-        </div>
-        <label class="switch">
-          <input type="checkbox" checked>
-          <span class="slider"></span>
-        </label>
-      </div>
-    </section>
-
-    <!-- About -->
-    <section class="settings-section">
-      <h2>About</h2>
-      <div class="setting-item">
-        <div class="setting-info">
-          <h4>Version</h4>
-          <p>Bank Nkhonde v1.0.0</p>
-        </div>
-      </div>
-      <div class="setting-item">
-        <div class="setting-info">
-          <h4>Terms & Conditions</h4>
-          <p>Read our terms and conditions</p>
-        </div>
-        <button class="btn btn-sm btn-ghost">View</button>
-      </div>
-      <div class="setting-item">
-        <div class="setting-info">
-          <h4>Privacy Policy</h4>
-          <p>How we handle your data</p>
-        </div>
-        <button class="btn btn-sm btn-ghost">View</button>
-      </div>
-    </section>
-
-    <!-- Danger Zone -->
-    <section class="settings-section danger-zone">
-      <h2>Danger Zone</h2>
-      <div class="setting-item">
-        <div class="setting-info">
-          <h4>Logout</h4>
-          <p>Sign out of your account</p>
-        </div>
-        <button class="btn btn-sm btn-ghost" onclick="logout()">Logout</button>
-      </div>
-    </section>
-  </div>
-
-  <!-- Loading Overlay -->
   <div class="spinner-overlay hidden" id="spinner">
     <div class="spinner-content">
       <div class="spinner"></div>
-      <p class="loading-text">Loading...</p>
+      <p class="loading-text">Loading settings...</p>
     </div>
   </div>
 

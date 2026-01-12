@@ -31,3 +31,11 @@ Thumbs.db
 vendor/
 composer.phar
 composer.lock
+
+# Email configuration (contains sensitive credentials)
+config/email.config.js
+
+# Firebase Functions
+functions/node_modules/
+functions/.runtimeconfig.json
+functions/*.log

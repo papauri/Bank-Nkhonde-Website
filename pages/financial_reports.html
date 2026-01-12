@@ -2,27 +2,102 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#047857">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Financial Reports - Bank Nkhonde">
   <title>Financial Reports - Bank Nkhonde</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
-  <link rel="stylesheet" href="../styles/mobile-design-system.css">
+  <link rel="stylesheet" href="../styles/unified-page.css">
+  <link rel="icon" type="image/png" href="../assets/favicon.png">
 </head>
 <body>
-  <div class="mobile-header">
-    <button class="mobile-header-action" onclick="history.back()">←</button>
-    <h1 class="mobile-header-title">Financial Reports</h1>
-    <div style="width: 44px;"></div>
+  <div class="page-wrapper">
+    <div class="page-bg-shape"></div>
+
+    <div class="page-header">
+      <div class="page-header-content">
+        <div class="page-header-top">
+          <div>
+            <button onclick="history.back()" class="page-header-btn" style="position: absolute; left: var(--bn-spacing-md); top: var(--bn-spacing-lg);">←</button>
+            <h1 class="page-title" style="margin-left: 50px;">Financial Reports</h1>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-content">
+      <div class="group-selector">
+        <select id="groupSelector" class="form-select" style="background: transparent; border: none; color: white; width: 100%; padding: var(--bn-spacing-xs) 0;">
+          <option value="">Select a group...</option>
+        </select>
+      </div>
+
+      <div class="form-section">
+        <div class="form-group">
+          <label class="form-label">Report Type</label>
+          <select id="reportType" class="form-select">
+            <option value="monthly">Monthly Report</option>
+            <option value="yearly">Yearly Report</option>
+            <option value="cycle">Cycle Report</option>
+            <option value="custom">Custom Period</option>
+          </select>
+        </div>
+        <div class="form-group" id="periodSelector">
+          <label class="form-label">Select Period</label>
+          <input type="month" id="periodInput" class="form-input" value="">
+        </div>
+        <button class="btn btn-primary btn-block" id="generateReportBtn">Generate Report</button>
+      </div>
+
+      <div id="reportContent" style="display: none;">
+        <div class="content-section">
+          <div class="content-section-header">
+            <h2 class="content-section-title">Report Summary</h2>
+          </div>
+          <div id="reportSummary"></div>
+        </div>
+
+        <div class="content-section">
+          <div class="content-section-header">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+              <h2 class="content-section-title" style="margin: 0;">Report Details</h2>
+              <div>
+                <button class="btn btn-secondary btn-sm" id="exportPdfBtn">Export PDF</button>
+                <button class="btn btn-secondary btn-sm" id="exportExcelBtn">Export Excel</button>
+              </div>
+            </div>
+          </div>
+          <div id="reportDetails"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="mobile-container">
-    <div class="empty-state" style="padding: 60px 20px;">
-      <div class="empty-state-icon">📋</div>
-      <h2 style="margin: 16px 0;">Financial Reports</h2>
-      <p>This page is under construction. Full financial reporting features coming soon!</p>
-      <button class="btn btn-primary mt-4" onclick="history.back()">Go Back</button>
+  <nav class="mobile-nav">
+    <a href="admin_dashboard.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">🏠</span>
+      <span>Dashboard</span>
+    </a>
+    <a href="financial_reports.html" class="mobile-nav-item active">
+      <span class="mobile-nav-icon">📊</span>
+      <span>Reports</span>
+    </a>
+    <a href="analytics.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">📉</span>
+      <span>Analytics</span>
+    </a>
+    <a href="settings.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">⚙️</span>
+      <span>Settings</span>
+    </a>
+  </nav>
+
+  <div class="spinner-overlay hidden" id="spinner">
+    <div class="spinner-content">
+      <div class="spinner"></div>
+      <p class="loading-text">Generating report...</p>
     </div>
   </div>
 

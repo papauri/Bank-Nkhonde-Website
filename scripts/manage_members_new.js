@@ -1,6 +1,7 @@
 import {
   db,
   auth,
+  storage,
   onAuthStateChanged,
   collection,
   doc,
@@ -13,7 +14,10 @@ import {
   where,
   Timestamp,
   createUserWithEmailAndPassword,
-  sendEmailVerification
+  sendEmailVerification,
+  ref,
+  uploadBytes,
+  getDownloadURL,
 } from "./firebaseConfig.js";
 
 let currentUser = null;
@@ -218,13 +222,19 @@ function createMemberCard(member) {
   const totalPaid = member.financialSummary?.totalPaid || 0;
   const totalArrears = member.financialSummary?.totalArrears || 0;
 
+  // Profile picture or initials
+  const profilePicture = member.profileImageUrl 
+    ? `<img src="${member.profileImageUrl}" alt="${member.fullName}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid var(--bn-primary);">`
+    : `<div style="width: 50px; height: 50px; border-radius: 50%; background: var(--bn-primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 18px; border: 2px solid var(--bn-primary);">${initials}</div>`;
+
   return `
     <div class="member-card">
       <div class="member-header">
-        <div class="member-avatar">${initials}</div>
+        <div class="member-avatar">${profilePicture}</div>
         <div class="member-info">
           <div class="member-name">${member.fullName}</div>
           <div class="member-email">${member.email}</div>
+          ${member.career ? `<div style="font-size: 12px; color: var(--bn-gray); margin-top: 2px;">${member.career}${member.jobTitle ? ` - ${member.jobTitle}` : ''}</div>` : ''}
         </div>
         <div class="member-role-badge ${roleClass}">${roleName}</div>
       </div>
@@ -240,11 +250,11 @@ function createMemberCard(member) {
         </div>
         <div class="detail-item">
           <div class="detail-label">Total Paid</div>
-          <div class="detail-value">MWK ${formatCurrency(totalPaid)}</div>
+          <div class="detail-value">${formatCurrency(totalPaid)}</div>
         </div>
         <div class="detail-item">
           <div class="detail-label">Arrears</div>
-          <div class="detail-value">MWK ${formatCurrency(totalArrears)}</div>
+          <div class="detail-value">${formatCurrency(totalArrears)}</div>
         </div>
       </div>
       
@@ -321,12 +331,33 @@ async function handleAddMember(e) {
     return;
   }
 
+  // Collect all form data
   const formData = {
     fullName: document.getElementById("memberName").value.trim(),
     email: document.getElementById("memberEmail").value.trim(),
     phone: document.getElementById("memberPhone").value.trim(),
+    whatsappNumber: document.getElementById("memberWhatsApp").value.trim() || document.getElementById("memberPhone").value.trim(),
+    address: document.getElementById("memberAddress").value.trim(),
+    dateOfBirth: document.getElementById("memberDateOfBirth").value || null,
+    gender: document.getElementById("memberGender").value || null,
+    career: document.getElementById("memberCareer").value.trim(),
+    jobTitle: document.getElementById("memberJobTitle").value.trim() || null,
+    workplace: document.getElementById("memberWorkplace").value.trim() || null,
+    workAddress: document.getElementById("memberWorkAddress").value.trim() || null,
+    guarantorName: document.getElementById("memberGuarantorName").value.trim(),
+    guarantorPhone: document.getElementById("memberGuarantorPhone").value.trim(),
+    guarantorRelationship: document.getElementById("memberGuarantorRelationship").value,
+    guarantorAddress: document.getElementById("memberGuarantorAddress").value.trim() || null,
+    idType: document.getElementById("memberIdType").value || null,
+    idNumber: document.getElementById("memberIdNumber").value.trim() || null,
+    emergencyContact: document.getElementById("memberEmergencyContact").value.trim() || null,
+    emergencyContactPhone: document.getElementById("memberEmergencyContactPhone").value.trim() || null,
     role: document.getElementById("memberRole").value,
-    collateral: document.getElementById("memberCollateral").value.trim() || null
+    collateral: document.getElementById("memberCollateral").value.trim() || null,
+    notes: document.getElementById("memberNotes").value.trim() || null,
+    profileCompleted: false, // Will be completed when they log in
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now()
   };
 
   showLoading(true);
@@ -344,12 +375,50 @@ async function handleAddMember(e) {
     // Send verification email
     await sendEmailVerification(newUser);
 
-    // Create user document
+    // Upload profile picture if provided
+    let profileImageUrl = "";
+    const profilePictureInput = document.getElementById("memberProfilePicture");
+    if (profilePictureInput && profilePictureInput.files && profilePictureInput.files[0]) {
+      try {
+        const file = profilePictureInput.files[0];
+        if (file.size > 5 * 1024 * 1024) {
+          showToast("Profile picture must be less than 5MB");
+          showLoading(false);
+          return;
+        }
+        const storageRef = ref(storage, `profile-pictures/${newUser.uid}/${Date.now()}_${file.name}`);
+        await uploadBytes(storageRef, file);
+        profileImageUrl = await getDownloadURL(storageRef);
+      } catch (error) {
+        console.error("Error uploading profile picture:", error);
+        showToast("Error uploading profile picture. Continuing without it...");
+      }
+    }
+
+    // Create user document with all information
     await setDoc(doc(db, "users", newUser.uid), {
       uid: newUser.uid,
       email: formData.email,
       fullName: formData.fullName,
       phone: formData.phone,
+      whatsappNumber: formData.whatsappNumber,
+      address: formData.address,
+      dateOfBirth: formData.dateOfBirth,
+      gender: formData.gender,
+      career: formData.career,
+      jobTitle: formData.jobTitle,
+      workplace: formData.workplace,
+      workAddress: formData.workAddress,
+      guarantorName: formData.guarantorName,
+      guarantorPhone: formData.guarantorPhone,
+      guarantorRelationship: formData.guarantorRelationship,
+      guarantorAddress: formData.guarantorAddress,
+      idType: formData.idType,
+      idNumber: formData.idNumber,
+      emergencyContact: formData.emergencyContact,
+      emergencyContactPhone: formData.emergencyContactPhone,
+      profileImageUrl: profileImageUrl,
+      profileCompleted: false,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
       groupMemberships: [
@@ -367,17 +436,36 @@ async function handleAddMember(e) {
     const seedMoneyAmount = groupData?.rules?.seedMoney?.amount || 0;
     const monthlyContributionAmount = groupData?.rules?.monthlyContribution?.amount || 0;
 
-    // Create member document in group
+    // Create member document in group with all information
     await setDoc(doc(db, `groups/${selectedGroupId}/members`, newUser.uid), {
       uid: newUser.uid,
       fullName: formData.fullName,
       email: formData.email,
       phone: formData.phone,
+      whatsappNumber: formData.whatsappNumber,
+      address: formData.address,
+      dateOfBirth: formData.dateOfBirth,
+      gender: formData.gender,
+      career: formData.career,
+      jobTitle: formData.jobTitle,
+      workplace: formData.workplace,
+      workAddress: formData.workAddress,
+      guarantorName: formData.guarantorName,
+      guarantorPhone: formData.guarantorPhone,
+      guarantorRelationship: formData.guarantorRelationship,
+      guarantorAddress: formData.guarantorAddress,
+      idType: formData.idType,
+      idNumber: formData.idNumber,
+      emergencyContact: formData.emergencyContact,
+      emergencyContactPhone: formData.emergencyContactPhone,
+      profileImageUrl: profileImageUrl,
       role: formData.role,
       collateral: formData.collateral,
+      notes: formData.notes,
       joinedAt: Timestamp.now(),
       addedBy: currentUser.uid,
       status: "active",
+      profileCompleted: false,
       financialSummary: {
         totalPaid: 0,
         totalArrears: seedMoneyAmount,
@@ -443,7 +531,10 @@ function closeModal() {
 
 // Utility Functions
 function formatCurrency(amount) {
-  return new Intl.NumberFormat("en-MW").format(amount);
+  return `MWK ${parseFloat(amount || 0).toLocaleString('en-US', { 
+    minimumFractionDigits: 2, 
+    maximumFractionDigits: 2 
+  })}`;
 }
 
 function showLoading(show) {

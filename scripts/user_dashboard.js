@@ -1,6 +1,7 @@
 import {
   db,
   auth,
+  storage,
   collection,
   query,
   where,
@@ -12,6 +13,11 @@ import {
   onAuthStateChanged,
   signOut,
   Timestamp,
+  onSnapshot,
+  arrayUnion,
+  ref,
+  uploadBytes,
+  getDownloadURL,
 } from "./firebaseConfig.js";
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -53,7 +59,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Format currency
   function formatCurrency(amount) {
-    return "MWK " + Number(amount || 0).toLocaleString();
+    return `MWK ${parseFloat(amount || 0).toLocaleString('en-US', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    })}`;
   }
 
   // Get initials from name
@@ -98,7 +107,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (profileInitials) profileInitials.textContent = getInitials(userData.fullName);
         
         if (userData.profileImageUrl && profileAvatar) {
-          profileAvatar.innerHTML = '<img src="' + userData.profileImageUrl + '" alt="Profile">';
+          profileAvatar.innerHTML = '<img src="' + userData.profileImageUrl + '" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">';
+        } else if (profileInitials) {
+          profileInitials.textContent = getInitials(userData.fullName);
         }
         
         if (userData.createdAt && membershipInfo) {
@@ -356,17 +367,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (viewMembersBtn) {
     viewMembersBtn.addEventListener("click", () => {
-      if (userGroups.length === 1) {
-        window.location.href = "group_page.html?groupId=" + userGroups[0].id + "#members";
-      } else if (userGroups.length > 1) {
-        const groupId = prompt("Enter group name to view members:\n" + userGroups.map(g => g.groupName).join("\n"));
-        const selectedGroup = userGroups.find(g => g.groupName.toLowerCase() === groupId?.toLowerCase());
-        if (selectedGroup) {
-          window.location.href = "group_page.html?groupId=" + selectedGroup.id + "#members";
-        }
-      } else {
-        alert("You are not part of any groups.");
-      }
+      window.location.href = "contacts.html";
     });
   }
 
@@ -430,7 +431,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const amount = parseFloat(document.getElementById("loanAmount").value);
       const purpose = document.getElementById("loanPurpose").value;
       const description = document.getElementById("loanDescription").value;
-      const repaymentMonths = parseInt(document.getElementById("repaymentMonths").value);
       
       if (!groupId || !amount || !purpose) {
         alert("Please fill in all required fields.");
@@ -438,44 +438,178 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       
       try {
-        const group = userGroups.find(g => g.id === groupId);
-        const interestRate = group?.rules?.interestRate || 15;
-        const totalRepayable = amount * (1 + interestRate / 100);
-        const editFullName = document.getElementById("editFullName");
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        const userData = userDoc.data();
+        const borrowerName = userData?.fullName || currentUser.email;
         
         const loanData = {
           loanId: "loan_" + Date.now(),
           borrowerId: currentUser.uid,
-          borrowerName: editFullName?.value || currentUser.email,
+          borrowerName: borrowerName,
           borrowerEmail: currentUser.email,
           loanAmount: amount,
-          interestRate: interestRate,
-          totalRepayable: totalRepayable,
+          totalRepayable: 0, // Will be calculated on approval
           amountPaid: 0,
-          amountRemaining: totalRepayable,
+          amountRemaining: 0,
           status: "pending",
           requestedAt: Timestamp.now(),
           approvedAt: null,
           approvedBy: null,
-          repaymentPeriodMonths: repaymentMonths,
           purpose: description || purpose,
           purposeCategory: purpose,
+          description: description || "",
           repaymentSchedule: [],
-          penalties: { totalPenalties: 0, penaltyRate: 5, penaltiesApplied: [] },
-          collateral: "",
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now()
         };
         
-        await addDoc(collection(db, "groups/" + groupId + "/loans"), loanData);
+        await addDoc(collection(db, `groups/${groupId}/loans`), loanData);
         
         alert("Loan request submitted successfully! It will be reviewed by an admin.");
         closeModal(loanModal);
-        e.target.reset();
+        loanRequestForm.reset();
         
       } catch (error) {
-        console.error("Error submitting loan request:", error.message);
+        console.error("Error submitting loan request:", error);
         alert("Error submitting loan request. Please try again.");
+      }
+    });
+  }
+
+  // Payment Upload Form
+  const paymentUploadForm = document.getElementById("paymentUploadForm");
+  if (paymentUploadForm) {
+    paymentUploadForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      
+      const groupId = document.getElementById("paymentGroup").value;
+      const paymentType = document.getElementById("paymentType").value;
+      const amount = parseFloat(document.getElementById("paymentAmount").value);
+      const paymentDate = document.getElementById("paymentDate").value;
+      const proofFile = document.getElementById("paymentProof").files[0];
+      
+      if (!groupId || !paymentType || !amount || !paymentDate || !proofFile) {
+        alert("Please fill in all required fields and upload proof.");
+        return;
+      }
+      
+      try {
+        // Upload proof of payment
+        const storageRef = ref(storage, `payment-proofs/${currentUser.uid}/${Date.now()}_${proofFile.name}`);
+        await uploadBytes(storageRef, proofFile);
+        const proofUrl = await getDownloadURL(storageRef);
+
+        const currentYear = new Date().getFullYear();
+        const currentMonth = new Date().toLocaleString("default", { month: "long" });
+        const paymentDateObj = new Date(paymentDate);
+        
+        if (paymentType === "seed_money") {
+          // Update seed money payment
+          const seedMoneyRef = doc(db, `groups/${groupId}/payments/${currentYear}_SeedMoney/${currentUser.uid}/PaymentDetails`);
+          const seedMoneyDoc = await getDoc(seedMoneyRef);
+          
+          if (seedMoneyDoc.exists()) {
+            const seedMoneyData = seedMoneyDoc.data();
+            const paidArray = seedMoneyData.paid || [];
+            
+            paidArray.push({
+              amount: amount,
+              paymentDate: Timestamp.fromDate(paymentDateObj),
+              proofURL: proofUrl,
+              approvalStatus: "pending",
+              submittedAt: Timestamp.now()
+            });
+
+            await updateDoc(seedMoneyRef, {
+              paid: paidArray,
+              proofOfPayment: {
+                imageUrl: proofUrl,
+                uploadedAt: Timestamp.now()
+              },
+              approvalStatus: "pending",
+              paidAt: Timestamp.fromDate(paymentDateObj),
+              updatedAt: Timestamp.now()
+            });
+          } else {
+            // Create seed money document
+            await setDoc(seedMoneyRef, {
+              totalAmount: amount,
+              amountPaid: 0,
+              arrears: amount,
+              paid: [{
+                amount: amount,
+                paymentDate: Timestamp.fromDate(paymentDateObj),
+                proofURL: proofUrl,
+                approvalStatus: "pending",
+                submittedAt: Timestamp.now()
+              }],
+              proofOfPayment: {
+                imageUrl: proofUrl,
+                uploadedAt: Timestamp.now()
+              },
+              approvalStatus: "pending",
+              paymentStatus: "Pending",
+              paidAt: Timestamp.fromDate(paymentDateObj),
+              createdAt: Timestamp.now(),
+              updatedAt: Timestamp.now()
+            });
+          }
+        } else if (paymentType === "monthly_contribution") {
+          // Update monthly contribution
+          const monthlyRef = doc(db, `groups/${groupId}/payments/${currentYear}_MonthlyContributions/${currentUser.uid}/${currentYear}_${currentMonth}`);
+          const monthlyDoc = await getDoc(monthlyRef);
+          
+          if (monthlyDoc.exists()) {
+            const monthlyData = monthlyDoc.data();
+            const paidArray = monthlyData.paid || [];
+            
+            paidArray.push({
+              amount: amount,
+              paymentDate: Timestamp.fromDate(paymentDateObj),
+              proofURL: proofUrl,
+              approvalStatus: "pending",
+              submittedAt: Timestamp.now()
+            });
+
+            await updateDoc(monthlyRef, {
+              paid: paidArray,
+              approvalStatus: "pending",
+              updatedAt: Timestamp.now()
+            });
+          } else {
+            // Create monthly contribution document
+            const groupDoc = await getDoc(doc(db, "groups", groupId));
+            const groupData = groupDoc.data();
+            const monthlyAmount = groupData?.rules?.monthlyContribution?.amount || 0;
+            
+            await setDoc(monthlyRef, {
+              totalAmount: monthlyAmount,
+              amountPaid: 0,
+              arrears: monthlyAmount - amount,
+              paid: [{
+                amount: amount,
+                paymentDate: Timestamp.fromDate(paymentDateObj),
+                proofURL: proofUrl,
+                approvalStatus: "pending",
+                submittedAt: Timestamp.now()
+              }],
+              approvalStatus: "pending",
+              paymentStatus: "Pending",
+              year: currentYear,
+              month: currentMonth,
+              createdAt: Timestamp.now(),
+              updatedAt: Timestamp.now()
+            });
+          }
+        }
+
+        alert("Payment proof uploaded successfully! It will be reviewed by an admin.");
+        closeModal(paymentModal);
+        paymentUploadForm.reset();
+        
+      } catch (error) {
+        console.error("Error uploading payment:", error);
+        alert("Error uploading payment. Please try again.");
       }
     });
   }
@@ -582,6 +716,17 @@ document.addEventListener("DOMContentLoaded", () => {
   // Switch view button
   if (switchViewButton) {
     switchViewButton.addEventListener("click", () => {
+      // Store current view preference in sessionStorage
+      sessionStorage.setItem("viewMode", "admin");
+      window.location.href = "admin_dashboard.html";
+    });
+  }
+  
+  // Also handle the new ID if it exists
+  const switchViewBtn = document.getElementById("switchViewBtn");
+  if (switchViewBtn) {
+    switchViewBtn.addEventListener("click", () => {
+      sessionStorage.setItem("viewMode", "admin");
       window.location.href = "admin_dashboard.html";
     });
   }
@@ -612,6 +757,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       
       await loadUserGroups(user);
+      await loadNotifications();
       resetSessionTimer();
     } else {
       alert("No user is currently logged in. Redirecting to login...");
@@ -623,4 +769,201 @@ document.addEventListener("DOMContentLoaded", () => {
   ["click", "keypress", "mousemove", "scroll"].forEach((event) =>
     window.addEventListener(event, resetSessionTimer)
   );
+
+  /**
+   * Load notifications for current user
+   */
+  async function loadNotifications() {
+    try {
+      const notificationsList = document.getElementById('notificationsList');
+      const unreadBadge = document.getElementById('unreadBadge');
+      
+      if (!notificationsList || !currentUser) return;
+
+      // Get user's groups
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      if (!userDoc.exists()) return;
+
+      const userData = userDoc.data();
+      const groupMemberships = userData.groupMemberships || [];
+
+      if (groupMemberships.length === 0) {
+        notificationsList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📬</div><p class="empty-state-text">No notifications</p></div>';
+        return;
+      }
+
+      // Get notifications from all user's groups
+      const allNotifications = [];
+      for (const membership of groupMemberships) {
+        try {
+          const notificationsRef = collection(db, `groups/${membership.groupId}/notifications`);
+          const q = query(
+            notificationsRef,
+            where('recipientId', '==', currentUser.uid),
+            where('read', '==', false)
+          );
+          const snapshot = await getDocs(q);
+          
+          snapshot.forEach(doc => {
+            allNotifications.push({ ...doc.data(), id: doc.id, groupId: membership.groupId });
+          });
+        } catch (error) {
+          console.error(`Error loading notifications for group ${membership.groupId}:`, error);
+        }
+      }
+
+      // Sort by date (newest first)
+      allNotifications.sort((a, b) => {
+        const aTime = a.createdAt?.toMillis() || 0;
+        const bTime = b.createdAt?.toMillis() || 0;
+        return bTime - aTime;
+      });
+
+      // Update unread badge
+      if (unreadBadge) {
+        if (allNotifications.length > 0) {
+          unreadBadge.textContent = allNotifications.length;
+          unreadBadge.classList.remove('hidden');
+        } else {
+          unreadBadge.classList.add('hidden');
+        }
+      }
+
+      // Display notifications
+      if (allNotifications.length === 0) {
+        notificationsList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📬</div><p class="empty-state-text">No new notifications</p></div>';
+        return;
+      }
+
+      notificationsList.innerHTML = '';
+      allNotifications.forEach(notification => {
+        const notificationElement = createNotificationElement(notification);
+        notificationsList.appendChild(notificationElement);
+      });
+
+      // Set up real-time listener for new notifications
+      setupNotificationListener(groupMemberships);
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+    }
+  }
+
+  /**
+   * Create notification element
+   */
+  function createNotificationElement(notification) {
+    const div = document.createElement('div');
+    div.className = 'list-item notification-item';
+    if (!notification.read) {
+      div.classList.add('notification-unread');
+    }
+
+    const date = notification.createdAt?.toDate() || new Date();
+    const dateStr = date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    div.innerHTML = `
+      <div style="flex: 1; cursor: pointer;" class="notification-content">
+        <div class="list-item-title">${notification.title}</div>
+        <div class="list-item-subtitle">${notification.groupName} • ${dateStr}</div>
+        <div style="margin-top: 8px; color: rgba(255, 255, 255, 0.8); font-size: 14px;">${notification.message}</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+        <div class="badge badge-${notification.type || 'info'}">${notification.type || 'info'}</div>
+        ${notification.allowReplies ? '<button class="btn btn-sm" style="font-size: 12px; padding: 4px 8px;" data-reply-btn>Reply</button>' : ''}
+      </div>
+    `;
+
+    // Mark as read on click
+    div.querySelector('.notification-content').addEventListener('click', async () => {
+      await markNotificationAsRead(notification.id, notification.groupId);
+      div.classList.remove('notification-unread');
+    });
+
+    // Reply button
+    if (notification.allowReplies) {
+      div.querySelector('[data-reply-btn]').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await showReplyModal(notification);
+      });
+    }
+
+    return div;
+  }
+
+  /**
+   * Mark notification as read
+   */
+  async function markNotificationAsRead(notificationId, groupId) {
+    try {
+      const notificationRef = doc(db, `groups/${groupId}/notifications`, notificationId);
+      await updateDoc(notificationRef, {
+        read: true,
+        readAt: Timestamp.now()
+      });
+      
+      // Reload notifications to update badge
+      await loadNotifications();
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  }
+
+  /**
+   * Show reply modal
+   */
+  async function showReplyModal(notification) {
+    const replyText = prompt(`Reply to: ${notification.title}\n\nYour message:`);
+    if (!replyText || !replyText.trim()) return;
+
+    try {
+      const notificationRef = doc(db, `groups/${notification.groupId}/notifications`, notification.id);
+      const notificationDoc = await getDoc(notificationRef);
+      const currentReplies = notificationDoc.data()?.replies || [];
+
+      await updateDoc(notificationRef, {
+        replies: arrayUnion({
+          replyId: `reply_${Date.now()}`,
+          senderId: currentUser.uid,
+          senderName: currentUser.displayName || currentUser.email,
+          senderEmail: currentUser.email,
+          message: replyText.trim(),
+          createdAt: Timestamp.now()
+        })
+      });
+
+      alert('Your reply has been sent!');
+    } catch (error) {
+      console.error('Error sending reply:', error);
+      alert('Error sending reply. Please try again.');
+    }
+  }
+
+  /**
+   * Set up real-time notification listener
+   */
+  function setupNotificationListener(groupMemberships) {
+    groupMemberships.forEach(membership => {
+      try {
+        const notificationsRef = collection(db, `groups/${membership.groupId}/notifications`);
+        const q = query(
+          notificationsRef,
+          where('recipientId', '==', currentUser.uid),
+          where('read', '==', false)
+        );
+
+        onSnapshot(q, (snapshot) => {
+          // Reload notifications when new ones arrive
+          loadNotifications();
+        });
+      } catch (error) {
+        console.error(`Error setting up notification listener for group ${membership.groupId}:`, error);
+      }
+    });
+  }
 });

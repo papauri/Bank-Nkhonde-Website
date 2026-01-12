@@ -10,151 +10,352 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
-  <link rel="stylesheet" href="../styles/mobile-design-system.css">
+  <link rel="stylesheet" href="../styles/login.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
+    /* Admin Dashboard Specific Styles */
     body {
-      background: var(--bn-gray-lighter);
-      padding-bottom: 80px;
+      min-height: 100vh;
+      position: relative;
+      display: flex;
+      flex-direction: column;
     }
 
-    .admin-header {
-      background: var(--bn-gradient-dark);
+    .dashboard-main {
+      flex: 1;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Hero Section */
+    .dashboard-hero {
+      background: var(--bn-gradient-primary);
+      padding: var(--bn-space-4xl) var(--bn-space-xl);
       color: var(--bn-white);
-      padding: var(--bn-spacing-lg) var(--bn-spacing-md);
-      margin: 0;
-      border-radius: 0 0 var(--bn-radius-xl) var(--bn-radius-xl);
-      box-shadow: var(--bn-shadow-lg);
+      position: relative;
+      overflow: hidden;
     }
 
-    .header-top {
+    .dashboard-hero::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -20%;
+      width: 800px;
+      height: 800px;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+
+    .dashboard-hero-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    .dashboard-hero-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--bn-spacing-md);
+      align-items: flex-start;
+      margin-bottom: var(--bn-space-2xl);
+      flex-wrap: wrap;
+      gap: var(--bn-space-lg);
     }
 
-    .admin-greeting h1 {
-      font-size: var(--bn-font-xl);
-      margin-bottom: 4px;
+    .dashboard-hero-title h1 {
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 800;
+      margin: 0 0 var(--bn-space-sm) 0;
       color: var(--bn-white);
+      line-height: 1.2;
     }
 
-    .admin-greeting p {
-      font-size: var(--bn-font-sm);
-      opacity: 0.9;
+    .dashboard-hero-title p {
+      font-size: 1.125rem;
+      color: rgba(255, 255, 255, 0.9);
       margin: 0;
-      color: var(--bn-accent);
     }
 
-    .header-actions {
+    .dashboard-hero-actions {
       display: flex;
-      gap: var(--bn-spacing-xs);
+      gap: var(--bn-space-sm);
     }
 
-    .icon-btn {
-      width: 40px;
-      height: 40px;
+    .hero-action-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--bn-radius-lg);
+      border: 2px solid rgba(255, 255, 255, 0.3);
       background: rgba(255, 255, 255, 0.1);
-      border: none;
-      border-radius: 50%;
+      backdrop-filter: blur(10px);
       color: var(--bn-white);
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: all 0.2s ease;
-      backdrop-filter: blur(10px);
-      font-size: 20px;
+      transition: all var(--bn-transition-base);
+      font-size: 1.25rem;
+      text-decoration: none;
     }
 
-    .icon-btn:active {
+    .hero-action-btn:hover {
       background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.5);
+      transform: translateY(-2px);
     }
 
-    .admin-overview {
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
-      border-radius: var(--bn-radius-lg);
-      padding: var(--bn-spacing-md);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--bn-space-xl);
+      margin-top: var(--bn-space-2xl);
     }
 
-    .overview-label {
-      font-size: var(--bn-font-sm);
-      opacity: 0.9;
-      margin-bottom: 4px;
+    .hero-stat {
+      text-align: center;
     }
 
-    .overview-value {
-      font-size: 28px;
-      font-weight: 700;
+    .hero-stat-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: rgba(255, 255, 255, 0.8);
+      margin-bottom: var(--bn-space-sm);
+    }
+
+    .hero-stat-value {
+      font-size: clamp(1.75rem, 3vw, 2.5rem);
+      font-weight: 800;
+      color: var(--bn-white);
       margin: 0;
+      line-height: 1.2;
     }
 
-    .overview-subtext {
-      font-size: var(--bn-font-xs);
-      opacity: 0.8;
-      margin-top: 4px;
+    /* Main Content Container */
+    .dashboard-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: var(--bn-space-4xl) var(--bn-space-xl);
     }
 
-    .section-header {
+    /* Professional Container */
+    .content-container {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-xl);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      padding: var(--bn-space-2xl);
+      margin-bottom: var(--bn-space-xl);
+      border: 1px solid var(--bn-gray-lighter);
+    }
+
+    .container-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: var(--bn-spacing-md);
+      margin-bottom: var(--bn-space-xl);
+      padding-bottom: var(--bn-space-lg);
+      border-bottom: 2px solid var(--bn-gray-lighter);
     }
 
-    .section-title {
-      font-size: var(--bn-font-lg);
+    .container-title {
+      font-size: 1.5rem;
       font-weight: 700;
+      color: var(--bn-dark);
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-sm);
+    }
+
+    .container-title-icon {
+      font-size: 1.75rem;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: var(--bn-space-lg);
+    }
+
+    .stat-box {
+      text-align: center;
+      padding: var(--bn-space-lg);
+      background: var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+    }
+
+    .stat-box-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--bn-gray);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: var(--bn-space-sm);
+    }
+
+    .stat-box-value {
+      font-size: clamp(1.5rem, 2.5vw, 2rem);
+      font-weight: 800;
       color: var(--bn-dark);
       margin: 0;
     }
 
-    .badge {
-      background: var(--bn-danger);
-      color: var(--bn-white);
-      font-size: var(--bn-font-xs);
-      padding: 4px 10px;
-      border-radius: var(--bn-radius-full);
-      margin-left: 8px;
-      font-weight: 600;
+    .stat-box-value.success {
+      color: #10b981;
     }
 
-    .approval-item {
+    .stat-box-value.info {
+      color: #3b82f6;
+    }
+
+    .stat-box-value.warning {
+      color: #f59e0b;
+    }
+
+    .stat-box-value.danger {
+      color: #ef4444;
+    }
+
+    /* Action Grid */
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--bn-space-md);
+    }
+
+    .action-card {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-md);
+      padding: var(--bn-space-lg);
+      background: var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      text-decoration: none;
+      color: var(--bn-dark);
+      transition: all var(--bn-transition-base);
+      border: 2px solid transparent;
+    }
+
+    .action-card:hover {
       background: var(--bn-white);
-      padding: var(--bn-spacing-md);
-      border-radius: var(--bn-radius-md);
-      margin-bottom: var(--bn-spacing-sm);
-      box-shadow: var(--bn-shadow-sm);
-      border-left: 4px solid var(--bn-warning);
+      border-color: var(--bn-primary);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .action-icon {
+      width: 56px;
+      height: 56px;
+      background: var(--bn-gradient-primary);
+      border-radius: var(--bn-radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.75rem;
+      flex-shrink: 0;
+    }
+
+    .action-info h3 {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin: 0 0 var(--bn-space-xs) 0;
+    }
+
+    .action-info p {
+      font-size: 0.875rem;
+      color: var(--bn-gray);
+      margin: 0;
+    }
+
+    /* List Items */
+    .list-item {
+      padding: var(--bn-space-lg);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .list-item:last-child {
+      border-bottom: none;
+    }
+
+    .list-item:hover {
+      background: var(--bn-gray-lighter);
+    }
+
+    /* Group Cards */
+    .group-card {
+      display: block;
+      padding: var(--bn-space-lg);
+      background: var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      text-decoration: none;
+      color: var(--bn-dark);
+      transition: all var(--bn-transition-base);
+      border: 2px solid transparent;
+      margin-bottom: var(--bn-space-md);
+    }
+
+    .group-card:hover {
+      background: var(--bn-white);
+      border-color: var(--bn-primary);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .group-card h4 {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin: 0 0 var(--bn-space-sm) 0;
+    }
+
+    .group-info {
+      display: flex;
+      gap: var(--bn-space-lg);
+      font-size: 0.875rem;
+      color: var(--bn-gray);
+    }
+
+    /* Approval Items */
+    .approval-item {
+      padding: var(--bn-space-lg);
+      background: var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      margin-bottom: var(--bn-space-md);
+      border: 2px solid transparent;
+    }
+
+    .approval-item:hover {
+      background: var(--bn-white);
+      border-color: var(--bn-primary);
     }
 
     .approval-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: var(--bn-spacing-sm);
+      margin-bottom: var(--bn-space-md);
     }
 
     .approval-info h4 {
-      font-size: var(--bn-font-base);
-      font-weight: 600;
-      margin: 0 0 4px 0;
+      font-size: 1rem;
+      font-weight: 700;
       color: var(--bn-dark);
+      margin: 0 0 var(--bn-space-xs) 0;
     }
 
     .approval-info p {
-      font-size: var(--bn-font-sm);
+      font-size: 0.875rem;
       color: var(--bn-gray);
       margin: 0;
     }
 
     .approval-actions {
       display: flex;
-      gap: var(--bn-spacing-xs);
-      margin-top: var(--bn-spacing-sm);
+      gap: var(--bn-space-sm);
     }
 
     .btn-approve {
@@ -162,186 +363,392 @@
       color: var(--bn-white);
     }
 
+    .btn-approve:hover {
+      background: #059669;
+    }
+
     .btn-reject {
       background: var(--bn-danger);
       color: var(--bn-white);
     }
 
-    .group-card {
-      background: var(--bn-white);
-      padding: var(--bn-spacing-md);
-      border-radius: var(--bn-radius-md);
-      margin-bottom: var(--bn-spacing-sm);
-      box-shadow: var(--bn-shadow-sm);
-      cursor: pointer;
-      transition: all 0.2s ease;
-      text-decoration: none;
-      color: var(--bn-dark);
-      display: block;
-      border-left: 4px solid var(--bn-primary);
+    .btn-reject:hover {
+      background: #dc2626;
     }
 
-    .group-card:active {
-      transform: scale(0.98);
-      box-shadow: var(--bn-shadow-md);
-    }
-
-    .group-card h4 {
-      font-size: var(--bn-font-base);
-      font-weight: 600;
-      margin: 0 0 8px 0;
-    }
-
-    .group-info {
-      display: flex;
-      justify-content: space-between;
-      font-size: var(--bn-font-sm);
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: var(--bn-space-3xl);
       color: var(--bn-gray);
     }
 
-    .group-info span {
+    .empty-state-icon {
+      font-size: 64px;
+      margin-bottom: var(--bn-space-md);
+      opacity: 0.5;
+    }
+
+    .empty-state-text {
+      font-size: 1rem;
+    }
+
+    /* Badge */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--bn-space-xs);
+      padding: 0.25rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: var(--bn-radius-full);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: rgba(239, 68, 68, 0.1);
+      color: #ef4444;
+    }
+
+    .badge.hidden {
+      display: none;
+    }
+
+    /* Footer */
+    .dashboard-footer {
+      background: var(--bn-dark);
+      color: var(--bn-white);
+      padding: var(--bn-space-2xl) var(--bn-space-xl);
+      margin-top: auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    .footer-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: var(--bn-space-xl);
+    }
+
+    .footer-section h4 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin: 0 0 var(--bn-space-md) 0;
+      color: var(--bn-white);
+    }
+
+    .footer-section p,
+    .footer-section a {
+      font-size: 0.875rem;
+      color: rgba(255, 255, 255, 0.7);
+      text-decoration: none;
+      display: block;
+      margin-bottom: var(--bn-space-xs);
+      transition: color var(--bn-transition-base);
+    }
+
+    .footer-section a:hover {
+      color: var(--bn-white);
+    }
+
+    .footer-bottom {
+      max-width: 1200px;
+      margin: var(--bn-space-xl) auto 0;
+      padding-top: var(--bn-space-xl);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      text-align: center;
+      font-size: 0.875rem;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    /* Loading Overlay */
+    .spinner-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(4px);
       display: flex;
       align-items: center;
-      gap: 4px;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .spinner-overlay.hidden {
+      display: none;
+    }
+
+    .spinner-content {
+      text-align: center;
+      color: var(--bn-white);
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top-color: var(--bn-white);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto var(--bn-space-md);
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      font-size: 1rem;
+      margin: 0;
+    }
+
+    /* Responsive */
+    @media (max-width: 1023px) {
+      .dashboard-hero {
+        padding: var(--bn-space-3xl) var(--bn-space-lg);
+      }
+
+      .dashboard-content {
+        padding: var(--bn-space-2xl) var(--bn-space-lg);
+      }
+
+      .content-container {
+        padding: var(--bn-space-xl);
+      }
+
+      .hero-stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .action-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .dashboard-hero-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .hero-stats {
+        grid-template-columns: 1fr;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-content {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 <body>
-  <!-- Admin Header -->
-  <div class="admin-header">
-    <div class="header-top">
-      <div class="admin-greeting">
-        <h1>Admin Panel 👨‍💼</h1>
-        <p>Welcome, <span id="adminName">Admin</span></p>
-      </div>
-      <div class="header-actions">
-        <button class="icon-btn" id="switchViewBtn" aria-label="Switch to User View">
-          🔄
-        </button>
-        <button class="icon-btn" id="logoutBtn" aria-label="Logout">
-          🚪
-        </button>
+  <!-- Background Decoration (same as login.html) -->
+  <div class="login-bg">
+    <div class="login-bg-shape login-bg-shape-1"></div>
+    <div class="login-bg-shape login-bg-shape-2"></div>
+    <div class="login-bg-shape login-bg-shape-3"></div>
+  </div>
+
+  <!-- Main Dashboard -->
+  <div class="dashboard-main">
+    <!-- Hero Section -->
+    <div class="dashboard-hero">
+      <div class="dashboard-hero-content">
+        <div class="dashboard-hero-header">
+          <div class="dashboard-hero-title">
+            <h1>Admin Dashboard</h1>
+            <p>Welcome, <span id="adminName">Admin</span></p>
+          </div>
+          <div class="dashboard-hero-actions">
+            <button class="hero-action-btn" id="switchViewBtn" aria-label="Switch to User View" title="Switch to User View">
+              🔄
+            </button>
+            <button class="hero-action-btn" id="logoutBtn" aria-label="Logout" title="Logout">
+              🚪
+            </button>
+          </div>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <div class="hero-stat-label">Total Collections</div>
+            <div class="hero-stat-value" id="totalCollections">MWK 0</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-label">Active Loans</div>
+            <div class="hero-stat-value" id="activeLoans">0</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-label">Pending Approvals</div>
+            <div class="hero-stat-value" id="pendingApprovals">0</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-label">Total Arrears</div>
+            <div class="hero-stat-value" id="totalArrears">MWK 0</div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="admin-overview">
-      <p class="overview-label">Total Group Funds</p>
-      <h2 class="overview-value" id="totalFunds">MWK 0.00</h2>
-      <p class="overview-subtext"><span id="totalMembers">0</span> members • <span id="totalGroups">0</span> groups</p>
+    <!-- Main Content -->
+    <div class="dashboard-content">
+      <!-- Pending Approvals Container -->
+      <div class="content-container">
+        <div class="container-header">
+          <h2 class="container-title">
+            <span class="container-title-icon">⏳</span>
+            Pending Approvals
+            <span class="badge hidden" id="pendingBadge">0</span>
+          </h2>
+        </div>
+        <div id="pendingApprovalsList">
+          <div class="empty-state">
+            <div class="empty-state-icon">✅</div>
+            <p class="empty-state-text">No pending approvals</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions Container -->
+      <div class="content-container">
+        <div class="container-header">
+          <h2 class="container-title">
+            <span class="container-title-icon">⚡</span>
+            Quick Actions
+          </h2>
+        </div>
+        <div class="action-grid">
+          <a href="manage_loans.html" class="action-card">
+            <div class="action-icon">💰</div>
+            <div class="action-info">
+              <h3>Manage Loans</h3>
+              <p>Approve and track loan requests</p>
+            </div>
+          </a>
+          
+          <a href="manage_payments.html" class="action-card">
+            <div class="action-icon">💵</div>
+            <div class="action-info">
+              <h3>Manage Payments</h3>
+              <p>Approve contributions and payments</p>
+            </div>
+          </a>
+          
+          <a href="manage_members.html" class="action-card">
+            <div class="action-icon">👥</div>
+            <div class="action-info">
+              <h3>Manage Members</h3>
+              <p>Add, edit, and remove members</p>
+            </div>
+          </a>
+          
+          <a href="contributions_overview.html" class="action-card">
+            <div class="action-icon">📈</div>
+            <div class="action-info">
+              <h3>Contributions Overview</h3>
+              <p>Track monthly contributions</p>
+            </div>
+          </a>
+          
+          <a href="seed_money_overview.html" class="action-card">
+            <div class="action-icon">🌱</div>
+            <div class="action-info">
+              <h3>Seed Money Status</h3>
+              <p>Monitor seed money payments</p>
+            </div>
+          </a>
+          
+          <a href="interest_penalties.html" class="action-card">
+            <div class="action-icon">⚖️</div>
+            <div class="action-info">
+              <h3>Interest & Penalties</h3>
+              <p>View and edit rates</p>
+            </div>
+          </a>
+          
+          <a href="financial_reports.html" class="action-card">
+            <div class="action-icon">📊</div>
+            <div class="action-info">
+              <h3>Financial Reports</h3>
+              <p>Generate comprehensive reports</p>
+            </div>
+          </a>
+          
+          <a href="analytics.html" class="action-card">
+            <div class="action-icon">📉</div>
+            <div class="action-info">
+              <h3>Analytics</h3>
+              <p>View detailed analytics</p>
+            </div>
+          </a>
+          
+          <a href="broadcast_notifications.html" class="action-card">
+            <div class="action-icon">📢</div>
+            <div class="action-info">
+              <h3>Broadcast Messages</h3>
+              <p>Send notifications to members</p>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <!-- Managed Groups Container -->
+      <div class="content-container">
+        <div class="container-header">
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <h2 class="container-title" style="margin: 0;">
+              <span class="container-title-icon">📁</span>
+              Your Groups
+            </h2>
+            <a href="admin_registration.html" class="btn btn-primary btn-sm" style="text-decoration: none;">+ Create New</a>
+          </div>
+        </div>
+        <div id="groupsList">
+          <div class="empty-state">
+            <div class="empty-state-icon">📁</div>
+            <p class="empty-state-text">Loading groups...</p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Main Content -->
-  <div class="mobile-container">
-    <!-- Quick Stats -->
-    <div class="stats-grid">
-      <div class="stat-card success">
-        <div class="stat-label">Collections</div>
-        <div class="stat-value" id="totalCollections">MWK 0</div>
+  <!-- Footer -->
+  <footer class="dashboard-footer">
+    <div class="footer-content">
+      <div class="footer-section">
+        <h4>Bank Nkhonde</h4>
+        <p>Empowering communities through collaborative savings. Manage your ROSCA group with ease and transparency.</p>
       </div>
-      <div class="stat-card info">
-        <div class="stat-label">Active Loans</div>
-        <div class="stat-value" id="activeLoans">0</div>
+      <div class="footer-section">
+        <h4>Quick Links</h4>
+        <a href="admin_dashboard.html">Dashboard</a>
+        <a href="manage_members.html">Members</a>
+        <a href="analytics.html">Analytics</a>
+        <a href="settings.html">Settings</a>
       </div>
-      <div class="stat-card warning">
-        <div class="stat-label">Pending</div>
-        <div class="stat-value" id="pendingApprovals">0</div>
+      <div class="footer-section">
+        <h4>Support</h4>
+        <a href="#">Help Center</a>
+        <a href="#">Documentation</a>
+        <a href="#">Contact Us</a>
       </div>
-      <div class="stat-card danger">
-        <div class="stat-label">Arrears</div>
-        <div class="stat-value" id="totalArrears">MWK 0</div>
+      <div class="footer-section">
+        <h4>Legal</h4>
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+        <a href="#">Security</a>
       </div>
     </div>
-
-    <!-- Pending Approvals -->
-    <section>
-      <div class="section-header">
-        <h2 class="section-title">
-          Pending Approvals
-          <span class="badge hidden" id="pendingBadge">0</span>
-        </h2>
-      </div>
-      <div id="pendingApprovalsList">
-        <div class="empty-state">
-          <div class="empty-state-icon">✅</div>
-          <p>No pending approvals</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Quick Actions -->
-    <section>
-      <div class="section-header">
-        <h2 class="section-title">Quick Actions</h2>
-      </div>
-      <div class="actions-grid">
-        <a href="manage_loans.html" class="action-card">
-          <span class="action-icon">💰</span>
-          <h3>Manage Loans</h3>
-          <p>Approve loans</p>
-        </a>
-        <a href="manage_payments.html" class="action-card">
-          <span class="action-icon">💵</span>
-          <h3>Payments</h3>
-          <p>Track payments</p>
-        </a>
-        <a href="manage_members.html" class="action-card">
-          <span class="action-icon">👥</span>
-          <h3>Members</h3>
-          <p>Manage members</p>
-        </a>
-        <a href="financial_reports.html" class="action-card">
-          <span class="action-icon">📊</span>
-          <h3>Reports</h3>
-          <p>View reports</p>
-        </a>
-        <a href="contributions_overview.html" class="action-card">
-          <span class="action-icon">📈</span>
-          <h3>Contributions</h3>
-          <p>Track dues</p>
-        </a>
-        <a href="seed_money_overview.html" class="action-card">
-          <span class="action-icon">🌱</span>
-          <h3>Seed Money</h3>
-          <p>Monitor status</p>
-        </a>
-      </div>
-    </section>
-
-    <!-- Managed Groups -->
-    <section>
-      <div class="section-header">
-        <h2 class="section-title">Your Groups</h2>
-        <a href="admin_registration.html" class="section-link">+ Create New</a>
-      </div>
-      <div id="groupsList">
-        <div class="empty-state">
-          <div class="empty-state-icon">📁</div>
-          <p>Loading groups...</p>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  <!-- Mobile Navigation -->
-  <nav class="mobile-nav">
-    <a href="admin_dashboard.html" class="mobile-nav-item active">
-      <span class="mobile-nav-icon">🏠</span>
-      <span>Dashboard</span>
-    </a>
-    <a href="approve_registrations.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">✅</span>
-      <span>Approvals</span>
-    </a>
-    <a href="manage_members.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">👥</span>
-      <span>Members</span>
-    </a>
-    <a href="settings.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">⚙️</span>
-      <span>Settings</span>
-    </a>
-  </nav>
+    <div class="footer-bottom">
+      <p>&copy; 2024 Bank Nkhonde. All rights reserved.</p>
+    </div>
+  </footer>
 
   <!-- Loading Overlay -->
   <div class="spinner-overlay hidden" id="spinner">
