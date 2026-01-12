@@ -116,7 +116,7 @@ async function loadAdminData() {
           const userData = userDoc.data();
           if (!userData.profileCompleted) {
             // Redirect to profile completion
-            window.location.href = "pages/complete_profile.html";
+            window.location.href = "complete_profile.html";
             return;
           }
         }
