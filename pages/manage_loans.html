@@ -12,6 +12,208 @@
   <link rel="stylesheet" href="../styles/design-system.css">
   <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
+  <style>
+    .loan-card {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-xl);
+      border: 1px solid var(--bn-gray-lighter);
+      overflow: hidden;
+      margin-bottom: var(--bn-space-4);
+      transition: all var(--bn-transition-fast);
+    }
+
+    .loan-card:hover {
+      box-shadow: var(--bn-shadow-md);
+      border-color: var(--bn-accent);
+    }
+
+    .loan-card-header {
+      padding: var(--bn-space-4) var(--bn-space-5);
+      background: var(--bn-gray-100);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--bn-gray-lighter);
+    }
+
+    .loan-borrower {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+    }
+
+    .loan-borrower-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--bn-radius-full);
+      background: var(--bn-gradient-primary);
+      color: var(--bn-white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+    }
+
+    .loan-borrower-name {
+      font-weight: 600;
+      color: var(--bn-dark);
+    }
+
+    .loan-borrower-date {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+
+    .loan-card-body {
+      padding: var(--bn-space-5);
+    }
+
+    .loan-details-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--bn-space-4);
+      margin-bottom: var(--bn-space-5);
+    }
+
+    .loan-detail {
+      text-align: center;
+      padding: var(--bn-space-3);
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-lg);
+    }
+
+    .loan-detail-value {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      color: var(--bn-dark);
+    }
+
+    .loan-detail-label {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      margin-top: 2px;
+    }
+
+    .loan-progress {
+      margin-bottom: var(--bn-space-5);
+    }
+
+    .loan-progress-bar {
+      height: 8px;
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-full);
+      overflow: hidden;
+    }
+
+    .loan-progress-fill {
+      height: 100%;
+      background: var(--bn-gradient-accent);
+      border-radius: var(--bn-radius-full);
+      transition: width 0.5s ease;
+    }
+
+    .loan-progress-text {
+      display: flex;
+      justify-content: space-between;
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      margin-top: var(--bn-space-2);
+    }
+
+    .loan-actions {
+      display: flex;
+      gap: var(--bn-space-2);
+      flex-wrap: wrap;
+    }
+
+    .loan-actions .btn {
+      flex: 1;
+      min-width: 120px;
+    }
+
+    .action-tabs {
+      display: flex;
+      gap: var(--bn-space-2);
+      margin-bottom: var(--bn-space-6);
+      padding: var(--bn-space-2);
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-full);
+      overflow-x: auto;
+    }
+
+    .action-tab {
+      padding: var(--bn-space-3) var(--bn-space-5);
+      border: none;
+      background: transparent;
+      border-radius: var(--bn-radius-full);
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-gray);
+      cursor: pointer;
+      transition: all var(--bn-transition-fast);
+      white-space: nowrap;
+    }
+
+    .action-tab.active {
+      background: var(--bn-white);
+      color: var(--bn-dark);
+      box-shadow: var(--bn-shadow-sm);
+    }
+
+    .quick-action-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--bn-space-4);
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .quick-action-card {
+      padding: var(--bn-space-5);
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-xl);
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--bn-transition-fast);
+    }
+
+    .quick-action-card:hover {
+      border-color: var(--bn-accent);
+      box-shadow: var(--bn-shadow-md);
+      transform: translateY(-2px);
+    }
+
+    .quick-action-icon {
+      font-size: 2rem;
+      margin-bottom: var(--bn-space-3);
+    }
+
+    .quick-action-title {
+      font-weight: 600;
+      color: var(--bn-dark);
+    }
+
+    .quick-action-desc {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      margin-top: var(--bn-space-1);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--bn-space-4);
+    }
+
+    @media (max-width: 768px) {
+      .loan-details-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
   <!-- Page Header -->
@@ -26,7 +228,7 @@
           </button>
           <div>
             <h1 class="page-title">Manage Loans</h1>
-            <p class="page-subtitle">Approve and track loan requests</p>
+            <p class="page-subtitle">Full loan lifecycle management</p>
           </div>
         </div>
         <div class="page-header-actions">
@@ -63,32 +265,261 @@
 
   <!-- Page Content -->
   <main class="page-content">
-    <!-- Pending Loan Requests -->
-    <section class="content-section">
-      <div class="content-section-header">
-        <h2 class="content-section-title">Pending Loan Requests</h2>
+    <!-- Quick Actions -->
+    <div class="quick-action-grid">
+      <div class="quick-action-card" id="newLoanBtn">
+        <div class="quick-action-icon">💰</div>
+        <div class="quick-action-title">New Loan</div>
+        <div class="quick-action-desc">Disburse loan to member</div>
       </div>
-      <div class="content-section-body" id="pendingLoansList">
-        <div class="empty-state">
-          <div class="empty-state-icon">💰</div>
-          <p class="empty-state-text">No pending loan requests</p>
-        </div>
+      <div class="quick-action-card" id="recordPaymentBtn">
+        <div class="quick-action-icon">💳</div>
+        <div class="quick-action-title">Record Payment</div>
+        <div class="quick-action-desc">Manual loan repayment</div>
       </div>
-    </section>
+      <div class="quick-action-card" id="loanSettingsBtn">
+        <div class="quick-action-icon">⚙️</div>
+        <div class="quick-action-title">Loan Settings</div>
+        <div class="quick-action-desc">Interest & penalties</div>
+      </div>
+      <div class="quick-action-card" id="communicationsBtn">
+        <div class="quick-action-icon">📧</div>
+        <div class="quick-action-title">Communications</div>
+        <div class="quick-action-desc">Send reminders</div>
+      </div>
+    </div>
 
-    <!-- Active Loans -->
-    <section class="content-section">
-      <div class="content-section-header">
-        <h2 class="content-section-title">Active Loans</h2>
+    <!-- Action Tabs -->
+    <div class="action-tabs">
+      <button class="action-tab active" data-tab="pending">Pending Requests</button>
+      <button class="action-tab" data-tab="active">Active Loans</button>
+      <button class="action-tab" data-tab="repaid">Repaid</button>
+      <button class="action-tab" data-tab="overdue">Overdue</button>
+    </div>
+
+    <!-- Loans List -->
+    <div id="loansContainer">
+      <div class="empty-state">
+        <div class="empty-state-icon">💰</div>
+        <p class="empty-state-text">Select a group to manage loans</p>
       </div>
-      <div class="content-section-body" id="activeLoansList">
-        <div class="empty-state">
-          <div class="empty-state-icon">📋</div>
-          <p class="empty-state-text">No active loans</p>
-        </div>
-      </div>
-    </section>
+    </div>
   </main>
+
+  <!-- New Loan Modal -->
+  <div class="modal-overlay" id="newLoanModal">
+    <div class="modal-content" style="max-width: 560px;">
+      <div class="modal-header">
+        <h2 class="modal-title">Disburse New Loan</h2>
+        <button class="modal-close" id="closeNewLoanModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="newLoanForm">
+          <div class="form-group">
+            <label class="form-label">Select Member *</label>
+            <select class="form-select" id="loanMember" required>
+              <option value="">Choose a member...</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Loan Amount (MWK) *</label>
+              <input type="number" class="form-input" id="loanAmount" required min="1000" step="100" placeholder="Enter amount">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Repayment Period *</label>
+              <select class="form-select" id="loanPeriod" required>
+                <option value="1">1 Month</option>
+                <option value="2">2 Months</option>
+                <option value="3">3 Months</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Interest Rate (%)</label>
+              <input type="number" class="form-input" id="loanInterestRate" step="0.5" placeholder="Auto from settings">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Disbursement Date *</label>
+              <input type="date" class="form-input" id="loanDisbursementDate" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Purpose / Notes</label>
+            <textarea class="form-textarea" id="loanPurpose" rows="2" placeholder="Loan purpose or notes..."></textarea>
+          </div>
+          <div class="form-group" style="background: var(--bn-gray-100); padding: var(--bn-space-4); border-radius: var(--bn-radius-lg);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: var(--bn-space-2);">
+              <span class="form-label" style="margin: 0;">Total Interest:</span>
+              <span id="calculatedInterest" style="font-weight: 600;">MWK 0</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span class="form-label" style="margin: 0;">Total Repayable:</span>
+              <span id="calculatedTotal" style="font-weight: 700; color: var(--bn-primary);">MWK 0</span>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="cancelNewLoan">Cancel</button>
+        <button type="submit" form="newLoanForm" class="btn btn-accent">Disburse Loan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Record Payment Modal -->
+  <div class="modal-overlay" id="recordPaymentModal">
+    <div class="modal-content" style="max-width: 480px;">
+      <div class="modal-header">
+        <h2 class="modal-title">Record Loan Payment</h2>
+        <button class="modal-close" id="closeRecordPaymentModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="recordPaymentForm">
+          <input type="hidden" id="paymentLoanId">
+          <div class="form-group">
+            <label class="form-label">Select Loan *</label>
+            <select class="form-select" id="paymentLoanSelect" required>
+              <option value="">Choose an active loan...</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Payment Amount (MWK) *</label>
+              <input type="number" class="form-input" id="paymentAmount" required min="100" step="100">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Payment Date *</label>
+              <input type="date" class="form-input" id="paymentDate" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Payment Method</label>
+            <select class="form-select" id="paymentMethod">
+              <option value="cash">Cash</option>
+              <option value="bank_transfer">Bank Transfer</option>
+              <option value="mobile_money">Mobile Money</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes</label>
+            <textarea class="form-textarea" id="paymentNotes" rows="2" placeholder="Payment notes..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="cancelRecordPayment">Cancel</button>
+        <button type="submit" form="recordPaymentForm" class="btn btn-accent">Record Payment</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loan Settings Modal -->
+  <div class="modal-overlay" id="loanSettingsModal">
+    <div class="modal-content" style="max-width: 560px;">
+      <div class="modal-header">
+        <h2 class="modal-title">Loan Settings</h2>
+        <button class="modal-close" id="closeLoanSettingsModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="loanSettingsForm">
+          <div class="form-section" style="margin-bottom: var(--bn-space-6);">
+            <h4 style="font-size: var(--bn-text-sm); font-weight: 700; color: var(--bn-gray); text-transform: uppercase; margin-bottom: var(--bn-space-4);">Interest Rates</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Month 1 Interest (%)</label>
+                <input type="number" class="form-input" id="interestMonth1" step="0.5" min="0" max="100">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Month 2 Interest (%)</label>
+                <input type="number" class="form-input" id="interestMonth2" step="0.5" min="0" max="100">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Month 3+ Interest (%)</label>
+              <input type="number" class="form-input" id="interestMonth3" step="0.5" min="0" max="100">
+            </div>
+          </div>
+          <div class="form-section" style="margin-bottom: var(--bn-space-6);">
+            <h4 style="font-size: var(--bn-text-sm); font-weight: 700; color: var(--bn-gray); text-transform: uppercase; margin-bottom: var(--bn-space-4);">Penalties</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Late Payment Penalty (%)</label>
+                <input type="number" class="form-input" id="loanPenaltyRate" step="0.5" min="0" max="100">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Grace Period (days)</label>
+                <input type="number" class="form-input" id="gracePeriod" min="0" max="30">
+              </div>
+            </div>
+          </div>
+          <div class="form-section">
+            <h4 style="font-size: var(--bn-text-sm); font-weight: 700; color: var(--bn-gray); text-transform: uppercase; margin-bottom: var(--bn-space-4);">Loan Limits</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Minimum Loan (MWK)</label>
+                <input type="number" class="form-input" id="minLoanAmount" min="0" step="1000">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Maximum Loan (MWK)</label>
+                <input type="number" class="form-input" id="maxLoanAmount" min="0" step="1000">
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="cancelLoanSettings">Cancel</button>
+        <button type="submit" form="loanSettingsForm" class="btn btn-accent">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Communications Modal -->
+  <div class="modal-overlay" id="communicationsModal">
+    <div class="modal-content" style="max-width: 520px;">
+      <div class="modal-header">
+        <h2 class="modal-title">Send Loan Reminder</h2>
+        <button class="modal-close" id="closeCommunicationsModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="communicationsForm">
+          <div class="form-group">
+            <label class="form-label">Send To *</label>
+            <select class="form-select" id="reminderRecipient" required>
+              <option value="all_overdue">All Overdue Borrowers</option>
+              <option value="all_active">All Active Borrowers</option>
+              <option value="specific">Specific Member</option>
+            </select>
+          </div>
+          <div class="form-group" id="specificMemberGroup" style="display: none;">
+            <label class="form-label">Select Member</label>
+            <select class="form-select" id="specificMember">
+              <option value="">Choose member...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Message Type *</label>
+            <select class="form-select" id="messageType" required>
+              <option value="payment_reminder">Payment Reminder</option>
+              <option value="overdue_notice">Overdue Notice</option>
+              <option value="penalty_warning">Penalty Warning</option>
+              <option value="custom">Custom Message</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Message *</label>
+            <textarea class="form-textarea" id="reminderMessage" rows="4" required></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="cancelCommunications">Cancel</button>
+        <button type="submit" form="communicationsForm" class="btn btn-accent">Send Reminder</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Mobile Navigation -->
   <nav class="mobile-nav">
@@ -117,13 +548,10 @@
   <div class="spinner-overlay hidden" id="spinner">
     <div class="spinner-content">
       <div class="spinner"></div>
-      <p class="loading-text">Loading loans...</p>
+      <p class="loading-text">Loading...</p>
     </div>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module" src="../scripts/manage_loans.js"></script>
 </body>
 </html>

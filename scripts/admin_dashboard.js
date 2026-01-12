@@ -178,54 +178,77 @@ async function loadDashboardStats() {
     let activeLoansCount = 0;
     let totalArrearsAmount = 0;
     let pendingApprovalsCount = 0;
+    const monthlyCollections = {};
     
     // Calculate stats for current group or all groups
     const groupsToProcess = currentGroup ? [currentGroup] : adminGroups;
+    const currentYear = new Date().getFullYear();
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    
+    // Initialize monthly collections
+    months.forEach(month => { monthlyCollections[month] = 0; });
     
     for (const group of groupsToProcess) {
-      const groupDoc = await getDoc(doc(db, "groups", group.groupId));
-      if (groupDoc.exists()) {
-        const groupData = groupDoc.data();
-        const stats = groupData.statistics || {};
-        
-        totalCollectionsAmount += stats.totalCollections || 0;
-        activeLoansCount += stats.totalLoansActive || 0;
-        totalArrearsAmount += stats.totalArrears || 0;
-      }
+      const groupId = group.groupId;
       
-      // Count pending approvals
-      const currentYear = new Date().getFullYear();
-      const membersRef = collection(db, "groups", group.groupId, "members");
+      // Get members
+      const membersRef = collection(db, "groups", groupId, "members");
       const membersSnapshot = await getDocs(membersRef);
+      const memberIds = membersSnapshot.docs.map(d => d.id);
       
-      for (const memberDoc of membersSnapshot.docs) {
-        const userId = memberDoc.id;
-        
-        // Check pending payments
+      // Calculate actual collections from payments
+      for (const userId of memberIds) {
+        // Seed Money collections
         try {
-          const seedMoneyRef = doc(db, `groups/${group.groupId}/payments/${currentYear}_SeedMoney/${userId}/PaymentDetails`);
+          const seedMoneyRef = doc(db, `groups/${groupId}/payments/${currentYear}_SeedMoney/${userId}/PaymentDetails`);
           const seedMoneyDoc = await getDoc(seedMoneyRef);
-          if (seedMoneyDoc.exists() && seedMoneyDoc.data().approvalStatus === "pending") {
-            pendingApprovalsCount++;
+          if (seedMoneyDoc.exists()) {
+            const data = seedMoneyDoc.data();
+            totalCollectionsAmount += parseFloat(data.amountPaid || 0);
+            totalArrearsAmount += parseFloat(data.arrears || 0);
+            if (data.approvalStatus === "pending") pendingApprovalsCount++;
           }
         } catch (e) {}
         
+        // Monthly contributions
         try {
-          const monthlyRef = collection(db, `groups/${group.groupId}/payments/${currentYear}_MonthlyContributions/${userId}`);
+          const monthlyRef = collection(db, `groups/${groupId}/payments/${currentYear}_MonthlyContributions/${userId}`);
           const monthlySnapshot = await getDocs(monthlyRef);
           monthlySnapshot.forEach(monthDoc => {
-            if (monthDoc.data().approvalStatus === "pending") {
-              pendingApprovalsCount++;
+            const data = monthDoc.data();
+            const amountPaid = parseFloat(data.amountPaid || 0);
+            totalCollectionsAmount += amountPaid;
+            totalArrearsAmount += parseFloat(data.arrears || 0);
+            
+            // Track monthly collections for chart
+            const month = data.month;
+            if (month && monthlyCollections[month] !== undefined) {
+              monthlyCollections[month] += amountPaid;
             }
+            
+            if (data.approvalStatus === "pending") pendingApprovalsCount++;
           });
         } catch (e) {}
       }
       
-      // Pending loans
-      const loansRef = collection(db, "groups", group.groupId, "loans");
-      const pendingLoansQuery = query(loansRef, where("status", "==", "pending"));
-      const pendingLoansSnapshot = await getDocs(pendingLoansQuery);
-      pendingApprovalsCount += pendingLoansSnapshot.size;
+      // Count active loans
+      try {
+        const loansRef = collection(db, "groups", groupId, "loans");
+        const activeLoansQuery = query(loansRef, where("status", "==", "active"));
+        const activeLoansSnapshot = await getDocs(activeLoansQuery);
+        activeLoansCount += activeLoansSnapshot.size;
+        
+        // Add loan interest to collections
+        activeLoansSnapshot.forEach(loanDoc => {
+          const loan = loanDoc.data();
+          totalCollectionsAmount += parseFloat(loan.interestEarned || 0);
+        });
+        
+        // Pending loans
+        const pendingLoansQuery = query(loansRef, where("status", "==", "pending"));
+        const pendingLoansSnapshot = await getDocs(pendingLoansQuery);
+        pendingApprovalsCount += pendingLoansSnapshot.size;
+      } catch (e) {}
     }
     
     // Update UI safely
@@ -234,9 +257,55 @@ async function loadDashboardStats() {
     if (pendingApprovals) pendingApprovals.textContent = pendingApprovalsCount;
     if (totalArrears) totalArrears.textContent = formatCurrency(totalArrearsAmount);
     
+    // Render collection trends chart
+    renderCollectionTrends(monthlyCollections);
+    
   } catch (error) {
     console.error("Error loading dashboard stats:", error);
   }
+}
+
+// Render collection trends chart
+function renderCollectionTrends(monthlyData) {
+  const chartContainer = document.querySelector('.chart-container');
+  if (!chartContainer) return;
+  
+  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const currentMonth = new Date().getMonth();
+  
+  // Get last 6 months of data
+  const last6Months = [];
+  for (let i = 5; i >= 0; i--) {
+    const monthIndex = (currentMonth - i + 12) % 12;
+    const monthName = months[monthIndex];
+    last6Months.push({
+      name: monthName.substring(0, 3),
+      amount: monthlyData[monthName] || 0
+    });
+  }
+  
+  // Find max for scaling
+  const maxAmount = Math.max(...last6Months.map(m => m.amount), 1);
+  
+  let chartHTML = '';
+  last6Months.forEach(month => {
+    const heightPercent = Math.max((month.amount / maxAmount) * 100, 5);
+    chartHTML += `
+      <div class="chart-bar-wrapper">
+        <div class="chart-bar" style="height: 200px; --bar-height: ${heightPercent}%;" title="${formatCurrency(month.amount)}"></div>
+        <span class="chart-label">${month.name}</span>
+      </div>
+    `;
+  });
+  
+  chartContainer.innerHTML = chartHTML;
+  
+  // Animate bars
+  setTimeout(() => {
+    chartContainer.querySelectorAll('.chart-bar').forEach(bar => {
+      bar.classList.add('animated');
+    });
+  }, 100);
 }
 
 async function loadGroups() {

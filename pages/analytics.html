@@ -86,6 +86,72 @@
 
     .legend-dot.income { background: var(--bn-gradient-accent); }
     .legend-dot.expense { background: var(--bn-gray-400); }
+
+    /* Performance List */
+    .performance-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--bn-space-3);
+    }
+
+    .performance-item {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-4);
+      padding: var(--bn-space-4);
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-lg);
+      transition: all var(--bn-transition-fast);
+    }
+
+    .performance-item:hover {
+      background: var(--bn-white);
+      box-shadow: var(--bn-shadow-sm);
+    }
+
+    .performance-rank {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--bn-radius-full);
+      background: var(--bn-primary);
+      color: var(--bn-white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: var(--bn-text-sm);
+    }
+
+    .performance-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .performance-name {
+      font-weight: 600;
+      color: var(--bn-dark);
+      margin-bottom: 2px;
+    }
+
+    .performance-stats {
+      font-size: var(--bn-text-xs);
+      display: flex;
+      gap: var(--bn-space-3);
+    }
+
+    .performance-stats .text-success { color: var(--bn-success); }
+    .performance-stats .text-danger { color: var(--bn-danger); }
+
+    .performance-rate {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      padding: var(--bn-space-2) var(--bn-space-3);
+      border-radius: var(--bn-radius-md);
+    }
+
+    .performance-rate.good { background: var(--bn-success-light); color: var(--bn-success); }
+    .performance-rate.warning { background: var(--bn-warning-light); color: var(--bn-warning); }
+    .performance-rate.danger { background: var(--bn-danger-light); color: var(--bn-danger); }
   </style>
 </head>
 <body>

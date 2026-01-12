@@ -1,298 +1,424 @@
 import {
   db,
   auth,
-  doc,
-  getDoc,
   collection,
+  doc,
   getDocs,
+  getDoc,
+  query,
+  where,
   onAuthStateChanged,
+  Timestamp,
 } from "./firebaseConfig.js";
 
-// Ensure user is signed in
-onAuthStateChanged(auth, (user) => {
-  if (!user) {
-    alert("You must be signed in to access this page.");
+// Global state
+let currentUser = null;
+let selectedGroupId = null;
+let userGroups = [];
+let analyticsData = {
+  totalIncome: 0,
+  totalExpenses: 0,
+  netProfit: 0,
+  loanInterest: 0,
+  monthlyData: [],
+  memberPerformance: [],
+};
+
+// DOM Elements
+const groupSelector = document.getElementById("groupSelector");
+const totalIncomeEl = document.getElementById("totalIncome");
+const totalExpensesEl = document.getElementById("totalExpenses");
+const netProfitEl = document.getElementById("netProfit");
+const loanInterestEl = document.getElementById("loanInterest");
+const chartContainer = document.getElementById("chartContainer");
+const memberPerformanceEl = document.getElementById("memberPerformance");
+const spinner = document.getElementById("spinner");
+
+// Initialize
+document.addEventListener("DOMContentLoaded", () => {
+  setupEventListeners();
+});
+
+// Auth state listener
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUser = user;
+    await loadUserGroups();
+  } else {
     window.location.href = "../login.html";
   }
 });
 
-document.addEventListener("DOMContentLoaded", async () => {
-  const groupSelect = document.getElementById("groupSelect");
-  const backButton = document.getElementById("backButton");
-  
-  // Back button navigation
-  backButton.addEventListener("click", () => {
-    window.location.href = "admin_dashboard.html";
-  });
-
-  // Load admin's groups
-  async function loadGroups() {
-    try {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const groupsRef = collection(db, "groups");
-      const querySnapshot = await getDocs(groupsRef);
-      
-      groupSelect.innerHTML = '<option value="">Select a group...</option>';
-      
-      querySnapshot.forEach((docSnapshot) => {
-        const groupData = docSnapshot.data();
-        const isAdmin = groupData.admins?.some(
-          (admin) => admin.email === user.email || admin.uid === user.uid
-        );
-        
-        if (isAdmin) {
-          const option = document.createElement("option");
-          option.value = docSnapshot.id;
-          option.textContent = groupData.groupName;
-          groupSelect.appendChild(option);
-        }
-      });
-    } catch (error) {
-      console.error("Error loading groups:", error);
-      alert("Error loading groups.");
-    }
+// Setup event listeners
+function setupEventListeners() {
+  if (groupSelector) {
+    groupSelector.addEventListener("change", async (e) => {
+      selectedGroupId = e.target.value;
+      if (selectedGroupId) {
+        sessionStorage.setItem("selectedGroupId", selectedGroupId);
+        await loadAnalytics();
+      }
+    });
   }
 
-  // Load financial analytics for selected group
-  async function loadAnalytics(groupId) {
-    if (!groupId) {
-      resetAnalytics();
+  // Tab switching
+  document.querySelectorAll(".tab").forEach((tab) => {
+    tab.addEventListener("click", async () => {
+      document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+      tab.classList.add("active");
+      if (selectedGroupId) {
+        await loadAnalytics();
+      }
+    });
+  });
+}
+
+// Load user groups
+async function loadUserGroups() {
+  showSpinner(true);
+
+  try {
+    const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+    if (!userDoc.exists()) {
+      showToast("User profile not found", "error");
       return;
     }
 
-    try {
-      // Fetch group details
-      const groupDoc = await getDoc(doc(db, "groups", groupId));
-      if (!groupDoc.exists()) {
-        alert("Group not found!");
-        return;
-      }
+    const userData = userDoc.data();
+    const groupsRef = collection(db, "groups");
+    const groupsSnapshot = await getDocs(groupsRef);
 
+    userGroups = [];
+    groupsSnapshot.forEach((groupDoc) => {
       const groupData = groupDoc.data();
-      
-      // Fetch all members
-      const membersSnapshot = await getDocs(collection(db, `groups/${groupId}/members`));
-      const totalMembers = membersSnapshot.size;
-      
-      // Calculate financial metrics
-      const currentYear = new Date().getFullYear();
-      const currentMonth = new Date().toLocaleString("default", { month: "long" });
-      
-      let totalCollected = 0;
-      let totalExpected = 0;
-      let totalArrears = 0;
-      let fullyPaidCount = 0;
-      let partiallyPaidCount = 0;
-      let unpaidCount = 0;
-      
-      const memberPerformance = [];
+      const groupId = groupDoc.id;
 
-      // Process each member's payments
-      for (const memberDoc of membersSnapshot.docs) {
-        const memberData = memberDoc.data();
-        const memberId = memberDoc.id;
-        
-        let memberPaid = 0;
-        let memberExpected = 0;
-        let memberArrears = 0;
+      const isCreator = groupData.createdBy === currentUser.uid;
+      const isAdmin = groupData.admins?.some((a) => a.uid === currentUser.uid || a.email === currentUser.email);
+      const memberships = userData.groupMemberships || [];
+      const isMemberAdmin = memberships.some((m) => m.groupId === groupId && (m.role === "admin" || m.role === "senior_admin"));
+      const isMember = memberships.some((m) => m.groupId === groupId);
 
-        // Check payments for current month
-        const paymentPath = `groups/${groupId}/payments/${currentYear}/${currentMonth}/${memberId}`;
-        const paymentDoc = await getDoc(doc(db, paymentPath));
-        
-        if (paymentDoc.exists()) {
-          const paymentData = paymentDoc.data();
-          
-          // Process all payment types
-          if (paymentData.payments) {
-            Object.values(paymentData.payments).forEach((payment) => {
-              const totalAmount = parseFloat(payment.totalAmount) || 0;
-              const paidAmount = parseFloat(payment.paidAmount) || 0;
-              const arrears = parseFloat(payment.arrears) || 0;
-              
-              memberExpected += totalAmount;
-              memberPaid += paidAmount;
-              memberArrears += arrears;
-            });
-          }
-        } else {
-          // If no payment record, use group defaults
-          memberExpected = (groupData.seedMoney || 0) + (groupData.monthlyContribution || 0);
-          memberArrears = memberExpected;
-        }
-
-        totalExpected += memberExpected;
-        totalCollected += memberPaid;
-        totalArrears += memberArrears;
-
-        // Categorize member payment status
-        if (memberPaid >= memberExpected && memberExpected > 0) {
-          fullyPaidCount++;
-        } else if (memberPaid > 0) {
-          partiallyPaidCount++;
-        } else {
-          unpaidCount++;
-        }
-
-        memberPerformance.push({
-          name: memberData.fullName,
-          expected: memberExpected,
-          paid: memberPaid,
-          arrears: memberArrears,
-          percentage: memberExpected > 0 ? ((memberPaid / memberExpected) * 100).toFixed(1) : 0,
-        });
+      if (isCreator || isAdmin || isMemberAdmin || isMember) {
+        userGroups.push({ id: groupId, ...groupData });
       }
+    });
 
-      // Calculate collection rate
-      const collectionRate = totalExpected > 0 ? ((totalCollected / totalExpected) * 100).toFixed(1) : 0;
+    // Populate group selector
+    groupSelector.innerHTML = '<option value="">Select a group...</option>';
+    userGroups.forEach((group) => {
+      const option = document.createElement("option");
+      option.value = group.id;
+      option.textContent = group.groupName;
+      groupSelector.appendChild(option);
+    });
 
-      // Update UI
-      document.getElementById("totalCollected").textContent = `MWK ${totalCollected.toFixed(2)}`;
-      document.getElementById("totalExpected").textContent = `MWK ${totalExpected.toFixed(2)}`;
-      document.getElementById("totalArrears").textContent = `MWK ${totalArrears.toFixed(2)}`;
-      document.getElementById("collectionRate").textContent = `${collectionRate}%`;
-      
-      document.getElementById("fullyPaidCount").textContent = fullyPaidCount;
-      document.getElementById("partiallyPaidCount").textContent = partiallyPaidCount;
-      document.getElementById("unpaidCount").textContent = unpaidCount;
-
-      // Load member performance table
-      loadMemberPerformanceTable(memberPerformance);
-
-      // Load loan analytics
-      await loadLoanAnalytics(groupId);
-
-    } catch (error) {
-      console.error("Error loading analytics:", error);
-      alert("Error loading analytics.");
+    // Auto-select from session
+    const sessionGroupId = sessionStorage.getItem("selectedGroupId");
+    if (sessionGroupId && userGroups.find((g) => g.id === sessionGroupId)) {
+      groupSelector.value = sessionGroupId;
+      selectedGroupId = sessionGroupId;
+      await loadAnalytics();
     }
+  } catch (error) {
+    console.error("Error loading groups:", error);
+    showToast("Failed to load groups", "error");
+  } finally {
+    showSpinner(false);
   }
+}
 
-  // Load member performance table
-  function loadMemberPerformanceTable(memberPerformance) {
-    const container = document.getElementById("memberPerformanceTable");
+// Load analytics data
+async function loadAnalytics() {
+  if (!selectedGroupId) return;
+
+  showSpinner(true);
+
+  try {
+    const currentYear = new Date().getFullYear();
+    const groupDoc = await getDoc(doc(db, "groups", selectedGroupId));
     
-    if (memberPerformance.length === 0) {
-      container.innerHTML = "<p>No member data available</p>";
+    if (!groupDoc.exists()) {
+      showToast("Group not found", "error");
       return;
     }
 
-    let tableHTML = `
-      <table class="performance-table">
-        <thead>
-          <tr>
-            <th>Member Name</th>
-            <th>Expected (MWK)</th>
-            <th>Paid (MWK)</th>
-            <th>Arrears (MWK)</th>
-            <th>Payment %</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
+    const groupData = groupDoc.data();
 
-    memberPerformance.forEach((member) => {
-      let status = "unpaid";
-      let statusText = "Unpaid";
-      
-      if (member.percentage >= 100) {
-        status = "paid";
-        statusText = "Fully Paid";
-      } else if (member.percentage > 0) {
-        status = "partial";
-        statusText = "Partial";
-      }
+    // Reset analytics data
+    analyticsData = {
+      totalIncome: 0,
+      totalExpenses: 0,
+      netProfit: 0,
+      loanInterest: 0,
+      monthlyData: [],
+      memberPerformance: [],
+    };
 
-      tableHTML += `
-        <tr>
-          <td><strong>${member.name}</strong></td>
-          <td>MWK ${member.expected.toFixed(2)}</td>
-          <td>MWK ${member.paid.toFixed(2)}</td>
-          <td>MWK ${member.arrears.toFixed(2)}</td>
-          <td>${member.percentage}%</td>
-          <td><span class="status-badge ${status}">${statusText}</span></td>
-        </tr>
-      `;
+    // Get all members
+    const membersRef = collection(db, `groups/${selectedGroupId}/members`);
+    const membersSnapshot = await getDocs(membersRef);
+    const members = [];
+    membersSnapshot.forEach((doc) => {
+      members.push({ id: doc.id, ...doc.data() });
     });
 
-    tableHTML += `
-        </tbody>
-      </table>
-    `;
+    // Calculate income from contributions
+    await calculateContributionIncome(currentYear, members);
 
-    container.innerHTML = tableHTML;
+    // Calculate loan interest
+    await calculateLoanInterest();
+
+    // Calculate disbursements (loans given out)
+    await calculateDisbursements();
+
+    // Calculate net profit
+    analyticsData.netProfit = analyticsData.totalIncome - analyticsData.totalExpenses;
+
+    // Calculate member performance
+    calculateMemberPerformance(members);
+
+    // Update UI
+    updateAnalyticsUI();
+    renderChart();
+    renderMemberPerformance();
+  } catch (error) {
+    console.error("Error loading analytics:", error);
+    showToast("Failed to load analytics", "error");
+  } finally {
+    showSpinner(false);
   }
+}
 
-  // Load loan analytics
-  async function loadLoanAnalytics(groupId) {
-    try {
-      const loansRef = collection(db, `groups/${groupId}/loans`);
-      const loansSnapshot = await getDocs(loansRef);
-      
-      let totalLoansIssued = 0;
-      let loansRepaid = 0;
-      let outstandingLoans = 0;
-      const activeBorrowers = new Set();
+// Calculate contribution income
+async function calculateContributionIncome(year, members) {
+  try {
+    // Seed Money collections
+    const seedMoneyRef = doc(db, `groups/${selectedGroupId}/payments`, `${year}_SeedMoney`);
+    const seedMoneyDoc = await getDoc(seedMoneyRef);
+    
+    if (seedMoneyDoc.exists()) {
+      for (const member of members) {
+        try {
+          const userSeedRef = doc(db, `groups/${selectedGroupId}/payments/${year}_SeedMoney/${member.id}/PaymentDetails`);
+          const userSeedDoc = await getDoc(userSeedRef);
+          if (userSeedDoc.exists()) {
+            const data = userSeedDoc.data();
+            analyticsData.totalIncome += parseFloat(data.amountPaid || 0);
+          }
+        } catch (e) {
+          // Member may not have seed money record
+        }
+      }
+    }
 
-      for (const loanDoc of loansSnapshot.docs) {
-        const loanData = loanDoc.data();
-        
-        if (loanData.status === "active" || loanData.status === "approved") {
-          const loanAmount = parseFloat(loanData.loanAmount) || 0;
-          const amountRepaid = parseFloat(loanData.amountRepaid) || 0;
-          
-          totalLoansIssued += loanAmount;
-          loansRepaid += amountRepaid;
-          outstandingLoans += (loanAmount - amountRepaid);
-          
-          if (loanAmount - amountRepaid > 0) {
-            activeBorrowers.add(loanData.userId);
+    // Monthly Contributions
+    const monthlyRef = doc(db, `groups/${selectedGroupId}/payments`, `${year}_MonthlyContributions`);
+    const monthlyDoc = await getDoc(monthlyRef);
+    
+    if (monthlyDoc.exists()) {
+      const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const currentMonth = new Date().getMonth();
+
+      for (let i = 0; i <= currentMonth; i++) {
+        let monthTotal = 0;
+        for (const member of members) {
+          try {
+            const monthDocRef = doc(db, `groups/${selectedGroupId}/payments/${year}_MonthlyContributions/${member.id}/${year}_${months[i]}`);
+            const monthDocSnap = await getDoc(monthDocRef);
+            if (monthDocSnap.exists()) {
+              const data = monthDocSnap.data();
+              monthTotal += parseFloat(data.amountPaid || 0);
+            }
+          } catch (e) {
+            // Member may not have monthly record
+          }
+        }
+        analyticsData.monthlyData.push({
+          month: months[i].substring(0, 3),
+          income: monthTotal,
+          expenses: 0,
+        });
+        analyticsData.totalIncome += monthTotal;
+      }
+    }
+  } catch (error) {
+    console.error("Error calculating contribution income:", error);
+  }
+}
+
+// Calculate loan interest earned
+async function calculateLoanInterest() {
+  try {
+    const loansRef = collection(db, `groups/${selectedGroupId}/loans`);
+    const loansSnapshot = await getDocs(loansRef);
+
+    loansSnapshot.forEach((loanDoc) => {
+      const loan = loanDoc.data();
+      if (loan.status === "repaid" || loan.status === "active") {
+        const interestEarned = parseFloat(loan.interestEarned || loan.totalInterest || 0);
+        analyticsData.loanInterest += interestEarned;
+        analyticsData.totalIncome += interestEarned;
+      }
+    });
+  } catch (error) {
+    console.error("Error calculating loan interest:", error);
+  }
+}
+
+// Calculate disbursements
+async function calculateDisbursements() {
+  try {
+    const loansRef = collection(db, `groups/${selectedGroupId}/loans`);
+    const loansSnapshot = await getDocs(loansRef);
+
+    loansSnapshot.forEach((loanDoc) => {
+      const loan = loanDoc.data();
+      if (loan.status === "active" || loan.status === "repaid" || loan.status === "approved") {
+        const disbursedAmount = parseFloat(loan.amount || loan.loanAmount || 0);
+        analyticsData.totalExpenses += disbursedAmount;
+
+        // Update monthly data if we have disbursement date
+        if (loan.disbursedAt) {
+          const disbursementDate = loan.disbursedAt.toDate ? loan.disbursedAt.toDate() : new Date(loan.disbursedAt);
+          const monthIndex = disbursementDate.getMonth();
+          if (analyticsData.monthlyData[monthIndex]) {
+            analyticsData.monthlyData[monthIndex].expenses += disbursedAmount;
           }
         }
       }
-
-      document.getElementById("totalLoansIssued").textContent = `MWK ${totalLoansIssued.toFixed(2)}`;
-      document.getElementById("loansRepaid").textContent = `MWK ${loansRepaid.toFixed(2)}`;
-      document.getElementById("outstandingLoans").textContent = `MWK ${outstandingLoans.toFixed(2)}`;
-      document.getElementById("activeBorrowers").textContent = activeBorrowers.size;
-
-    } catch (error) {
-      console.error("Error loading loan analytics:", error);
-    }
-  }
-
-  // Reset analytics display
-  function resetAnalytics() {
-    const updates = {
-      totalCollected: "MWK 0.00",
-      totalExpected: "MWK 0.00",
-      totalArrears: "MWK 0.00",
-      collectionRate: "0%",
-      fullyPaidCount: "0",
-      partiallyPaidCount: "0",
-      unpaidCount: "0",
-      totalLoansIssued: "MWK 0.00",
-      loansRepaid: "MWK 0.00",
-      outstandingLoans: "MWK 0.00",
-      activeBorrowers: "0"
-    };
-    
-    Object.keys(updates).forEach(id => {
-      const element = document.getElementById(id);
-      if (element) element.textContent = updates[id];
     });
-    
-    document.getElementById("memberPerformanceTable").innerHTML = "<p>Select a group to view member performance</p>";
+  } catch (error) {
+    console.error("Error calculating disbursements:", error);
   }
+}
 
-  // Group selection change handler
-  groupSelect.addEventListener("change", (e) => {
-    loadAnalytics(e.target.value);
+// Calculate member performance
+function calculateMemberPerformance(members) {
+  analyticsData.memberPerformance = members.map((member) => {
+    const financialSummary = member.financialSummary || {};
+    const totalPaid = parseFloat(financialSummary.totalPaid || 0);
+    const totalArrears = parseFloat(financialSummary.totalArrears || 0);
+    const totalDue = totalPaid + totalArrears;
+    const paymentRate = totalDue > 0 ? ((totalPaid / totalDue) * 100).toFixed(1) : 0;
+
+    return {
+      id: member.id,
+      name: member.fullName || "Unknown",
+      totalPaid,
+      totalArrears,
+      paymentRate: parseFloat(paymentRate),
+      status: parseFloat(paymentRate) >= 80 ? "good" : parseFloat(paymentRate) >= 50 ? "warning" : "danger",
+    };
   });
 
-  // Initialize
-  await loadGroups();
-});
+  // Sort by payment rate descending
+  analyticsData.memberPerformance.sort((a, b) => b.paymentRate - a.paymentRate);
+}
+
+// Update analytics UI
+function updateAnalyticsUI() {
+  if (totalIncomeEl) totalIncomeEl.textContent = formatCurrency(analyticsData.totalIncome);
+  if (totalExpensesEl) totalExpensesEl.textContent = formatCurrency(analyticsData.totalExpenses);
+  if (netProfitEl) netProfitEl.textContent = formatCurrency(analyticsData.netProfit);
+  if (loanInterestEl) loanInterestEl.textContent = formatCurrency(analyticsData.loanInterest);
+}
+
+// Render chart
+function renderChart() {
+  if (!chartContainer) return;
+
+  const maxValue = Math.max(
+    ...analyticsData.monthlyData.map((d) => Math.max(d.income, d.expenses)),
+    1
+  );
+
+  let chartHTML = "";
+  analyticsData.monthlyData.forEach((data) => {
+    const incomeHeight = ((data.income / maxValue) * 100).toFixed(0);
+    chartHTML += `
+      <div class="chart-bar-wrapper">
+        <div class="chart-bar animated" style="height: 200px; --bar-height: ${incomeHeight}%;" title="Income: ${formatCurrency(data.income)}"></div>
+        <span class="chart-label">${data.month}</span>
+      </div>
+    `;
+  });
+
+  if (chartHTML) {
+    chartContainer.innerHTML = chartHTML;
+  } else {
+    chartContainer.innerHTML = `
+      <div class="empty-state" style="width: 100%;">
+        <div class="empty-state-icon">📊</div>
+        <p class="empty-state-text">No financial data available yet</p>
+      </div>
+    `;
+  }
+}
+
+// Render member performance
+function renderMemberPerformance() {
+  if (!memberPerformanceEl) return;
+
+  if (analyticsData.memberPerformance.length === 0) {
+    memberPerformanceEl.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">👥</div>
+        <p class="empty-state-text">No members found</p>
+      </div>
+    `;
+    return;
+  }
+
+  let html = '<div class="performance-list">';
+  analyticsData.memberPerformance.slice(0, 10).forEach((member, index) => {
+    const statusClass = member.status;
+    const medal = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : "";
+    
+    html += `
+      <div class="performance-item">
+        <div class="performance-rank">${medal || (index + 1)}</div>
+        <div class="performance-info">
+          <div class="performance-name">${member.name}</div>
+          <div class="performance-stats">
+            <span class="text-success">Paid: ${formatCurrency(member.totalPaid)}</span>
+            <span class="text-danger">Arrears: ${formatCurrency(member.totalArrears)}</span>
+          </div>
+        </div>
+        <div class="performance-rate ${statusClass}">${member.paymentRate}%</div>
+      </div>
+    `;
+  });
+  html += "</div>";
+
+  memberPerformanceEl.innerHTML = html;
+}
+
+// Utility functions
+function formatCurrency(amount) {
+  return `MWK ${(parseFloat(amount) || 0).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+function showSpinner(show) {
+  if (spinner) {
+    spinner.classList.toggle("hidden", !show);
+  }
+}
+
+function showToast(message, type = "info") {
+  const container = document.getElementById("toastContainer");
+  if (!container) {
+    alert(message);
+    return;
+  }
+
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `<span>${message}</span><button class="toast-close" onclick="this.parentElement.remove()">&times;</button>`;
+  container.appendChild(toast);
+  setTimeout(() => toast.classList.add("show"), 10);
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+}
