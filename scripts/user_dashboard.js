@@ -593,7 +593,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Event Listeners for Quick Actions
   if (requestLoanBtn) {
-    requestLoanBtn.addEventListener("click", () => {
+    requestLoanBtn.addEventListener("click", async () => {
       const groupId = getSelectedGroupId();
       if (!groupId) {
         alert("Please select a group first from the group selection page.");
@@ -602,13 +602,301 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (loanModal) {
         loanModal.classList.remove("hidden");
-        // Populate group select in modal if exists
-        const loanGroupSelect = document.getElementById("loanGroup");
-        if (loanGroupSelect) {
-          loanGroupSelect.value = groupId;
-        }
+        // Populate group select in modal
+        await populateLoanGroupSelector(groupId);
+        // Populate target month options
+        populateLoanTargetMonths();
+        // Setup loan calculation handlers
+        await setupLoanCalculation(groupId);
       }
     });
+  }
+
+  // Close loan modal
+  const closeLoanModal = document.getElementById("closeLoanModal");
+  if (closeLoanModal) {
+    closeLoanModal.addEventListener("click", () => {
+      if (loanModal) loanModal.classList.add("hidden");
+      const form = document.getElementById("loanRequestForm");
+      if (form) form.reset();
+    });
+  }
+
+  // Loan request form submission
+  const loanRequestForm = document.getElementById("loanRequestForm");
+  if (loanRequestForm) {
+    loanRequestForm.addEventListener("submit", handleLoanBooking);
+  }
+
+  /**
+   * Populate loan group selector
+   */
+  async function populateLoanGroupSelector(selectedGroupId) {
+    const loanGroupSelect = document.getElementById("loanGroup");
+    if (!loanGroupSelect) return;
+
+    loanGroupSelect.innerHTML = '<option value="">Choose a group...</option>';
+    
+    for (const group of userGroups) {
+      const option = document.createElement("option");
+      option.value = group.groupId;
+      option.textContent = group.groupName;
+      if (group.groupId === selectedGroupId) {
+        option.selected = true;
+      }
+      loanGroupSelect.appendChild(option);
+    }
+  }
+
+  /**
+   * Populate loan target months
+   */
+  function populateLoanTargetMonths() {
+    const targetMonthSelect = document.getElementById("loanTargetMonth");
+    if (!targetMonthSelect) return;
+
+    const now = new Date();
+    targetMonthSelect.innerHTML = '';
+    
+    // Add current and next 3 months as options
+    for (let i = 0; i <= 3; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthName = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      const option = document.createElement("option");
+      option.value = monthKey;
+      option.textContent = monthName;
+      if (i === 0) option.selected = true;
+      targetMonthSelect.appendChild(option);
+    }
+  }
+
+  /**
+   * Setup loan calculation handlers
+   */
+  async function setupLoanCalculation(groupId) {
+    const loanAmountInput = document.getElementById("loanAmount");
+    const loanPeriodSelect = document.getElementById("loanRepaymentPeriod");
+    const loanAmountHelper = document.getElementById("loanAmountHelper");
+
+    // Get group loan settings
+    let interestRates = { month1: 10, month2: 7, month3: 5 };
+    let maxLoanAmount = 500000;
+    let minLoanAmount = 10000;
+
+    try {
+      const groupDoc = await getDoc(doc(db, "groups", groupId));
+      if (groupDoc.exists()) {
+        const groupData = groupDoc.data();
+        const loanInterest = groupData?.rules?.loanInterest || {};
+        const loanRules = groupData?.rules?.loanRules || {};
+        
+        interestRates = {
+          month1: parseFloat(loanInterest.month1 || 10),
+          month2: parseFloat(loanInterest.month2 || loanInterest.month1 || 7),
+          month3: parseFloat(loanInterest.month3AndBeyond || loanInterest.month2 || 5)
+        };
+        maxLoanAmount = parseFloat(loanRules.maxLoanAmount || 500000);
+        minLoanAmount = parseFloat(loanRules.minLoanAmount || 10000);
+
+        if (loanAmountHelper) {
+          loanAmountHelper.textContent = `Min: ${formatCurrency(minLoanAmount)} | Max: ${formatCurrency(maxLoanAmount)}`;
+        }
+        if (loanAmountInput) {
+          loanAmountInput.min = minLoanAmount;
+          loanAmountInput.max = maxLoanAmount;
+        }
+      }
+    } catch (e) {
+      console.error("Error loading loan settings:", e);
+    }
+
+    // Calculate and display function
+    function calculateAndDisplay() {
+      const amount = parseFloat(loanAmountInput?.value || 0);
+      const period = parseInt(loanPeriodSelect?.value || 1);
+
+      let totalInterest = 0;
+      let remainingBalance = amount;
+
+      // Calculate interest using reduced balance method
+      for (let i = 1; i <= period; i++) {
+        const rate = i === 1 ? interestRates.month1 : 
+                     i === 2 ? interestRates.month2 : 
+                     interestRates.month3;
+        const monthlyInterest = remainingBalance * (rate / 100);
+        totalInterest += monthlyInterest;
+        remainingBalance -= amount / period;
+      }
+
+      const totalRepayable = amount + totalInterest;
+
+      document.getElementById("loanPrincipalDisplay").textContent = formatCurrency(amount);
+      document.getElementById("loanInterestDisplay").textContent = formatCurrency(totalInterest);
+      document.getElementById("loanTotalDisplay").textContent = formatCurrency(totalRepayable);
+    }
+
+    // Add event listeners
+    if (loanAmountInput) {
+      loanAmountInput.addEventListener("input", calculateAndDisplay);
+    }
+    if (loanPeriodSelect) {
+      loanPeriodSelect.addEventListener("change", calculateAndDisplay);
+    }
+
+    // Initial calculation
+    calculateAndDisplay();
+  }
+
+  /**
+   * Handle loan booking submission
+   */
+  async function handleLoanBooking(e) {
+    e.preventDefault();
+
+    const groupId = document.getElementById("loanGroup")?.value;
+    const amount = parseFloat(document.getElementById("loanAmount")?.value || 0);
+    const repaymentPeriod = parseInt(document.getElementById("loanRepaymentPeriod")?.value || 1);
+    const targetMonth = document.getElementById("loanTargetMonth")?.value;
+    const purpose = document.getElementById("loanPurpose")?.value;
+    const description = document.getElementById("loanDescription")?.value;
+
+    // Validation
+    if (!groupId) {
+      showToast("Please select a group.", "error");
+      return;
+    }
+    if (!amount || amount < 1000) {
+      showToast("Please enter a valid loan amount (minimum MWK 1,000).", "error");
+      return;
+    }
+    if (!purpose) {
+      showToast("Please select a loan purpose.", "error");
+      return;
+    }
+    if (!targetMonth) {
+      showToast("Please select a target month.", "error");
+      return;
+    }
+
+    try {
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Submitting...";
+      }
+
+      // Get user data
+      const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+      const userData = userDoc.exists() ? userDoc.data() : {};
+      const userName = userData.fullName || currentUser.email;
+
+      // Get group data for interest rates
+      const groupDoc = await getDoc(doc(db, "groups", groupId));
+      const groupData = groupDoc.exists() ? groupDoc.data() : {};
+      const loanInterest = groupData?.rules?.loanInterest || {};
+
+      // Calculate interest using reduced balance method
+      const rates = {
+        month1: parseFloat(loanInterest.month1 || 10),
+        month2: parseFloat(loanInterest.month2 || loanInterest.month1 || 7),
+        month3: parseFloat(loanInterest.month3AndBeyond || loanInterest.month2 || 5)
+      };
+
+      let totalInterest = 0;
+      let remainingBalance = amount;
+
+      for (let i = 1; i <= repaymentPeriod; i++) {
+        const rate = i === 1 ? rates.month1 : i === 2 ? rates.month2 : rates.month3;
+        const monthlyInterest = remainingBalance * (rate / 100);
+        totalInterest += monthlyInterest;
+        remainingBalance -= amount / repaymentPeriod;
+      }
+
+      // Parse target month
+      const [targetYear, targetMonthNum] = targetMonth.split('-').map(Number);
+      const targetMonthName = new Date(targetYear, targetMonthNum - 1, 1).toLocaleDateString('en-US', { month: 'long' });
+
+      // Create loan booking document
+      const loanRef = await addDoc(collection(db, `groups/${groupId}/loans`), {
+        borrowerId: currentUser.uid,
+        borrowerName: userName,
+        borrowerEmail: currentUser.email,
+        amount: amount,
+        loanAmount: amount,
+        repaymentPeriod: repaymentPeriod,
+        totalInterest: totalInterest,
+        totalRepayable: amount + totalInterest,
+        amountRepaid: 0,
+        purpose: purpose,
+        description: description || "",
+        targetMonth: targetMonth,
+        targetMonthName: targetMonthName,
+        targetYear: targetYear,
+        status: "pending", // Loan is booked, waiting for admin approval
+        bookingType: "user_request",
+        requestedAt: Timestamp.now(),
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        approvedAt: null,
+        approvedBy: null,
+        disbursedAt: null,
+        dueDate: null,
+        repaymentSchedule: null,
+        interestRates: rates
+      });
+
+      // Send notification to admins
+      const adminIds = groupData.admins?.map(a => a.uid) || [];
+      if (groupData.createdBy) {
+        adminIds.push(groupData.createdBy);
+      }
+      const uniqueAdminIds = [...new Set(adminIds)];
+
+      const batch = writeBatch(db);
+      for (const adminId of uniqueAdminIds) {
+        const notificationRef = doc(collection(db, `groups/${groupId}/notifications`));
+        batch.set(notificationRef, {
+          notificationId: notificationRef.id,
+          groupId: groupId,
+          groupName: groupData.groupName || "Unknown Group",
+          recipientId: adminId,
+          senderId: currentUser.uid,
+          senderName: userName,
+          senderEmail: currentUser.email,
+          title: `New Loan Booking: ${formatCurrency(amount)}`,
+          message: `${userName} has booked a loan of ${formatCurrency(amount)} for ${targetMonthName} ${targetYear}. Purpose: ${purpose}. Repayment period: ${repaymentPeriod} month(s). Please review and approve.`,
+          type: "loan_booking",
+          loanId: loanRef.id,
+          allowReplies: false,
+          read: false,
+          createdAt: Timestamp.now(),
+          replies: []
+        });
+      }
+      await batch.commit();
+
+      alert(`Loan booking submitted successfully!\n\nAmount: ${formatCurrency(amount)}\nTarget Month: ${targetMonthName} ${targetYear}\nEstimated Total Repayable: ${formatCurrency(amount + totalInterest)}\n\nYour request will be reviewed by the group admin.`);
+
+      // Close modal and reset form
+      if (loanModal) loanModal.classList.add("hidden");
+      document.getElementById("loanRequestForm")?.reset();
+
+      // Reload dashboard
+      if (currentGroup) {
+        await loadDashboardData(currentGroup.groupId, currentUser);
+      }
+
+    } catch (error) {
+      console.error("Error submitting loan booking:", error);
+      alert("Error submitting loan booking: " + error.message);
+    } finally {
+      const submitBtn = e.target?.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Submit Loan Booking";
+      }
+    }
   }
 
   if (uploadPaymentBtn) {
@@ -624,15 +912,16 @@ document.addEventListener("DOMContentLoaded", () => {
         // Populate group select in modal if exists
         const paymentGroupSelect = document.getElementById("paymentGroup");
         if (paymentGroupSelect) {
-          paymentGroupSelect.value = groupId;
           await populatePaymentGroupSelector(groupId);
-          await populatePaymentTypeOptions(groupId);
+          paymentGroupSelect.value = groupId;
         }
         // Set default payment date to today
         const paymentDateInput = document.getElementById("paymentDate");
         if (paymentDateInput) {
           paymentDateInput.value = new Date().toISOString().split("T")[0];
         }
+        // Setup payment type change handler for auto-populate
+        await setupPaymentTypeAutoPopulate(groupId);
       }
     });
   }
@@ -670,6 +959,132 @@ document.addEventListener("DOMContentLoaded", () => {
         option.selected = true;
       }
       paymentGroupSelect.appendChild(option);
+    }
+  }
+
+  /**
+   * Setup payment type auto-populate handler
+   */
+  async function setupPaymentTypeAutoPopulate(groupId) {
+    const paymentTypeSelect = document.getElementById("paymentType");
+    const paymentAmountInput = document.getElementById("paymentAmount");
+    
+    if (!paymentTypeSelect || !paymentAmountInput) return;
+
+    // Store amounts for auto-populate
+    let amountsDue = {
+      seed_money: 0,
+      monthly_contribution: 0,
+      loan_repayment: 0
+    };
+
+    try {
+      // Get group data for contribution amounts
+      const groupDoc = await getDoc(doc(db, "groups", groupId));
+      if (groupDoc.exists()) {
+        const groupData = groupDoc.data();
+        const monthlyAmount = parseFloat(groupData?.rules?.monthlyContribution?.amount || groupData?.monthlyContribution || 0);
+        const seedMoneyAmount = parseFloat(groupData?.rules?.seedMoney?.amount || groupData?.seedMoneyAmount || 0);
+        
+        const currentYear = new Date().getFullYear();
+
+        // Get seed money arrears
+        try {
+          const seedMoneyRef = doc(db, `groups/${groupId}/payments/${currentYear}_SeedMoney/${currentUser.uid}/PaymentDetails`);
+          const seedMoneyDoc = await getDoc(seedMoneyRef);
+          if (seedMoneyDoc.exists()) {
+            const data = seedMoneyDoc.data();
+            amountsDue.seed_money = parseFloat(data.arrears || (seedMoneyAmount - (parseFloat(data.amountPaid || 0))));
+          } else {
+            amountsDue.seed_money = seedMoneyAmount;
+          }
+        } catch (e) {
+          amountsDue.seed_money = seedMoneyAmount;
+        }
+
+        // Get current month's contribution arrears
+        try {
+          const now = new Date();
+          const monthName = now.toLocaleString("default", { month: "long" });
+          const monthDocId = `${currentYear}_${monthName}`;
+          const monthlyRef = doc(db, `groups/${groupId}/payments/${currentYear}_MonthlyContributions/${currentUser.uid}/${monthDocId}`);
+          const monthlyDoc = await getDoc(monthlyRef);
+          if (monthlyDoc.exists()) {
+            const data = monthlyDoc.data();
+            amountsDue.monthly_contribution = parseFloat(data.arrears || (parseFloat(data.totalAmount || monthlyAmount) - parseFloat(data.amountPaid || 0)));
+          } else {
+            amountsDue.monthly_contribution = monthlyAmount;
+          }
+        } catch (e) {
+          amountsDue.monthly_contribution = monthlyAmount;
+        }
+
+        // Get active loan repayment amount
+        try {
+          const loansRef = collection(db, `groups/${groupId}/loans`);
+          const activeLoansQuery = query(loansRef, where("borrowerId", "==", currentUser.uid), where("status", "==", "active"));
+          const activeLoansSnapshot = await getDocs(activeLoansQuery);
+          
+          if (!activeLoansSnapshot.empty) {
+            const loanDoc = activeLoansSnapshot.docs[0];
+            const loanData = loanDoc.data();
+            
+            // Find next unpaid repayment
+            const repaymentSchedule = loanData.repaymentSchedule || {};
+            for (const monthKey of Object.keys(repaymentSchedule)) {
+              const scheduleItem = repaymentSchedule[monthKey];
+              if (scheduleItem && !scheduleItem.paid) {
+                amountsDue.loan_repayment = parseFloat(scheduleItem.amount || 0);
+                break;
+              }
+            }
+          }
+        } catch (e) {
+          console.log("No active loans found");
+        }
+      }
+    } catch (e) {
+      console.error("Error loading amounts for auto-populate:", e);
+    }
+
+    // Add helper text element if it doesn't exist
+    let helperText = document.getElementById("paymentAmountHelper");
+    if (!helperText) {
+      helperText = document.createElement("p");
+      helperText.id = "paymentAmountHelper";
+      helperText.style.cssText = "font-size: 12px; color: var(--bn-gray); margin-top: 4px;";
+      paymentAmountInput.parentElement.appendChild(helperText);
+    }
+
+    // Remove existing listener to prevent duplicates
+    const newPaymentTypeSelect = paymentTypeSelect.cloneNode(true);
+    paymentTypeSelect.parentNode.replaceChild(newPaymentTypeSelect, paymentTypeSelect);
+
+    // Add change handler
+    newPaymentTypeSelect.addEventListener("change", (e) => {
+      const selectedType = e.target.value;
+      const amountDue = amountsDue[selectedType] || 0;
+      
+      if (amountDue > 0) {
+        paymentAmountInput.value = amountDue;
+        helperText.innerHTML = `<span style="color: var(--bn-success);">✓ Auto-filled: ${formatCurrency(amountDue)} due</span>`;
+      } else {
+        paymentAmountInput.value = "";
+        if (selectedType === "seed_money") {
+          helperText.textContent = "No seed money arrears found";
+        } else if (selectedType === "monthly_contribution") {
+          helperText.textContent = "Enter your monthly contribution amount";
+        } else if (selectedType === "loan_repayment") {
+          helperText.textContent = "No active loan repayments found";
+        } else {
+          helperText.textContent = "";
+        }
+      }
+    });
+
+    // Trigger change event if a type is already selected
+    if (newPaymentTypeSelect.value) {
+      newPaymentTypeSelect.dispatchEvent(new Event("change"));
     }
   }
 

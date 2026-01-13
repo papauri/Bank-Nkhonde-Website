@@ -322,7 +322,8 @@ function renderLoans() {
 // Create loan card
 function createLoanCard(loan) {
   const borrower = members.find((m) => m.id === loan.borrowerId) || {};
-  const initials = borrower.fullName?.split(" ").map((n) => n[0]).join("").toUpperCase().substring(0, 2) || "??";
+  const initials = borrower.fullName?.split(" ").map((n) => n[0]).join("").toUpperCase().substring(0, 2) || 
+                   loan.borrowerName?.split(" ").map((n) => n[0]).join("").toUpperCase().substring(0, 2) || "??";
   
   const amount = parseFloat(loan.amount || loan.loanAmount || 0);
   const interest = parseFloat(loan.totalInterest || 0);
@@ -331,10 +332,23 @@ function createLoanCard(loan) {
   const remaining = totalDue - repaid;
   const progressPercent = totalDue > 0 ? Math.min((repaid / totalDue) * 100, 100) : 0;
 
-  const createdDate = loan.createdAt?.toDate ? loan.createdAt.toDate().toLocaleDateString() : "N/A";
+  const createdDate = loan.createdAt?.toDate ? loan.createdAt.toDate().toLocaleDateString() : 
+                      loan.requestedAt?.toDate ? loan.requestedAt.toDate().toLocaleDateString() : "N/A";
   const dueDate = loan.dueDate?.toDate ? loan.dueDate.toDate().toLocaleDateString() : "N/A";
 
   const statusClass = loan.status === "repaid" ? "success" : loan.status === "active" ? "info" : "warning";
+
+  // Show booking info for pending loans
+  let bookingInfo = "";
+  if (loan.status === "pending" && loan.targetMonthName) {
+    bookingInfo = `
+      <div style="background: var(--bn-accent-subtle); padding: var(--bn-space-3); border-radius: var(--bn-radius-md); margin-bottom: var(--bn-space-4);">
+        <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: 4px;">📅 Booked for:</div>
+        <div style="font-weight: 600; color: var(--bn-accent-dark);">${loan.targetMonthName} ${loan.targetYear || ''}</div>
+        ${loan.purpose ? `<div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: 4px;">Purpose: ${loan.purpose}</div>` : ''}
+      </div>
+    `;
+  }
 
   let actionsHTML = "";
   if (loan.status === "pending") {
@@ -360,13 +374,14 @@ function createLoanCard(loan) {
         <div class="loan-borrower">
           <div class="loan-borrower-avatar">${initials}</div>
           <div>
-            <div class="loan-borrower-name">${borrower.fullName || "Unknown"}</div>
-            <div class="loan-borrower-date">Applied: ${createdDate}</div>
+            <div class="loan-borrower-name">${borrower.fullName || loan.borrowerName || "Unknown"}</div>
+            <div class="loan-borrower-date">${loan.bookingType === "user_request" ? "Booked" : "Applied"}: ${createdDate}</div>
           </div>
           </div>
         <span class="badge badge-${statusClass}">${loan.status}</span>
           </div>
       <div class="loan-card-body">
+        ${bookingInfo}
         <div class="loan-details-grid">
           <div class="loan-detail">
             <div class="loan-detail-value">${formatCurrency(amount)}</div>
@@ -436,63 +451,103 @@ async function approveLoan(loanId) {
 
   try {
     const loan = loans.find((l) => l.id === loanId);
+    if (!loan) {
+      showToast("Loan not found", "error");
+      return;
+    }
+
     const amount = parseFloat(loan.amount || loan.loanAmount || 0);
     const period = parseInt(loan.repaymentPeriod || 1);
     
-    // Calculate interest
+    // Get interest rates - use loan's saved rates or group settings
+    const savedRates = loan.interestRates || {};
     const rules = groupData?.rules?.loanInterest || {};
-    const month1Rate = parseFloat(rules.month1 || 10);
-    const month2Rate = parseFloat(rules.month2 || rules.month1 || 10);
-    const month3Rate = parseFloat(rules.month3AndBeyond || rules.month2 || rules.month1 || 10);
+    
+    const month1Rate = parseFloat(savedRates.month1 || rules.month1 || 10);
+    const month2Rate = parseFloat(savedRates.month2 || rules.month2 || rules.month1 || 7);
+    const month3Rate = parseFloat(savedRates.month3 || rules.month3AndBeyond || rules.month2 || 5);
 
+    // Calculate interest using reduced balance method
     let totalInterest = 0;
     let remainingBalance = amount;
-    const schedule = [];
+    const schedule = {};
+    const monthlyPrincipal = amount / period;
 
+    const disbursementDate = new Date();
+    
     for (let i = 1; i <= period; i++) {
       const rate = i === 1 ? month1Rate : i === 2 ? month2Rate : month3Rate;
-      const monthlyInterest = remainingBalance * (rate / 100);
-      const principal = amount / period;
+      const monthlyInterest = Math.round(remainingBalance * (rate / 100) * 100) / 100; // Round to 2 decimal places
       
       totalInterest += monthlyInterest;
-      remainingBalance -= principal;
-
-      const dueDate = new Date();
+      
+      const dueDate = new Date(disbursementDate);
       dueDate.setMonth(dueDate.getMonth() + i);
 
-      schedule.push({
+      // Use month name as key for the schedule
+      const monthKey = dueDate.toLocaleString('default', { month: 'long' });
+
+      schedule[monthKey] = {
         month: i,
-        principal,
+        monthName: monthKey,
+        principal: Math.round(monthlyPrincipal * 100) / 100,
         interest: monthlyInterest,
-        total: principal + monthlyInterest,
+        interestRate: rate,
+        amount: Math.round((monthlyPrincipal + monthlyInterest) * 100) / 100,
         dueDate: Timestamp.fromDate(dueDate),
         paid: false,
         paidAt: null,
-      });
+        paidAmount: 0,
+        penaltyAmount: 0
+      };
+
+      remainingBalance -= monthlyPrincipal;
     }
 
-    const finalDueDate = new Date();
+    // Round total interest
+    totalInterest = Math.round(totalInterest * 100) / 100;
+    const totalRepayable = Math.round((amount + totalInterest) * 100) / 100;
+
+    const finalDueDate = new Date(disbursementDate);
     finalDueDate.setMonth(finalDueDate.getMonth() + period);
 
     await updateDoc(doc(db, `groups/${selectedGroupId}/loans`, loanId), {
       status: "active",
-        approvedBy: currentUser.uid,
+      approvedBy: currentUser.uid,
       approvedAt: Timestamp.now(),
-        disbursedAt: Timestamp.now(),
-      totalInterest,
-      totalRepayable: amount + totalInterest,
+      disbursedAt: Timestamp.now(),
+      totalInterest: totalInterest,
+      totalRepayable: totalRepayable,
       amountRepaid: 0,
       dueDate: Timestamp.fromDate(finalDueDate),
       repaymentSchedule: schedule,
+      monthlyPrincipal: Math.round(monthlyPrincipal * 100) / 100,
+      interestRates: {
+        month1: month1Rate,
+        month2: month2Rate,
+        month3: month3Rate
+      },
       updatedAt: Timestamp.now(),
     });
+
+    // Update member financial summary
+    const memberRef = doc(db, `groups/${selectedGroupId}/members`, loan.borrowerId);
+    const memberDoc = await getDoc(memberRef);
+    if (memberDoc.exists()) {
+      const financialSummary = memberDoc.data().financialSummary || {};
+      await updateDoc(memberRef, {
+        "financialSummary.totalLoans": (parseFloat(financialSummary.totalLoans || 0)) + amount,
+        "financialSummary.activeLoans": (parseInt(financialSummary.activeLoans || 0)) + 1,
+        "financialSummary.lastUpdated": Timestamp.now(),
+      });
+    }
 
     // Send notification to borrower
     await addDoc(collection(db, `groups/${selectedGroupId}/notifications`), {
       userId: loan.borrowerId,
       type: "loan_approved",
-      title: "Loan Approved",
-      message: `Your loan of ${formatCurrency(amount)} has been approved and disbursed.`,
+      title: "Loan Approved & Disbursed",
+      message: `Your loan of ${formatCurrency(amount)} has been approved and disbursed.\n\nTotal Interest: ${formatCurrency(totalInterest)}\nTotal Repayable: ${formatCurrency(totalRepayable)}\nRepayment Period: ${period} month(s)\nFinal Due Date: ${finalDueDate.toLocaleDateString()}`,
       createdAt: Timestamp.now(),
       read: false,
     });
@@ -501,7 +556,7 @@ async function approveLoan(loanId) {
     await loadGroupData();
     } catch (error) {
       console.error("Error approving loan:", error);
-    showToast("Failed to approve loan", "error");
+    showToast("Failed to approve loan: " + error.message, "error");
   } finally {
     showSpinner(false);
   }
@@ -760,32 +815,93 @@ async function handleRecordPayment(e) {
     return;
   }
 
+  if (amount <= 0) {
+    showToast("Payment amount must be greater than 0", "error");
+    return;
+  }
+
   showSpinner(true);
 
   try {
     const loan = loans.find((l) => l.id === loanId);
+    if (!loan) {
+      showToast("Loan not found", "error");
+      return;
+    }
+
     const currentRepaid = parseFloat(loan.amountRepaid || 0);
     const totalRepayable = parseFloat(loan.totalRepayable || 0);
-    const newRepaid = currentRepaid + amount;
+    const newRepaid = Math.round((currentRepaid + amount) * 100) / 100;
     
+    // Determine new status
     const newStatus = newRepaid >= totalRepayable ? "repaid" : "active";
+    const remaining = Math.max(0, Math.round((totalRepayable - newRepaid) * 100) / 100);
+
+    // Update repayment schedule if exists
+    let updatedSchedule = loan.repaymentSchedule || {};
+    let amountToAllocate = amount;
+
+    // Allocate payment to unpaid months in order
+    if (typeof updatedSchedule === 'object' && !Array.isArray(updatedSchedule)) {
+      const sortedMonths = Object.keys(updatedSchedule).sort((a, b) => {
+        const dateA = updatedSchedule[a].dueDate?.toDate ? updatedSchedule[a].dueDate.toDate() : new Date(0);
+        const dateB = updatedSchedule[b].dueDate?.toDate ? updatedSchedule[b].dueDate.toDate() : new Date(0);
+        return dateA - dateB;
+      });
+
+      for (const monthKey of sortedMonths) {
+        if (amountToAllocate <= 0) break;
+        
+        const monthData = updatedSchedule[monthKey];
+        if (!monthData.paid) {
+          const monthAmount = parseFloat(monthData.amount || 0);
+          const alreadyPaid = parseFloat(monthData.paidAmount || 0);
+          const monthRemaining = monthAmount - alreadyPaid;
+          
+          if (monthRemaining > 0) {
+            const paymentForMonth = Math.min(amountToAllocate, monthRemaining);
+            const newPaidAmount = Math.round((alreadyPaid + paymentForMonth) * 100) / 100;
+            
+            updatedSchedule[monthKey] = {
+              ...monthData,
+              paidAmount: newPaidAmount,
+              paid: newPaidAmount >= monthAmount,
+              paidAt: newPaidAmount >= monthAmount ? Timestamp.fromDate(new Date(paymentDate)) : null
+            };
+            
+            amountToAllocate -= paymentForMonth;
+          }
+        }
+      }
+    }
 
     await updateDoc(doc(db, `groups/${selectedGroupId}/loans`, loanId), {
       amountRepaid: newRepaid,
-        status: newStatus,
+      status: newStatus,
       lastPaymentDate: Timestamp.fromDate(new Date(paymentDate)),
       lastPaymentAmount: amount,
+      repaymentSchedule: updatedSchedule,
       updatedAt: Timestamp.now(),
-      ...(newStatus === "repaid" && { repaidAt: Timestamp.now() }),
+      ...(newStatus === "repaid" && { 
+        repaidAt: Timestamp.now(),
+        remainingBalance: 0
+      }),
+      ...(newStatus === "active" && {
+        remainingBalance: remaining
+      })
     });
 
     // Record payment history
     await addDoc(collection(db, `groups/${selectedGroupId}/loans/${loanId}/payments`), {
-      amount,
+      amount: amount,
       date: Timestamp.fromDate(new Date(paymentDate)),
-      method,
-      notes,
+      method: method,
+      notes: notes,
       recordedBy: currentUser.uid,
+      recordedByName: currentUser.email,
+      previousBalance: totalRepayable - currentRepaid,
+      newBalance: remaining,
+      status: "approved",
       createdAt: Timestamp.now(),
       });
 
@@ -795,7 +911,10 @@ async function handleRecordPayment(e) {
       if (memberDoc.exists()) {
       const financialSummary = memberDoc.data().financialSummary || {};
         await updateDoc(memberRef, {
-        "financialSummary.totalLoansPaid": (parseFloat(financialSummary.totalLoansPaid || 0)) + amount,
+        "financialSummary.totalLoansPaid": Math.round(((parseFloat(financialSummary.totalLoansPaid || 0)) + amount) * 100) / 100,
+        ...(newStatus === "repaid" && {
+          "financialSummary.activeLoans": Math.max(0, (parseInt(financialSummary.activeLoans || 1)) - 1)
+        }),
         "financialSummary.lastUpdated": Timestamp.now(),
         });
       }
@@ -804,8 +923,10 @@ async function handleRecordPayment(e) {
     await addDoc(collection(db, `groups/${selectedGroupId}/notifications`), {
       userId: loan.borrowerId,
       type: "payment_recorded",
-      title: "Loan Payment Recorded",
-      message: `A payment of ${formatCurrency(amount)} has been recorded for your loan.${newStatus === "repaid" ? " Your loan is now fully repaid!" : ""}`,
+      title: newStatus === "repaid" ? "🎉 Loan Fully Repaid!" : "Loan Payment Recorded",
+      message: newStatus === "repaid" 
+        ? `Congratulations! Your loan has been fully repaid. Final payment of ${formatCurrency(amount)} recorded.`
+        : `A payment of ${formatCurrency(amount)} has been recorded for your loan. Remaining balance: ${formatCurrency(remaining)}.`,
       createdAt: Timestamp.now(),
       read: false,
     });
@@ -815,7 +936,7 @@ async function handleRecordPayment(e) {
     await loadGroupData();
     } catch (error) {
     console.error("Error recording payment:", error);
-    showToast("Failed to record payment", "error");
+    showToast("Failed to record payment: " + error.message, "error");
   } finally {
     showSpinner(false);
   }

@@ -1034,37 +1034,74 @@
   <div class="modal-overlay hidden" id="loanModal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2 class="modal-title">Request a Loan</h2>
+        <h2 class="modal-title">Book a Loan</h2>
         <button class="modal-close" id="closeLoanModal">&times;</button>
       </div>
       <div class="modal-body">
         <form id="loanRequestForm">
           <div class="form-group">
-            <label class="form-label">Select Group</label>
+            <label class="form-label">Select Group *</label>
             <select id="loanGroup" class="form-select" required>
               <option value="">Choose a group...</option>
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">Loan Amount (MWK)</label>
-            <input type="number" id="loanAmount" class="form-input" placeholder="Enter amount" required min="1000">
+            <label class="form-label">Loan Amount (MWK) *</label>
+            <input type="number" id="loanAmount" class="form-input" placeholder="Enter amount" required min="1000" step="1000">
+            <p id="loanAmountHelper" style="font-size: 12px; color: var(--bn-gray); margin-top: 4px;"></p>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--bn-space-4);">
+            <div class="form-group">
+              <label class="form-label">Repayment Period *</label>
+              <select id="loanRepaymentPeriod" class="form-select" required>
+                <option value="1">1 Month</option>
+                <option value="2">2 Months</option>
+                <option value="3" selected>3 Months</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Target Month *</label>
+              <select id="loanTargetMonth" class="form-select" required>
+                <!-- Populated dynamically -->
+              </select>
+            </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Purpose</label>
+            <label class="form-label">Purpose *</label>
             <select id="loanPurpose" class="form-select" required>
               <option value="">Select purpose...</option>
               <option value="business">Business</option>
               <option value="education">Education</option>
               <option value="medical">Medical</option>
               <option value="emergency">Emergency</option>
+              <option value="agriculture">Agriculture</option>
+              <option value="home_improvement">Home Improvement</option>
               <option value="other">Other</option>
             </select>
           </div>
           <div class="form-group">
             <label class="form-label">Description (Optional)</label>
-            <textarea id="loanDescription" class="form-textarea" rows="3" placeholder="Brief description..."></textarea>
+            <textarea id="loanDescription" class="form-textarea" rows="2" placeholder="Brief description of loan purpose..."></textarea>
           </div>
-          <button type="submit" class="btn btn-accent btn-block btn-lg">Submit Loan Request</button>
+          <!-- Loan Calculation Summary -->
+          <div id="loanCalculationSummary" style="background: var(--bn-gray-100); padding: var(--bn-space-4); border-radius: var(--bn-radius-lg); margin-bottom: var(--bn-space-4);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: var(--bn-space-2);">
+              <span style="color: var(--bn-gray);">Principal Amount:</span>
+              <span id="loanPrincipalDisplay" style="font-weight: 600;">MWK 0</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: var(--bn-space-2);">
+              <span style="color: var(--bn-gray);">Estimated Interest:</span>
+              <span id="loanInterestDisplay" style="font-weight: 600; color: var(--bn-warning);">MWK 0</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding-top: var(--bn-space-2); border-top: 1px solid var(--bn-gray-lighter);">
+              <span style="font-weight: 600;">Total Repayable:</span>
+              <span id="loanTotalDisplay" style="font-weight: 700; color: var(--bn-primary);">MWK 0</span>
+            </div>
+            <p style="font-size: 11px; color: var(--bn-gray); margin-top: var(--bn-space-2); margin-bottom: 0;">
+              * Interest is calculated using reduced balance method. Final amount may vary based on group settings.
+            </p>
+          </div>
+          <button type="submit" class="btn btn-accent btn-block btn-lg">Submit Loan Booking</button>
         </form>
       </div>
     </div>
