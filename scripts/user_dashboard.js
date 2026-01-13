@@ -719,17 +719,19 @@ document.addEventListener("DOMContentLoaded", () => {
       let totalInterest = 0;
       let remainingBalance = amount;
 
-      // Calculate interest using reduced balance method
+      // Calculate interest using reduced balance method (with rounding for accuracy)
       for (let i = 1; i <= period; i++) {
         const rate = i === 1 ? interestRates.month1 : 
                      i === 2 ? interestRates.month2 : 
                      interestRates.month3;
-        const monthlyInterest = remainingBalance * (rate / 100);
+        const monthlyInterest = Math.round(remainingBalance * (rate / 100) * 100) / 100;
         totalInterest += monthlyInterest;
         remainingBalance -= amount / period;
       }
 
-      const totalRepayable = amount + totalInterest;
+      // Round total interest
+      totalInterest = Math.round(totalInterest * 100) / 100;
+      const totalRepayable = Math.round((amount + totalInterest) * 100) / 100;
 
       document.getElementById("loanPrincipalDisplay").textContent = formatCurrency(amount);
       document.getElementById("loanInterestDisplay").textContent = formatCurrency(totalInterest);
@@ -994,7 +996,8 @@ document.addEventListener("DOMContentLoaded", () => {
           const seedMoneyDoc = await getDoc(seedMoneyRef);
           if (seedMoneyDoc.exists()) {
             const data = seedMoneyDoc.data();
-            amountsDue.seed_money = parseFloat(data.arrears || (seedMoneyAmount - (parseFloat(data.amountPaid || 0))));
+            // Use Math.max to prevent negative values
+            amountsDue.seed_money = Math.max(0, parseFloat(data.arrears || (seedMoneyAmount - (parseFloat(data.amountPaid || 0)))));
           } else {
             amountsDue.seed_money = seedMoneyAmount;
           }
@@ -1011,7 +1014,8 @@ document.addEventListener("DOMContentLoaded", () => {
           const monthlyDoc = await getDoc(monthlyRef);
           if (monthlyDoc.exists()) {
             const data = monthlyDoc.data();
-            amountsDue.monthly_contribution = parseFloat(data.arrears || (parseFloat(data.totalAmount || monthlyAmount) - parseFloat(data.amountPaid || 0)));
+            // Use Math.max to prevent negative values
+            amountsDue.monthly_contribution = Math.max(0, parseFloat(data.arrears || (parseFloat(data.totalAmount || monthlyAmount) - parseFloat(data.amountPaid || 0))));
           } else {
             amountsDue.monthly_contribution = monthlyAmount;
           }
@@ -1056,12 +1060,8 @@ document.addEventListener("DOMContentLoaded", () => {
       paymentAmountInput.parentElement.appendChild(helperText);
     }
 
-    // Remove existing listener to prevent duplicates
-    const newPaymentTypeSelect = paymentTypeSelect.cloneNode(true);
-    paymentTypeSelect.parentNode.replaceChild(newPaymentTypeSelect, paymentTypeSelect);
-
-    // Add change handler
-    newPaymentTypeSelect.addEventListener("change", (e) => {
+    // Handler function for payment type change
+    function handlePaymentTypeChange(e) {
       const selectedType = e.target.value;
       const amountDue = amountsDue[selectedType] || 0;
       
@@ -1080,11 +1080,18 @@ document.addEventListener("DOMContentLoaded", () => {
           helperText.textContent = "";
         }
       }
-    });
+    }
+
+    // Store handler reference for cleanup
+    if (paymentTypeSelect._autoPopulateHandler) {
+      paymentTypeSelect.removeEventListener("change", paymentTypeSelect._autoPopulateHandler);
+    }
+    paymentTypeSelect._autoPopulateHandler = handlePaymentTypeChange;
+    paymentTypeSelect.addEventListener("change", handlePaymentTypeChange);
 
     // Trigger change event if a type is already selected
-    if (newPaymentTypeSelect.value) {
-      newPaymentTypeSelect.dispatchEvent(new Event("change"));
+    if (paymentTypeSelect.value) {
+      paymentTypeSelect.dispatchEvent(new Event("change"));
     }
   }
 

@@ -841,8 +841,18 @@ async function handleRecordPayment(e) {
     let updatedSchedule = loan.repaymentSchedule || {};
     let amountToAllocate = amount;
 
-    // Allocate payment to unpaid months in order
-    if (typeof updatedSchedule === 'object' && !Array.isArray(updatedSchedule)) {
+    // Allocate payment to unpaid months in order (handle both object and array formats)
+    if (updatedSchedule && typeof updatedSchedule === 'object') {
+      // Convert array to object format if needed
+      if (Array.isArray(updatedSchedule)) {
+        const scheduleObj = {};
+        updatedSchedule.forEach((item, index) => {
+          const monthKey = item.monthName || `Month${index + 1}`;
+          scheduleObj[monthKey] = item;
+        });
+        updatedSchedule = scheduleObj;
+      }
+      
       const sortedMonths = Object.keys(updatedSchedule).sort((a, b) => {
         const dateA = updatedSchedule[a].dueDate?.toDate ? updatedSchedule[a].dueDate.toDate() : new Date(0);
         const dateB = updatedSchedule[b].dueDate?.toDate ? updatedSchedule[b].dueDate.toDate() : new Date(0);
