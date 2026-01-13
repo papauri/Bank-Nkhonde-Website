@@ -23,17 +23,22 @@
 
     .profile-container {
       width: 100%;
-      max-width: 560px;
+      max-width: 700px;
       background: var(--bn-white);
       border-radius: var(--bn-radius-2xl);
       box-shadow: var(--bn-shadow-xl);
       overflow: hidden;
+      max-height: 90vh;
+      overflow-y: auto;
     }
 
     .profile-header {
       background: var(--bn-dark);
       padding: var(--bn-space-8);
       text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
 
     .profile-header h1 {
@@ -59,8 +64,8 @@
     }
 
     .avatar-preview {
-      width: 100px;
-      height: 100px;
+      width: 120px;
+      height: 120px;
       border-radius: var(--bn-radius-full);
       background: var(--bn-gray-100);
       display: flex;
@@ -70,6 +75,7 @@
       font-size: 3rem;
       color: var(--bn-gray);
       overflow: hidden;
+      border: 3px solid var(--bn-gray-lighter);
     }
 
     .avatar-preview img {
@@ -78,16 +84,58 @@
       object-fit: cover;
     }
 
+    .form-section {
+      margin-bottom: var(--bn-space-6);
+      padding-bottom: var(--bn-space-6);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+    }
+
+    .form-section:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .form-section-title {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin-bottom: var(--bn-space-4);
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+    }
+
     .form-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: var(--bn-space-4);
     }
 
+    .form-row-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: var(--bn-space-4);
+    }
+
     @media (max-width: 640px) {
-      .form-row {
+      .form-row, .form-row-3 {
         grid-template-columns: 1fr;
       }
+
+      .profile-body {
+        padding: var(--bn-space-4);
+      }
+    }
+
+    .required-note {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .required-note span {
+      color: var(--bn-danger);
     }
   </style>
 </head>
@@ -100,42 +148,186 @@
 
     <div class="profile-body">
       <form id="profileForm">
+        <p class="required-note"><span>*</span> Required fields</p>
+
+        <!-- Profile Picture -->
         <div class="avatar-upload">
-          <div class="avatar-preview" id="avatarPreview">👤</div>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('profilePhoto').click()">Upload Photo</button>
-          <input type="file" id="profilePhoto" accept="image/*" style="display: none;">
+          <div class="avatar-preview" id="profilePicturePreview">👤</div>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('profilePictureInput').click()">
+            Upload Photo
+          </button>
+          <input type="file" id="profilePictureInput" accept="image/*" style="display: none;">
+          <p style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: var(--bn-space-2);">Max 5MB, JPG or PNG</p>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Full Name</label>
-          <input type="text" id="fullName" class="form-input" required placeholder="Your full name">
-        </div>
-
-        <div class="form-row">
+        <!-- Personal Information -->
+        <div class="form-section">
+          <h3 class="form-section-title">Personal Information</h3>
+          
           <div class="form-group">
-            <label class="form-label">Phone Number</label>
-            <input type="tel" id="phone" class="form-input" required placeholder="+265 991 234 567">
+            <label class="form-label">Full Name <span style="color: var(--bn-danger);">*</span></label>
+            <input type="text" id="fullName" class="form-input" required placeholder="Your full name">
           </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Phone Number <span style="color: var(--bn-danger);">*</span></label>
+              <input type="tel" id="phone" class="form-input" required placeholder="+265 991 234 567">
+            </div>
+            <div class="form-group">
+              <label class="form-label">WhatsApp Number</label>
+              <input type="tel" id="whatsappNumber" class="form-input" placeholder="Same as phone if blank">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Date of Birth</label>
+              <input type="date" id="dateOfBirth" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Gender</label>
+              <select id="gender" class="form-select">
+                <option value="">Select gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+
           <div class="form-group">
-            <label class="form-label">WhatsApp</label>
-            <input type="tel" id="whatsapp" class="form-input" placeholder="Same as phone if blank">
+            <label class="form-label">Address <span style="color: var(--bn-danger);">*</span></label>
+            <textarea id="address" class="form-textarea" rows="2" required placeholder="Your home address"></textarea>
           </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Address</label>
-          <textarea id="address" class="form-textarea" rows="2" required placeholder="Your address"></textarea>
+        <!-- Professional Information -->
+        <div class="form-section">
+          <h3 class="form-section-title">Professional Information</h3>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Career/Profession <span style="color: var(--bn-danger);">*</span></label>
+              <input type="text" id="career" class="form-input" required placeholder="e.g., Teacher, Business Owner">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Job Title</label>
+              <input type="text" id="jobTitle" class="form-input" placeholder="e.g., Senior Manager">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Workplace</label>
+              <input type="text" id="workplace" class="form-input" placeholder="Company/Organization name">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Work Address</label>
+              <input type="text" id="workAddress" class="form-input" placeholder="Office location">
+            </div>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Career/Profession</label>
-          <input type="text" id="career" class="form-input" required placeholder="e.g., Teacher, Business Owner">
+        <!-- Identification -->
+        <div class="form-section">
+          <h3 class="form-section-title">Identification</h3>
+          
+          <div class="form-row-3">
+            <div class="form-group">
+              <label class="form-label">ID Type</label>
+              <select id="idType" class="form-select">
+                <option value="">Select type</option>
+                <option value="national_id">National ID</option>
+                <option value="passport">Passport</option>
+                <option value="drivers_license">Driver's License</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">ID Number</label>
+              <input type="text" id="idNumber" class="form-input" placeholder="ID number">
+            </div>
+            <div class="form-group">
+              <label class="form-label">National ID</label>
+              <input type="text" id="nationalId" class="form-input" placeholder="National ID">
+            </div>
+          </div>
+        </div>
+
+        <!-- Guarantor Information -->
+        <div class="form-section">
+          <h3 class="form-section-title">Guarantor Information</h3>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Guarantor Name <span style="color: var(--bn-danger);">*</span></label>
+              <input type="text" id="guarantorName" class="form-input" required placeholder="Full name of guarantor">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Guarantor Phone <span style="color: var(--bn-danger);">*</span></label>
+              <input type="tel" id="guarantorPhone" class="form-input" required placeholder="+265 991 234 567">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Relationship <span style="color: var(--bn-danger);">*</span></label>
+              <select id="guarantorRelationship" class="form-select" required>
+                <option value="">Select relationship</option>
+                <option value="spouse">Spouse</option>
+                <option value="parent">Parent</option>
+                <option value="sibling">Sibling</option>
+                <option value="child">Child</option>
+                <option value="friend">Friend</option>
+                <option value="colleague">Colleague</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Guarantor Address</label>
+              <input type="text" id="guarantorAddress" class="form-input" placeholder="Guarantor's address">
+            </div>
+          </div>
+        </div>
+
+        <!-- Emergency Contact -->
+        <div class="form-section">
+          <h3 class="form-section-title">Emergency Contact</h3>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Contact Name</label>
+              <input type="text" id="emergencyContact" class="form-input" placeholder="Emergency contact name">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Contact Phone</label>
+              <input type="tel" id="emergencyContactPhone" class="form-input" placeholder="+265 991 234 567">
+            </div>
+          </div>
+        </div>
+
+        <!-- Additional Information -->
+        <div class="form-section">
+          <h3 class="form-section-title">Additional Information</h3>
+          
+          <div class="form-group">
+            <label class="form-label">Collateral (if any)</label>
+            <textarea id="collateral" class="form-textarea" rows="2" placeholder="Describe any collateral you can offer for loans"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Notes</label>
+            <textarea id="notes" class="form-textarea" rows="2" placeholder="Any additional notes or information"></textarea>
+          </div>
         </div>
 
         <div id="errorMessage" class="alert alert-danger hidden" style="margin-top: var(--bn-space-4);"></div>
 
-        <button type="submit" class="btn btn-accent btn-block btn-lg" style="margin-top: var(--bn-space-6);">
-          Complete Profile
+        <button type="submit" id="submitProfileBtn" class="btn btn-accent btn-block btn-lg" style="margin-top: var(--bn-space-6);">
+          <span class="btn-text">Complete Profile</span>
+          <svg class="btn-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </button>
       </form>
     </div>
@@ -145,13 +337,10 @@
   <div class="spinner-overlay hidden" id="spinner">
     <div class="spinner-content">
       <div class="spinner"></div>
-      <p class="loading-text">Saving profile...</p>
+      <p class="loading-text" id="loadingText">Saving profile...</p>
     </div>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module" src="../scripts/complete_profile.js"></script>
 </body>
 </html>

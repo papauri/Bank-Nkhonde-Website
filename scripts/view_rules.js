@@ -4,137 +4,179 @@ import {
   doc,
   getDoc,
   onAuthStateChanged,
-  storage,
-  ref,
-  getDownloadURL,
 } from "./firebaseConfig.js";
 
+// Global state
 let currentUser = null;
-let currentGroupId = null;
+let selectedGroupId = null;
+let groupData = null;
 
 // DOM Elements
+const groupNameEl = document.getElementById("groupName");
+const textRulesContainer = document.getElementById("textRulesContainer");
+const pdfRulesContainer = document.getElementById("pdfRulesContainer");
+const noRulesContainer = document.getElementById("noRulesContainer");
+const textRulesContent = document.getElementById("textRulesContent");
+const pdfViewer = document.getElementById("pdfViewer");
+const downloadPdfBtn = document.getElementById("downloadPdfBtn");
 const spinner = document.getElementById("spinner");
-const rulesContainer = document.getElementById("rulesContainer");
-const groupName = document.getElementById("groupName");
+
+// Financial rule elements
+const ruleMonthlyContribution = document.getElementById("ruleMonthlyContribution");
+const ruleSeedMoney = document.getElementById("ruleSeedMoney");
+const ruleCycleLength = document.getElementById("ruleCycleLength");
+const ruleDueDay = document.getElementById("ruleDueDay");
+const rulePenalty = document.getElementById("rulePenalty");
+const ruleInterest = document.getElementById("ruleInterest");
+
+// Format currency
+function formatCurrency(amount) {
+  return `MWK ${parseInt(amount || 0).toLocaleString('en-US')}`;
+}
+
+// Show/hide spinner
+function showSpinner(show) {
+  if (spinner) {
+    spinner.classList.toggle('hidden', !show);
+  }
+}
 
 // Initialize
+document.addEventListener("DOMContentLoaded", () => {
+  selectedGroupId = sessionStorage.getItem('selectedGroupId');
+  
+  if (!selectedGroupId) {
+    window.location.href = 'user_dashboard.html';
+    return;
+  }
+});
+
+// Auth state listener
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
-    await loadRules();
+    await loadGroupRules();
   } else {
     window.location.href = "../login.html";
   }
 });
 
-async function loadRules() {
+// Load group rules
+async function loadGroupRules() {
+  if (!selectedGroupId) {
+    window.location.href = 'user_dashboard.html';
+    return;
+  }
+
+  showSpinner(true);
+
   try {
-    showSpinner(true);
-    
-    // Get selected group from session
-    currentGroupId = sessionStorage.getItem('selectedGroupId');
-    
-    if (!currentGroupId) {
-      showNoGroupSelected();
-      return;
-    }
-    
     // Get group data
-    const groupDoc = await getDoc(doc(db, "groups", currentGroupId));
+    const groupDoc = await getDoc(doc(db, "groups", selectedGroupId));
+    
     if (!groupDoc.exists()) {
-      showError("Group not found");
+      showNoRules("Group not found");
       return;
     }
+
+    groupData = groupDoc.data();
     
-    const groupData = groupDoc.data();
-    if (groupName) groupName.textContent = groupData.groupName || "Group Rules";
-    
-    // Check if rules PDF exists
-    const rulesPdfUrl = groupData.rulesPdfUrl;
-    
-    if (rulesPdfUrl) {
-      // Try to load PDF
-      try {
-        // If it's a storage reference, get download URL
-        let pdfUrl = rulesPdfUrl;
-        if (rulesPdfUrl.startsWith('gs://')) {
-          pdfUrl = await getDownloadURL(ref(storage, rulesPdfUrl));
-        }
-        
-        displayPdf(pdfUrl);
-      } catch (error) {
-        console.error("Error loading PDF:", error);
-        // Try direct URL
-        displayPdf(rulesPdfUrl);
-      }
-    } else {
-      // Check if there's a rules file in storage
-      try {
-        const storageRef = ref(storage, `groups/${currentGroupId}/rules/rulebook.pdf`);
-        const url = await getDownloadURL(storageRef);
-        displayPdf(url);
-      } catch (error) {
-        // No rules PDF found
-        showNoRules();
-      }
+    // Update group name
+    if (groupNameEl) {
+      groupNameEl.textContent = groupData.groupName || "Group Rules";
     }
+
+    // Check for text rules
+    const textRules = groupData.governance?.rules || groupData.governanceRules || "";
+    const pdfUrl = groupData.governance?.rulesDocumentUrl || groupData.rulesDocumentUrl || "";
+
+    let hasContent = false;
+
+    // Display text rules
+    if (textRules && textRules.trim()) {
+      if (textRulesContainer) textRulesContainer.style.display = 'block';
+      if (textRulesContent) textRulesContent.textContent = textRules;
+      hasContent = true;
+    }
+
+    // Display PDF
+    if (pdfUrl) {
+      if (pdfRulesContainer) pdfRulesContainer.style.display = 'block';
+      if (pdfViewer) pdfViewer.src = pdfUrl;
+      if (downloadPdfBtn) downloadPdfBtn.href = pdfUrl;
+      hasContent = true;
+    }
+
+    // Show/hide no rules container
+    if (noRulesContainer) {
+      noRulesContainer.style.display = hasContent ? 'none' : 'block';
+    }
+
+    // Display financial rules from group settings
+    displayFinancialRules();
+
   } catch (error) {
-    console.error("Error loading rules:", error);
-    showError("Error loading rules. Please try again.");
+    console.error("Error loading group rules:", error);
+    showNoRules("Error loading rules. Please try again.");
   } finally {
     showSpinner(false);
   }
 }
 
-function displayPdf(url) {
-  rulesContainer.innerHTML = `
-    <div class="rules-header">
-      <h2 class="rules-title">Group Rule Book</h2>
-      <a href="${url}" download class="btn btn-accent download-btn" target="_blank">
-        Download PDF
-      </a>
-    </div>
-    <iframe class="pdf-viewer" src="${url}#toolbar=1&navpanes=1&scrollbar=1"></iframe>
-  `;
-}
+// Display financial rules
+function displayFinancialRules() {
+  if (!groupData) return;
 
-function showNoRules() {
-  rulesContainer.innerHTML = `
-    <div class="no-rules">
-      <div class="no-rules-icon">📋</div>
-      <h2 class="no-rules-title">No Rules Available</h2>
-      <p class="no-rules-text">This group doesn't have a rule book uploaded yet. Please contact the group administrator to upload the rules.</p>
-      <button class="btn btn-ghost" onclick="history.back()">Go Back</button>
-    </div>
-  `;
-}
+  const rules = groupData.rules || {};
 
-function showNoGroupSelected() {
-  rulesContainer.innerHTML = `
-    <div class="no-rules">
-      <div class="no-rules-icon">👥</div>
-      <h2 class="no-rules-title">No Group Selected</h2>
-      <p class="no-rules-text">Please select a group first to view the rules.</p>
-      <a href="select_group.html" class="btn btn-accent">Select Group</a>
-    </div>
-  `;
-}
-
-function showError(message) {
-  rulesContainer.innerHTML = `
-    <div class="no-rules">
-      <div class="no-rules-icon">❌</div>
-      <h2 class="no-rules-title">Error</h2>
-      <p class="no-rules-text">${message}</p>
-      <button class="btn btn-ghost" onclick="history.back()">Go Back</button>
-    </div>
-  `;
-}
-
-function showSpinner(show) {
-  if (show) {
-    spinner?.classList.remove("hidden");
-  } else {
-    spinner?.classList.add("hidden");
+  // Monthly contribution
+  if (ruleMonthlyContribution) {
+    const amount = rules.monthlyContribution?.amount || groupData.monthlyContribution || 0;
+    ruleMonthlyContribution.textContent = formatCurrency(amount);
   }
+
+  // Seed money
+  if (ruleSeedMoney) {
+    const amount = rules.seedMoney?.amount || groupData.seedMoney || 0;
+    ruleSeedMoney.textContent = formatCurrency(amount);
+  }
+
+  // Cycle length
+  if (ruleCycleLength) {
+    const months = rules.cycleDuration?.months || groupData.cycleLength || 11;
+    ruleCycleLength.textContent = `${months} months`;
+  }
+
+  // Due day
+  if (ruleDueDay) {
+    const day = rules.monthlyContribution?.dayOfMonth || groupData.contributionDueDay || 15;
+    const suffix = day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th';
+    ruleDueDay.textContent = `${day}${suffix} of month`;
+  }
+
+  // Penalty
+  if (rulePenalty) {
+    const rate = groupData.penaltySettings?.dailyRate || rules.contributionPenalty?.dailyRate || groupData.dailyPenaltyRate || 1;
+    rulePenalty.textContent = `${rate}% per day`;
+  }
+
+  // Interest rates
+  if (ruleInterest) {
+    const interest = rules.loanInterest || {};
+    const m1 = interest.month1 || groupData.interestRateMonth1 || 10;
+    const m2 = interest.month2 || groupData.interestRateMonth2 || 5;
+    const m3 = interest.month3AndBeyond || groupData.interestRateMonth3 || 3;
+    ruleInterest.textContent = `${m1}% / ${m2}% / ${m3}%`;
+  }
+}
+
+// Show no rules message
+function showNoRules(message) {
+  if (noRulesContainer) {
+    noRulesContainer.style.display = 'block';
+    const titleEl = noRulesContainer.querySelector('.no-rules-title');
+    if (titleEl) titleEl.textContent = message;
+  }
+  if (textRulesContainer) textRulesContainer.style.display = 'none';
+  if (pdfRulesContainer) pdfRulesContainer.style.display = 'none';
 }

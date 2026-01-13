@@ -307,7 +307,7 @@
   </main>
 
   <!-- New Loan Modal -->
-  <div class="modal-overlay" id="newLoanModal">
+  <div class="modal-overlay hidden" id="newLoanModal" style="display: none;">
     <div class="modal-content" style="max-width: 560px;">
       <div class="modal-header">
         <h2 class="modal-title">Disburse New Loan</h2>
@@ -369,7 +369,7 @@
   </div>
 
   <!-- Record Payment Modal -->
-  <div class="modal-overlay" id="recordPaymentModal">
+  <div class="modal-overlay hidden" id="recordPaymentModal" style="display: none;">
     <div class="modal-content" style="max-width: 480px;">
       <div class="modal-header">
         <h2 class="modal-title">Record Loan Payment</h2>
@@ -416,7 +416,7 @@
   </div>
 
   <!-- Loan Settings Modal -->
-  <div class="modal-overlay" id="loanSettingsModal">
+  <div class="modal-overlay hidden" id="loanSettingsModal" style="display: none;">
     <div class="modal-content" style="max-width: 560px;">
       <div class="modal-header">
         <h2 class="modal-title">Loan Settings</h2>
@@ -477,7 +477,7 @@
   </div>
 
   <!-- Communications Modal -->
-  <div class="modal-overlay" id="communicationsModal">
+  <div class="modal-overlay hidden" id="communicationsModal" style="display: none;">
     <div class="modal-content" style="max-width: 520px;">
       <div class="modal-header">
         <h2 class="modal-title">Send Loan Reminder</h2>
@@ -552,6 +552,7 @@
     </div>
   </div>
 
+  <script src="../scripts/modal-utils.js"></script>
   <script type="module" src="../scripts/manage_loans.js"></script>
 </body>
 </html>

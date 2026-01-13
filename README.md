@@ -1,15 +1,23 @@
 # Bank Nkhonde Website
 
-A digital platform for managing ROSCAs (Rotating Savings and Credit Associations) with Firebase backend.
+A comprehensive digital platform for managing ROSCAs (Rotating Savings and Credit Associations) with Firebase backend.
+
+## 📚 Documentation
+
+- **[ABOUT_BANK_NKHONDE.md](ABOUT_BANK_NKHONDE.md)** - Complete overview of what Bank Nkhonde is and how it works (for users and stakeholders)
+- **[TECHNICAL_DOCUMENTATION.md](TECHNICAL_DOCUMENTATION.md)** - Full technical documentation for developers
 
 ## Features
 
+- Multi-Group Support (users can belong to multiple independent groups)
+- Flexible Financial Rules (each group sets own rates, penalties, loan terms)
 - User and Admin Authentication
-- Group Management
-- Payment Tracking
-- Loan Management
-- Mobile-Responsive Design
-- Firebase Firestore Database Integration
+- Payment Tracking (monthly contributions, seed money, loan repayments)
+- Loan Management (with auto-calculation of interest and penalties)
+- Financial Reports (PDF and Excel export)
+- Mobile-First Responsive Design
+- Firebase Backend (Auth, Firestore, Storage, Functions)
+- Email Notifications (SMTP via Cloud Functions)
 
 ## Requirements
 

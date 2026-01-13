@@ -3,9 +3,16 @@
  * 
  * This module provides functions to send emails through Firebase Cloud Functions.
  * It uses the custom SMTP configuration set up in functions/index.js
+ * 
+ * Email sending is non-blocking - registration will succeed even if email fails.
  */
 
 import { functions, httpsCallable } from './firebaseConfig.js';
+
+// Email service enabled flag (can be toggled)
+// Set to false to disable email sending (useful when Cloud Functions not deployed)
+const EMAIL_SERVICE_ENABLED = false; // DISABLED - Enable after deploying Cloud Functions
+const EMAIL_NON_BLOCKING = true; // Don't fail operations if email fails
 
 /**
  * Send Password Reset Email
@@ -59,6 +66,12 @@ export async function sendEmailVerification(email, verificationLink, userName = 
  * @returns {Promise<Object>} Success response
  */
 export async function sendRegistrationWelcome(email, userName, groupName) {
+  // Check if email service is enabled
+  if (!EMAIL_SERVICE_ENABLED) {
+    console.log('Email service is disabled, skipping welcome email');
+    return { success: false, message: 'Email service disabled' };
+  }
+
   try {
     const sendWelcome = httpsCallable(functions, 'sendRegistrationWelcome');
     const result = await sendWelcome({
@@ -66,9 +79,26 @@ export async function sendRegistrationWelcome(email, userName, groupName) {
       userName,
       groupName
     });
+    console.log('✅ Welcome email sent successfully');
     return result.data;
   } catch (error) {
-    console.error('Error sending welcome email:', error);
+    // Log error but don't throw if non-blocking
+    const errorMessage = error.message || 'Unknown error';
+    const errorCode = error.code || 'unknown';
+    
+    console.error('❌ Error sending welcome email:', errorCode, errorMessage);
+    
+    // If non-blocking, return error object instead of throwing
+    if (EMAIL_NON_BLOCKING) {
+      return { 
+        success: false, 
+        error: errorCode,
+        message: 'Email service unavailable (non-critical)',
+        details: errorMessage
+      };
+    }
+    
+    // Otherwise throw the error
     throw error;
   }
 }

@@ -9,10 +9,15 @@ import {
   query,
   where,
   limit,
+  orderBy,
   onAuthStateChanged,
   signOut,
   Timestamp,
 } from "./firebaseConfig.js";
+
+// Import search and notification handlers
+import { initializeSearch } from "./dashboard-search.js";
+import { initializeNotifications } from "./notifications-handler.js";
 
 // Global state
 let currentUser = null;
@@ -31,6 +36,8 @@ const totalArrears = document.getElementById("totalArrears");
 const pendingApprovalsList = document.getElementById("pendingApprovalsList");
 const groupsList = document.getElementById("groupsList");
 const systemAlerts = document.getElementById("systemAlerts");
+const groupSelectionOverlay = document.getElementById("groupSelectionOverlay");
+const groupSelectionList = document.getElementById("groupSelectionList");
 
 // Initialize app
 onAuthStateChanged(auth, async (user) => {
@@ -48,7 +55,49 @@ onAuthStateChanged(auth, async (user) => {
 
 document.addEventListener("DOMContentLoaded", () => {
   setupEventListeners();
+  
+  // Initialize currency selector
+  const currencySelector = document.getElementById('currencySelector');
+  if (currencySelector) {
+    const savedCurrency = localStorage.getItem('selectedCurrency') || 'MWK';
+    currencySelector.value = savedCurrency;
+    currencySelector.addEventListener('change', (e) => {
+      localStorage.setItem('selectedCurrency', e.target.value);
+      // Reload to apply currency
+      window.location.reload();
+    });
+  }
+  
+  // Initialize search
+  const searchInput = document.querySelector('.topbar-search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      const searchTerm = e.target.value.trim();
+      if (searchTerm.length >= 2) {
+        const selectedGroupId = sessionStorage.getItem('selectedGroupId');
+        if (selectedGroupId) {
+          performDashboardSearch(searchTerm, selectedGroupId);
+        }
+      }
+    });
+  }
 });
+
+// Expose selectGroup to global scope for onclick
+window.selectGroup = function(groupId) {
+  sessionStorage.setItem('selectedGroupId', groupId);
+  currentGroup = adminGroups.find(g => g.groupId === groupId);
+  hideGroupSelectionOverlay();
+  loadDashboardAfterGroupSelection();
+  // Initialize notifications for this group
+  initializeDashboardNotifications();
+};
+
+// Expose switchGroup to global scope
+window.switchGroup = function(groupId) {
+  sessionStorage.setItem('selectedGroupId', groupId);
+  window.location.reload();
+};
 
 function setupEventListeners() {
   // Logout button in sidebar
@@ -114,38 +163,124 @@ async function loadAdminData() {
       }
     }
     
-    // Get selected group from session or load all groups
-    const selectedGroupId = sessionStorage.getItem('selectedGroupId');
-    
-    // Load admin groups
+    // Load admin groups first
     await loadAdminGroups();
     
     if (adminGroups.length === 0) {
+      hideGroupSelectionOverlay();
       renderEmptyState();
       return;
     }
     
-    // Set current group
-    if (selectedGroupId) {
-      currentGroup = adminGroups.find(g => g.groupId === selectedGroupId) || adminGroups[0];
+    // Get selected group from session
+    const selectedGroupId = sessionStorage.getItem('selectedGroupId');
+    
+    // Check if we have a valid selected group
+    if (selectedGroupId && adminGroups.find(g => g.groupId === selectedGroupId)) {
+      // Group already selected, hide overlay and load dashboard
+      currentGroup = adminGroups.find(g => g.groupId === selectedGroupId);
+      hideGroupSelectionOverlay();
+      await loadDashboardAfterGroupSelection();
+      // Initialize notifications
+      initializeDashboardNotifications();
     } else {
-      currentGroup = adminGroups[0];
+      // Show group selection overlay
+      showGroupSelectionOverlay();
     }
-    
-    // Store the selected group
-    sessionStorage.setItem('selectedGroupId', currentGroup.groupId);
-    
-    // Load dashboard data
-    await Promise.all([
-      loadDashboardStats(),
-      loadGroups(),
-      loadPendingApprovals()
-    ]);
     
   } catch (error) {
     console.error("Error loading admin data:", error);
     showToast("Error loading dashboard: " + error.message, "danger");
   }
+}
+
+// Show group selection overlay
+function showGroupSelectionOverlay() {
+  if (!groupSelectionOverlay) return;
+  
+  groupSelectionOverlay.classList.remove("hidden");
+  renderGroupSelectionCards();
+}
+
+// Hide group selection overlay
+function hideGroupSelectionOverlay() {
+  if (!groupSelectionOverlay) return;
+  
+  groupSelectionOverlay.classList.add("hidden");
+}
+
+// Render group selection cards
+async function renderGroupSelectionCards() {
+  if (!groupSelectionList) return;
+  
+  if (adminGroups.length === 0) {
+    groupSelectionList.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">📁</div>
+        <p class="empty-state-text">You don't manage any groups yet</p>
+      </div>
+    `;
+    return;
+  }
+  
+  let cardsHTML = '';
+  
+  for (const group of adminGroups) {
+    // Get pending counts for this group
+    let pendingCount = 0;
+    
+    try {
+      // Count pending loans
+      const loansRef = collection(db, "groups", group.groupId, "loans");
+      const pendingLoansQuery = query(loansRef, where("status", "==", "pending"));
+      const pendingLoansSnapshot = await getDocs(pendingLoansQuery);
+      pendingCount += pendingLoansSnapshot.size;
+      
+      // Count pending payments
+      const membersRef = collection(db, "groups", group.groupId, "members");
+      const membersSnapshot = await getDocs(membersRef);
+      const memberCount = membersSnapshot.size;
+      
+      // TODO: Add payment pending count if needed
+    } catch (e) {
+      console.error("Error getting pending count:", e);
+    }
+    
+    const stats = group.statistics || {};
+    const memberCount = stats.totalMembers || 0;
+    
+    cardsHTML += `
+      <div class="group-selection-card" onclick="selectGroup('${group.groupId}')">
+        <div class="group-selection-icon">
+          ${group.groupName ? group.groupName.charAt(0).toUpperCase() : 'G'}
+        </div>
+        <div class="group-selection-info">
+          <div class="group-selection-name">${group.groupName || 'Unnamed Group'}</div>
+          <div class="group-selection-meta">
+            <span>${memberCount} members</span>
+            <span>${group.cycleLength || 11} month cycle</span>
+          </div>
+        </div>
+        <div class="group-selection-badge">
+          ${pendingCount > 0 ? `<span class="group-selection-pending">${pendingCount} pending</span>` : ''}
+          <svg class="group-selection-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </div>
+      </div>
+    `;
+  }
+  
+  groupSelectionList.innerHTML = cardsHTML;
+}
+
+// Load dashboard after group selection
+async function loadDashboardAfterGroupSelection() {
+  await Promise.all([
+    loadDashboardStats(),
+    loadGroups(),
+    loadPendingApprovals()
+  ]);
 }
 
 async function loadAdminGroups() {
@@ -265,7 +400,7 @@ async function loadDashboardStats() {
   }
 }
 
-// Render collection trends chart
+// Render collection trends chart - starting from group's first month
 function renderCollectionTrends(monthlyData) {
   const chartContainer = document.querySelector('.chart-container');
   if (!chartContainer) return;
@@ -273,16 +408,44 @@ function renderCollectionTrends(monthlyData) {
   const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const currentMonth = new Date().getMonth();
   
-  // Get last 6 months of data
-  const last6Months = [];
-  for (let i = 5; i >= 0; i--) {
-    const monthIndex = (currentMonth - i + 12) % 12;
-    const monthName = months[monthIndex];
-    last6Months.push({
-      name: monthName.substring(0, 3),
-      amount: monthlyData[monthName] || 0
-    });
+  // Get group start date if available
+  let startMonth = 0;
+  if (currentGroup) {
+    const cycleStartDate = currentGroup.rules?.cycleDuration?.startDate || 
+                           currentGroup.cycleStartDate ||
+                           currentGroup.createdAt?.toDate?.();
+    if (cycleStartDate) {
+      const startDate = new Date(cycleStartDate);
+      if (!isNaN(startDate.getTime())) {
+        startMonth = startDate.getMonth();
+      }
+    }
   }
+  
+  // Calculate months since group started (up to current month)
+  const monthsSinceStart = [];
+  let monthIndex = startMonth;
+  const today = new Date();
+  const currentMonthIndex = today.getMonth();
+  
+  // Get months from start to current (max 6 for display)
+  let count = 0;
+  while (count < 6) {
+    const displayMonth = (currentMonth - 5 + count + 12) % 12;
+    // Only show months from start date onwards
+    const monthName = months[displayMonth];
+    const amount = monthlyData[monthName] || 0;
+    
+    monthsSinceStart.push({
+      name: monthName.substring(0, 3),
+      fullName: monthName,
+      amount: amount,
+      hasData: amount > 0
+    });
+    count++;
+  }
+  
+  const last6Months = monthsSinceStart;
   
   // Find max for scaling
   const maxAmount = Math.max(...last6Months.map(m => m.amount), 1);
@@ -564,4 +727,114 @@ function formatCurrencyShort(amount) {
   if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
   if (num >= 1000) return `${(num / 1000).toFixed(0)}K`;
   return num.toLocaleString();
+}
+
+// Dashboard search functionality
+async function performDashboardSearch(searchTerm, groupId) {
+  if (!groupId || searchTerm.length < 2) return;
+  
+  const searchLower = searchTerm.toLowerCase();
+  const searchResults = [];
+  
+  try {
+    // Search members
+    const membersSnapshot = await getDocs(collection(db, `groups/${groupId}/members`));
+    membersSnapshot.forEach(doc => {
+      const member = doc.data();
+      const name = (member.fullName || '').toLowerCase();
+      const email = (member.email || '').toLowerCase();
+      
+      if (name.includes(searchLower) || email.includes(searchLower)) {
+        searchResults.push({
+          id: doc.id,
+          type: 'member',
+          name: member.fullName,
+          email: member.email
+        });
+      }
+    });
+    
+    // Search loans
+    const loansSnapshot = await getDocs(collection(db, `groups/${groupId}/loans`));
+    loansSnapshot.forEach(doc => {
+      const loan = doc.data();
+      const borrowerName = (loan.borrowerName || '').toLowerCase();
+      
+      if (borrowerName.includes(searchLower)) {
+        searchResults.push({
+          id: doc.id,
+          type: 'loan',
+          name: loan.borrowerName,
+          amount: loan.loanAmount
+        });
+      }
+    });
+    
+    displaySearchResults(searchResults);
+  } catch (error) {
+    console.error('Search error:', error);
+  }
+}
+
+function displaySearchResults(results) {
+  // Create or get search results container
+  let container = document.getElementById('searchResultsDropdown');
+  const searchInput = document.querySelector('.topbar-search-input');
+  
+  if (!container && searchInput) {
+    container = document.createElement('div');
+    container.id = 'searchResultsDropdown';
+    container.style.cssText = `
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+      max-height: 400px;
+      overflow-y: auto;
+      z-index: 1000;
+      margin-top: 4px;
+    `;
+    searchInput.parentElement.style.position = 'relative';
+    searchInput.parentElement.appendChild(container);
+    
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+      if (!searchInput.contains(e.target) && !container.contains(e.target)) {
+        container.style.display = 'none';
+      }
+    });
+  }
+  
+  if (!container) return;
+  
+  if (results.length === 0) {
+    container.innerHTML = '<div style="padding: 16px; text-align: center; color: var(--bn-gray);">No results found</div>';
+  } else {
+    container.innerHTML = results.slice(0, 10).map(result => `
+      <a href="${result.type === 'member' ? 'manage_members.html' : 'manage_loans.html'}?search=${encodeURIComponent(result.name)}" 
+         style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; text-decoration: none; color: inherit; border-bottom: 1px solid var(--bn-gray-lighter);">
+        <div style="width: 32px; height: 32px; border-radius: 50%; background: ${result.type === 'member' ? 'var(--bn-primary)' : 'var(--bn-accent)'}; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 12px;">
+          ${result.type === 'member' ? result.name.charAt(0) : '💰'}
+        </div>
+        <div style="flex: 1;">
+          <div style="font-weight: 600; color: var(--bn-dark);">${result.name}</div>
+          <div style="font-size: 12px; color: var(--bn-gray);">${result.type === 'member' ? (result.email || 'Member') : 'Loan: MWK ' + (result.amount || 0).toLocaleString()}</div>
+        </div>
+      </a>
+    `).join('');
+  }
+  
+  container.style.display = 'block';
+}
+
+// Initialize notifications when dashboard loads
+function initializeDashboardNotifications() {
+  const selectedGroupId = sessionStorage.getItem('selectedGroupId');
+  if (currentUser && selectedGroupId) {
+    initializeNotifications(currentUser.uid, selectedGroupId);
+  }
 }

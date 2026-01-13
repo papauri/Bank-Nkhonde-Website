@@ -185,27 +185,154 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
       
-      // Get selected group from session or use first group
+      // Get selected group from session
       const selectedGroupId = getSelectedGroupId();
-      if (selectedGroupId) {
+      
+      if (userGroups.length === 0) {
+        // No groups - hide overlay and show empty state
+        hideGroupSelectionOverlay();
+        renderEmptyState();
+        return;
+      }
+      
+      // Check if we have a valid selected group
+      if (selectedGroupId && userGroups.find(g => g.groupId === selectedGroupId)) {
         currentGroup = userGroups.find(g => g.groupId === selectedGroupId);
-      }
-      
-      if (!currentGroup && userGroups.length > 0) {
-        currentGroup = userGroups[0];
-        sessionStorage.setItem('selectedGroupId', currentGroup.groupId);
-      }
-      
-      // Load dashboard data for selected group
-      if (currentGroup) {
-        await loadDashboardData(currentGroup.groupId, user);
-        await loadPaymentCalendar(currentGroup.groupId, user);
-        await loadUpcomingPayments(currentGroup.groupId, user);
+        hideGroupSelectionOverlay();
+        await loadDashboardAfterGroupSelection(user);
+      } else {
+        // Show group selection overlay
+        showGroupSelectionOverlay();
       }
     } catch (error) {
       await logDatabaseError(error, "loadUserGroups", { userId: user?.uid });
     }
   }
+  
+  // Show group selection overlay
+  function showGroupSelectionOverlay() {
+    const overlay = document.getElementById('groupSelectionOverlay');
+    if (overlay) {
+      overlay.classList.remove('hidden');
+      renderGroupSelectionCards();
+    }
+  }
+  
+  // Hide group selection overlay
+  function hideGroupSelectionOverlay() {
+    const overlay = document.getElementById('groupSelectionOverlay');
+    if (overlay) {
+      overlay.classList.add('hidden');
+    }
+  }
+  
+  // Render group selection cards
+  function renderGroupSelectionCards() {
+    const container = document.getElementById('groupSelectionList');
+    if (!container) return;
+    
+    if (userGroups.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📁</div>
+          <p class="empty-state-text">You're not a member of any groups yet</p>
+        </div>
+      `;
+      return;
+    }
+    
+    let cardsHTML = '';
+    
+    for (const group of userGroups) {
+      const memberCount = group.statistics?.totalMembers || 0;
+      const roleLabel = group.role === 'admin' ? 'Admin' : 'Member';
+      
+      cardsHTML += `
+        <div class="group-selection-card" onclick="window.selectUserGroup('${group.groupId}')">
+          <div class="group-selection-icon">
+            ${group.groupName ? group.groupName.charAt(0).toUpperCase() : 'G'}
+          </div>
+          <div class="group-selection-info">
+            <div class="group-selection-name">${group.groupName || 'Unnamed Group'}</div>
+            <div class="group-selection-meta">
+              <span>${memberCount} members</span>
+              <span>${group.cycleLength || 11} month cycle</span>
+            </div>
+          </div>
+          <div class="group-selection-badge">
+            <span class="group-selection-role">${roleLabel}</span>
+            <svg class="group-selection-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </div>
+        </div>
+      `;
+    }
+    
+    container.innerHTML = cardsHTML;
+  }
+  
+  // Render empty state when no groups
+  function renderEmptyState() {
+    if (groupList) {
+      groupList.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📁</div>
+          <p class="empty-state-text">You're not a member of any groups yet. Contact your group admin to be added.</p>
+        </div>
+      `;
+    }
+  }
+  
+  // Load dashboard after group selection
+  async function loadDashboardAfterGroupSelection(user) {
+    if (!currentGroup || !user) return;
+    
+    await loadDashboardData(currentGroup.groupId, user);
+    await loadPaymentCalendar(currentGroup.groupId, user);
+    await loadUpcomingPayments(currentGroup.groupId, user);
+    await renderUserGroups();
+  }
+  
+  // Render user's groups list
+  async function renderUserGroups() {
+    if (!groupList) return;
+    
+    if (userGroups.length === 0) {
+      renderEmptyState();
+      return;
+    }
+    
+    groupList.innerHTML = userGroups.map(group => {
+      const isSelected = currentGroup && currentGroup.groupId === group.groupId;
+      const stats = group.statistics || {};
+      
+      return `
+        <div class="group-card ${isSelected ? 'selected' : ''}" onclick="window.selectUserGroup('${group.groupId}')">
+          <div class="group-card-header">
+            <h4 class="group-name">${group.groupName || 'Unnamed Group'}</h4>
+            <span class="badge badge-${group.role === 'admin' ? 'accent' : 'secondary'}">${group.role || 'member'}</span>
+          </div>
+          <div class="group-card-stats">
+            <div class="group-stat">
+              <span class="group-stat-value">${stats.totalMembers || 0}</span>
+              <span class="group-stat-label">Members</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+  
+  // Expose selectUserGroup to window for onclick
+  window.selectUserGroup = async function(groupId) {
+    sessionStorage.setItem('selectedGroupId', groupId);
+    currentGroup = userGroups.find(g => g.groupId === groupId);
+    hideGroupSelectionOverlay();
+    if (currentUser && currentGroup) {
+      await loadDashboardAfterGroupSelection(currentUser);
+    }
+  };
 
   // Load dashboard data for a specific group
   async function loadDashboardData(groupId, user) {

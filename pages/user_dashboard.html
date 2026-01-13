@@ -1144,6 +1144,249 @@
     </div>
   </div>
 
+  <!-- Group Selection Overlay -->
+  <div class="group-selection-overlay" id="groupSelectionOverlay">
+    <div class="group-selection-container">
+      <div class="group-selection-header">
+        <div class="group-selection-logo">
+          <div class="group-selection-logo-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+              <path d="M2 17l10 5 10-5"/>
+              <path d="M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <span class="group-selection-logo-text">Bank Nkhonde</span>
+        </div>
+        <h1 class="group-selection-title">Your Groups</h1>
+        <p class="group-selection-subtitle">Select a group to view your dashboard</p>
+      </div>
+      
+      <div class="group-selection-list" id="groupSelectionList">
+        <div class="empty-state">
+          <div class="empty-state-icon">📁</div>
+          <p class="empty-state-text">Loading your groups...</p>
+        </div>
+      </div>
+      
+      <div class="group-selection-footer">
+        <p style="text-align: center; color: var(--bn-gray); font-size: var(--bn-text-sm);">
+          Not a member of any group? Contact your group admin.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    /* Group Selection Overlay */
+    .group-selection-overlay {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(135deg, var(--bn-dark) 0%, #1a2d4d 50%, var(--bn-primary) 100%);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--bn-space-4);
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    
+    .group-selection-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    
+    .group-selection-container {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-2xl);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      max-width: 560px;
+      width: 100%;
+      max-height: 90vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      animation: slideInUp 0.4s var(--bn-ease-out);
+    }
+    
+    @keyframes slideInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .group-selection-header {
+      padding: var(--bn-space-8);
+      text-align: center;
+      border-bottom: 1px solid var(--bn-gray-lighter);
+      background: var(--bn-gray-100);
+    }
+    
+    .group-selection-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--bn-space-3);
+      margin-bottom: var(--bn-space-6);
+    }
+    
+    .group-selection-logo-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--bn-gradient-accent);
+      border-radius: var(--bn-radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .group-selection-logo-icon svg {
+      width: 26px;
+      height: 26px;
+      color: var(--bn-dark);
+    }
+    
+    .group-selection-logo-text {
+      font-size: var(--bn-text-xl);
+      font-weight: 800;
+      color: var(--bn-dark);
+    }
+    
+    .group-selection-title {
+      font-size: var(--bn-text-2xl);
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin-bottom: var(--bn-space-2);
+    }
+    
+    .group-selection-subtitle {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
+    }
+    
+    .group-selection-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--bn-space-4);
+      max-height: 400px;
+    }
+    
+    .group-selection-card {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-4);
+      padding: var(--bn-space-5);
+      background: var(--bn-white);
+      border: 2px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-xl);
+      margin-bottom: var(--bn-space-3);
+      cursor: pointer;
+      transition: all var(--bn-transition-fast);
+    }
+    
+    .group-selection-card:hover {
+      border-color: var(--bn-accent);
+      box-shadow: var(--bn-shadow-md);
+      transform: translateY(-2px);
+    }
+    
+    .group-selection-card:last-child {
+      margin-bottom: 0;
+    }
+    
+    .group-selection-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: var(--bn-radius-lg);
+      background: var(--bn-gradient-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      color: var(--bn-white);
+      flex-shrink: 0;
+    }
+    
+    .group-selection-info {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .group-selection-name {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin-bottom: var(--bn-space-1);
+    }
+    
+    .group-selection-meta {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
+      display: flex;
+      gap: var(--bn-space-4);
+    }
+    
+    .group-selection-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+    
+    .group-selection-pending {
+      background: var(--bn-warning-light);
+      color: var(--bn-warning-dark);
+      padding: 2px 10px;
+      border-radius: var(--bn-radius-full);
+      font-size: var(--bn-text-xs);
+      font-weight: 600;
+      margin-bottom: var(--bn-space-1);
+    }
+    
+    .group-selection-role {
+      background: var(--bn-primary-light);
+      color: var(--bn-primary-dark);
+      padding: 2px 10px;
+      border-radius: var(--bn-radius-full);
+      font-size: var(--bn-text-xs);
+      font-weight: 600;
+      margin-bottom: var(--bn-space-1);
+    }
+    
+    .group-selection-arrow {
+      width: 24px;
+      height: 24px;
+      color: var(--bn-gray);
+    }
+    
+    .group-selection-footer {
+      padding: var(--bn-space-6);
+      border-top: 1px solid var(--bn-gray-lighter);
+      background: var(--bn-gray-100);
+    }
+    
+    @media (max-width: 640px) {
+      .group-selection-container {
+        max-height: 100vh;
+        border-radius: 0;
+      }
+      
+      .group-selection-header {
+        padding: var(--bn-space-6);
+      }
+      
+      .group-selection-list {
+        max-height: none;
+        flex: 1;
+      }
+    }
+  </style>
+
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>

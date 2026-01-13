@@ -12,6 +12,198 @@
   <link rel="stylesheet" href="../styles/design-system.css">
   <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
+  <style>
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--bn-space-4);
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .info-card {
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-xl);
+      padding: var(--bn-space-5);
+      text-align: center;
+    }
+
+    .info-card-label {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: var(--bn-space-2);
+    }
+
+    .info-card-value {
+      font-size: var(--bn-text-xl);
+      font-weight: 700;
+      color: var(--bn-dark);
+    }
+
+    .info-card-value.highlight {
+      color: var(--bn-primary);
+    }
+
+    .interest-rates-display {
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-xl);
+      padding: var(--bn-space-5);
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .interest-rates-title {
+      font-size: var(--bn-text-sm);
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin-bottom: var(--bn-space-4);
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+    }
+
+    .interest-rates-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--bn-space-3);
+    }
+
+    .interest-rate-badge {
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-space-3) var(--bn-space-4);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 80px;
+    }
+
+    .interest-rate-month {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      margin-bottom: 2px;
+    }
+
+    .interest-rate-value {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      color: var(--bn-primary);
+    }
+
+    .members-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--bn-space-4);
+    }
+
+    .member-card {
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-xl);
+      padding: var(--bn-space-5);
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-4);
+      transition: all var(--bn-transition-fast);
+    }
+
+    .member-card:hover {
+      border-color: var(--bn-accent);
+      box-shadow: var(--bn-shadow-md);
+    }
+
+    .member-avatar {
+      width: 56px;
+      height: 56px;
+      border-radius: var(--bn-radius-full);
+      background: var(--bn-gradient-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: var(--bn-text-lg);
+      color: var(--bn-white);
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .member-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .member-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .member-name {
+      font-size: var(--bn-text-base);
+      font-weight: 600;
+      color: var(--bn-dark);
+      margin-bottom: var(--bn-space-1);
+    }
+
+    .member-role {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      margin-bottom: var(--bn-space-2);
+    }
+
+    .member-role.admin {
+      color: var(--bn-primary);
+      font-weight: 600;
+    }
+
+    .member-contact {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+
+    .member-badge {
+      padding: var(--bn-space-1) var(--bn-space-3);
+      border-radius: var(--bn-radius-full);
+      font-size: var(--bn-text-xs);
+      font-weight: 600;
+    }
+
+    .member-badge.admin {
+      background: var(--bn-primary-light);
+      color: var(--bn-primary);
+    }
+
+    .member-badge.member {
+      background: var(--bn-gray-100);
+      color: var(--bn-gray);
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .section-title {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      color: var(--bn-dark);
+    }
+
+    .section-count {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
+    }
+
+    @media (max-width: 640px) {
+      .members-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
   <!-- Page Header -->
@@ -19,14 +211,14 @@
     <div class="page-header-container">
       <div class="page-header-top">
         <div class="page-header-nav">
-          <button class="page-back-btn" onclick="history.back()" aria-label="Go back">
+          <button class="page-back-btn" id="backButton" aria-label="Go back">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
           </button>
           <div>
-            <h1 class="page-title" id="groupName">Group Details</h1>
-            <p class="page-subtitle" id="groupDescription">View your group information</p>
+            <h1 class="page-title" id="groupName">Loading Group...</h1>
+            <p class="page-subtitle" id="groupDescription">View group details and members</p>
           </div>
         </div>
       </div>
@@ -45,8 +237,8 @@
           <div class="page-stat-label">Monthly</div>
         </div>
         <div class="page-stat">
-          <div class="page-stat-value" id="nextPayout">-</div>
-          <div class="page-stat-label">Next Payout</div>
+          <div class="page-stat-value" id="cycleInfo">-</div>
+          <div class="page-stat-label">Cycle</div>
         </div>
       </div>
     </div>
@@ -54,38 +246,64 @@
 
   <!-- Page Content -->
   <main class="page-content">
-    <!-- Group Info -->
+    <!-- Group Financial Info -->
     <section class="content-section">
-      <div class="content-section-header">
-        <h2 class="content-section-title">Group Information</h2>
+      <div class="section-header">
+        <h2 class="section-title">Financial Details</h2>
       </div>
-      <div class="content-section-body" id="groupInfo">
-        <div class="card-grid">
-          <div class="info-card">
-            <div class="info-card-title">Contribution Amount</div>
-            <div class="info-card-value" id="contributionAmount">MWK 0</div>
-          </div>
-          <div class="info-card">
-            <div class="info-card-title">Seed Money</div>
-            <div class="info-card-value" id="seedMoneyAmount">MWK 0</div>
-          </div>
-          <div class="info-card">
-            <div class="info-card-title">Interest Rate</div>
-            <div class="info-card-value" id="interestRate">0%</div>
-          </div>
+      <div class="info-grid" id="financialInfo">
+        <div class="info-card">
+          <div class="info-card-label">Monthly Contribution</div>
+          <div class="info-card-value" id="contributionAmount">MWK 0</div>
+        </div>
+        <div class="info-card">
+          <div class="info-card-label">Seed Money</div>
+          <div class="info-card-value" id="seedMoneyAmount">MWK 0</div>
+        </div>
+        <div class="info-card">
+          <div class="info-card-label">Contribution Due</div>
+          <div class="info-card-value" id="contributionDue">-</div>
+        </div>
+        <div class="info-card">
+          <div class="info-card-label">Late Penalty</div>
+          <div class="info-card-value" id="penaltyRate">0%</div>
+        </div>
+      </div>
+
+      <!-- Interest Rates Display -->
+      <div class="interest-rates-display" id="interestRatesContainer">
+        <div class="interest-rates-title">
+          📊 Loan Interest Rates (per month)
+        </div>
+        <div class="interest-rates-grid" id="interestRatesGrid">
+          <!-- Dynamically populated -->
         </div>
       </div>
     </section>
 
     <!-- Members -->
     <section class="content-section">
-      <div class="content-section-header">
-        <h2 class="content-section-title">Members</h2>
+      <div class="section-header">
+        <h2 class="section-title">Group Members</h2>
+        <span class="section-count" id="memberCountText">0 members</span>
       </div>
-      <div class="content-section-body" id="membersList">
+      <div class="members-grid" id="membersList">
         <div class="empty-state">
           <div class="empty-state-icon">👥</div>
           <p class="empty-state-text">Loading members...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Group Rules -->
+    <section class="content-section">
+      <div class="section-header">
+        <h2 class="section-title">Group Rules</h2>
+      </div>
+      <div id="rulesContainer">
+        <div class="empty-state">
+          <div class="empty-state-icon">📋</div>
+          <p class="empty-state-text">Loading rules...</p>
         </div>
       </div>
     </section>
@@ -99,11 +317,11 @@
     </a>
     <a href="group_page.html" class="mobile-nav-item active">
       <span class="mobile-nav-icon">👥</span>
-      <span>Groups</span>
+      <span>Group</span>
     </a>
-    <a href="user_analytics.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">📊</span>
-      <span>Analytics</span>
+    <a href="contacts.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">📞</span>
+      <span>Contacts</span>
     </a>
     <a href="settings.html" class="mobile-nav-item">
       <span class="mobile-nav-icon">⚙️</span>
@@ -122,9 +340,278 @@
     </div>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
-  <script type="module" src="../scripts/group_details.js"></script>
+  <script type="module">
+    import {
+      db,
+      auth,
+      doc,
+      getDoc,
+      collection,
+      getDocs,
+      onAuthStateChanged,
+    } from "../scripts/firebaseConfig.js";
+
+    let currentUser = null;
+    let groupId = null;
+
+    // Currency formatting
+    function formatCurrency(amount) {
+      return `MWK ${parseInt(amount || 0).toLocaleString()}`;
+    }
+
+    // Show spinner
+    function showSpinner(show) {
+      const spinner = document.getElementById('spinner');
+      if (spinner) {
+        if (show) {
+          spinner.classList.remove('hidden');
+        } else {
+          spinner.classList.add('hidden');
+        }
+      }
+    }
+
+    // Get initials from name
+    function getInitials(name) {
+      if (!name) return '?';
+      const parts = name.trim().split(' ');
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+      }
+      return parts[0].substring(0, 2).toUpperCase();
+    }
+
+    // Check auth
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = '../login.html';
+        return;
+      }
+      currentUser = user;
+      await initializePage();
+    });
+
+    async function initializePage() {
+      showSpinner(true);
+
+      // Get groupId from URL or session
+      const urlParams = new URLSearchParams(window.location.search);
+      groupId = urlParams.get('groupId') || sessionStorage.getItem('selectedGroupId');
+
+      if (!groupId) {
+        // Redirect to user dashboard to select a group
+        window.location.href = 'user_dashboard.html';
+        return;
+      }
+
+      try {
+        await loadGroupDetails();
+        await loadMembers();
+        await loadRules();
+      } catch (error) {
+        console.error('Error loading group:', error);
+        document.getElementById('groupName').textContent = 'Error Loading Group';
+      } finally {
+        showSpinner(false);
+      }
+    }
+
+    async function loadGroupDetails() {
+      const groupDoc = await getDoc(doc(db, 'groups', groupId));
+      
+      if (!groupDoc.exists()) {
+        throw new Error('Group not found');
+      }
+
+      const data = groupDoc.data();
+      const rules = data.rules || {};
+
+      // Update header
+      document.getElementById('groupName').textContent = data.groupName || 'Group';
+      document.getElementById('groupDescription').textContent = data.description || 'View group details';
+
+      // Monthly contribution
+      const monthlyAmount = rules.monthlyContribution?.amount || data.monthlyContribution || 0;
+      document.getElementById('monthlyAmount').textContent = formatCurrency(monthlyAmount);
+      document.getElementById('contributionAmount').textContent = formatCurrency(monthlyAmount);
+
+      // Seed money
+      const seedMoney = rules.seedMoney?.amount || data.seedMoney || 0;
+      document.getElementById('seedMoneyAmount').textContent = formatCurrency(seedMoney);
+
+      // Contribution due day
+      const dueDay = rules.monthlyContribution?.dayOfMonth || rules.contributionDueDay || data.contributionDueDay || 15;
+      document.getElementById('contributionDue').textContent = `${dueDay}${getOrdinalSuffix(dueDay)} of month`;
+
+      // Penalty rate
+      const penaltyRate = rules.contributionPenalty?.dailyRate || rules.dailyPenaltyRate || data.dailyPenaltyRate || 0;
+      const penaltyType = rules.contributionPenalty?.type || 'percentage';
+      if (penaltyType === 'percentage') {
+        document.getElementById('penaltyRate').textContent = `${penaltyRate}% per day`;
+      } else {
+        document.getElementById('penaltyRate').textContent = formatCurrency(penaltyRate) + '/day';
+      }
+
+      // Cycle info
+      const cycleMonths = rules.cycleDuration?.months || data.cycleMonths || 12;
+      document.getElementById('cycleInfo').textContent = `${cycleMonths} months`;
+
+      // Interest rates - improved display
+      renderInterestRates(rules, data);
+
+      // Get member count
+      const membersSnapshot = await getDocs(collection(db, `groups/${groupId}/members`));
+      document.getElementById('memberCount').textContent = membersSnapshot.size;
+
+      // Total contributed (placeholder - would need to calculate from payments)
+      const totalContributed = data.statistics?.totalContributed || 0;
+      document.getElementById('totalContributed').textContent = formatCurrency(totalContributed);
+    }
+
+    function renderInterestRates(rules, data) {
+      const container = document.getElementById('interestRatesGrid');
+      
+      // Get interest rates from various possible locations
+      const interestRates = rules.loanInterest?.rates || rules.interestRates || data.interestRates || {};
+      const maxMonths = rules.loanInterest?.maxRepaymentMonths || data.maxRepaymentMonths || 3;
+      
+      let html = '';
+      
+      if (Object.keys(interestRates).length > 0) {
+        for (let i = 1; i <= maxMonths; i++) {
+          const rate = interestRates[`month${i}`] ?? interestRates[`month${Math.min(i, 3)}`] ?? 0;
+          html += `
+            <div class="interest-rate-badge">
+              <span class="interest-rate-month">Month ${i}</span>
+              <span class="interest-rate-value">${rate}%</span>
+            </div>
+          `;
+        }
+      } else {
+        // Fallback to single interest rate
+        const singleRate = rules.interestRate || data.interestRate || 0;
+        html = `
+          <div class="interest-rate-badge">
+            <span class="interest-rate-month">All Months</span>
+            <span class="interest-rate-value">${singleRate}%</span>
+          </div>
+        `;
+      }
+      
+      container.innerHTML = html;
+    }
+
+    async function loadMembers() {
+      const membersSnapshot = await getDocs(collection(db, `groups/${groupId}/members`));
+      const container = document.getElementById('membersList');
+      
+      if (membersSnapshot.empty) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">👥</div>
+            <p class="empty-state-text">No members found</p>
+          </div>
+        `;
+        return;
+      }
+
+      const members = [];
+      membersSnapshot.forEach(doc => {
+        members.push({ id: doc.id, ...doc.data() });
+      });
+
+      // Sort: admins first, then by name
+      members.sort((a, b) => {
+        const aIsAdmin = a.role === 'admin' || a.role === 'senior_admin';
+        const bIsAdmin = b.role === 'admin' || b.role === 'senior_admin';
+        if (aIsAdmin && !bIsAdmin) return -1;
+        if (!aIsAdmin && bIsAdmin) return 1;
+        return (a.fullName || '').localeCompare(b.fullName || '');
+      });
+
+      let html = '';
+      members.forEach(member => {
+        const isAdmin = member.role === 'admin' || member.role === 'senior_admin';
+        const avatarContent = member.profileImageUrl 
+          ? `<img src="${member.profileImageUrl}" alt="${member.fullName}">`
+          : getInitials(member.fullName);
+        
+        html += `
+          <div class="member-card">
+            <div class="member-avatar">${avatarContent}</div>
+            <div class="member-info">
+              <div class="member-name">${member.fullName || 'Unknown'}</div>
+              <div class="member-role ${isAdmin ? 'admin' : ''}">${isAdmin ? (member.role === 'senior_admin' ? 'Senior Admin' : 'Admin') : 'Member'}</div>
+              ${member.phone ? `<div class="member-contact">📞 ${member.phone}</div>` : ''}
+            </div>
+            <span class="member-badge ${isAdmin ? 'admin' : 'member'}">${isAdmin ? 'Admin' : 'Member'}</span>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+      document.getElementById('memberCountText').textContent = `${members.length} member${members.length !== 1 ? 's' : ''}`;
+    }
+
+    async function loadRules() {
+      const groupDoc = await getDoc(doc(db, 'groups', groupId));
+      const data = groupDoc.data();
+      const container = document.getElementById('rulesContainer');
+
+      const governance = data.governance || {};
+      const textRules = governance.rules || data.governanceRules || '';
+      const pdfUrl = governance.rulesDocumentUrl || data.rulesDocumentUrl || '';
+
+      let html = '';
+
+      if (textRules) {
+        html += `
+          <div class="card" style="padding: var(--bn-space-5);">
+            <h4 style="margin-bottom: var(--bn-space-3);">Written Rules</h4>
+            <p style="white-space: pre-wrap; color: var(--bn-gray-800);">${textRules}</p>
+          </div>
+        `;
+      }
+
+      if (pdfUrl) {
+        html += `
+          <div class="card" style="padding: var(--bn-space-5); margin-top: var(--bn-space-4);">
+            <h4 style="margin-bottom: var(--bn-space-3);">Rules Document</h4>
+            <a href="${pdfUrl}" target="_blank" class="btn btn-accent" style="display: inline-flex; align-items: center; gap: var(--bn-space-2);">
+              📄 View PDF Rules
+            </a>
+          </div>
+        `;
+      }
+
+      if (!textRules && !pdfUrl) {
+        html = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <p class="empty-state-text">No rules uploaded yet</p>
+          </div>
+        `;
+      }
+
+      container.innerHTML = html;
+    }
+
+    function getOrdinalSuffix(n) {
+      const s = ['th', 'st', 'nd', 'rd'];
+      const v = n % 100;
+      return s[(v - 20) % 10] || s[v] || s[0];
+    }
+
+    // Back button
+    document.getElementById('backButton').addEventListener('click', () => {
+      // Check if user is admin or member
+      const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+      if (isAdmin) {
+        window.location.href = 'admin_dashboard.html';
+      } else {
+        window.location.href = 'user_dashboard.html';
+      }
+    });
+  </script>
 </body>
 </html>

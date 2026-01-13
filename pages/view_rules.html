@@ -103,11 +103,74 @@
 
   <!-- Page Content -->
   <main class="page-content">
-    <div class="rules-container" id="rulesContainer">
+    <!-- Text Rules Section -->
+    <div class="rules-container" id="textRulesContainer" style="display: none;">
+      <div class="rules-header">
+        <h2 class="rules-title">📋 Governance Rules</h2>
+      </div>
+      <div class="rules-body" style="padding: var(--bn-space-6);">
+        <div id="textRulesContent" style="white-space: pre-wrap; line-height: 1.8; font-size: var(--bn-text-sm); color: var(--bn-gray-800);"></div>
+      </div>
+    </div>
+
+    <!-- PDF Rules Section -->
+    <div class="rules-container" id="pdfRulesContainer" style="display: none; margin-top: var(--bn-space-6);">
+      <div class="rules-header">
+        <h2 class="rules-title">📄 Rules Document</h2>
+        <a href="#" class="btn btn-accent download-btn" id="downloadPdfBtn" target="_blank">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Download PDF
+        </a>
+      </div>
+      <iframe class="pdf-viewer" id="pdfViewer" src=""></iframe>
+    </div>
+
+    <!-- No Rules State -->
+    <div class="rules-container" id="noRulesContainer">
       <div class="no-rules">
         <div class="no-rules-icon">📋</div>
-        <h2 class="no-rules-title">Loading rules...</h2>
-        <p class="no-rules-text">Please wait while we load the group rules.</p>
+        <h2 class="no-rules-title">No Rules Available</h2>
+        <p class="no-rules-text">Your group administrator has not uploaded any rules or governance documents yet.</p>
+        <a href="user_dashboard.html" class="btn btn-accent">Back to Dashboard</a>
+      </div>
+    </div>
+
+    <!-- Group Info Summary -->
+    <div class="rules-container" style="margin-top: var(--bn-space-6);">
+      <div class="rules-header">
+        <h2 class="rules-title">📊 Key Financial Rules</h2>
+      </div>
+      <div class="rules-body" style="padding: var(--bn-space-6);">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--bn-space-4);">
+          <div style="padding: var(--bn-space-4); background: var(--bn-gray-100); border-radius: var(--bn-radius-lg);">
+            <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: 4px;">Monthly Contribution</div>
+            <div style="font-size: var(--bn-text-lg); font-weight: 700; color: var(--bn-dark);" id="ruleMonthlyContribution">-</div>
+          </div>
+          <div style="padding: var(--bn-space-4); background: var(--bn-gray-100); border-radius: var(--bn-radius-lg);">
+            <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: 4px;">Seed Money</div>
+            <div style="font-size: var(--bn-text-lg); font-weight: 700; color: var(--bn-dark);" id="ruleSeedMoney">-</div>
+          </div>
+          <div style="padding: var(--bn-space-4); background: var(--bn-gray-100); border-radius: var(--bn-radius-lg);">
+            <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: 4px;">Cycle Length</div>
+            <div style="font-size: var(--bn-text-lg); font-weight: 700; color: var(--bn-dark);" id="ruleCycleLength">-</div>
+          </div>
+          <div style="padding: var(--bn-space-4); background: var(--bn-gray-100); border-radius: var(--bn-radius-lg);">
+            <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: 4px;">Due Day</div>
+            <div style="font-size: var(--bn-text-lg); font-weight: 700; color: var(--bn-dark);" id="ruleDueDay">-</div>
+          </div>
+          <div style="padding: var(--bn-space-4); background: var(--bn-gray-100); border-radius: var(--bn-radius-lg);">
+            <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: 4px;">Daily Penalty</div>
+            <div style="font-size: var(--bn-text-lg); font-weight: 700; color: var(--bn-dark);" id="rulePenalty">-</div>
+          </div>
+          <div style="padding: var(--bn-space-4); background: var(--bn-gray-100); border-radius: var(--bn-radius-lg);">
+            <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: 4px;">Interest Rates</div>
+            <div style="font-size: var(--bn-text-lg); font-weight: 700; color: var(--bn-dark);" id="ruleInterest">-</div>
+          </div>
+        </div>
       </div>
     </div>
   </main>

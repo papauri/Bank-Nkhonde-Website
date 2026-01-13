@@ -14,9 +14,6 @@
   <style>
     body {
       min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       background: var(--bn-gradient-primary);
       padding: var(--bn-space-6);
     }
@@ -52,18 +49,19 @@
 
     .registration-container {
       width: 100%;
-      max-width: 640px;
+      max-width: 720px;
       background: var(--bn-white);
       border-radius: var(--bn-radius-2xl);
       box-shadow: var(--bn-shadow-xl);
       overflow: hidden;
       position: relative;
       z-index: 1;
+      margin: 0 auto;
     }
 
     .registration-header {
       background: var(--bn-dark);
-      padding: var(--bn-space-8);
+      padding: var(--bn-space-6) var(--bn-space-8);
       text-align: center;
     }
 
@@ -71,7 +69,7 @@
       display: inline-flex;
       align-items: center;
       gap: var(--bn-space-3);
-      margin-bottom: var(--bn-space-4);
+      margin-bottom: var(--bn-space-3);
     }
 
     .registration-logo-icon {
@@ -100,7 +98,7 @@
       font-size: var(--bn-text-2xl);
       font-weight: 800;
       color: var(--bn-white);
-      margin-bottom: var(--bn-space-2);
+      margin-bottom: var(--bn-space-1);
     }
 
     .registration-subtitle {
@@ -108,51 +106,63 @@
       color: rgba(255, 255, 255, 0.7);
     }
 
-    .registration-body {
-      padding: var(--bn-space-8);
-    }
-
+    /* Step Indicator */
     .step-indicator {
       display: flex;
-      align-items: center;
       justify-content: center;
-      gap: var(--bn-space-3);
-      margin-bottom: var(--bn-space-8);
+      padding: var(--bn-space-6);
+      background: var(--bn-gray-100);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+      overflow-x: auto;
     }
 
-    .step {
+    .step-indicator-inner {
       display: flex;
       align-items: center;
       gap: var(--bn-space-2);
     }
 
+    .step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--bn-space-1);
+      min-width: 80px;
+    }
+
     .step-number {
-      width: 32px;
-      height: 32px;
+      width: 36px;
+      height: 36px;
       border-radius: var(--bn-radius-full);
-      background: var(--bn-gray-100);
+      background: var(--bn-white);
+      border: 2px solid var(--bn-gray-lighter);
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: var(--bn-text-sm);
       font-weight: 700;
       color: var(--bn-gray);
+      transition: all 0.3s ease;
     }
 
     .step.active .step-number {
       background: var(--bn-gradient-accent);
+      border-color: var(--bn-accent);
       color: var(--bn-dark);
+      transform: scale(1.1);
     }
 
     .step.completed .step-number {
       background: var(--bn-success);
+      border-color: var(--bn-success);
       color: var(--bn-white);
     }
 
     .step-label {
-      font-size: var(--bn-text-sm);
+      font-size: var(--bn-text-xs);
       font-weight: 600;
       color: var(--bn-gray);
+      text-align: center;
     }
 
     .step.active .step-label,
@@ -161,13 +171,35 @@
     }
 
     .step-connector {
-      width: 40px;
+      width: 32px;
       height: 2px;
       background: var(--bn-gray-lighter);
+      margin-top: -18px;
     }
 
     .step-connector.completed {
       background: var(--bn-success);
+    }
+
+    /* Form Body */
+    .registration-body {
+      padding: var(--bn-space-6) var(--bn-space-8);
+      max-height: 65vh;
+      overflow-y: auto;
+    }
+
+    .form-step {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .form-step.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .section-title {
@@ -175,6 +207,14 @@
       font-weight: 700;
       color: var(--bn-dark);
       margin-bottom: var(--bn-space-5);
+      padding-bottom: var(--bn-space-3);
+      border-bottom: 2px solid var(--bn-gray-100);
+    }
+
+    .section-subtitle {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
+      margin-bottom: var(--bn-space-4);
     }
 
     .form-row {
@@ -183,28 +223,318 @@
       gap: var(--bn-space-4);
     }
 
+    .form-row-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--bn-space-4);
+    }
+
     @media (max-width: 640px) {
-      .form-row {
+      .form-row, .form-row-3 {
+        grid-template-columns: 1fr;
+      }
+      .registration-body {
+        padding: var(--bn-space-4);
+        max-height: 55vh;
+      }
+    }
+
+    /* Currency Input */
+    .currency-input-wrapper {
+      position: relative;
+    }
+
+    .currency-prefix {
+      position: absolute;
+      left: var(--bn-space-4);
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-gray);
+      pointer-events: none;
+    }
+
+    .currency-input {
+      padding-left: 60px !important;
+    }
+
+    /* Admin List */
+    .admin-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--bn-space-3);
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .admin-item {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+      padding: var(--bn-space-3) var(--bn-space-4);
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-lg);
+    }
+
+    .admin-item-info {
+      flex: 1;
+    }
+
+    .admin-item-name {
+      font-weight: 600;
+      color: var(--bn-dark);
+      font-size: var(--bn-text-sm);
+    }
+
+    .admin-item-email {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+
+    .admin-item-badge {
+      padding: 2px 8px;
+      background: var(--bn-accent-light);
+      color: var(--bn-accent-dark);
+      border-radius: var(--bn-radius-full);
+      font-size: var(--bn-text-xs);
+      font-weight: 600;
+    }
+
+    .admin-remove-btn {
+      background: var(--bn-danger-light);
+      color: var(--bn-danger);
+      border: none;
+      width: 28px;
+      height: 28px;
+      border-radius: var(--bn-radius-md);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .admin-remove-btn:hover {
+      background: var(--bn-danger);
+      color: var(--bn-white);
+    }
+
+    .add-admin-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: var(--bn-space-3);
+      align-items: end;
+    }
+
+    @media (max-width: 640px) {
+      .add-admin-row {
         grid-template-columns: 1fr;
       }
     }
 
-    .registration-footer {
-      padding: var(--bn-space-6) var(--bn-space-8);
-      border-top: 1px solid var(--bn-gray-lighter);
+    /* File Upload */
+    .file-upload-area {
+      border: 2px dashed var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-xl);
+      padding: var(--bn-space-6);
       text-align: center;
+      transition: all 0.3s;
+      cursor: pointer;
     }
 
-    .registration-footer p {
+    .file-upload-area:hover {
+      border-color: var(--bn-accent);
+      background: var(--bn-accent-subtle);
+    }
+
+    .file-upload-area.dragover {
+      border-color: var(--bn-accent);
+      background: var(--bn-accent-subtle);
+    }
+
+    .file-upload-icon {
+      font-size: 2.5rem;
+      margin-bottom: var(--bn-space-3);
+    }
+
+    .file-upload-text {
       font-size: var(--bn-text-sm);
       color: var(--bn-gray);
+    }
+
+    .file-upload-text strong {
+      color: var(--bn-accent-dark);
+    }
+
+    .file-preview {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+      padding: var(--bn-space-3) var(--bn-space-4);
+      background: var(--bn-success-light);
+      border-radius: var(--bn-radius-lg);
+      margin-top: var(--bn-space-3);
+    }
+
+    .file-preview-icon {
+      font-size: 1.5rem;
+    }
+
+    .file-preview-info {
+      flex: 1;
+    }
+
+    .file-preview-name {
+      font-weight: 600;
+      font-size: var(--bn-text-sm);
+      color: var(--bn-dark);
+    }
+
+    .file-preview-size {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+
+    .file-remove-btn {
+      background: none;
+      border: none;
+      color: var(--bn-danger);
+      cursor: pointer;
+      padding: var(--bn-space-1);
+    }
+
+    /* Help Text */
+    .help-text {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      margin-top: 4px;
+      display: block;
+    }
+
+    /* Info Box */
+    .info-box {
+      padding: var(--bn-space-4);
+      background: var(--bn-info-light);
+      border-radius: var(--bn-radius-lg);
+      border-left: 4px solid var(--bn-info);
+      margin-bottom: var(--bn-space-5);
+    }
+
+    .info-box p {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray-800);
       margin: 0;
     }
 
-    .registration-footer a {
+    /* Footer */
+    .registration-footer {
+      padding: var(--bn-space-5) var(--bn-space-8);
+      border-top: 1px solid var(--bn-gray-lighter);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--bn-space-4);
+      background: var(--bn-gray-100);
+    }
+
+    .registration-footer-left {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
+    }
+
+    .registration-footer-left a {
       color: var(--bn-accent-dark);
       font-weight: 600;
       text-decoration: none;
+    }
+
+    .registration-footer-buttons {
+      display: flex;
+      gap: var(--bn-space-3);
+    }
+
+    @media (max-width: 640px) {
+      .registration-footer {
+        flex-direction: column;
+        text-align: center;
+      }
+      .registration-footer-buttons {
+        width: 100%;
+      }
+      .registration-footer-buttons .btn {
+        flex: 1;
+      }
+    }
+
+    /* Checkbox Grid */
+    .checkbox-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--bn-space-3);
+    }
+
+    @media (max-width: 480px) {
+      .checkbox-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .checkbox-item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--bn-space-2);
+      font-size: var(--bn-text-sm);
+      cursor: pointer;
+      padding: var(--bn-space-3);
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-lg);
+      transition: all 0.2s;
+    }
+
+    .checkbox-item:hover {
+      background: var(--bn-gray-lighter);
+    }
+
+    .checkbox-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    /* Summary Section */
+    .summary-section {
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--bn-space-3);
+    }
+
+    .summary-item {
+      padding: var(--bn-space-3);
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-lg);
+    }
+
+    .summary-label {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      margin-bottom: 2px;
+    }
+
+    .summary-value {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-dark);
+    }
+
+    /* Governance Rules */
+    .governance-textarea {
+      min-height: 120px;
+      resize: vertical;
     }
   </style>
 </head>
@@ -226,103 +556,1147 @@
         </div>
         <span class="registration-logo-text">Bank Nkhonde</span>
       </div>
-      <h1 class="registration-title">Create Your Group</h1>
-      <p class="registration-subtitle">Set up a new savings group in minutes</p>
+      <h1 class="registration-title">Create Your ROSCA Group</h1>
+      <p class="registration-subtitle">Set up a fully customizable savings group</p>
     </div>
 
-    <div class="registration-body">
-      <div class="step-indicator">
-        <div class="step active">
+    <div class="step-indicator">
+      <div class="step-indicator-inner">
+        <div class="step active" data-step="1">
           <span class="step-number">1</span>
           <span class="step-label">Admin</span>
         </div>
         <div class="step-connector"></div>
-        <div class="step">
+        <div class="step" data-step="2">
           <span class="step-number">2</span>
           <span class="step-label">Group</span>
         </div>
         <div class="step-connector"></div>
-        <div class="step">
+        <div class="step" data-step="3">
           <span class="step-number">3</span>
-          <span class="step-label">Settings</span>
+          <span class="step-label">Finances</span>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step" data-step="4">
+          <span class="step-number">4</span>
+          <span class="step-label">Rules</span>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step" data-step="5">
+          <span class="step-number">5</span>
+          <span class="step-label">Review</span>
+        </div>
+      </div>
+    </div>
+
+    <form id="registrationForm">
+      <div class="registration-body">
+        <!-- Step 1: Admin Account -->
+        <div class="form-step active" data-step="1">
+          <h3 class="section-title">Primary Administrator</h3>
+          <p class="section-subtitle">This will be the main admin account for your group.</p>
+          
+          <div class="form-group">
+            <label class="form-label">Full Name *</label>
+            <input type="text" id="fullName" class="form-input" placeholder="Enter your full name" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Email Address *</label>
+              <input type="email" id="email" class="form-input" placeholder="admin@example.com" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phone Number *</label>
+              <input type="tel" id="phone" class="form-input" placeholder="+265 991 234 567" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">WhatsApp Number (Optional)</label>
+            <input type="tel" id="whatsappNumber" class="form-input" placeholder="+265 991 234 567">
+            <span class="help-text">For easier group communication via WhatsApp. Leave empty to use phone number.</span>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Password *</label>
+              <div style="position: relative;">
+                <input type="password" id="password" class="form-input" placeholder="Min 6 characters" required minlength="6" style="padding-right: 45px;">
+                <button type="button" class="password-toggle-btn" id="togglePassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 8px; color: var(--bn-gray);">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="eyeIcon">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="eyeOffIcon" style="display: none;">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                </button>
+              </div>
+              <div id="passwordStrength" style="margin-top: 8px; display: none;">
+                <div style="display: flex; gap: 4px; margin-bottom: 4px;">
+                  <div class="strength-bar" style="flex: 1; height: 4px; background: var(--bn-gray-lighter); border-radius: 2px;"></div>
+                  <div class="strength-bar" style="flex: 1; height: 4px; background: var(--bn-gray-lighter); border-radius: 2px;"></div>
+                  <div class="strength-bar" style="flex: 1; height: 4px; background: var(--bn-gray-lighter); border-radius: 2px;"></div>
+                  <div class="strength-bar" style="flex: 1; height: 4px; background: var(--bn-gray-lighter); border-radius: 2px;"></div>
+                </div>
+                <p id="passwordStrengthText" style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin: 0;"></p>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Confirm Password *</label>
+              <div style="position: relative;">
+                <input type="password" id="confirmPassword" class="form-input" placeholder="Confirm password" required style="padding-right: 45px;">
+                <button type="button" class="password-toggle-btn" id="toggleConfirmPassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 8px; color: var(--bn-gray);">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="eyeIcon2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="eyeOffIcon2" style="display: none;">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                </button>
+              </div>
+              <p id="confirmPasswordMatch" style="font-size: var(--bn-text-xs); margin-top: 8px; display: none;"></p>
+            </div>
+          </div>
+
+          <h3 class="section-title" style="margin-top: var(--bn-space-6);">Additional Administrators (Optional)</h3>
+          <p class="section-subtitle">Add co-admins who can help manage the group.</p>
+
+          <div class="admin-list" id="additionalAdminsList">
+            <!-- Additional admins will be listed here -->
+          </div>
+
+          <div class="add-admin-row">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Admin Name</label>
+              <input type="text" id="newAdminName" class="form-input" placeholder="Co-admin name">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Admin Email</label>
+              <input type="email" id="newAdminEmail" class="form-input" placeholder="coadmin@example.com">
+            </div>
+            <button type="button" class="btn btn-secondary" id="addAdminBtn" style="height: 48px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              Add
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 2: Group Details -->
+        <div class="form-step" data-step="2">
+          <h3 class="section-title">Group Information</h3>
+          
+          <div class="form-group">
+            <label class="form-label">Group Name *</label>
+            <input type="text" id="groupName" class="form-input" placeholder="e.g., Unity Savings Club" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Group Description</label>
+            <textarea id="groupDescription" class="form-textarea" rows="3" placeholder="Briefly describe your group's purpose and goals..."></textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Cycle Length *</label>
+              <select id="cycleLength" class="form-select">
+                <option value="6">6 Months</option>
+                <option value="9">9 Months</option>
+                <option value="10">10 Months</option>
+                <option value="11" selected>11 Months</option>
+                <option value="12">12 Months (1 Year)</option>
+                <option value="18">18 Months</option>
+                <option value="24">24 Months (2 Years)</option>
+              </select>
+              <span class="help-text">Duration of one complete savings cycle</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Cycle Start Date *</label>
+              <input type="date" id="cycleStartDate" class="form-input" required>
+              <span class="help-text">When contributions begin</span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Contribution Due Day *</label>
+              <select id="contributionDueDay" class="form-select">
+                <option value="1">1st of each month</option>
+                <option value="5">5th of each month</option>
+                <option value="10">10th of each month</option>
+                <option value="15" selected>15th of each month</option>
+                <option value="20">20th of each month</option>
+                <option value="25">25th of each month</option>
+                <option value="28">28th of each month</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Expected Members</label>
+              <input type="number" id="expectedMembers" class="form-input" placeholder="e.g., 12" min="2" max="100">
+              <span class="help-text">Approximate number of members</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Financial Settings -->
+        <div class="form-step" data-step="3">
+          <h3 class="section-title">Contribution Amounts</h3>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Monthly Contribution (MWK) *</label>
+              <div class="currency-input-wrapper">
+                <span class="currency-prefix">MWK</span>
+                <input type="text" id="monthlyContribution" class="form-input currency-input" placeholder="50,000" required data-type="currency">
+              </div>
+              <span class="help-text">Amount each member contributes monthly</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Seed Money (MWK) *</label>
+              <div class="currency-input-wrapper">
+                <span class="currency-prefix">MWK</span>
+                <input type="text" id="seedMoney" class="form-input currency-input" placeholder="10,000" required data-type="currency">
+              </div>
+              <span class="help-text">One-time joining fee</span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Seed Money Due Date</label>
+              <input type="date" id="seedMoneyDueDate" class="form-input">
+              <span class="help-text">Deadline for seed money payment</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Late Payment Grace Period (Days)</label>
+              <input type="number" id="gracePeriod" class="form-input" value="5" min="0" max="30">
+              <span class="help-text">Days before penalties apply</span>
+            </div>
+          </div>
+
+          <h3 class="section-title" style="margin-top: var(--bn-space-6);">Penalty Structure</h3>
+
+          <div class="info-box">
+            <p><strong>How penalties work:</strong> After the grace period, penalties are calculated daily on unpaid amounts. This encourages timely payments.</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Penalty Type</label>
+            <div style="display: flex; gap: var(--bn-space-4); margin-bottom: var(--bn-space-4);">
+              <label class="radio-option" style="display: flex; align-items: center; gap: var(--bn-space-2); cursor: pointer;">
+                <input type="radio" name="penaltyType" value="percentage" checked id="penaltyTypePercentage">
+                <span>Percentage (%)</span>
+              </label>
+              <label class="radio-option" style="display: flex; align-items: center; gap: var(--bn-space-2); cursor: pointer;">
+                <input type="radio" name="penaltyType" value="fixed" id="penaltyTypeFixed">
+                <span>Fixed Amount (MWK)</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" id="dailyPenaltyLabel">Daily Penalty Rate (%)</label>
+              <div id="dailyPenaltyPercentageInput">
+                <input type="number" id="dailyPenaltyRate" class="form-input" value="1" min="0" max="10" step="0.1">
+                <span class="help-text">Applied daily on overdue contributions</span>
+              </div>
+              <div id="dailyPenaltyFixedInput" style="display: none;">
+                <div class="currency-input-wrapper">
+                  <span class="currency-prefix">MWK</span>
+                  <input type="text" id="dailyPenaltyFixed" class="form-input currency-input" placeholder="500" data-type="currency">
+                </div>
+                <span class="help-text">Fixed amount charged daily for late payments</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" id="maxPenaltyLabel">Maximum Penalty Cap (%)</label>
+              <div id="maxPenaltyPercentageInput">
+                <input type="number" id="maxPenaltyCap" class="form-input" value="30" min="0" max="100" step="1">
+                <span class="help-text">Maximum penalty percentage (0 = no cap)</span>
+              </div>
+              <div id="maxPenaltyFixedInput" style="display: none;">
+                <div class="currency-input-wrapper">
+                  <span class="currency-prefix">MWK</span>
+                  <input type="text" id="maxPenaltyCapFixed" class="form-input currency-input" placeholder="10,000" data-type="currency">
+                </div>
+                <span class="help-text">Maximum penalty amount (0 = no cap)</span>
+              </div>
+            </div>
+          </div>
+
+          <h3 class="section-title" style="margin-top: var(--bn-space-6);">Loan Settings</h3>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Maximum Loan Amount (MWK)</label>
+              <div class="currency-input-wrapper">
+                <span class="currency-prefix">MWK</span>
+                <input type="text" id="maxLoanAmount" class="form-input currency-input" placeholder="500,000" data-type="currency">
+              </div>
+              <span class="help-text">Maximum a member can borrow at once</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Min Cycle Loan Amount (MWK)</label>
+              <div class="currency-input-wrapper">
+                <span class="currency-prefix">MWK</span>
+                <input type="text" id="minCycleLoanAmount" class="form-input currency-input" placeholder="Optional" data-type="currency">
+              </div>
+              <span class="help-text">Minimum each member must borrow during the cycle (for tracking)</span>
+            </div>
+          </div>
+
+          <div class="info-box" style="background: var(--bn-accent-subtle); border-left-color: var(--bn-accent);">
+            <p><strong>Minimum Cycle Loan:</strong> If set, this helps track which members haven't borrowed enough during the cycle. At cycle end, you can easily identify who needs a "force loan" to ensure fair interest distribution. Leave empty if not applicable.</p>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Max Repayment Period (Months)</label>
+              <select id="maxRepaymentMonths" class="form-select">
+                <option value="1">1 Month</option>
+                <option value="2">2 Months</option>
+                <option value="3" selected>3 Months</option>
+                <option value="4">4 Months</option>
+                <option value="6">6 Months</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Loan Period Calculation</label>
+              <select id="loanPeriodCalculation" class="form-select">
+                <option value="auto">Auto (based on amount)</option>
+                <option value="manual">Borrower chooses</option>
+                <option value="fixed">Fixed period</option>
+              </select>
+            </div>
+          </div>
+
+          <h3 class="section-title" style="margin-top: var(--bn-space-6);">Loan Interest Rates</h3>
+
+          <div class="info-box">
+            <p><strong>Tiered Interest:</strong> Set different interest rates for each repayment month. Rates are based on your selected max repayment period above.</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Interest Calculation Method</label>
+            <select id="interestMethod" class="form-select">
+              <option value="reduced_balance">Reduced Balance (Recommended)</option>
+              <option value="flat_rate">Flat Rate (on original amount)</option>
+            </select>
+            <span class="help-text">Reduced balance: interest calculated on remaining principal each month</span>
+          </div>
+
+          <!-- Dynamic Interest Rate Inputs -->
+          <div id="interestRatesContainer">
+            <!-- Will be populated dynamically based on max repayment months -->
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Loan Penalty Rate (% per day)</label>
+              <input type="number" id="loanPenaltyRate" class="form-input" value="2" min="0" max="50" step="0.1">
+              <span class="help-text">For late loan repayments</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Loan Grace Period (Days)</label>
+              <input type="number" id="loanGracePeriod" class="form-input" value="3" min="0" max="14">
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 4: Rules & Governance -->
+        <div class="form-step" data-step="4">
+          <h3 class="section-title">Group Rules & Governance</h3>
+          
+          <div class="form-group">
+            <label class="form-label">Governance Rules</label>
+            <textarea id="governanceRules" class="form-textarea governance-textarea" placeholder="Enter your group's governance rules, voting procedures, meeting schedules, and other important guidelines..."></textarea>
+            <span class="help-text">These rules will be visible to all members in their dashboard</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Rules & Regulations Document (PDF)</label>
+            <div class="file-upload-area" id="rulesUploadArea">
+              <div class="file-upload-icon">📄</div>
+              <p class="file-upload-text">
+                <strong>Click to upload</strong> or drag and drop<br>
+                PDF file up to 10MB
+              </p>
+              <input type="file" id="rulesDocument" accept=".pdf" style="display: none;">
+            </div>
+            <div id="rulesFilePreview" style="display: none;">
+              <div class="file-preview">
+                <span class="file-preview-icon">📄</span>
+                <div class="file-preview-info">
+                  <div class="file-preview-name" id="rulesFileName">document.pdf</div>
+                  <div class="file-preview-size" id="rulesFileSize">1.2 MB</div>
+                </div>
+                <button type="button" class="file-remove-btn" id="removeRulesFile">✕</button>
+              </div>
+            </div>
+            <span class="help-text">Upload a detailed PDF of your group's constitution or rules</span>
+          </div>
+
+          <h3 class="section-title" style="margin-top: var(--bn-space-6);">Advanced Settings</h3>
+
+          <div class="form-group">
+            <label class="form-label">Surplus/Profit Distribution</label>
+            <select id="surplusDistribution" class="form-select">
+              <option value="equal">Equal distribution to all members</option>
+              <option value="proportional">Proportional to total contributions</option>
+              <option value="rollover">Roll over to next cycle</option>
+              <option value="reserve">Add to emergency reserve fund</option>
+            </select>
+            <span class="help-text">How profits are shared at cycle end</span>
+          </div>
+
+          <div class="checkbox-grid">
+            <label class="checkbox-item">
+              <input type="checkbox" id="enableLoanBooking" checked>
+              <span>Enable loan booking queue</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" id="autoMonthlyReports" checked>
+              <span>Automated monthly reports</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" id="requireCollateral">
+              <span>Require collateral for loans</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" id="allowPartialPayments" checked>
+              <span>Allow partial payments</span>
+            </label>
+          </div>
+
+          <h3 class="section-title" style="margin-top: var(--bn-space-6);">Required Member Documentation</h3>
+
+          <div class="checkbox-grid">
+            <label class="checkbox-item">
+              <input type="checkbox" id="requireNationalId" checked>
+              <span>National ID / Passport</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" id="requireProofOfAddress">
+              <span>Proof of Address</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" id="requireGuarantor" checked>
+              <span>Guarantor Information</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" id="requireEmploymentLetter">
+              <span>Employment/Business Proof</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" id="requirePhoto">
+              <span>Profile Photo</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" id="requireBankDetails">
+              <span>Bank Account Details</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Step 5: Review -->
+        <div class="form-step" data-step="5">
+          <h3 class="section-title">Review Your Group Settings</h3>
+          <p class="section-subtitle">Please review all settings before creating your group.</p>
+
+          <div class="summary-section">
+            <h4 style="font-weight: 600; margin-bottom: var(--bn-space-3);">Admin Information</h4>
+            <div class="summary-grid">
+              <div class="summary-item">
+                <div class="summary-label">Primary Admin</div>
+                <div class="summary-value" id="summaryAdminName">-</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-label">Email</div>
+                <div class="summary-value" id="summaryAdminEmail">-</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-label">Additional Admins</div>
+                <div class="summary-value" id="summaryAdditionalAdmins">None</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="summary-section">
+            <h4 style="font-weight: 600; margin-bottom: var(--bn-space-3);">Group Details</h4>
+            <div class="summary-grid">
+              <div class="summary-item">
+                <div class="summary-label">Group Name</div>
+                <div class="summary-value" id="summaryGroupName">-</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-label">Cycle Length</div>
+                <div class="summary-value" id="summaryCycleLength">-</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-label">Start Date</div>
+                <div class="summary-value" id="summaryCycleStart">-</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-label">Due Day</div>
+                <div class="summary-value" id="summaryDueDay">-</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="summary-section">
+            <h4 style="font-weight: 600; margin-bottom: var(--bn-space-3);">Financial Settings</h4>
+            <div class="summary-grid">
+              <div class="summary-item">
+                <div class="summary-label">Monthly Contribution</div>
+                <div class="summary-value" id="summaryMonthly">-</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-label">Seed Money</div>
+                <div class="summary-value" id="summarySeedMoney">-</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-label">Max Loan Amount</div>
+                <div class="summary-value" id="summaryMaxLoan">-</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-label">Interest Method</div>
+                <div class="summary-value" id="summaryInterestMethod">-</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-label">Interest Rates</div>
+                <div class="summary-value" id="summaryInterestRates">-</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-label">Daily Penalty</div>
+                <div class="summary-value" id="summaryPenalty">-</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="info-box" style="margin-top: var(--bn-space-6);">
+            <p><strong>Note:</strong> All settings can be modified after group creation from the admin dashboard. An invitation link will be generated for you to share with members.</p>
+          </div>
+
+          <div id="errorMessage" class="alert alert-danger hidden" style="margin-top: var(--bn-space-4);"></div>
         </div>
       </div>
 
-      <form id="registrationForm">
-        <h3 class="section-title">Admin Account</h3>
-        
-        <div class="form-group">
-          <label class="form-label">Full Name</label>
-          <input type="text" id="fullName" class="form-input" placeholder="Your full name" required>
+      <div class="registration-footer">
+        <div class="registration-footer-left">
+          Already have an account? <a href="../login.html">Sign In</a>
         </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Email Address</label>
-            <input type="email" id="email" class="form-input" placeholder="admin@example.com" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Phone Number</label>
-            <input type="tel" id="phone" class="form-input" placeholder="+265 991 234 567" required>
-          </div>
+        <div class="registration-footer-buttons">
+          <button type="button" class="btn btn-ghost" id="prevBtn" style="display: none;">
+            ← Back
+          </button>
+          <button type="button" class="btn btn-accent" id="nextBtn">
+            Continue →
+          </button>
+          <button type="submit" class="btn btn-accent" id="submitBtn" style="display: none;">
+            Create Group
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </button>
         </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Password</label>
-            <input type="password" id="password" class="form-input" placeholder="Min 6 characters" required minlength="6">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Confirm Password</label>
-            <input type="password" id="confirmPassword" class="form-input" placeholder="Confirm password" required>
-          </div>
-        </div>
-
-        <h3 class="section-title" style="margin-top: var(--bn-space-8);">Group Details</h3>
-
-        <div class="form-group">
-          <label class="form-label">Group Name</label>
-          <input type="text" id="groupName" class="form-input" placeholder="e.g., Unity Savings Club" required>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Monthly Contribution (MWK)</label>
-            <input type="number" id="monthlyContribution" class="form-input" placeholder="50000" required min="1000">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Seed Money (MWK)</label>
-            <input type="number" id="seedMoney" class="form-input" placeholder="10000" required min="0">
-          </div>
-        </div>
-
-        <div id="errorMessage" class="alert alert-danger hidden" style="margin-top: var(--bn-space-4);"></div>
-
-        <button type="submit" class="btn btn-accent btn-block btn-lg" style="margin-top: var(--bn-space-6);">
-          Create Group
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
-          </svg>
-        </button>
-      </form>
-    </div>
-
-    <div class="registration-footer">
-      <p>Already have an account? <a href="../login.html">Sign In</a></p>
-    </div>
+      </div>
+    </form>
   </div>
 
   <!-- Loading Overlay -->
   <div class="spinner-overlay hidden" id="spinner">
     <div class="spinner-content">
       <div class="spinner"></div>
-      <p class="loading-text">Creating your group...</p>
+      <p class="loading-text" id="loadingText">Creating your group...</p>
+    </div>
+  </div>
+
+  <!-- Success Modal -->
+  <div class="modal-overlay hidden" id="successModal" style="pointer-events: auto;">
+    <div class="modal-content" style="max-width: 500px; pointer-events: auto;">
+      <div class="modal-header" style="padding: var(--bn-space-6); border-bottom: 1px solid var(--bn-gray-lighter);">
+        <h2 class="modal-title" id="successModalTitle" style="font-size: var(--bn-text-xl); font-weight: 700; color: var(--bn-dark); margin: 0; display: flex; align-items: center; gap: var(--bn-space-2);">
+          <span style="color: var(--bn-success);">✓</span>
+          <span>Success</span>
+        </h2>
+        <button type="button" class="modal-close" onclick="closeSuccessModal()" style="position: absolute; top: var(--bn-space-6); right: var(--bn-space-6); background: none; border: none; font-size: 24px; cursor: pointer; color: var(--bn-gray); pointer-events: auto;">×</button>
+      </div>
+      <div class="modal-body" style="padding: var(--bn-space-6);">
+        <p id="successModalMessage" style="color: var(--bn-gray-800); line-height: 1.6; margin: 0;"></p>
+      </div>
+      <div class="modal-footer" style="padding: var(--bn-space-4) var(--bn-space-6); border-top: 1px solid var(--bn-gray-lighter); display: flex; justify-content: flex-end; gap: var(--bn-space-3);">
+        <button type="button" id="successModalButton" class="btn btn-accent" style="pointer-events: auto; cursor: pointer;">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error Modal -->
+  <div class="modal-overlay hidden" id="errorModal" style="pointer-events: auto;">
+    <div class="modal-content" style="max-width: 500px; pointer-events: auto;">
+      <div class="modal-header" style="padding: var(--bn-space-6); border-bottom: 1px solid var(--bn-gray-lighter);">
+        <h2 class="modal-title" id="errorModalTitle" style="font-size: var(--bn-text-xl); font-weight: 700; color: var(--bn-dark); margin: 0; display: flex; align-items: center; gap: var(--bn-space-2);">
+          <span style="color: var(--bn-danger);">✕</span>
+          <span>Error</span>
+        </h2>
+        <button type="button" class="modal-close" onclick="closeErrorModal()" style="position: absolute; top: var(--bn-space-6); right: var(--bn-space-6); background: none; border: none; font-size: 24px; cursor: pointer; color: var(--bn-gray); pointer-events: auto;">×</button>
+      </div>
+      <div class="modal-body" style="padding: var(--bn-space-6);">
+        <p id="errorModalMessage" style="color: var(--bn-gray-800); line-height: 1.6; margin: 0;"></p>
+      </div>
+      <div class="modal-footer" style="padding: var(--bn-space-4) var(--bn-space-6); border-top: 1px solid var(--bn-gray-lighter); display: flex; justify-content: flex-end; gap: var(--bn-space-3);">
+        <button type="button" id="errorModalButton" class="btn btn-accent" style="pointer-events: auto; cursor: pointer;">Close</button>
+      </div>
     </div>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-storage-compat.js"></script>
+  
+  <script>
+    // Multi-step form navigation
+    let currentStep = 1;
+    const totalSteps = 5;
+    const additionalAdmins = [];
+    let rulesFile = null;
+
+    // DOM Elements
+    const form = document.getElementById('registrationForm');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const submitBtn = document.getElementById('submitBtn');
+    const steps = document.querySelectorAll('.step');
+    const stepConnectors = document.querySelectorAll('.step-connector');
+    const formSteps = document.querySelectorAll('.form-step');
+
+    // Set default dates
+    document.addEventListener('DOMContentLoaded', () => {
+      const today = new Date();
+      const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+      const seedMoneyDue = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+      
+      document.getElementById('cycleStartDate').value = nextMonth.toISOString().split('T')[0];
+      document.getElementById('seedMoneyDueDate').value = seedMoneyDue.toISOString().split('T')[0];
+      
+      // Initialize currency formatting
+      initCurrencyInputs();
+      
+      // File upload handlers
+      initFileUpload();
+      
+      // Add admin button
+      document.getElementById('addAdminBtn').addEventListener('click', addAdmin);
+      
+      // Dynamic interest rate inputs based on max repayment period
+      initDynamicInterestRates();
+      document.getElementById('maxRepaymentMonths').addEventListener('change', initDynamicInterestRates);
+      
+      // Password visibility toggles
+      initPasswordToggles();
+      
+      // Real-time password validation
+      initPasswordValidation();
+      
+      // Penalty type toggle
+      initPenaltyTypeToggle();
+    });
+
+    // Password visibility toggle
+    function initPasswordToggles() {
+      const togglePassword = document.getElementById('togglePassword');
+      const toggleConfirmPassword = document.getElementById('toggleConfirmPassword');
+      const passwordInput = document.getElementById('password');
+      const confirmPasswordInput = document.getElementById('confirmPassword');
+      const eyeIcon = document.getElementById('eyeIcon');
+      const eyeOffIcon = document.getElementById('eyeOffIcon');
+      const eyeIcon2 = document.getElementById('eyeIcon2');
+      const eyeOffIcon2 = document.getElementById('eyeOffIcon2');
+
+      if (togglePassword && passwordInput) {
+        togglePassword.addEventListener('click', () => {
+          const type = passwordInput.type === 'password' ? 'text' : 'password';
+          passwordInput.type = type;
+          if (eyeIcon && eyeOffIcon) {
+            eyeIcon.style.display = type === 'password' ? 'block' : 'none';
+            eyeOffIcon.style.display = type === 'password' ? 'none' : 'block';
+          }
+        });
+      }
+
+      if (toggleConfirmPassword && confirmPasswordInput) {
+        toggleConfirmPassword.addEventListener('click', () => {
+          const type = confirmPasswordInput.type === 'password' ? 'text' : 'password';
+          confirmPasswordInput.type = type;
+          if (eyeIcon2 && eyeOffIcon2) {
+            eyeIcon2.style.display = type === 'password' ? 'block' : 'none';
+            eyeOffIcon2.style.display = type === 'password' ? 'none' : 'block';
+          }
+        });
+      }
+    }
+
+    // Password validation
+    function initPasswordValidation() {
+      const passwordInput = document.getElementById('password');
+      const confirmPasswordInput = document.getElementById('confirmPassword');
+      const passwordStrength = document.getElementById('passwordStrength');
+      const passwordStrengthText = document.getElementById('passwordStrengthText');
+      const strengthBars = document.querySelectorAll('.strength-bar');
+      const confirmPasswordMatch = document.getElementById('confirmPasswordMatch');
+
+      if (passwordInput && passwordStrength) {
+        passwordInput.addEventListener('input', () => {
+          const password = passwordInput.value;
+          passwordStrength.style.display = password ? 'block' : 'none';
+          
+          let strength = 0;
+          let strengthText = '';
+          let strengthColor = '';
+
+          if (password.length >= 6) strength++;
+          if (password.length >= 8) strength++;
+          if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
+          if (/\d/.test(password)) strength++;
+          if (/[^a-zA-Z0-9]/.test(password)) strength++;
+
+          if (strength <= 1) {
+            strengthText = 'Weak';
+            strengthColor = '#EF4444';
+          } else if (strength === 2) {
+            strengthText = 'Fair';
+            strengthColor = '#F59E0B';
+          } else if (strength === 3) {
+            strengthText = 'Good';
+            strengthColor = '#10B981';
+          } else {
+            strengthText = 'Strong';
+            strengthColor = '#059669';
+          }
+
+          strengthBars.forEach((bar, index) => {
+            bar.style.background = index < strength ? strengthColor : 'var(--bn-gray-lighter)';
+          });
+
+          passwordStrengthText.textContent = strengthText;
+          passwordStrengthText.style.color = strengthColor;
+
+          // Check confirm password match
+          checkPasswordMatch();
+        });
+      }
+
+      if (confirmPasswordInput) {
+        confirmPasswordInput.addEventListener('input', checkPasswordMatch);
+      }
+
+      function checkPasswordMatch() {
+        const password = passwordInput?.value || '';
+        const confirmPassword = confirmPasswordInput?.value || '';
+        
+        if (confirmPassword && confirmPasswordMatch) {
+          if (password === confirmPassword) {
+            confirmPasswordMatch.textContent = '✓ Passwords match';
+            confirmPasswordMatch.style.color = '#10B981';
+            confirmPasswordMatch.style.display = 'block';
+          } else {
+            confirmPasswordMatch.textContent = '✗ Passwords do not match';
+            confirmPasswordMatch.style.color = '#EF4444';
+            confirmPasswordMatch.style.display = 'block';
+          }
+        }
+      }
+    }
+
+    // Penalty type toggle
+    function initPenaltyTypeToggle() {
+      const penaltyTypePercentage = document.getElementById('penaltyTypePercentage');
+      const penaltyTypeFixed = document.getElementById('penaltyTypeFixed');
+      const dailyPenaltyLabel = document.getElementById('dailyPenaltyLabel');
+      const maxPenaltyLabel = document.getElementById('maxPenaltyLabel');
+      const dailyPenaltyPercentageInput = document.getElementById('dailyPenaltyPercentageInput');
+      const dailyPenaltyFixedInput = document.getElementById('dailyPenaltyFixedInput');
+      const maxPenaltyPercentageInput = document.getElementById('maxPenaltyPercentageInput');
+      const maxPenaltyFixedInput = document.getElementById('maxPenaltyFixedInput');
+
+      function togglePenaltyInputs() {
+        const isPercentage = penaltyTypePercentage.checked;
+        
+        if (dailyPenaltyLabel) {
+          dailyPenaltyLabel.textContent = isPercentage ? 'Daily Penalty Rate (%)' : 'Daily Penalty Amount (MWK)';
+        }
+        if (maxPenaltyLabel) {
+          maxPenaltyLabel.textContent = isPercentage ? 'Maximum Penalty Cap (%)' : 'Maximum Penalty Cap (MWK)';
+        }
+        
+        if (dailyPenaltyPercentageInput) dailyPenaltyPercentageInput.style.display = isPercentage ? 'block' : 'none';
+        if (dailyPenaltyFixedInput) dailyPenaltyFixedInput.style.display = isPercentage ? 'none' : 'block';
+        if (maxPenaltyPercentageInput) maxPenaltyPercentageInput.style.display = isPercentage ? 'block' : 'none';
+        if (maxPenaltyFixedInput) maxPenaltyFixedInput.style.display = isPercentage ? 'none' : 'block';
+      }
+
+      if (penaltyTypePercentage) penaltyTypePercentage.addEventListener('change', togglePenaltyInputs);
+      if (penaltyTypeFixed) penaltyTypeFixed.addEventListener('change', togglePenaltyInputs);
+    }
+
+    // Store interest rates globally
+    window.interestRates = {};
+
+    // Initialize dynamic interest rate inputs
+    function initDynamicInterestRates() {
+      const maxMonths = parseInt(document.getElementById('maxRepaymentMonths').value) || 3;
+      const container = document.getElementById('interestRatesContainer');
+      
+      // Default rates (higher for earlier months)
+      const defaultRates = [10, 7, 5, 4, 3, 2];
+      
+      // Build HTML for interest rate inputs
+      let html = '<div class="interest-rates-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--bn-space-3);">';
+      
+      for (let i = 1; i <= maxMonths; i++) {
+        const defaultRate = defaultRates[i - 1] || defaultRates[defaultRates.length - 1];
+        const existingRate = window.interestRates[`month${i}`] || defaultRate;
+        
+        html += `
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: var(--bn-text-xs);">Month ${i} Rate (%)</label>
+            <input type="number" 
+                   id="interestRateMonth${i}" 
+                   class="form-input interest-rate-input" 
+                   value="${existingRate}" 
+                   min="0" 
+                   max="100" 
+                   step="0.5"
+                   data-month="${i}"
+                   onchange="updateInterestRate(${i}, this.value)">
+          </div>
+        `;
+      }
+      
+      html += '</div>';
+      
+      // Add explanation
+      html += `
+        <div style="margin-top: var(--bn-space-3); padding: var(--bn-space-3); background: var(--bn-gray-100); border-radius: var(--bn-radius-lg);">
+          <p style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin: 0;">
+            <strong>Example:</strong> For a MWK 100,000 loan over ${maxMonths} months with reduced balance:
+            <br>• Month 1: MWK 100,000 × ${window.interestRates.month1 || defaultRates[0]}% = MWK ${((100000 * (window.interestRates.month1 || defaultRates[0])) / 100).toLocaleString()} interest
+            ${maxMonths >= 2 ? `<br>• Month 2: Remaining balance × ${window.interestRates.month2 || defaultRates[1]}%` : ''}
+          </p>
+        </div>
+      `;
+      
+      container.innerHTML = html;
+      
+      // Initialize rates
+      for (let i = 1; i <= maxMonths; i++) {
+        if (!window.interestRates[`month${i}`]) {
+          window.interestRates[`month${i}`] = defaultRates[i - 1] || defaultRates[defaultRates.length - 1];
+        }
+      }
+    }
+
+    // Update interest rate in global object
+    window.updateInterestRate = function(month, value) {
+      window.interestRates[`month${month}`] = parseFloat(value) || 0;
+    };
+
+    // Currency input formatting
+    function initCurrencyInputs() {
+      document.querySelectorAll('[data-type="currency"]').forEach(input => {
+        input.addEventListener('input', (e) => {
+          let value = e.target.value.replace(/[^\d]/g, '');
+          if (value) {
+            value = parseInt(value).toLocaleString('en-US');
+          }
+          e.target.value = value;
+        });
+
+        input.addEventListener('blur', (e) => {
+          let value = e.target.value.replace(/[^\d]/g, '');
+          if (value) {
+            value = parseInt(value).toLocaleString('en-US');
+          }
+          e.target.value = value;
+        });
+      });
+    }
+
+    // Get numeric value from formatted currency
+    function getCurrencyValue(id) {
+      const el = document.getElementById(id);
+      if (!el) return 0;
+      return parseInt(el.value.replace(/[^\d]/g, '')) || 0;
+    }
+
+    // Format currency for display
+    function formatCurrency(amount) {
+      return 'MWK ' + parseInt(amount || 0).toLocaleString('en-US');
+    }
+
+    // File upload
+    function initFileUpload() {
+      const uploadArea = document.getElementById('rulesUploadArea');
+      const fileInput = document.getElementById('rulesDocument');
+      const preview = document.getElementById('rulesFilePreview');
+      const removeBtn = document.getElementById('removeRulesFile');
+
+      uploadArea.addEventListener('click', () => fileInput.click());
+      
+      uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+      });
+
+      uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+      });
+
+      uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type === 'application/pdf') {
+          handleFileSelect(file);
+        }
+      });
+
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files[0]) {
+          handleFileSelect(e.target.files[0]);
+        }
+      });
+
+      removeBtn.addEventListener('click', () => {
+        rulesFile = null;
+        preview.style.display = 'none';
+        uploadArea.style.display = 'block';
+        fileInput.value = '';
+      });
+    }
+
+    function handleFileSelect(file) {
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File size must be less than 10MB');
+        return;
+      }
+
+      rulesFile = file;
+      document.getElementById('rulesFileName').textContent = file.name;
+      document.getElementById('rulesFileSize').textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+      document.getElementById('rulesFilePreview').style.display = 'block';
+      document.getElementById('rulesUploadArea').style.display = 'none';
+    }
+
+    // Add admin
+    function addAdmin() {
+      const nameInput = document.getElementById('newAdminName');
+      const emailInput = document.getElementById('newAdminEmail');
+      
+      const name = nameInput.value.trim();
+      const email = emailInput.value.trim();
+
+      if (!name || !email) {
+        alert('Please enter both name and email for the admin');
+        return;
+      }
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        alert('Please enter a valid email address');
+        return;
+      }
+
+      if (email === document.getElementById('email').value.trim()) {
+        alert('This email is already used for the primary admin');
+        return;
+      }
+
+      if (additionalAdmins.find(a => a.email === email)) {
+        alert('This admin has already been added');
+        return;
+      }
+
+      additionalAdmins.push({ name, email });
+      renderAdminList();
+      
+      nameInput.value = '';
+      emailInput.value = '';
+    }
+
+    function removeAdmin(email) {
+      const index = additionalAdmins.findIndex(a => a.email === email);
+      if (index > -1) {
+        additionalAdmins.splice(index, 1);
+        renderAdminList();
+      }
+    }
+
+    function renderAdminList() {
+      const list = document.getElementById('additionalAdminsList');
+      if (additionalAdmins.length === 0) {
+        list.innerHTML = '';
+        return;
+      }
+
+      list.innerHTML = additionalAdmins.map(admin => `
+        <div class="admin-item">
+          <div class="admin-item-info">
+            <div class="admin-item-name">${admin.name}</div>
+            <div class="admin-item-email">${admin.email}</div>
+          </div>
+          <span class="admin-item-badge">Co-Admin</span>
+          <button type="button" class="admin-remove-btn" onclick="removeAdmin('${admin.email}')">✕</button>
+        </div>
+      `).join('');
+    }
+
+    // Make removeAdmin available globally
+    window.removeAdmin = removeAdmin;
+
+    // Navigation
+    function updateStepIndicator() {
+      steps.forEach((step, index) => {
+        const stepNum = index + 1;
+        step.classList.remove('active', 'completed');
+        
+        if (stepNum < currentStep) {
+          step.classList.add('completed');
+        } else if (stepNum === currentStep) {
+          step.classList.add('active');
+        }
+      });
+
+      stepConnectors.forEach((connector, index) => {
+        connector.classList.toggle('completed', index < currentStep - 1);
+      });
+
+      formSteps.forEach(formStep => {
+        formStep.classList.toggle('active', parseInt(formStep.dataset.step) === currentStep);
+      });
+
+      prevBtn.style.display = currentStep > 1 ? 'block' : 'none';
+      nextBtn.style.display = currentStep < totalSteps ? 'block' : 'none';
+      submitBtn.style.display = currentStep === totalSteps ? 'block' : 'none';
+    }
+
+    function validateStep(step) {
+      switch(step) {
+        case 1:
+          const name = document.getElementById('fullName').value.trim();
+          const email = document.getElementById('email').value.trim();
+          const phone = document.getElementById('phone').value.trim();
+          const password = document.getElementById('password').value;
+          const confirmPassword = document.getElementById('confirmPassword').value;
+
+          if (!name || !email || !phone || !password) {
+            alert('Please fill in all required fields');
+            return false;
+          }
+          if (password.length < 6) {
+            alert('Password must be at least 6 characters');
+            return false;
+          }
+          if (password !== confirmPassword) {
+            alert('Passwords do not match');
+            return false;
+          }
+          return true;
+
+        case 2:
+          const groupName = document.getElementById('groupName').value.trim();
+          const cycleStart = document.getElementById('cycleStartDate').value;
+
+          if (!groupName) {
+            alert('Please enter a group name');
+            return false;
+          }
+          if (!cycleStart) {
+            alert('Please select a cycle start date');
+            return false;
+          }
+          return true;
+
+        case 3:
+          const monthly = getCurrencyValue('monthlyContribution');
+          const seed = getCurrencyValue('seedMoney');
+
+          if (monthly < 1000) {
+            alert('Monthly contribution must be at least MWK 1,000');
+            return false;
+          }
+          return true;
+
+        default:
+          return true;
+      }
+    }
+
+    function updateSummary() {
+      // Admin info
+      document.getElementById('summaryAdminName').textContent = document.getElementById('fullName').value;
+      document.getElementById('summaryAdminEmail').textContent = document.getElementById('email').value;
+      document.getElementById('summaryAdditionalAdmins').textContent = 
+        additionalAdmins.length > 0 ? additionalAdmins.map(a => a.name).join(', ') : 'None';
+
+      // Group details
+      document.getElementById('summaryGroupName').textContent = document.getElementById('groupName').value;
+      document.getElementById('summaryCycleLength').textContent = document.getElementById('cycleLength').value + ' months';
+      document.getElementById('summaryCycleStart').textContent = new Date(document.getElementById('cycleStartDate').value).toLocaleDateString();
+      document.getElementById('summaryDueDay').textContent = document.getElementById('contributionDueDay').value + ' of each month';
+
+      // Financial
+      document.getElementById('summaryMonthly').textContent = formatCurrency(getCurrencyValue('monthlyContribution'));
+      document.getElementById('summarySeedMoney').textContent = formatCurrency(getCurrencyValue('seedMoney'));
+      const maxLoan = getCurrencyValue('maxLoanAmount');
+      document.getElementById('summaryMaxLoan').textContent = maxLoan ? formatCurrency(maxLoan) : 'No limit';
+      document.getElementById('summaryInterestMethod').textContent = 
+        document.getElementById('interestMethod').value === 'reduced_balance' ? 'Reduced Balance' : 'Flat Rate';
+      
+      // Dynamic interest rates summary
+      const maxMonths = parseInt(document.getElementById('maxRepaymentMonths').value) || 3;
+      const rates = [];
+      for (let i = 1; i <= maxMonths; i++) {
+        const rate = window.interestRates[`month${i}`] || 0;
+        rates.push(`M${i}: ${rate}%`);
+      }
+      document.getElementById('summaryInterestRates').textContent = rates.join(' / ');
+      document.getElementById('summaryPenalty').textContent = document.getElementById('dailyPenaltyRate').value + '% per day';
+      
+      // Store additional admins for form submission
+      window.additionalAdmins = additionalAdmins;
+    }
+
+    prevBtn.addEventListener('click', () => {
+      if (currentStep > 1) {
+        currentStep--;
+        updateStepIndicator();
+      }
+    });
+
+    nextBtn.addEventListener('click', () => {
+      if (validateStep(currentStep)) {
+        if (currentStep < totalSteps) {
+          currentStep++;
+          updateStepIndicator();
+          
+          if (currentStep === totalSteps) {
+            updateSummary();
+          }
+        }
+      }
+    });
+
+    // Initialize
+    updateStepIndicator();
+  </script>
+  
   <script type="module" src="../scripts/registration.js"></script>
 </body>
 </html>

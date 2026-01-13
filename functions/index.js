@@ -7,17 +7,25 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
 
-// Email configuration - Easy to change SMTP settings here
-// Can be overridden by Firebase environment variables for production
+// ===========================================
+// EMAIL CONFIGURATION
+// ===========================================
+// Easy to change: Update values below or use Firebase environment variables
+// For production, use: firebase functions:config:set smtp.host="..." etc.
+
 const emailConfig = {
   smtp: {
     host: functions.config().smtp?.host || 'mail.promanaged-it.com',
     port: parseInt(functions.config().smtp?.port || '465'),
-    secure: true, // true for 465, false for other ports
+    secure: true, // true for 465 (SSL), false for 587/25 (TLS)
     auth: {
       user: functions.config().smtp?.user || '_mainaccount@promanaged-it.com',
       pass: functions.config().smtp?.pass || '2:p2WpmX[0YTs7'
-    }
+    },
+    // Add TLS options if needed for SSL certificate issues
+    // tls: {
+    //   rejectUnauthorized: false
+    // }
   },
   from: {
     name: 'Bank Nkhonde',

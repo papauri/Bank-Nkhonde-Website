@@ -31,8 +31,9 @@ export async function createInvitationCode() {
       approved: false,
       used: false,
       createdAt: Timestamp.now(),
+      status: "pending"
     });
-    console.log("Invitation code created:", code);
+    console.log("✅ Invitation code created:", code, "Doc ID:", docRef.id);
     
     // Only try to autofill if the element exists
     const invitationCodeElement = document.getElementById("invitationCode");
@@ -42,8 +43,21 @@ export async function createInvitationCode() {
     
     return code;
   } catch (err) {
-    console.error("Error creating invitation code:", err);
-    throw new Error("Failed to generate invitation code.");
+    console.error("❌ Error creating invitation code:", err);
+    
+    // Provide more specific error messages
+    let errorMessage = "Failed to generate registration code.";
+    if (err.code === "permission-denied") {
+      errorMessage = "Permission denied. Please contact support to enable registration.";
+    } else if (err.code === "unavailable" || err.message?.includes("network")) {
+      errorMessage = "Network error. Please check your internet connection and try again.";
+    } else if (err.code === "failed-precondition") {
+      errorMessage = "Database not initialized. Please contact support.";
+    } else {
+      errorMessage = `Failed to generate registration code: ${err.message || "Unknown error"}`;
+    }
+    
+    throw new Error(errorMessage);
   }
 }
 

@@ -32,8 +32,9 @@ vendor/
 composer.phar
 composer.lock
 
-# Email configuration (contains sensitive credentials)
+# Email configuration (contains sensitive SMTP credentials - DO NOT COMMIT)
 config/email.config.js
+config/email.config.js.backup
 
 # Firebase Functions
 functions/node_modules/

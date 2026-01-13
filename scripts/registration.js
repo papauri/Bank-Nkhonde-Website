@@ -26,8 +26,8 @@ document.addEventListener("DOMContentLoaded", () => {
   
   const registrationForm = document.getElementById("registrationForm");
   const phoneInput = document.getElementById("phone");
-  const loadingOverlay = document.getElementById("loadingOverlay");
-  const loadingMessage = document.getElementById("loadingMessage");
+  const loadingOverlay = document.getElementById("spinner");
+  const loadingMessage = document.getElementById("loadingText");
   const formFields = document.querySelectorAll("#registrationForm input, button");
 
 
@@ -59,9 +59,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ✅ Loading Overlay Functions
   function toggleLoadingOverlay(show = true, message = "Processing... Please wait.") {
-    loadingMessage.innerHTML = message.replace(/\n/g, '<br>'); // Support multi-line messages
-    loadingOverlay.classList.toggle("show", show);
-    loadingOverlay.classList.toggle("hidden", !show);
+    if (loadingMessage) {
+      loadingMessage.innerHTML = message.replace(/\n/g, '<br>'); // Support multi-line messages
+    }
+    if (loadingOverlay) {
+      loadingOverlay.classList.toggle("show", show);
+      loadingOverlay.classList.toggle("hidden", !show);
+    }
     document.body.style.pointerEvents = show ? "none" : "auto";
   }
 
@@ -72,13 +76,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ✅ Dialog Functions
   function showSuccessDialog(title, message, buttonText = "OK", onClose = null) {
-    const successDialog = document.getElementById("successDialog");
-    const successDialogTitle = document.getElementById("successDialogTitle");
-    const successDialogMessage = document.getElementById("successDialogMessage");
-    const successDialogButton = document.getElementById("successDialogButton");
+    const successModal = document.getElementById("successModal");
+    const successModalTitle = document.getElementById("successModalTitle");
+    const successModalMessage = document.getElementById("successModalMessage");
+    const successModalButton = document.getElementById("successModalButton");
     
-    if (!successDialog || !successDialogTitle || !successDialogMessage || !successDialogButton) {
-      console.error("Dialog elements not found");
+    if (!successModal || !successModalTitle || !successModalMessage || !successModalButton) {
+      console.error("Modal elements not found, falling back to alert");
       alert(`${title}\n\n${message}`);
       if (onClose && typeof onClose === 'function') {
         onClose();
@@ -86,40 +90,49 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     
-    successDialogTitle.textContent = title;
-    successDialogMessage.textContent = message;
-    successDialogButton.textContent = buttonText;
+    // IMPORTANT: Reset pointer events to ensure modal is clickable
+    document.body.style.pointerEvents = "auto";
     
-    // Remove any existing click handlers
-    const newButton = successDialogButton.cloneNode(true);
-    successDialogButton.parentNode.replaceChild(newButton, successDialogButton);
+    // Update title (keep icon, update text)
+    const titleSpan = successModalTitle.querySelector('span:last-child');
+    if (titleSpan) titleSpan.textContent = title;
     
-    // Add click handler
-    newButton.addEventListener("click", () => {
-      closeSuccessDialog();
+    successModalMessage.textContent = message;
+    successModalButton.textContent = buttonText;
+    successModalButton.disabled = false; // Ensure button is enabled
+    successModalButton.style.pointerEvents = "auto"; // Ensure button is clickable
+    
+    // Update button click handler
+    successModalButton.onclick = () => {
+      closeSuccessModal();
       if (onClose && typeof onClose === 'function') {
         onClose();
       }
-    });
+    };
     
-    successDialog.classList.remove("hidden");
+    successModal.classList.remove("hidden");
+    successModal.classList.add("active");
+    successModal.style.pointerEvents = "auto"; // Ensure modal overlay is clickable
+    document.body.style.overflow = 'hidden';
   }
 
-  function closeSuccessDialog() {
-    const successDialog = document.getElementById("successDialog");
-    if (successDialog) {
-      successDialog.classList.add("hidden");
+  window.closeSuccessModal = function() {
+    const successModal = document.getElementById("successModal");
+    if (successModal) {
+      successModal.classList.add("hidden");
+      successModal.classList.remove("active");
+      document.body.style.overflow = '';
     }
-  }
+  };
 
   function showErrorDialog(title, message, buttonText = "Close", onClose = null) {
-    const errorDialog = document.getElementById("errorDialog");
-    const errorDialogTitle = document.getElementById("errorDialogTitle");
-    const errorDialogMessage = document.getElementById("errorDialogMessage");
-    const errorDialogButton = document.getElementById("errorDialogButton");
+    const errorModal = document.getElementById("errorModal");
+    const errorModalTitle = document.getElementById("errorModalTitle");
+    const errorModalMessage = document.getElementById("errorModalMessage");
+    const errorModalButton = document.getElementById("errorModalButton");
     
-    if (!errorDialog || !errorDialogTitle || !errorDialogMessage || !errorDialogButton) {
-      console.error("Dialog elements not found");
+    if (!errorModal || !errorModalTitle || !errorModalMessage || !errorModalButton) {
+      console.error("Modal elements not found, falling back to alert");
       alert(`${title}\n\n${message}`);
       if (onClose && typeof onClose === 'function') {
         onClose();
@@ -127,31 +140,74 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     
-    errorDialogTitle.textContent = title;
-    errorDialogMessage.textContent = message;
-    errorDialogButton.textContent = buttonText;
+    // IMPORTANT: Reset pointer events to ensure modal is clickable
+    document.body.style.pointerEvents = "auto";
     
-    // Remove any existing click handlers
-    const newButton = errorDialogButton.cloneNode(true);
-    errorDialogButton.parentNode.replaceChild(newButton, errorDialogButton);
+    // Update title (keep icon, update text)
+    const titleSpan = errorModalTitle.querySelector('span:last-child');
+    if (titleSpan) titleSpan.textContent = title;
     
-    // Add click handler
-    newButton.addEventListener("click", () => {
-      closeErrorDialog();
+    errorModalMessage.textContent = message;
+    errorModalButton.textContent = buttonText;
+    errorModalButton.disabled = false; // Ensure button is enabled
+    errorModalButton.style.pointerEvents = "auto"; // Ensure button is clickable
+    
+    // Update button click handler
+    errorModalButton.onclick = () => {
+      closeErrorModal();
       if (onClose && typeof onClose === 'function') {
         onClose();
       }
-    });
+    };
     
-    errorDialog.classList.remove("hidden");
+    errorModal.classList.remove("hidden");
+    errorModal.classList.add("active");
+    errorModal.style.pointerEvents = "auto"; // Ensure modal overlay is clickable
+    document.body.style.overflow = 'hidden';
   }
 
-  function closeErrorDialog() {
-    const errorDialog = document.getElementById("errorDialog");
-    if (errorDialog) {
-      errorDialog.classList.add("hidden");
+  window.closeErrorModal = function() {
+    const errorModal = document.getElementById("errorModal");
+    if (errorModal) {
+      errorModal.classList.add("hidden");
+      errorModal.classList.remove("active");
+      document.body.style.overflow = '';
     }
-  }
+  };
+  
+  // Close modals on overlay click
+  document.addEventListener('DOMContentLoaded', () => {
+    const successModal = document.getElementById("successModal");
+    const errorModal = document.getElementById("errorModal");
+    
+    if (successModal) {
+      successModal.addEventListener('click', (e) => {
+        if (e.target === successModal) {
+          window.closeSuccessModal();
+        }
+      });
+    }
+    
+    if (errorModal) {
+      errorModal.addEventListener('click', (e) => {
+        if (e.target === errorModal) {
+          window.closeErrorModal();
+        }
+      });
+    }
+    
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (successModal && !successModal.classList.contains('hidden')) {
+          window.closeSuccessModal();
+        }
+        if (errorModal && !errorModal.classList.contains('hidden')) {
+          window.closeErrorModal();
+        }
+      }
+    });
+  });
 
   // ✅ Validate Required Fields
   function validateField(value, fieldName) {
@@ -346,69 +402,135 @@ document.addEventListener("DOMContentLoaded", () => {
         rules: {
           // Seed Money: Same amount for all members, can be paid in full or within maxPaymentMonths
           seedMoney: {
-            amount: seedMoney,                    // Same for all members in group (MWK)
-            dueDate: seedMoneyDueDate,             // Initial due date
-            required: true,                        // Must be fully paid (cannot be skipped)
-            allowPartialPayment: true,             // Can pay in installments
-            maxPaymentMonths: 2,                   // Default: 2 months to complete payment (admin can change)
-            mustBeFullyPaid: true                  // Must be fully paid within maxPaymentMonths
+            amount: seedMoney,
+            dueDate: groupData.seedMoneyDueDate,
+            required: true,
+            allowPartialPayment: true,
+            maxPaymentMonths: 2,
+            mustBeFullyPaid: true
           },
           // Monthly Contribution: Same amount for all members, due same day each month
           monthlyContribution: {
-            amount: monthlyContribution,           // Same for all members in group (MWK)
+            amount: monthlyContribution,
             required: true,
-            dayOfMonth: new Date(groupData.cycleStartDate).getDate(), // Same due day for all (e.g., 5th)
-            allowPartialPayment: true              // Can pay partial amounts
+            dayOfMonth: groupData.contributionDueDay || 15,
+            allowPartialPayment: true
           },
-          // Loan Interest: Different rates per month (tiered system)
-          // Month 1: Interest on full loan amount
-          // Month 2: Interest on remaining balance (if different rate)
-          // Month 3+: Interest on remaining balance (if different rate)
+          // Loan Interest: Dynamic rates per month based on max repayment period
           loanInterest: {
-            month1: loanInterestMonth1,           // % interest for 1st month of loan repayment
-            month2: loanInterestMonth2,           // % interest for 2nd month (defaults to month1 if not provided)
-            month3AndBeyond: loanInterestMonth3,   // % interest for 3rd+ months (defaults to month2 or month1)
-            description: "Tiered interest rates - different % per month based on remaining loan balance",
-            calculationMethod: "balance_based"     // Interest calculated on remaining balance each month
+            // Dynamic rates object - supports any number of months
+            rates: groupData.interestRates || {
+              month1: loanInterestMonth1,
+              month2: loanInterestMonth2,
+              month3: loanInterestMonth3
+            },
+            // Legacy fields for backward compatibility
+            month1: groupData.interestRateMonth1 || loanInterestMonth1,
+            month2: groupData.interestRateMonth2 || loanInterestMonth2,
+            month3AndBeyond: groupData.interestRateMonth3 || loanInterestMonth3,
+            calculationMethod: groupData.interestMethod || "reduced_balance",
+            maxRepaymentMonths: groupData.maxRepaymentMonths || 3,
+            description: groupData.interestMethod === "reduced_balance" 
+              ? "Interest calculated on remaining principal (reduced balance)"
+              : "Flat rate interest on original loan amount"
           },
           // Loan Penalty: % extra on top of monthly loan payment if missed deadline
           loanPenalty: {
-            rate: loanPenalty,                     // % penalty (same for all members in group)
-            type: "percentage",                    // Applied as percentage of missed payment
-            gracePeriodDays: 0,                    // Days before penalty applies
+            rate: groupData.loanPenaltyRate || loanPenalty,
+            type: "percentage",
+            gracePeriodDays: groupData.gracePeriod || 5,
             description: "Percentage penalty added to missed loan payment amount"
           },
-          // Monthly Penalty: % extra for missed monthly contributions
-          monthlyPenalty: {
-            rate: monthlyPenalty,                  // % penalty (same for all members in group)
-            type: "percentage",                    // Applied as percentage of missed contribution
-            gracePeriodDays: 0,                    // Days before penalty applies
-            description: "Percentage penalty added to missed monthly contribution amount"
+          // Daily/Monthly Penalty: for missed contributions
+          contributionPenalty: {
+            dailyRate: groupData.dailyPenaltyRate || 1,
+            monthlyRate: monthlyPenalty,
+            type: "percentage",
+            gracePeriodDays: groupData.gracePeriod || 5,
+            calculationMethod: "daily",
+            description: "Daily percentage penalty for late contributions"
           },
           cycleDuration: {
-            startDate: cycleStartDate,
-            endDate: null, // Can be set later
-            months: 12,
+            startDate: groupData.cycleStartDate,
+            endDate: null,
+            months: groupData.cycleLength || 11,
             autoRenew: false
           },
           loanRules: {
-            maxLoanAmount: 0,                      // To be set by admin
-            minLoanAmount: 0,
+            maxLoanAmount: groupData.maxLoanAmount || 0,
+            // Minimum loan amount each member must take during the cycle (for fair interest distribution)
+            minCycleLoanAmount: groupData.minCycleLoanAmount || 0,
             maxActiveLoansByMember: 1,
-            requireCollateral: true,
+            requireCollateral: groupData.requireCollateral || false,
             minRepaymentMonths: 1,
-            maxRepaymentMonths: 3,                 // Max 3 months repayment (based on loan amount)
-            // Loan repayment period determined by amount:
-            // - Loans < MWK 500,000: Max 2 months
-            // - Loans >= MWK 500,000: Max 3 months
+            maxRepaymentMonths: groupData.maxRepaymentMonths || 3,
+            loanPeriodCalculation: groupData.loanPeriodCalculation || "auto",
+            // Auto-calculation: Loan period based on amount
+            autoCalculationTiers: [
+              { maxAmount: 100000, maxMonths: 1 },
+              { maxAmount: 300000, maxMonths: 2 },
+              { maxAmount: 500000, maxMonths: 3 },
+              { maxAmount: Infinity, maxMonths: groupData.maxRepaymentMonths || 3 }
+            ],
             repaymentCalculation: {
-              method: "tiered_interest",           // Different interest % per month
-              month1Calculation: "loanAmount * (month1Interest / 100)", // Interest on full amount
-              month2Calculation: "remainingBalance * (month2Interest / 100)", // Interest on remaining
-              month3Calculation: "remainingBalance * (month3Interest / 100)"  // Interest on remaining
+              method: groupData.interestMethod === "reduced_balance" ? "reduced_balance" : "flat_rate"
+            },
+            // Force loan tracking - to ensure fair interest distribution
+            forceLoanTracking: {
+              enabled: groupData.minCycleLoanAmount > 0,
+              minAmount: groupData.minCycleLoanAmount || 0,
+              description: "Track members who haven't met minimum loan requirement for fair interest distribution"
             }
           },
           customRules: []
+        },
+        
+        // Phase 2: Advanced Settings
+        advancedSettings: {
+          surplusDistribution: groupData.surplusDistribution || "equal",
+          enableLoanBooking: groupData.enableLoanBooking !== false,
+          autoMonthlyReports: groupData.autoMonthlyReports !== false,
+          allowPartialPayments: groupData.allowPartialPayments !== false,
+          requiredDocuments: groupData.requiredDocuments || {
+            nationalId: true,
+            proofOfAddress: false,
+            guarantor: true,
+            employmentLetter: false,
+            photo: false,
+            bankDetails: false
+          },
+          // Loan Booking Queue - for tracking booked loans
+          loanBookingQueue: [],
+          // Repayment History Tracking - enabled by default
+          enableRepaymentHistory: true
+        },
+        
+        // Governance Rules and Regulations
+        governance: {
+          rules: groupData.governanceRules || "",
+          rulesDocumentUrl: "", // Will be updated after file upload
+          lastUpdated: Timestamp.now(),
+          updatedBy: userId
+        },
+        
+        // Group Description
+        description: groupData.groupDescription || "",
+        
+        // Expected membership
+        expectedMembers: groupData.expectedMembers || 0,
+        
+        // Penalty settings
+        penaltySettings: {
+          type: groupData.penaltyType || 'percentage', // 'percentage' or 'fixed'
+          // Percentage-based penalties
+          dailyRate: groupData.dailyPenaltyRate || 0,
+          maxCap: groupData.maxPenaltyCap || 0,
+          // Fixed amount penalties
+          dailyFixed: groupData.dailyPenaltyFixed || 0,
+          maxCapFixed: groupData.maxPenaltyCapFixed || 0,
+          // Grace periods
+          gracePeriodDays: groupData.gracePeriod || 5,
+          loanGracePeriodDays: groupData.loanGracePeriod || 3
         },
         
         // Cycle dates for reference
@@ -427,30 +549,64 @@ document.addEventListener("DOMContentLoaded", () => {
           lastUpdated: Timestamp.now()
         },
         
-        // Admin information
-        admins: [{ 
-          uid: userId, 
-          fullName: name, 
-          email,
-          phone: groupData.phone,
-          whatsappNumber: groupData.phone, // Default to phone number
-          role: "senior_admin",
-          assignedAt: Timestamp.now(),
-          assignedBy: "system",
-          isContactAdmin: true,
-          canPromoteMembers: true,
-          permissions: {
-            canApprovePayments: true,
-            canApproveLoan: true,
-            canAddMembers: true,
-            canRemoveMembers: true,
-            canPromoteToAdmin: true,
-            canDemoteAdmin: true,
-            canSendBroadcasts: true,
-            canManageSettings: true,
-            canViewReports: true
-          }
-        }],
+        // Admin information - includes primary and additional admins
+        admins: [
+          { 
+            uid: userId, 
+            fullName: name, 
+            email,
+            phone: groupData.phone,
+            whatsappNumber: groupData.phone,
+            role: "senior_admin",
+            assignedAt: Timestamp.now(),
+            assignedBy: "system",
+            isContactAdmin: true,
+            canPromoteMembers: true,
+            permissions: {
+              canApprovePayments: true,
+              canApproveLoan: true,
+              canAddMembers: true,
+              canRemoveMembers: true,
+              canPromoteToAdmin: true,
+              canDemoteAdmin: true,
+              canSendBroadcasts: true,
+              canManageSettings: true,
+              canViewReports: true
+            }
+          },
+          // Additional co-admins (pending invitation acceptance)
+          ...(groupData.additionalAdmins || []).map(admin => ({
+            uid: null, // Will be set when they accept invitation
+            fullName: admin.name,
+            email: admin.email,
+            phone: null,
+            role: "admin",
+            status: "pending_invitation",
+            assignedAt: Timestamp.now(),
+            assignedBy: userId,
+            isContactAdmin: false,
+            permissions: {
+              canApprovePayments: true,
+              canApproveLoan: true,
+              canAddMembers: true,
+              canRemoveMembers: false,
+              canPromoteToAdmin: false,
+              canDemoteAdmin: false,
+              canSendBroadcasts: true,
+              canManageSettings: false,
+              canViewReports: true
+            }
+          }))
+        ],
+        
+        // Pending admin invitations for tracking
+        pendingAdminInvitations: (groupData.additionalAdmins || []).map(admin => ({
+          email: admin.email,
+          name: admin.name,
+          invitedAt: Timestamp.now(),
+          invitedBy: userId,
+          status: "pending"
+        })),
         
         // Contact Information
         contactInfo: {
@@ -657,30 +813,140 @@ document.addEventListener("DOMContentLoaded", () => {
   phoneInput.addEventListener("blur", validatePhoneInput);
   phoneInput.addEventListener("input", validatePhoneInput);
 
+// Helper function to get numeric value from formatted currency
+function getCurrencyValue(id) {
+  const el = document.getElementById(id);
+  if (!el) return 0;
+  return parseInt(el.value.replace(/[^\d]/g, '')) || 0;
+}
+
 // Handle registration form submission
 registrationForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
   // ✅ Prevent duplicate submissions
-  const submitButton = registrationForm.querySelector("button");
-  submitButton.disabled = true;
+  const submitButton = document.getElementById("submitBtn") || registrationForm.querySelector("button[type='submit']");
+  if (submitButton) submitButton.disabled = true;
 
-  // ✅ Collect data from form fields
-  const name = document.getElementById("name").value.trim();
+  // ✅ Collect data from form fields (support both old and new form structure)
+  const name = (document.getElementById("fullName") || document.getElementById("name"))?.value?.trim() || '';
   // Get phone number in international format (e.g., +265991234567)
-  const phone = iti && iti.isValidNumber() ? iti.getNumber() : document.getElementById("phone").value.trim();
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value.trim();
-  const groupName = document.getElementById("groupName").value.trim();
-  const seedMoney = parseFloat(document.getElementById("seedMoney").value);
-  const seedMoneyDueDate = document.getElementById("seedMoneyDueDate").value;
-  const loanInterestMonth1 = parseFloat(document.getElementById("loanInterestMonth1").value);
-  const loanInterestMonth2 = parseFloat(document.getElementById("loanInterestMonth2").value) || loanInterestMonth1;
-  const loanInterestMonth3 = parseFloat(document.getElementById("loanInterestMonth3").value) || loanInterestMonth2;
-  const monthlyContribution = parseFloat(document.getElementById("monthlyContribution").value);
-  const loanPenalty = parseFloat(document.getElementById("loanPenalty").value);
-  const monthlyPenalty = parseFloat(document.getElementById("monthlyPenalty").value);
-  const cycleStartDate = document.getElementById("cycleStartDate").value;
+  const phone = iti && iti.isValidNumber() ? iti.getNumber() : document.getElementById("phone")?.value?.trim() || '';
+  const email = document.getElementById("email")?.value?.trim() || '';
+  const password = document.getElementById("password")?.value?.trim() || '';
+  const groupName = document.getElementById("groupName")?.value?.trim() || '';
+  const groupDescription = document.getElementById("groupDescription")?.value?.trim() || '';
+  
+  // WhatsApp number (optional - defaults to phone if empty)
+  const whatsappNumberInput = document.getElementById("whatsappNumber")?.value?.trim() || '';
+  const whatsappNumber = whatsappNumberInput || phone;
+  
+  // Get currency values (handles comma-formatted inputs)
+  const seedMoney = getCurrencyValue("seedMoney");
+  const monthlyContribution = getCurrencyValue("monthlyContribution");
+  const maxLoanAmountVal = getCurrencyValue("maxLoanAmount");
+  const minCycleLoanAmount = getCurrencyValue("minCycleLoanAmount"); // Min loan each member must take during cycle
+  
+  // Cycle and timing
+  const cycleLength = parseInt(document.getElementById("cycleLength")?.value) || 11;
+  const cycleStartDateVal = document.getElementById("cycleStartDate")?.value || '';
+  const contributionDueDay = parseInt(document.getElementById("contributionDueDay")?.value) || 15;
+  const expectedMembers = parseInt(document.getElementById("expectedMembers")?.value) || 0;
+  const seedMoneyDueDateVal = document.getElementById("seedMoneyDueDate")?.value || '';
+  
+  // Penalty settings
+  const gracePeriod = parseInt(document.getElementById("gracePeriod")?.value) || 5;
+  const penaltyType = document.querySelector('input[name="penaltyType"]:checked')?.value || 'percentage';
+  
+  let dailyPenaltyRate, maxPenaltyCap, dailyPenaltyFixed, maxPenaltyCapFixed;
+  
+  if (penaltyType === 'percentage') {
+    dailyPenaltyRate = parseFloat(document.getElementById("dailyPenaltyRate")?.value) || 1;
+    maxPenaltyCap = parseFloat(document.getElementById("maxPenaltyCap")?.value) || 30;
+    dailyPenaltyFixed = 0;
+    maxPenaltyCapFixed = 0;
+  } else {
+    dailyPenaltyFixed = getCurrencyValue("dailyPenaltyFixed");
+    maxPenaltyCapFixed = getCurrencyValue("maxPenaltyCapFixed");
+    dailyPenaltyRate = 0;
+    maxPenaltyCap = 0;
+  }
+  
+  // Interest settings
+  const interestMethod = document.getElementById("interestMethod")?.value || "reduced_balance";
+  
+  // Loan settings (get max repayment months first to determine interest rates)
+  const maxRepaymentMonths = parseInt(document.getElementById("maxRepaymentMonths")?.value) || 3;
+  const loanPenaltyRate = parseFloat(document.getElementById("loanPenaltyRate")?.value) || 2;
+  const loanGracePeriod = parseInt(document.getElementById("loanGracePeriod")?.value) || 3;
+  const loanPeriodCalculation = document.getElementById("loanPeriodCalculation")?.value || "auto";
+  
+  // Collect dynamic interest rates based on max repayment months
+  const interestRates = {};
+  const defaultRates = [10, 7, 5, 4, 3, 2];
+  for (let i = 1; i <= maxRepaymentMonths; i++) {
+    // Check window.interestRates first (set by inline JS), then try DOM element
+    if (window.interestRates && window.interestRates[`month${i}`] !== undefined) {
+      interestRates[`month${i}`] = parseFloat(window.interestRates[`month${i}`]) || defaultRates[i-1] || 3;
+    } else {
+      const el = document.getElementById(`interestRateMonth${i}`);
+      interestRates[`month${i}`] = el ? parseFloat(el.value) || defaultRates[i-1] || 3 : defaultRates[i-1] || 3;
+    }
+  }
+  
+  // For backward compatibility, set individual variables
+  const interestRateMonth1 = interestRates.month1 || 10;
+  const interestRateMonth2 = interestRates.month2 || interestRateMonth1;
+  const interestRateMonth3 = interestRates.month3 || interestRateMonth2;
+  
+  // Governance and rules
+  const governanceRules = document.getElementById("governanceRules")?.value?.trim() || '';
+  const surplusDistribution = document.getElementById("surplusDistribution")?.value || "equal";
+  
+  // Feature toggles
+  const requireCollateral = document.getElementById("requireCollateral")?.checked || false;
+  const enableLoanBooking = document.getElementById("enableLoanBooking")?.checked ?? true;
+  const autoMonthlyReports = document.getElementById("autoMonthlyReports")?.checked ?? true;
+  const allowPartialPayments = document.getElementById("allowPartialPayments")?.checked ?? true;
+  
+  // Required documents
+  const requireNationalId = document.getElementById("requireNationalId")?.checked ?? true;
+  const requireProofOfAddress = document.getElementById("requireProofOfAddress")?.checked || false;
+  const requireGuarantor = document.getElementById("requireGuarantor")?.checked ?? true;
+  const requireEmploymentLetter = document.getElementById("requireEmploymentLetter")?.checked || false;
+  const requirePhoto = document.getElementById("requirePhoto")?.checked || false;
+  const requireBankDetails = document.getElementById("requireBankDetails")?.checked || false;
+  
+  // Get additional admins from window (set by inline script)
+  const additionalAdmins = window.additionalAdmins || [];
+  
+  // Get rules file if uploaded
+  const rulesFile = window.rulesFile || null;
+  
+  // Legacy compatibility
+  const loanInterestMonth1 = interestRateMonth1;
+  const loanInterestMonth2 = interestRateMonth2;
+  const loanInterestMonth3 = interestRateMonth3;
+  const loanPenalty = loanPenaltyRate;
+  const monthlyPenalty = dailyPenaltyRate * 30;
+  const maxLoanAmount = maxLoanAmountVal;
+  const minLoanAmountVal = 0; // Not used - using minCycleLoanAmount instead
+  
+  // Calculate dates with fallbacks
+  let seedMoneyDueDateStr = seedMoneyDueDateVal;
+  if (!seedMoneyDueDateStr) {
+    const seedMoneyDueDate = new Date();
+    seedMoneyDueDate.setDate(seedMoneyDueDate.getDate() + 30);
+    seedMoneyDueDateStr = seedMoneyDueDate.toISOString().split('T')[0];
+  }
+  
+  let cycleStartDateStr = cycleStartDateVal;
+  if (!cycleStartDateStr) {
+    const cycleStartDate = new Date();
+    cycleStartDate.setMonth(cycleStartDate.getMonth() + 1);
+    cycleStartDate.setDate(1);
+    cycleStartDateStr = cycleStartDate.toISOString().split('T')[0];
+  }
 
   // ✅ Validate input fields
   const errors = [];
@@ -701,26 +967,35 @@ registrationForm.addEventListener("submit", async (e) => {
   [
     validateField(phone, "Phone Number"),
     validateField(groupName, "Group Name"),
-    validateField(seedMoneyDueDate, "Seed Money Due Date"),
     validateNumericField(seedMoney, "Seed Money", 0),
-    validateNumericField(loanInterestMonth1, "Loan Interest Month 1", 0, 100, true),
-    validateNumericField(monthlyContribution, "Monthly Contribution", 0),
-    validateNumericField(loanPenalty, "Loan Penalty", 0, 100, true),
-    validateNumericField(monthlyPenalty, "Monthly Penalty", 0, 100, true),
-    validateField(cycleStartDate, "Cycle Start Date"),
+    validateNumericField(monthlyContribution, "Monthly Contribution", 1000),
   ].forEach(error => {
     if (error) errors.push(error);
   });
 
   // ✅ Validate phone input separately
-  if (!validatePhoneInput() || !phone) {
+  const phoneValid = (iti && typeof iti.isValidNumber === 'function') ? iti.isValidNumber() : (phone && phone.length > 8);
+  if (!phoneValid) {
     errors.push("Phone Number is invalid.");
   }
 
   // ✅ Stop submission if errors exist
   if (errors.length > 0) {
-    alert("Please fix the following errors:\n" + errors.join("\n"));
-    submitButton.disabled = false; // Re-enable button
+    const errorEl = document.getElementById("errorMessage");
+    if (errorEl) {
+      errorEl.textContent = errors.join(". ");
+      errorEl.classList.remove("hidden");
+    } else {
+      showErrorDialog(
+        "Validation Errors",
+        "Please fix the following errors:\n\n" + errors.join("\n"),
+        "OK",
+        () => {
+          if (submitButton) submitButton.disabled = false;
+        }
+      );
+    }
+    if (submitButton) submitButton.disabled = false;
     return;
   }
 
@@ -731,10 +1006,16 @@ registrationForm.addEventListener("submit", async (e) => {
     // ✅ Check if email already exists
     const emailExists = await checkEmailExists(email);
     if (emailExists) {
-      alert("An account with this email already exists. Please use a different email or login.");
-      submitButton.disabled = false;
-      toggleFormFields(true);
       toggleLoadingOverlay(false);
+      showErrorDialog(
+        "Email Already Exists",
+        "An account with this email already exists. Please use a different email or log in to your existing account.",
+        "OK",
+        () => {
+          if (submitButton) submitButton.disabled = false;
+          toggleFormFields(true);
+        }
+      );
       return;
     }
 
@@ -743,14 +1024,25 @@ registrationForm.addEventListener("submit", async (e) => {
     let registrationKey;
     try {
       registrationKey = await createInvitationCode();
-      // Store it in the hidden field
-      document.getElementById("registrationKey").value = registrationKey;
+      // Store it in the hidden field if it exists
+      const registrationKeyField = document.getElementById("registrationKey");
+      if (registrationKeyField) {
+        registrationKeyField.value = registrationKey;
+      }
       console.log("✅ Registration code generated:", registrationKey);
     } catch (error) {
-      alert("Failed to generate registration code. Please try again.");
-      submitButton.disabled = false;
-      toggleFormFields(true);
+      console.error("❌ Error generating registration code:", error);
       toggleLoadingOverlay(false);
+      const errorMessage = error.message || "Failed to generate registration code. Please check your internet connection and try again.";
+      showErrorDialog(
+        "Registration Code Error",
+        errorMessage,
+        "Try Again",
+        () => {
+          submitButton.disabled = false;
+          toggleFormFields(true);
+        }
+      );
       return;
     }
 
@@ -794,16 +1086,74 @@ registrationForm.addEventListener("submit", async (e) => {
     // ✅ Format group data properly
     const groupData = {
       groupName,
+      groupDescription,
       phone,
-      seedMoney: seedMoney.toFixed(2),
-      seedMoneyDueDate,
-      loanInterestMonth1: loanInterestMonth1.toFixed(2),
-      loanInterestMonth2: loanInterestMonth2.toFixed(2),
-      loanInterestMonth3: loanInterestMonth3.toFixed(2),
-      monthlyContribution: monthlyContribution.toFixed(2),
-      loanPenalty: loanPenalty.toFixed(2),
-      monthlyPenalty: monthlyPenalty.toFixed(2),
-      cycleStartDate,
+      whatsappNumber, // WhatsApp number for easier communication
+      seedMoney: seedMoney,
+      seedMoneyDueDate: seedMoneyDueDateStr,
+      loanInterestMonth1: loanInterestMonth1,
+      loanInterestMonth2: loanInterestMonth2,
+      loanInterestMonth3: loanInterestMonth3,
+      monthlyContribution: monthlyContribution,
+      loanPenalty: loanPenalty,
+      monthlyPenalty: monthlyPenalty,
+      cycleStartDate: cycleStartDateStr,
+      
+      // Dynamic interest rates for all months
+      interestRates: interestRates,
+      
+      // Minimum cycle loan amount (for tracking fair loan distribution)
+      minCycleLoanAmount: minCycleLoanAmount || 0,
+      
+      // Cycle Settings
+      contributionDueDay,
+      cycleLength,
+      expectedMembers,
+      
+      // Penalty Settings
+      penaltyType, // 'percentage' or 'fixed'
+      dailyPenaltyRate,
+      dailyPenaltyFixed,
+      gracePeriod,
+      maxPenaltyCap,
+      maxPenaltyCapFixed,
+      
+      // Interest Settings
+      interestMethod,
+      interestRateMonth1,
+      interestRateMonth2,
+      interestRateMonth3,
+      
+      // Loan Settings
+      loanPenaltyRate,
+      loanGracePeriod,
+      maxLoanAmount: maxLoanAmount || null,
+      minLoanAmount: minLoanAmountVal || 0,
+      maxRepaymentMonths,
+      loanPeriodCalculation,
+      requireCollateral,
+      
+      // Governance
+      governanceRules,
+      surplusDistribution,
+      
+      // Feature Toggles
+      enableLoanBooking,
+      autoMonthlyReports,
+      allowPartialPayments,
+      
+      // Additional Admins
+      additionalAdmins: additionalAdmins || [],
+      
+      // Required Documents
+      requiredDocuments: {
+        nationalId: requireNationalId,
+        proofOfAddress: requireProofOfAddress,
+        guarantor: requireGuarantor,
+        employmentLetter: requireEmploymentLetter,
+        photo: requirePhoto,
+        bankDetails: requireBankDetails,
+      },
     };
 
     // ✅ Create user and group with registration key deletion
@@ -820,14 +1170,22 @@ registrationForm.addEventListener("submit", async (e) => {
       console.log("✅ Auto-login successful");
       
       // Send welcome email (non-blocking, optional)
-      // Note: Email service may have CORS issues - this is handled gracefully
+      // Email failures won't prevent successful registration
       try {
         const { sendRegistrationWelcome } = await import('./emailService.js');
-        sendRegistrationWelcome(email, name, groupData.groupName).catch(err => {
-          console.warn("Email service unavailable (non-critical):", err.message);
-        });
+        sendRegistrationWelcome(email, name, groupData.groupName)
+          .then(result => {
+            if (result && !result.success) {
+              console.warn("⚠️ Email service unavailable (non-critical):", result.message || result.details);
+            }
+          })
+          .catch(err => {
+            // Email errors are non-critical - registration still succeeds
+            console.warn("⚠️ Email service error (non-critical):", err.message || err);
+          });
       } catch (emailError) {
-        console.warn("Email service not available (non-critical)");
+        // Import or service error - non-critical
+        console.warn("⚠️ Email service not available (non-critical):", emailError.message || emailError);
       }
       
       toggleLoadingOverlay(false);
