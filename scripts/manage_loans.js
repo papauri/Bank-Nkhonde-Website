@@ -25,7 +25,7 @@ let loans = [];
 let currentTab = "pending";
 
 // DOM Elements
-const groupSelector = document.getElementById("groupSelector");
+  const groupSelector = document.getElementById("groupSelector");
 const loansContainer = document.getElementById("loansContainer");
 const pendingCountEl = document.getElementById("pendingCount");
 const activeCountEl = document.getElementById("activeCount");
@@ -39,14 +39,14 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // Auth state listener
-onAuthStateChanged(auth, async (user) => {
+  onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
     await loadUserGroups();
   } else {
-    window.location.href = "../login.html";
-  }
-});
+      window.location.href = "../login.html";
+    }
+  });
 
 // Setup event listeners
 function setupEventListeners() {
@@ -149,13 +149,13 @@ async function loadUserGroups() {
     });
 
     // Populate group selector
-    groupSelector.innerHTML = '<option value="">Select a group...</option>';
+        groupSelector.innerHTML = '<option value="">Select a group...</option>';
     userGroups.forEach((group) => {
-      const option = document.createElement("option");
+          const option = document.createElement("option");
       option.value = group.id;
-      option.textContent = group.groupName;
-      groupSelector.appendChild(option);
-    });
+          option.textContent = group.groupName;
+          groupSelector.appendChild(option);
+        });
 
     // Auto-select from session
     const sessionGroupId = sessionStorage.getItem("selectedGroupId");
@@ -163,9 +163,9 @@ async function loadUserGroups() {
       groupSelector.value = sessionGroupId;
       selectedGroupId = sessionGroupId;
       await loadGroupData();
-    }
-  } catch (error) {
-    console.error("Error loading groups:", error);
+      }
+    } catch (error) {
+      console.error("Error loading groups:", error);
     showToast("Failed to load groups", "error");
   } finally {
     showSpinner(false);
@@ -238,8 +238,8 @@ async function loadLoans() {
       const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
       return dateB - dateA;
     });
-  } catch (error) {
-    console.error("Error loading loans:", error);
+    } catch (error) {
+      console.error("Error loading loans:", error);
   }
 }
 
@@ -264,8 +264,8 @@ function updateStats() {
     }
   });
 
-  if (pendingCountEl) pendingCountEl.textContent = pending;
-  if (activeCountEl) activeCountEl.textContent = active;
+    if (pendingCountEl) pendingCountEl.textContent = pending;
+    if (activeCountEl) activeCountEl.textContent = active;
   if (totalDisbursedEl) totalDisbursedEl.textContent = formatCurrency(totalDisbursed);
   if (totalOutstandingEl) totalOutstandingEl.textContent = formatCurrency(totalOutstanding);
 }
@@ -363,23 +363,23 @@ function createLoanCard(loan) {
             <div class="loan-borrower-name">${borrower.fullName || "Unknown"}</div>
             <div class="loan-borrower-date">Applied: ${createdDate}</div>
           </div>
-        </div>
+          </div>
         <span class="badge badge-${statusClass}">${loan.status}</span>
-      </div>
+          </div>
       <div class="loan-card-body">
         <div class="loan-details-grid">
           <div class="loan-detail">
             <div class="loan-detail-value">${formatCurrency(amount)}</div>
             <div class="loan-detail-label">Principal</div>
-          </div>
+            </div>
           <div class="loan-detail">
             <div class="loan-detail-value">${formatCurrency(interest)}</div>
             <div class="loan-detail-label">Interest</div>
-          </div>
+        </div>
           <div class="loan-detail">
             <div class="loan-detail-value" style="color: var(--bn-success);">${formatCurrency(repaid)}</div>
             <div class="loan-detail-label">Repaid</div>
-          </div>
+      </div>
           <div class="loan-detail">
             <div class="loan-detail-value" style="color: var(--bn-danger);">${formatCurrency(remaining)}</div>
             <div class="loan-detail-label">Remaining</div>
@@ -400,8 +400,8 @@ function createLoanCard(loan) {
           ${actionsHTML}
         </div>
       </div>
-    </div>
-  `;
+      </div>
+    `;
 }
 
 // Handle loan actions
@@ -476,9 +476,9 @@ async function approveLoan(loanId) {
 
     await updateDoc(doc(db, `groups/${selectedGroupId}/loans`, loanId), {
       status: "active",
-      approvedBy: currentUser.uid,
+        approvedBy: currentUser.uid,
       approvedAt: Timestamp.now(),
-      disbursedAt: Timestamp.now(),
+        disbursedAt: Timestamp.now(),
       totalInterest,
       totalRepayable: amount + totalInterest,
       amountRepaid: 0,
@@ -499,8 +499,8 @@ async function approveLoan(loanId) {
 
     showToast("Loan approved and disbursed successfully", "success");
     await loadGroupData();
-  } catch (error) {
-    console.error("Error approving loan:", error);
+    } catch (error) {
+      console.error("Error approving loan:", error);
     showToast("Failed to approve loan", "error");
   } finally {
     showSpinner(false);
@@ -518,8 +518,8 @@ async function rejectLoan(loanId) {
     const loan = loans.find((l) => l.id === loanId);
 
     await updateDoc(doc(db, `groups/${selectedGroupId}/loans`, loanId), {
-      status: "rejected",
-      rejectedBy: currentUser.uid,
+        status: "rejected",
+        rejectedBy: currentUser.uid,
       rejectedAt: Timestamp.now(),
       rejectionReason: reason,
       updatedAt: Timestamp.now(),
@@ -537,8 +537,8 @@ async function rejectLoan(loanId) {
 
     showToast("Loan rejected", "success");
     await loadGroupData();
-  } catch (error) {
-    console.error("Error rejecting loan:", error);
+    } catch (error) {
+      console.error("Error rejecting loan:", error);
     showToast("Failed to reject loan", "error");
   } finally {
     showSpinner(false);
@@ -772,7 +772,7 @@ async function handleRecordPayment(e) {
 
     await updateDoc(doc(db, `groups/${selectedGroupId}/loans`, loanId), {
       amountRepaid: newRepaid,
-      status: newStatus,
+        status: newStatus,
       lastPaymentDate: Timestamp.fromDate(new Date(paymentDate)),
       lastPaymentAmount: amount,
       updatedAt: Timestamp.now(),
@@ -787,20 +787,20 @@ async function handleRecordPayment(e) {
       notes,
       recordedBy: currentUser.uid,
       createdAt: Timestamp.now(),
-    });
+      });
 
-    // Update member financial summary
+      // Update member financial summary
     const memberRef = doc(db, `groups/${selectedGroupId}/members`, loan.borrowerId);
-    const memberDoc = await getDoc(memberRef);
-    if (memberDoc.exists()) {
+      const memberDoc = await getDoc(memberRef);
+      if (memberDoc.exists()) {
       const financialSummary = memberDoc.data().financialSummary || {};
-      await updateDoc(memberRef, {
+        await updateDoc(memberRef, {
         "financialSummary.totalLoansPaid": (parseFloat(financialSummary.totalLoansPaid || 0)) + amount,
         "financialSummary.lastUpdated": Timestamp.now(),
-      });
-    }
+        });
+      }
 
-    // Send notification
+      // Send notification
     await addDoc(collection(db, `groups/${selectedGroupId}/notifications`), {
       userId: loan.borrowerId,
       type: "payment_recorded",
@@ -813,7 +813,7 @@ async function handleRecordPayment(e) {
     document.getElementById("recordPaymentModal")?.classList.remove("active");
     showToast(newStatus === "repaid" ? "Loan fully repaid!" : "Payment recorded successfully", "success");
     await loadGroupData();
-  } catch (error) {
+    } catch (error) {
     console.error("Error recording payment:", error);
     showToast("Failed to record payment", "error");
   } finally {
@@ -868,7 +868,7 @@ async function handleSaveLoanSettings(e) {
     // Reload group data
     const groupDoc = await getDoc(doc(db, "groups", selectedGroupId));
     groupData = { id: groupDoc.id, ...groupDoc.data() };
-  } catch (error) {
+    } catch (error) {
     console.error("Error saving loan settings:", error);
     showToast("Failed to save loan settings", "error");
   } finally {
@@ -986,7 +986,7 @@ async function handleSendReminder(e) {
 
     document.getElementById("communicationsModal")?.classList.remove("active");
     showToast(`Reminder sent to ${uniqueRecipients.length} member(s)`, "success");
-  } catch (error) {
+    } catch (error) {
     console.error("Error sending reminder:", error);
     showToast("Failed to send reminder", "error");
   } finally {

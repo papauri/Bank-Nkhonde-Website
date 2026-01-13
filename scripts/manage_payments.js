@@ -178,13 +178,28 @@ async function loadPayments() {
     }
     groupData = { id: groupDoc.id, ...groupDoc.data() };
 
-    // Load members
+    // Load members (including admin)
     const membersRef = collection(db, `groups/${selectedGroupId}/members`);
     const membersSnapshot = await getDocs(membersRef);
     members = [];
     membersSnapshot.forEach((doc) => {
       members.push({ id: doc.id, ...doc.data() });
     });
+    
+    // Ensure admin is included in members list
+    const adminInMembers = members.find(m => m.id === currentUser.uid);
+    if (!adminInMembers) {
+      // Get admin user data
+      const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        members.push({
+          id: currentUser.uid,
+          ...userData,
+          role: 'senior_admin'
+        });
+      }
+    }
 
     // Reset payments
     payments = { pending: [], approved: [], seedMoney: [], monthly: [] };
@@ -425,22 +440,37 @@ async function approvePayment(payment) {
       paymentRef = doc(db, `groups/${selectedGroupId}/payments/${currentYear}_MonthlyContributions/${payment.memberId}/${payment.docId}`);
     }
 
+    // IMPORTANT: Only update payment status to approved - do NOT deduct yet
+    // The amountPaid should already be set when payment was uploaded
+    // We're just approving it, not deducting again
+    const paymentDoc = await getDoc(paymentRef);
+    const currentPaymentData = paymentDoc.data();
+    const currentAmountPaid = parseFloat(currentPaymentData.amountPaid || 0);
+    
     await updateDoc(paymentRef, {
       approvalStatus: "approved",
       approvedBy: currentUser.uid,
       approvedAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
+      // Only update arrears calculation - don't change amountPaid
+      arrears: Math.max(0, parseFloat(currentPaymentData.totalAmount || 0) - currentAmountPaid),
+      paymentStatus: currentAmountPaid >= parseFloat(currentPaymentData.totalAmount || 0) ? "Completed" : "Pending"
     });
 
-    // Update member financial summary
+    // Update member financial summary ONLY after approval
     const memberRef = doc(db, `groups/${selectedGroupId}/members`, payment.memberId);
     const memberDoc = await getDoc(memberRef);
     if (memberDoc.exists()) {
-      const financialSummary = memberDoc.data().financialSummary || {};
+      const memberData = memberDoc.data();
+      const financialSummary = memberData.financialSummary || {};
+      const newTotalPaid = (parseFloat(financialSummary.totalPaid || 0)) + currentAmountPaid;
+      const newTotalArrears = Math.max(0, (parseFloat(financialSummary.totalArrears || 0)) - currentAmountPaid);
+      
       await updateDoc(memberRef, {
-        "financialSummary.totalPaid": (parseFloat(financialSummary.totalPaid || 0)) + payment.amountPaid,
-        "financialSummary.totalArrears": Math.max(0, (parseFloat(financialSummary.totalArrears || 0)) - payment.amountPaid),
+        "financialSummary.totalPaid": newTotalPaid,
+        "financialSummary.totalArrears": newTotalArrears,
         "financialSummary.lastUpdated": Timestamp.now(),
+        updatedAt: Timestamp.now()
       });
     }
 

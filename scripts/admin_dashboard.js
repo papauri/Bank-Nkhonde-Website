@@ -89,6 +89,10 @@ window.selectGroup = function(groupId) {
   currentGroup = adminGroups.find(g => g.groupId === groupId);
   hideGroupSelectionOverlay();
   loadDashboardAfterGroupSelection();
+  // Update URL with groupId
+  updateURLWithGroup(groupId);
+  // Update topbar with group name
+  updateTopbarGroupName();
   // Initialize notifications for this group
   initializeDashboardNotifications();
 };
@@ -172,8 +176,15 @@ async function loadAdminData() {
       return;
     }
     
-    // Get selected group from session
-    const selectedGroupId = sessionStorage.getItem('selectedGroupId');
+    // Get selected group from URL or session
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlGroupId = urlParams.get('groupId');
+    let selectedGroupId = urlGroupId || sessionStorage.getItem('selectedGroupId');
+    
+    // If we have a groupId from URL, save it to session
+    if (urlGroupId) {
+      sessionStorage.setItem('selectedGroupId', urlGroupId);
+    }
     
     // Check if we have a valid selected group
     if (selectedGroupId && adminGroups.find(g => g.groupId === selectedGroupId)) {
@@ -181,6 +192,10 @@ async function loadAdminData() {
       currentGroup = adminGroups.find(g => g.groupId === selectedGroupId);
       hideGroupSelectionOverlay();
       await loadDashboardAfterGroupSelection();
+      // Update URL with groupId
+      updateURLWithGroup(selectedGroupId);
+      // Update topbar with group name
+      updateTopbarGroupName();
       // Initialize notifications
       initializeDashboardNotifications();
     } else {
@@ -836,5 +851,26 @@ function initializeDashboardNotifications() {
   const selectedGroupId = sessionStorage.getItem('selectedGroupId');
   if (currentUser && selectedGroupId) {
     initializeNotifications(currentUser.uid, selectedGroupId);
+  }
+}
+
+// Update URL with groupId parameter
+function updateURLWithGroup(groupId) {
+  if (!groupId) return;
+  const url = new URL(window.location.href);
+  url.searchParams.set('groupId', groupId);
+  window.history.replaceState({}, '', url);
+}
+
+// Update topbar with group name
+function updateTopbarGroupName() {
+  const topbarTitle = document.querySelector('.topbar-title');
+  if (topbarTitle && currentGroup) {
+    topbarTitle.innerHTML = `
+      <div style="display: flex; flex-direction: column; align-items: flex-start;">
+        <span style="font-size: 14px; font-weight: 600; color: var(--bn-dark);">${currentGroup.groupName || 'Dashboard'}</span>
+        <span style="font-size: 11px; color: var(--bn-gray); font-weight: 400;">Admin Dashboard</span>
+      </div>
+    `;
   }
 }
