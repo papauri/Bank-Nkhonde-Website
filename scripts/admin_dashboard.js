@@ -39,7 +39,7 @@ const systemAlerts = document.getElementById("systemAlerts");
 const groupSelectionOverlay = document.getElementById("groupSelectionOverlay");
 const groupSelectionList = document.getElementById("groupSelectionList");
 
-// Initialize app
+// Initialize appJ
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     console.log("User is signed in:", user.email);
