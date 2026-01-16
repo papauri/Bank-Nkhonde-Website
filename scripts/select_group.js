@@ -253,7 +253,10 @@ function showSpinner(show) {
 
 // Global function for group selection
 window.selectGroup = function(groupId, role) {
-  // Store selected group in session
+  // Store selected group in localStorage for persistence across sessions
+  localStorage.setItem('selectedGroupId', groupId);
+  localStorage.setItem('userRole', role);
+  // Also keep in sessionStorage for backward compatibility
   sessionStorage.setItem('selectedGroupId', groupId);
   sessionStorage.setItem('userRole', role);
   

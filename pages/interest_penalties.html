@@ -12,6 +12,176 @@
   <link rel="stylesheet" href="../styles/design-system.css">
   <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
+  <style>
+    /* Modal Styles - using design system classes */
+
+    .modal-content {
+      background-color: var(--bn-white);
+      border-radius: var(--bn-radius-xl);
+      padding: 0;
+      max-width: 600px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: var(--bn-shadow-2xl);
+      animation: modalSlideIn 0.3s ease-out;
+    }
+
+    @keyframes modalSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .modal-header {
+      padding: var(--bn-space-6);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-title {
+      font-size: var(--bn-text-xl);
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin: 0;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 28px;
+      color: var(--bn-gray);
+      cursor: pointer;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--bn-radius-md);
+      transition: all var(--bn-transition-fast);
+    }
+
+    .modal-close:hover {
+      background: var(--bn-gray-100);
+      color: var(--bn-dark);
+    }
+
+    .modal-body {
+      padding: var(--bn-space-6);
+    }
+
+    .modal-footer {
+      padding: var(--bn-space-6);
+      border-top: 1px solid var(--bn-gray-lighter);
+      display: flex;
+      gap: var(--bn-space-3);
+      justify-content: flex-end;
+    }
+
+    .form-section {
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .form-section-title {
+      font-size: var(--bn-text-base);
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--bn-space-4);
+    }
+
+    /* Penalties and Interest Lists */
+    .penalties-list,
+    .interest-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--bn-space-3);
+    }
+
+    .penalty-item,
+    .interest-item {
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-space-4);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all var(--bn-transition-base);
+    }
+
+    .penalty-item:hover,
+    .interest-item:hover {
+      border-color: var(--bn-accent);
+      box-shadow: var(--bn-shadow-sm);
+    }
+
+    .penalty-info,
+    .interest-info {
+      flex: 1;
+    }
+
+    .penalty-member,
+    .interest-borrower {
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin-bottom: var(--bn-space-1);
+    }
+
+    .penalty-type,
+    .penalty-amount,
+    .penalty-date,
+    .interest-loan,
+    .interest-amount,
+    .interest-date {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
+      margin-top: var(--bn-space-1);
+    }
+
+    .penalty-amount,
+    .interest-amount {
+      font-weight: 600;
+      color: var(--bn-dark);
+    }
+
+    .interest-summary {
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .summary-card {
+      background: var(--bn-gradient-accent);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-space-5);
+      text-align: center;
+    }
+
+    .summary-label {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-dark);
+      opacity: 0.8;
+      margin-bottom: var(--bn-space-2);
+    }
+
+    .summary-value {
+      font-size: var(--bn-text-2xl);
+      font-weight: 800;
+      color: var(--bn-dark);
+    }
+  </style>
 </head>
 <body>
   <!-- Page Header -->
@@ -138,6 +308,26 @@
     </div>
   </div>
 
+  <!-- Edit Rates Modal -->
+  <div class="modal-overlay hidden" id="editModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalTitle">Edit Rates</h3>
+        <button class="modal-close" id="closeModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="modalForm">
+          <!-- Form content will be dynamically inserted here -->
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="cancelModalBtn">Cancel</button>
+        <button type="button" class="btn btn-accent" id="saveModalBtn">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../scripts/modal-utils.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>

@@ -12,6 +12,17 @@
   <link rel="stylesheet" href="../styles/design-system.css">
   <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
+  <style>
+    .form-hint {
+      display: block;
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      margin-top: var(--bn-space-1);
+    }
+    .hidden {
+      display: none !important;
+    }
+  </style>
 </head>
 <body>
   <!-- Page Header -->
@@ -56,8 +67,40 @@
               <option value="reminder">Payment Reminder</option>
               <option value="meeting">Meeting Notice</option>
               <option value="urgent">Urgent Notice</option>
+              <option value="payment">Payment Notice</option>
             </select>
           </div>
+
+          <!-- Payment Type Selection (shown when message type is "payment") -->
+          <div class="form-group hidden" id="paymentTypeGroup">
+            <label class="form-label">Payment Type</label>
+            <select id="paymentType" class="form-select">
+              <option value="">Select payment type...</option>
+              <option value="seed">Seed Money</option>
+              <option value="monthly">Monthly Contribution</option>
+            </select>
+          </div>
+
+          <!-- Template Selection -->
+          <div class="form-group hidden" id="templateGroup">
+            <label class="form-label">Message Template</label>
+            <select id="messageTemplate" class="form-select">
+              <option value="">Select a template...</option>
+              <option value="due_reminder">Payment Due Reminder</option>
+              <option value="overdue_warning">Overdue Payment Warning</option>
+              <option value="payment_confirmation">Payment Confirmation</option>
+              <option value="grace_period">Grace Period Notice</option>
+              <option value="custom">Custom Message</option>
+            </select>
+          </div>
+
+          <!-- Due Date Selection (for payment reminders) -->
+          <div class="form-group hidden" id="dueDateGroup">
+            <label class="form-label">Due Date</label>
+            <input type="date" id="dueDate" class="form-input">
+            <small class="form-hint">Select the payment due date to auto-populate the message</small>
+          </div>
+
           <div class="form-group">
             <label class="form-label">Subject</label>
             <input type="text" id="messageSubject" class="form-input" placeholder="Message subject" required>

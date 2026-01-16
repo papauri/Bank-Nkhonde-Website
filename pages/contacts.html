@@ -12,6 +12,355 @@
   <link rel="stylesheet" href="../styles/design-system.css">
   <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
+  <style>
+    /* Contacts Page - Simple Modern Light Design */
+    .page-content {
+      background: var(--bn-gray-100);
+    }
+
+    .content-section-body {
+      padding: var(--bn-space-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--bn-space-3);
+    }
+
+    /* Member Card - Light & Clean */
+    .member-card {
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-space-4);
+      transition: all var(--bn-transition-fast);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .member-card:hover {
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+      border-color: var(--bn-gray-light);
+    }
+
+    .member-card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--bn-space-3);
+      margin-bottom: var(--bn-space-3);
+    }
+
+    .member-avatar {
+      width: 56px;
+      height: 56px;
+      border-radius: var(--bn-radius-full);
+      flex-shrink: 0;
+      border: 2px solid var(--bn-gray-lighter);
+      overflow: hidden;
+      background: linear-gradient(135deg, #E2E8F0 0%, #F1F5F9 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--bn-gray-700);
+      font-weight: 600;
+      font-size: var(--bn-text-base);
+    }
+
+    .member-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .member-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .member-name-row {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+      margin-bottom: var(--bn-space-1);
+      flex-wrap: wrap;
+    }
+
+    .member-name {
+      font-size: var(--bn-text-base);
+      font-weight: 600;
+      color: var(--bn-gray-900);
+      flex: 1;
+      min-width: 0;
+    }
+
+    .member-badge {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: var(--bn-radius-full);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .member-role {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray-400);
+      margin-bottom: var(--bn-space-2);
+    }
+
+    .member-career {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray-700);
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+
+    .member-workplace {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray-400);
+    }
+
+    /* Contact Info */
+    .member-contacts {
+      display: flex;
+      flex-direction: column;
+      gap: var(--bn-space-2);
+      margin-top: var(--bn-space-3);
+      padding-top: var(--bn-space-3);
+      border-top: 1px solid var(--bn-gray-lighter);
+    }
+
+    .contact-item {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray-700);
+    }
+
+    .contact-item a {
+      color: var(--bn-gray-800);
+      text-decoration: none;
+      transition: color var(--bn-transition-fast);
+    }
+
+    .contact-item a:hover {
+      color: var(--bn-primary);
+      text-decoration: underline;
+    }
+
+    .contact-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: var(--bn-radius-sm);
+      background: var(--bn-gray-100);
+      color: var(--bn-gray-600);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 12px;
+    }
+
+    /* Action Buttons - Small & Subtle */
+    .member-actions {
+      display: flex;
+      gap: var(--bn-space-2);
+      margin-top: var(--bn-space-3);
+      flex-wrap: wrap;
+    }
+
+    .member-action-btn {
+      padding: 6px 12px;
+      border-radius: var(--bn-radius-md);
+      border: 1px solid var(--bn-gray-lighter);
+      background: var(--bn-gray-100);
+      color: var(--bn-gray-700);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--bn-transition-fast);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .member-action-btn:hover {
+      background: var(--bn-gray-lighter);
+      color: var(--bn-gray-900);
+      border-color: var(--bn-gray-light);
+    }
+
+    .member-action-btn.primary {
+      background: var(--bn-accent-subtle);
+      color: var(--bn-primary);
+      border-color: var(--bn-accent-light);
+    }
+
+    .member-action-btn.primary:hover {
+      background: rgba(201, 162, 39, 0.15);
+    }
+
+    /* Guarantor Info */
+    .guarantor-info {
+      margin-top: var(--bn-space-3);
+      padding: var(--bn-space-3);
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-md);
+      border-left: 2px solid var(--bn-accent-light);
+    }
+
+    .guarantor-label {
+      font-size: 10px;
+      color: var(--bn-gray-400);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .guarantor-name {
+      font-size: var(--bn-text-xs);
+      font-weight: 500;
+      color: var(--bn-gray-800);
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+      .content-section-body {
+        padding: var(--bn-space-3);
+        gap: var(--bn-space-3);
+      }
+
+      .member-card {
+        padding: var(--bn-space-3);
+      }
+
+      .member-card-header {
+        gap: var(--bn-space-3);
+      }
+
+      .member-avatar {
+        width: 48px;
+        height: 48px;
+        font-size: var(--bn-text-sm);
+      }
+
+      .member-name {
+        font-size: var(--bn-text-sm);
+      }
+
+      .member-contacts {
+        gap: var(--bn-space-2);
+        margin-top: var(--bn-space-3);
+        padding-top: var(--bn-space-3);
+      }
+
+      .member-actions {
+        gap: var(--bn-space-1);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .member-card-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+
+      .member-info {
+        width: 100%;
+      }
+
+      .member-name-row {
+        justify-content: center;
+      }
+    }
+
+    /* Grid Layout for Larger Screens */
+    @media (min-width: 769px) {
+      .content-section-body {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: var(--bn-space-3);
+      }
+    }
+
+    /* Message Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: var(--bn-space-4);
+    }
+
+    .modal-content {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-xl);
+      box-shadow: var(--bn-shadow-xl);
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .modal-header {
+      padding: var(--bn-space-5);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-title {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin: 0;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: var(--bn-gray);
+      cursor: pointer;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--bn-radius-md);
+      transition: all var(--bn-transition-fast);
+    }
+
+    .modal-close:hover {
+      background: var(--bn-gray-100);
+      color: var(--bn-dark);
+    }
+
+    .modal-body {
+      padding: var(--bn-space-5);
+    }
+  </style>
 </head>
 <body>
   <!-- Page Header -->
@@ -73,6 +422,36 @@
       <span>Settings</span>
     </a>
   </nav>
+
+  <!-- Message Admin Modal -->
+  <div class="modal" id="messageAdminModal" style="display: none;">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <h2 class="modal-title">Message Admin</h2>
+        <button class="modal-close" onclick="closeMessageModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="messageAdminForm">
+          <div style="margin-bottom: var(--bn-space-4); padding: var(--bn-space-3); background: var(--bn-gray-100); border-radius: var(--bn-radius-md);">
+            <div style="font-size: var(--bn-text-xs); color: var(--bn-gray-400); margin-bottom: 4px;">To</div>
+            <div id="messageAdminRecipient" style="font-weight: 600; color: var(--bn-gray-900);"></div>
+          </div>
+          <div style="margin-bottom: var(--bn-space-4);">
+            <label for="messageAdminSubject" style="display: block; font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-gray-800); margin-bottom: var(--bn-space-2);">Subject</label>
+            <input type="text" id="messageAdminSubject" required style="width: 100%; padding: var(--bn-space-3); border: 1px solid var(--bn-gray-lighter); border-radius: var(--bn-radius-md); font-size: var(--bn-text-sm);" placeholder="Message subject">
+          </div>
+          <div style="margin-bottom: var(--bn-space-4);">
+            <label for="messageAdminMessage" style="display: block; font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-gray-800); margin-bottom: var(--bn-space-2);">Message</label>
+            <textarea id="messageAdminMessage" required rows="6" style="width: 100%; padding: var(--bn-space-3); border: 1px solid var(--bn-gray-lighter); border-radius: var(--bn-radius-md); font-size: var(--bn-text-sm); resize: vertical; font-family: inherit;" placeholder="Type your message here..."></textarea>
+          </div>
+          <div style="display: flex; gap: var(--bn-space-2); justify-content: flex-end;">
+            <button type="button" onclick="closeMessageModal()" style="padding: var(--bn-space-2) var(--bn-space-4); border: 1px solid var(--bn-gray-lighter); background: var(--bn-white); color: var(--bn-gray-700); border-radius: var(--bn-radius-md); font-size: var(--bn-text-sm); font-weight: 500; cursor: pointer;">Cancel</button>
+            <button type="submit" style="padding: var(--bn-space-2) var(--bn-space-4); border: none; background: var(--bn-primary); color: var(--bn-white); border-radius: var(--bn-radius-md); font-size: var(--bn-text-sm); font-weight: 600; cursor: pointer;">Send Message</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>

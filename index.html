@@ -118,6 +118,163 @@
       gap: var(--bn-space-4);
     }
 
+    .nav-cta-guest,
+    .nav-cta-user {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-4);
+    }
+
+    .nav-cta-guest.hidden,
+    .nav-cta-user.hidden,
+    .hero-content-guest.hidden,
+    .hero-content-user.hidden,
+    .cta-content-guest.hidden,
+    .cta-content-user.hidden,
+    .index-notification-btn.hidden,
+    .user-quick-stats.hidden {
+      display: none;
+    }
+
+    /* User Welcome Badge */
+    .user-welcome-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: var(--bn-space-2) var(--bn-space-4);
+      border-radius: var(--bn-radius-full);
+      margin-bottom: var(--bn-space-4);
+      animation: slideInDown 0.6s ease-out;
+    }
+
+    .badge-icon {
+      font-size: var(--bn-text-lg);
+      animation: wave 2s ease-in-out infinite;
+    }
+
+    @keyframes wave {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(20deg); }
+      75% { transform: rotate(-20deg); }
+    }
+
+    .badge-text {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-white);
+    }
+
+    /* Quick Stats for Standard Users */
+    .user-quick-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: var(--bn-space-4);
+      margin: var(--bn-space-6) 0;
+      animation: fadeInUp 0.8s ease-out 0.2s both;
+    }
+
+    .quick-stat-card {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-space-4);
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+      transition: all var(--bn-transition-base);
+    }
+
+    .quick-stat-card:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .quick-stat-icon {
+      font-size: var(--bn-text-2xl);
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: var(--bn-radius-md);
+    }
+
+    .quick-stat-info {
+      flex: 1;
+    }
+
+    .quick-stat-value {
+      font-size: var(--bn-text-xl);
+      font-weight: 800;
+      color: var(--bn-white);
+      line-height: 1.2;
+    }
+
+    .quick-stat-label {
+      font-size: var(--bn-text-xs);
+      color: rgba(255, 255, 255, 0.8);
+      margin-top: var(--bn-space-1);
+    }
+
+    @keyframes slideInDown {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .nav-btn-logout {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 0.9);
+      padding: var(--bn-space-2) var(--bn-space-3);
+      border-radius: var(--bn-radius-md);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--bn-transition-base);
+      backdrop-filter: blur(10px);
+    }
+
+    .nav-btn-logout:hover {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .nav.scrolled .nav-btn-logout {
+      background: var(--bn-gray-100);
+      border-color: var(--bn-gray-300);
+      color: var(--bn-dark);
+    }
+
+    .nav.scrolled .nav-btn-logout:hover {
+      background: var(--bn-gray-200);
+      border-color: var(--bn-gray-400);
+    }
+
     .nav-btn-secondary {
       font-size: var(--bn-text-sm);
       font-weight: 600;
@@ -335,6 +492,166 @@
     @keyframes ring-rotate {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
+    }
+
+    /* ============================================
+       AMAZING NOTIFICATION BUTTON (Top Right)
+       ============================================ */
+    .index-notification-btn {
+      position: fixed;
+      top: var(--bn-space-6);
+      right: var(--bn-space-6);
+      width: 64px;
+      height: 64px;
+      background: var(--bn-gradient-accent);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      box-shadow: 0 8px 32px rgba(249, 115, 22, 0.3);
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: visible;
+      border: 3px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(20px);
+    }
+
+    .index-notification-btn:hover {
+      transform: scale(1.1) translateY(-2px);
+      box-shadow: 0 12px 48px rgba(249, 115, 22, 0.4);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .index-notification-btn:active {
+      transform: scale(1.05) translateY(0);
+    }
+
+    .notification-btn-ring {
+      position: absolute;
+      inset: -8px;
+      border: 2px solid var(--bn-accent);
+      border-radius: 50%;
+      opacity: 0.6;
+      animation: notification-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    .notification-btn-ring-2 {
+      animation-delay: 1s;
+      inset: -16px;
+      opacity: 0.4;
+    }
+
+    .notification-btn-icon {
+      position: relative;
+      z-index: 2;
+      color: var(--bn-dark);
+      animation: notification-bell 2s ease-in-out infinite;
+      transform-origin: top center;
+    }
+
+    .notification-btn-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: #EF4444;
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      min-width: 22px;
+      height: 22px;
+      border-radius: 11px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 0 6px;
+      border: 3px solid white;
+      box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+      z-index: 3;
+      animation: notification-badge-bounce 0.5s ease-out;
+    }
+
+    .notification-btn-pulse {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: var(--bn-accent);
+      opacity: 0;
+      animation: notification-pulse-inner 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    .index-notification-btn.has-notifications .notification-btn-pulse {
+      animation: notification-pulse-inner 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes notification-pulse {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 0.6;
+      }
+      50% {
+        transform: scale(1.2);
+        opacity: 0;
+      }
+    }
+
+    @keyframes notification-pulse-inner {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 0.3;
+      }
+      50% {
+        transform: scale(1.1);
+        opacity: 0;
+      }
+    }
+
+    @keyframes notification-bell {
+      0%, 100% {
+        transform: rotate(0deg);
+      }
+      10%, 30%, 50%, 70%, 90% {
+        transform: rotate(-8deg);
+      }
+      20%, 40%, 60%, 80% {
+        transform: rotate(8deg);
+      }
+    }
+
+    @keyframes notification-badge-bounce {
+      0% {
+        transform: scale(0);
+      }
+      50% {
+        transform: scale(1.2);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    /* Mobile adjustments */
+    @media (max-width: 768px) {
+      .index-notification-btn {
+        width: 56px;
+        height: 56px;
+        top: var(--bn-space-4);
+        right: var(--bn-space-4);
+      }
+
+      .notification-btn-icon {
+        width: 20px;
+        height: 20px;
+      }
+
+      .notification-btn-badge {
+        min-width: 20px;
+        height: 20px;
+        font-size: 10px;
+        top: -2px;
+        right: -2px;
+      }
     }
 
     /* ============================================
@@ -958,8 +1275,21 @@
       </div>
 
       <div class="nav-cta">
-        <a href="login.html" class="nav-btn-secondary">Sign In</a>
-        <a href="pages/admin_registration.html" class="btn btn-accent btn-sm">Join a Club</a>
+        <div class="nav-cta-guest">
+          <a href="login.html" class="nav-btn-secondary">Sign In</a>
+          <a href="pages/admin_registration.html" class="btn btn-accent btn-sm">Join a Club</a>
+        </div>
+        <div class="nav-cta-user hidden">
+          <a href="pages/select_group.html" class="nav-btn-secondary">My Groups</a>
+          <a href="#" id="navDashboardLink" class="btn btn-accent btn-sm">Dashboard</a>
+          <button id="logoutBtn" class="nav-btn-logout" title="Sign Out">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <button class="nav-mobile-toggle" aria-label="Toggle menu">
@@ -978,28 +1308,56 @@
         <span class="hero-badge-text">Now in Malawi</span>
       </div>
 
-      <h1 class="hero-title">
-        Elevate Your Group's <span class="hero-title-accent">Financial Momentum</span>
-      </h1>
+      <div class="hero-content-guest">
+        <h1 class="hero-title">
+          Elevate Your Group's <span class="hero-title-accent">Financial Momentum</span>
+        </h1>
 
-      <p class="hero-description">
-        Bank Nkhonde is the premium digital platform for managing rotating savings and credit associations. 
-        Experience enterprise-grade security, real-time transparency, and automated financial operations.
-      </p>
+        <p class="hero-description">
+          Bank Nkhonde is the premium digital platform for managing rotating savings and credit associations. 
+          Experience enterprise-grade security, real-time transparency, and automated financial operations.
+        </p>
 
-      <div class="hero-cta">
-        <a href="pages/admin_registration.html" class="btn btn-accent btn-lg">
-          Join a Club
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
-          </svg>
-        </a>
-        <a href="login.html" class="hero-cta-link">
-          Already a member? Sign in
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
-          </svg>
-        </a>
+        <div class="hero-cta">
+          <a href="pages/admin_registration.html" class="btn btn-accent btn-lg">
+            Join a Club
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </a>
+          <a href="login.html" class="hero-cta-link">
+            Already a member? Sign in
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+
+      <div class="hero-content-user hidden">
+        <h1 class="hero-title">
+          Welcome back! <span class="hero-title-accent">Ready to manage your groups?</span>
+        </h1>
+
+        <p class="hero-description">
+          Access your dashboard to track contributions, manage loans, view analytics, and stay updated with your savings groups. 
+          Everything you need is just a click away.
+        </p>
+
+        <div class="hero-cta">
+          <a href="#" id="heroDashboardLink" class="btn btn-accent btn-lg">
+            Go to Dashboard
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </a>
+          <a href="pages/select_group.html" class="hero-cta-link">
+            Manage Groups
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </a>
+        </div>
       </div>
     </div>
 
@@ -1259,20 +1617,39 @@
   <!-- CTA Section -->
   <section class="cta-section">
     <div class="cta-container">
-      <h2 class="cta-title">Ready to transform your savings group?</h2>
-      <p class="cta-description">
-        Join thousands of groups across Malawi who trust Bank Nkhonde for their financial management.
-      </p>
-      <div class="cta-buttons">
-        <a href="pages/admin_registration.html" class="btn btn-accent btn-xl">
-          Start Your Group
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
-          </svg>
-        </a>
-        <a href="login.html" class="btn btn-secondary btn-xl" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); color: white;">
-          Sign In
-        </a>
+      <div class="cta-content-guest">
+        <h2 class="cta-title">Ready to transform your savings group?</h2>
+        <p class="cta-description">
+          Join thousands of groups across Malawi who trust Bank Nkhonde for their financial management.
+        </p>
+        <div class="cta-buttons">
+          <a href="pages/admin_registration.html" class="btn btn-accent btn-xl">
+            Start Your Group
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </a>
+          <a href="login.html" class="btn btn-secondary btn-xl" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); color: white;">
+            Sign In
+          </a>
+        </div>
+      </div>
+      <div class="cta-content-user hidden">
+        <h2 class="cta-title">Continue your financial journey</h2>
+        <p class="cta-description">
+          Access all your groups, track your contributions, and manage your savings in one place.
+        </p>
+        <div class="cta-buttons">
+          <a href="#" id="ctaDashboardLink" class="btn btn-accent btn-xl">
+            Open Dashboard
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </a>
+          <a href="pages/select_group.html" class="btn btn-secondary btn-xl" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); color: white;">
+            Switch Group
+          </a>
+        </div>
       </div>
     </div>
   </section>
@@ -1337,6 +1714,254 @@
     </div>
   </footer>
 
+  <!-- Amazing Notification Button (Top Right) -->
+  <a href="pages/messages.html" id="indexNotificationBtn" class="index-notification-btn hidden">
+    <div class="notification-btn-ring"></div>
+    <div class="notification-btn-ring notification-btn-ring-2"></div>
+    <div class="notification-btn-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+      </svg>
+    </div>
+    <span class="notification-btn-badge" id="indexNotificationBadge">0</span>
+    <div class="notification-btn-pulse"></div>
+  </a>
+
+  <script type="module">
+    import { auth, onAuthStateChanged, signOut, db, collection, query, where, getDocs, getDoc, doc, orderBy, limit } from './scripts/firebaseConfig.js';
+    
+    let notificationUnsubscribe = null;
+    
+    onAuthStateChanged(auth, (user) => {
+      const navCtaGuest = document.querySelector('.nav-cta-guest');
+      const navCtaUser = document.querySelector('.nav-cta-user');
+      const heroContentGuest = document.querySelector('.hero-content-guest');
+      const heroContentUser = document.querySelector('.hero-content-user');
+      const ctaContentGuest = document.querySelector('.cta-content-guest');
+      const ctaContentUser = document.querySelector('.cta-content-user');
+      const notificationBtn = document.getElementById('indexNotificationBtn');
+      const logoutBtn = document.getElementById('logoutBtn');
+      
+      if (user) {
+        const isAdmin = sessionStorage.getItem('isAdmin') === 'true' || localStorage.getItem('isAdmin') === 'true';
+        const dashboardUrl = isAdmin ? 'pages/admin_dashboard.html' : 'pages/user_dashboard.html';
+        
+        navCtaGuest.classList.add('hidden');
+        navCtaUser.classList.remove('hidden');
+        heroContentGuest.classList.add('hidden');
+        heroContentUser.classList.remove('hidden');
+        ctaContentGuest.classList.add('hidden');
+        ctaContentUser.classList.remove('hidden');
+        if (notificationBtn) notificationBtn.classList.remove('hidden');
+        
+        document.getElementById('navDashboardLink').href = dashboardUrl;
+        document.getElementById('navDashboardLink').textContent = isAdmin ? 'Admin Dashboard' : 'Dashboard';
+        document.getElementById('heroDashboardLink').href = dashboardUrl;
+        document.getElementById('ctaDashboardLink').href = dashboardUrl;
+        
+        // Load user data and personalize experience
+        loadUserData(user, isAdmin);
+        
+        // Load notification count
+        loadNotificationCount(user.uid);
+        
+        // Logout handler
+        if (logoutBtn) {
+          logoutBtn.addEventListener('click', async () => {
+            try {
+              await signOut(auth);
+              sessionStorage.clear();
+              localStorage.removeItem('selectedGroupId');
+              localStorage.removeItem('isAdmin');
+              window.location.reload();
+            } catch (error) {
+              console.error('Error signing out:', error);
+            }
+          });
+        }
+      } else {
+        navCtaGuest.classList.remove('hidden');
+        navCtaUser.classList.add('hidden');
+        heroContentGuest.classList.remove('hidden');
+        heroContentUser.classList.add('hidden');
+        ctaContentGuest.classList.remove('hidden');
+        ctaContentUser.classList.add('hidden');
+        if (notificationBtn) notificationBtn.classList.add('hidden');
+        
+        // Clean up notification listener
+        if (notificationUnsubscribe) {
+          notificationUnsubscribe();
+          notificationUnsubscribe = null;
+        }
+      }
+    });
+    
+    async function loadUserData(user, isAdmin) {
+      try {
+        // Get user's full name
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userData = userDoc.exists() ? userDoc.data() : null;
+        const userName = userData?.fullName || userData?.name || user.email?.split('@')[0] || 'Member';
+        
+        // Update display name
+        const userDisplayName = document.getElementById('userDisplayName');
+        if (userDisplayName) {
+          userDisplayName.textContent = userName;
+        }
+
+        // Special experience for standard users (not admins)
+        if (!isAdmin) {
+          const userGreeting = document.getElementById('userGreeting');
+          const userSubGreeting = document.getElementById('userSubGreeting');
+          const userDescription = document.getElementById('userDescription');
+          const userQuickStats = document.getElementById('userQuickStats');
+          
+          // Personalized greetings
+          const greetings = [
+            'Your financial journey continues',
+            'Building wealth, one contribution at a time',
+            'Your savings story continues',
+            'Growing together, saving together'
+          ];
+          const subGreetings = [
+            'Track, save, and grow together',
+            'Every contribution counts',
+            'Your financial future starts here',
+            'Empowering your savings journey'
+          ];
+          
+          const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+          const randomSubGreeting = subGreetings[Math.floor(Math.random() * subGreetings.length)];
+          
+          if (userGreeting) userGreeting.textContent = randomGreeting;
+          if (userSubGreeting) userSubGreeting.textContent = randomSubGreeting;
+          
+          if (userDescription) {
+            userDescription.textContent = `Welcome back, ${userName}! Track your contributions, manage your loans, and stay connected with your savings groups. Your financial success is our priority.`;
+          }
+          
+          // Load and display quick stats
+          if (userQuickStats) {
+            userQuickStats.classList.remove('hidden');
+            await loadUserQuickStats(user.uid);
+          }
+        } else {
+          // Admin experience
+          const userGreeting = document.getElementById('userGreeting');
+          const userSubGreeting = document.getElementById('userSubGreeting');
+          if (userGreeting) userGreeting.textContent = 'Welcome back, Administrator!';
+          if (userSubGreeting) userSubGreeting.textContent = 'Manage your groups and members';
+        }
+      } catch (error) {
+        console.error('Error loading user data:', error);
+      }
+    }
+
+    async function loadUserQuickStats(userId) {
+      try {
+        const groupsRef = collection(db, 'groups');
+        const groupsSnapshot = await getDocs(groupsRef);
+        
+        let groupsCount = 0;
+        let upcomingPaymentsCount = 0;
+        let totalSavings = 0;
+        const currentDate = new Date();
+        const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+        
+        for (const groupDoc of groupsSnapshot.docs) {
+          const groupData = groupDoc.data();
+          const groupId = groupDoc.id;
+          
+          // Check if user is a member
+          const isMember = groupData.members?.some(m => m.uid === userId) || 
+                          groupData.admins?.some(a => a.uid === userId) ||
+                          groupData.createdBy === userId;
+          
+          if (isMember) {
+            groupsCount++;
+            
+            // Get member's financial summary
+            try {
+              const memberRef = doc(db, `groups/${groupId}/members/${userId}`);
+              const memberDoc = await getDoc(memberRef);
+              
+              if (memberDoc.exists()) {
+                const memberData = memberDoc.data();
+                const financialSummary = memberData.financialSummary || {};
+                
+                // Calculate total savings
+                totalSavings += parseFloat(financialSummary.totalContributions || 0);
+                
+                // Count upcoming payments (simplified - check for next month)
+                const monthlyAmount = groupData.rules?.monthlyContribution?.amount || 0;
+                if (monthlyAmount > 0) {
+                  upcomingPaymentsCount++;
+                }
+              }
+            } catch (e) {
+              // Member might not have a document yet
+            }
+          }
+        }
+        
+        // Update stats display
+        const groupsCountEl = document.getElementById('userGroupsCount');
+        const upcomingPaymentsEl = document.getElementById('userUpcomingPayments');
+        const totalSavingsEl = document.getElementById('userTotalSavings');
+        
+        if (groupsCountEl) groupsCountEl.textContent = groupsCount || '0';
+        if (upcomingPaymentsEl) upcomingPaymentsEl.textContent = upcomingPaymentsCount || '0';
+        if (totalSavingsEl) {
+          if (totalSavings > 0) {
+            totalSavingsEl.textContent = `MWK ${Math.round(totalSavings).toLocaleString()}`;
+          } else {
+            totalSavingsEl.textContent = 'MWK 0';
+          }
+        }
+      } catch (error) {
+        console.error('Error loading user quick stats:', error);
+      }
+    }
+
+    async function loadNotificationCount(userId) {
+      const badge = document.getElementById('indexNotificationBadge');
+      if (!badge) return;
+      
+      try {
+        const selectedGroupId = localStorage.getItem('selectedGroupId') || sessionStorage.getItem('selectedGroupId');
+        
+        if (selectedGroupId) {
+          const notificationsRef = collection(db, `groups/${selectedGroupId}/notifications`);
+          const q = query(notificationsRef, orderBy('createdAt', 'desc'), limit(50));
+          const snapshot = await getDocs(q);
+          
+          let unreadCount = 0;
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            const isForUser = (data.userId === userId) || (data.recipientId === userId);
+            if (isForUser && !data.read && !data.readBy?.includes(userId)) {
+              unreadCount++;
+            }
+          });
+          
+          if (unreadCount > 0) {
+            badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+            badge.style.display = 'flex';
+            badge.parentElement.classList.add('has-notifications');
+          } else {
+            badge.style.display = 'none';
+            badge.parentElement.classList.remove('has-notifications');
+          }
+        } else {
+          badge.style.display = 'none';
+        }
+      } catch (error) {
+        console.error('Error loading notification count:', error);
+        badge.style.display = 'none';
+      }
+    }
+  </script>
   <script>
     // Navigation scroll effect
     const nav = document.getElementById('nav');
@@ -1369,13 +1994,16 @@
     // Smooth scroll for anchor links
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
       anchor.addEventListener('click', function(e) {
-        e.preventDefault();
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-          target.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
-          });
+        const href = this.getAttribute('href');
+        if (href && href.startsWith('#') && href.length > 1) {
+          e.preventDefault();
+          const target = document.querySelector(href);
+          if (target) {
+            target.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start'
+            });
+          }
         }
       });
     });

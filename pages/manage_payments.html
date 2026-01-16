@@ -189,6 +189,23 @@
         grid-template-columns: 1fr;
       }
     }
+    
+    .clickable-stat {
+      transition: all var(--bn-transition-fast);
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    .clickable-stat:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--bn-shadow-md);
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: var(--bn-radius-lg);
+    }
+    
+    .clickable-stat:active {
+      transform: translateY(0);
+    }
   </style>
 </head>
 <body>
@@ -219,19 +236,19 @@
       </div>
 
       <div class="page-stats">
-        <div class="page-stat">
+        <div class="page-stat clickable-stat" id="pendingStat" data-stat-type="pending" style="cursor: pointer;">
           <div class="page-stat-value warning" id="pendingCount">0</div>
           <div class="page-stat-label">Pending</div>
         </div>
-        <div class="page-stat">
+        <div class="page-stat clickable-stat" id="approvedStat" data-stat-type="approved" style="cursor: pointer;">
           <div class="page-stat-value success" id="approvedCount">0</div>
           <div class="page-stat-label">Approved</div>
         </div>
-        <div class="page-stat">
+        <div class="page-stat clickable-stat" id="collectedStat" data-stat-type="collected" style="cursor: pointer;">
           <div class="page-stat-value info" id="totalCollected">MWK 0</div>
           <div class="page-stat-label">Collected</div>
         </div>
-        <div class="page-stat">
+        <div class="page-stat clickable-stat" id="arrearsStat" data-stat-type="arrears" style="cursor: pointer;">
           <div class="page-stat-value danger" id="totalArrears">MWK 0</div>
           <div class="page-stat-label">Arrears</div>
         </div>
@@ -271,30 +288,25 @@
       <button class="payment-tab" data-tab="seed">Seed Money</button>
       <button class="payment-tab" data-tab="monthly">Monthly</button>
       <button class="payment-tab" data-tab="overdue">Overdue</button>
+      <button class="payment-tab" data-tab="recent">Recent</button>
     </div>
 
-    <!-- Pending Payments -->
-    <section class="content-section" style="margin-bottom: var(--bn-space-6);">
-      <div class="content-section-header">
-        <h2 class="content-section-title">Pending Approvals</h2>
+    <!-- Payments List -->
+    <section class="content-section">
+      <div class="content-section-header" style="display: flex; align-items: center; justify-content: space-between;">
+        <h2 class="content-section-title" id="paymentsListTitle">Pending Approvals</h2>
+        <button class="btn btn-accent btn-sm" id="addPaymentInTabBtn" style="display: none;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Record Payment
+        </button>
       </div>
       <div class="content-section-body" id="pendingPaymentsList">
         <div class="empty-state">
           <div class="empty-state-icon">💳</div>
           <p class="empty-state-text">Select a group to manage payments</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Recent Payments -->
-    <section class="content-section">
-      <div class="content-section-header">
-        <h2 class="content-section-title">Recent Payments</h2>
-      </div>
-      <div class="content-section-body" id="recentPaymentsList">
-        <div class="empty-state">
-          <div class="empty-state-icon">📋</div>
-          <p class="empty-state-text">No payments recorded yet</p>
         </div>
       </div>
     </section>
@@ -331,11 +343,44 @@
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Amount (MWK) *</label>
-              <input type="number" class="form-input" id="paymentAmount" required min="1" step="100">
+              <div style="display: flex; gap: var(--bn-space-2); align-items: flex-end;">
+                <input type="number" class="form-input" id="paymentAmount" required min="1" step="100" style="flex: 1;">
+                <button type="button" class="btn btn-ghost btn-sm" id="autoFillAmountBtn" title="Auto-fill amount due" style="white-space: nowrap;">
+                  🔄 Auto-fill Due
+                </button>
+              </div>
+              <small style="color: var(--bn-gray); font-size: var(--bn-text-xs); margin-top: 4px; display: block;">
+                Click "Auto-fill Due" to populate with amount owed for selected member/month
+              </small>
             </div>
             <div class="form-group">
               <label class="form-label">Payment Date *</label>
               <input type="date" class="form-input" id="paymentDate" required>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top: var(--bn-space-3);">
+            <label style="display: flex; align-items: center; gap: var(--bn-space-2); cursor: pointer;">
+              <input type="checkbox" id="applyInterestCheckbox" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">Apply Interest/Penalty</span>
+            </label>
+            <div id="interestDetails" style="margin-top: var(--bn-space-2); padding: var(--bn-space-3); background: var(--bn-gray-100); border-radius: var(--bn-radius-md); display: none;">
+              <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: var(--bn-space-2);">
+                Interest/penalty will be calculated based on due date and payment date
+              </div>
+              <div style="font-size: var(--bn-text-sm);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span>Base Amount:</span>
+                  <span id="interestBaseAmount" style="font-weight: 600;">MWK 0</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span>Interest/Penalty:</span>
+                  <span id="interestAmount" style="font-weight: 600; color: var(--bn-warning);">MWK 0</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding-top: var(--bn-space-2); border-top: 1px solid var(--bn-gray-lighter);">
+                  <span style="font-weight: 600;">Total:</span>
+                  <span id="interestTotalAmount" style="font-weight: 700; color: var(--bn-primary);">MWK 0</span>
+                </div>
+              </div>
             </div>
           </div>
           <div class="form-group">
@@ -399,22 +444,34 @@
         <button class="modal-close" id="closePaymentSettingsModal">&times;</button>
       </div>
       <div class="modal-body">
+        <div style="padding: var(--bn-space-3); background: var(--bn-warning-light); border-radius: var(--bn-radius-md); margin-bottom: var(--bn-space-4); border-left: 4px solid var(--bn-warning);">
+          <div style="font-size: var(--bn-text-sm); font-weight: 700; color: var(--bn-warning); margin-bottom: var(--bn-space-1);">⚠️ Crucial Settings</div>
+          <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); line-height: 1.5;">
+            Changes to these settings will affect all members and payment calculations. You will be warned before saving.
+          </div>
+        </div>
+        
+        <div id="cycleInfoDisplay"></div>
+        
         <form id="paymentSettingsForm">
           <div class="form-section" style="margin-bottom: var(--bn-space-6);">
             <h4 style="font-size: var(--bn-text-sm); font-weight: 700; color: var(--bn-gray); text-transform: uppercase; margin-bottom: var(--bn-space-4);">Contribution Amounts</h4>
             <div class="form-row">
               <div class="form-group">
-                <label class="form-label">Seed Money (MWK)</label>
-                <input type="number" class="form-input" id="settingsSeedMoney" min="0" step="1000">
+                <label class="form-label">Seed Money (MWK) <span style="color: var(--bn-danger);">*</span></label>
+                <input type="number" class="form-input" id="settingsSeedMoney" min="0" step="1000" required>
+                <small style="color: var(--bn-gray); font-size: var(--bn-text-xs);">Amount each member must pay as seed money</small>
               </div>
               <div class="form-group">
-                <label class="form-label">Monthly Contribution (MWK)</label>
-                <input type="number" class="form-input" id="settingsMonthlyContribution" min="0" step="1000">
+                <label class="form-label">Monthly Contribution (MWK) <span style="color: var(--bn-danger);">*</span></label>
+                <input type="number" class="form-input" id="settingsMonthlyContribution" min="0" step="1000" required>
+                <small style="color: var(--bn-gray); font-size: var(--bn-text-xs);">Amount due each month during the cycle</small>
               </div>
             </div>
             <div class="form-group">
-              <label class="form-label">Seed Money Due Date</label>
-              <input type="date" class="form-input" id="settingsSeedMoneyDueDate">
+              <label class="form-label">Seed Money Due Date <span style="color: var(--bn-danger);">*</span></label>
+              <input type="date" class="form-input" id="settingsSeedMoneyDueDate" required>
+              <small style="color: var(--bn-gray); font-size: var(--bn-text-xs);">Date by which seed money must be paid</small>
             </div>
           </div>
           <div class="form-section" style="margin-bottom: var(--bn-space-6);">
@@ -423,18 +480,26 @@
               <div class="form-group">
                 <label class="form-label">Monthly Penalty Rate (%)</label>
                 <input type="number" class="form-input" id="settingsMonthlyPenalty" min="0" max="100" step="0.5">
+                <small style="color: var(--bn-gray); font-size: var(--bn-text-xs);">Percentage penalty for late payments</small>
               </div>
               <div class="form-group">
                 <label class="form-label">Grace Period (days)</label>
                 <input type="number" class="form-input" id="settingsMonthlyGracePeriod" min="0" max="30">
+                <small style="color: var(--bn-gray); font-size: var(--bn-text-xs);">Days after due date before penalty applies</small>
               </div>
             </div>
           </div>
-          <div class="form-section">
-            <h4 style="font-size: var(--bn-text-sm); font-weight: 700; color: var(--bn-gray); text-transform: uppercase; margin-bottom: var(--bn-space-4);">Due Date</h4>
+          <div class="form-section" style="margin-bottom: var(--bn-space-6);">
+            <h4 style="font-size: var(--bn-text-sm); font-weight: 700; color: var(--bn-gray); text-transform: uppercase; margin-bottom: var(--bn-space-4);">Cycle & Due Dates</h4>
             <div class="form-group">
-              <label class="form-label">Day of Month for Contributions</label>
-              <input type="number" class="form-input" id="settingsMonthlyDueDay" min="1" max="28">
+              <label class="form-label">Day of Month for Contributions <span style="color: var(--bn-danger);">*</span></label>
+              <input type="number" class="form-input" id="settingsMonthlyDueDay" min="1" max="28" required>
+              <small style="color: var(--bn-gray); font-size: var(--bn-text-xs);">Day of each month when monthly contributions are due (1-28)</small>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Cycle Length (months)</label>
+              <input type="number" class="form-input" id="settingsCycleLength" min="1" max="36" value="12">
+              <small style="color: var(--bn-gray); font-size: var(--bn-text-xs);">How long the payment cycle lasts in months</small>
             </div>
           </div>
         </form>
@@ -465,6 +530,53 @@
       <span>Settings</span>
     </a>
   </nav>
+
+  <!-- Approve Payment with POP Modal -->
+  <div class="modal-overlay hidden" id="approvePaymentModal" style="display: none;">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <h2 class="modal-title">Approve Payment & Upload POP</h2>
+        <button class="modal-close" id="closeApprovePaymentModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="approvePaymentForm">
+          <input type="hidden" id="approvePaymentId" />
+          
+          <div class="form-group">
+            <label class="form-label">Member</label>
+            <input type="text" class="form-input" id="approvePaymentMemberName" readonly style="background: var(--bn-gray-100);">
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Payment Type</label>
+            <input type="text" class="form-input" id="approvePaymentType" readonly style="background: var(--bn-gray-100);">
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Amount</label>
+            <input type="text" class="form-input" id="approvePaymentAmount" readonly style="background: var(--bn-gray-100);">
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Proof of Payment (Optional)</label>
+            <input type="file" class="form-input" id="approvePaymentPOP" accept="image/*,.pdf" />
+            <small style="color: var(--bn-gray); font-size: var(--bn-text-xs); margin-top: 4px; display: block;">
+              Upload POP if you have it. This will be attached to the payment record.
+            </small>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Notes (Optional)</label>
+            <textarea class="form-textarea" id="approvePaymentNotes" rows="2" placeholder="Add any notes about this approval..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="cancelApprovePayment">Cancel</button>
+        <button type="submit" form="approvePaymentForm" class="btn btn-accent">Approve Payment</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>

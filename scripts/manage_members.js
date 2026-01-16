@@ -132,25 +132,55 @@ async function loadMembers() {
             });
         });
 
-        // Also check if admin is in the group document
+        // Also check if admins are in the group document and add them to members list
         if (groupData) {
             const createdBy = groupData.createdBy;
             const admins = groupData.admins || [];
+            const adminIds = new Set();
             
-            // Check if current user (admin) is already in members list
-            const adminInMembers = members.find(m => m.id === currentUser.uid);
+            // Collect all admin IDs
+            if (createdBy) adminIds.add(createdBy);
+            admins.forEach(a => {
+                if (a.uid) adminIds.add(a.uid);
+            });
             
-            if (!adminInMembers && (createdBy === currentUser.uid || admins.some(a => a.uid === currentUser.uid || a.email === currentUser.email))) {
-                // Add admin to members list
-                const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-                if (userDoc.exists()) {
-                    const userData = userDoc.data();
-                    members.unshift({
-                        id: currentUser.uid,
-                        ...userData,
-                        role: 'senior_admin',
-                        joinedAt: groupData.createdAt || Timestamp.now()
-                    });
+            // Add all admins who are not already in members list
+            for (const adminId of adminIds) {
+                const adminInMembers = members.find(m => m.id === adminId);
+                
+                if (!adminInMembers) {
+                    // Try to get admin from members collection first
+                    try {
+                        const adminMemberDoc = await getDoc(doc(db, `groups/${groupId}/members`, adminId));
+                        if (adminMemberDoc.exists()) {
+                            const adminData = adminMemberDoc.data();
+                            members.unshift({
+                                id: adminId,
+                                ...adminData,
+                                role: adminData.role || (createdBy === adminId ? 'senior_admin' : 'admin')
+                            });
+                            continue;
+                        }
+                    } catch (e) {
+                        console.log("Admin not in members collection, trying users collection");
+                    }
+                    
+                    // If not in members collection, get from users collection
+                    try {
+                        const userDoc = await getDoc(doc(db, "users", adminId));
+                        if (userDoc.exists()) {
+                            const userData = userDoc.data();
+                            members.unshift({
+                                id: adminId,
+                                ...userData,
+                                role: createdBy === adminId ? 'senior_admin' : 'admin',
+                                joinedAt: groupData.createdAt || Timestamp.now(),
+                                status: 'active'
+                            });
+                        }
+                    } catch (e) {
+                        console.error("Error loading admin user:", e);
+                    }
                 }
             }
         }
@@ -164,86 +194,15 @@ async function loadMembers() {
             return (a.fullName || '').localeCompare(b.fullName || '');
         });
 
-        if (members.length === 0) {
-            memberList.innerHTML = `
-                <div class="empty-state" style="grid-column: 1 / -1;">
-                    <div class="empty-state-icon">👥</div>
-                    <p class="empty-state-text">No members found</p>
-                </div>
-            `;
-            return;
-        }
+        // Store members globally for filtering
+        window.allMembers = members;
 
         // Render member cards
-        memberList.innerHTML = members.map(member => {
-            const isAdmin = member.role === 'admin' || member.role === 'senior_admin';
-            const roleLabel = isAdmin ? (member.role === 'senior_admin' ? 'Senior Admin' : 'Admin') : 'Member';
-            const initials = getInitials(member.fullName);
-            const avatarContent = member.profileImageUrl 
-                ? `<img src="${member.profileImageUrl}" alt="${member.fullName}">`
-                : initials;
+        renderMembers(members);
 
-            return `
-                <div class="member-card">
-                    <div class="member-card-header">
-                        <div class="member-avatar">${avatarContent}</div>
-                        <div class="member-info">
-                            <div class="member-name">${member.fullName || 'Unknown'}</div>
-                            <span class="member-role ${isAdmin ? 'admin' : 'member'}">${roleLabel}</span>
-                        </div>
-                    </div>
-                    <div class="member-card-body">
-                        <div class="member-detail">
-                            <span class="member-detail-label">📧 Email</span>
-                            <span class="member-detail-value">${member.email || 'N/A'}</span>
-                        </div>
-                        <div class="member-detail">
-                            <span class="member-detail-label">📞 Phone</span>
-                            <span class="member-detail-value">${member.phone || 'N/A'}</span>
-                        </div>
-                        ${member.whatsappNumber ? `
-                        <div class="member-detail">
-                            <span class="member-detail-label">💬 WhatsApp</span>
-                            <span class="member-detail-value">${member.whatsappNumber}</span>
-                        </div>
-                        ` : ''}
-                        ${member.career ? `
-                        <div class="member-detail">
-                            <span class="member-detail-label">💼 Career</span>
-                            <span class="member-detail-value">${member.career}</span>
-                        </div>
-                        ` : ''}
-                    </div>
-                    <div class="member-card-footer">
-                        <button class="btn btn-ghost btn-sm edit-member-btn" 
-                                data-id="${member.id}"
-                                data-name="${member.fullName || ''}"
-                                data-email="${member.email || ''}"
-                                data-phone="${member.phone || ''}"
-                                data-whatsapp="${member.whatsappNumber || member.phone || ''}"
-                                data-address="${member.address || ''}"
-                                data-workplace="${member.workplace || ''}"
-                                data-career="${member.career || ''}"
-                                data-guarantor="${member.guarantorName || member.guarantor || ''}"
-                                data-guarantor-phone="${member.guarantorPhone || ''}"
-                                data-role="${member.role || 'member'}"
-                                data-collateral="${member.collateral || ''}"
-                                data-dob="${member.dateOfBirth || ''}"
-                                data-gender="${member.gender || ''}">
-                            ✏️ Edit
-                        </button>
-                        ${!isAdmin || members.filter(m => m.role === 'admin' || m.role === 'senior_admin').length > 1 ? `
-                        <button class="btn btn-danger btn-sm remove-member-btn" data-id="${member.id}">
-                            🗑️ Remove
-                        </button>
-                        ` : ''}
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        // Attach event listeners
-        attachMemberEventListeners();
+        // Apply current filter
+        const activeFilter = document.querySelector('.filter-tab.active')?.getAttribute('data-filter') || 'all';
+        filterMembers(activeFilter);
 
     } catch (error) {
         console.error("Error loading members:", error);
@@ -254,6 +213,122 @@ async function loadMembers() {
             </div>
         `;
     }
+}
+
+// ✅ Render members list
+function renderMembers(members) {
+    if (!memberList) return;
+    
+    if (members.length === 0) {
+        memberList.innerHTML = `
+            <div class="empty-state" style="grid-column: 1 / -1;">
+                <div class="empty-state-icon">👥</div>
+                <p class="empty-state-text">No members found</p>
+            </div>
+        `;
+        return;
+    }
+
+    memberList.innerHTML = members.map(member => {
+        const isAdmin = member.role === 'admin' || member.role === 'senior_admin';
+        const roleLabel = isAdmin ? (member.role === 'senior_admin' ? 'Senior Admin' : 'Admin') : 'Member';
+        const initials = getInitials(member.fullName);
+        const avatarContent = member.profileImageUrl 
+            ? `<img src="${member.profileImageUrl}" alt="${member.fullName}">`
+            : initials;
+
+        return `
+            <div class="member-card">
+                <div class="member-card-header">
+                    <div class="member-avatar">${avatarContent}</div>
+                    <div class="member-info">
+                        <div class="member-name">${member.fullName || 'Unknown'}</div>
+                        <span class="member-role ${isAdmin ? 'admin' : 'member'}">${roleLabel}</span>
+                    </div>
+                </div>
+                <div class="member-card-body">
+                    <div class="member-detail">
+                        <span class="member-detail-label">📧 Email</span>
+                        <span class="member-detail-value">${member.email || 'N/A'}</span>
+                    </div>
+                    <div class="member-detail">
+                        <span class="member-detail-label">📞 Phone</span>
+                        <span class="member-detail-value">${member.phone || 'N/A'}</span>
+                    </div>
+                    ${member.whatsappNumber ? `
+                    <div class="member-detail">
+                        <span class="member-detail-label">💬 WhatsApp</span>
+                        <span class="member-detail-value">${member.whatsappNumber}</span>
+                    </div>
+                    ` : ''}
+                    ${member.career ? `
+                    <div class="member-detail">
+                        <span class="member-detail-label">💼 Career</span>
+                        <span class="member-detail-value">${member.career}</span>
+                    </div>
+                    ` : ''}
+                </div>
+                <div class="member-card-footer">
+                    <button class="btn btn-ghost btn-sm edit-member-btn" 
+                            data-id="${member.id}"
+                            data-name="${member.fullName || ''}"
+                            data-email="${member.email || ''}"
+                            data-phone="${member.phone || ''}"
+                            data-whatsapp="${member.whatsappNumber || member.phone || ''}"
+                            data-address="${member.address || ''}"
+                            data-workplace="${member.workplace || ''}"
+                            data-career="${member.career || ''}"
+                            data-guarantor="${member.guarantorName || member.guarantor || ''}"
+                            data-guarantor-phone="${member.guarantorPhone || ''}"
+                            data-role="${member.role || 'member'}"
+                            data-collateral="${member.collateral || ''}"
+                            data-dob="${member.dateOfBirth || ''}"
+                            data-gender="${member.gender || ''}">
+                        ✏️ Edit
+                    </button>
+                    ${!isAdmin || (window.allMembers || []).filter(m => m.role === 'admin' || m.role === 'senior_admin').length > 1 ? `
+                    <button class="btn btn-danger btn-sm remove-member-btn" data-id="${member.id}">
+                        🗑️ Remove
+                    </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Re-attach event listeners
+    attachMemberEventListeners();
+}
+
+// ✅ Filter members by role and search term
+function filterMembers(filter = 'all', searchTerm = '') {
+    if (!window.allMembers) return;
+    
+    let filtered = [...window.allMembers];
+    
+    // Apply role filter
+    if (filter === 'admin') {
+        filtered = filtered.filter(m => m.role === 'admin' || m.role === 'senior_admin');
+    } else if (filter === 'member') {
+        // Members tab should show ALL members including admins (they are also members)
+        // But if you want to exclude admins, uncomment the line below
+        // filtered = filtered.filter(m => m.role !== 'admin' && m.role !== 'senior_admin');
+    }
+    // 'all' shows everyone, no filtering needed
+    
+    // Apply search filter
+    if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        filtered = filtered.filter(m => {
+            const name = (m.fullName || '').toLowerCase();
+            const email = (m.email || '').toLowerCase();
+            const phone = (m.phone || '').toLowerCase();
+            return name.includes(term) || email.includes(term) || phone.includes(term);
+        });
+    }
+    
+    // Render filtered members
+    renderMembers(filtered);
 }
 
 // ✅ Attach event listeners for edit and remove buttons
@@ -274,40 +349,224 @@ function attachMemberEventListeners() {
     });
 }
 
-// ✅ Open edit modal
-function openEditModal(button) {
+// ✅ Open edit modal - Load full member data
+async function openEditModal(button) {
     if (!editMemberModal) return;
 
     const memberId = button.getAttribute("data-id");
     
-    // Populate form fields
-    const fields = {
-        'editFullName': button.getAttribute("data-name"),
-        'editEmail': button.getAttribute("data-email"),
-        'editPhone': button.getAttribute("data-phone"),
-        'editWhatsappNumber': button.getAttribute("data-whatsapp"),
-        'editAddress': button.getAttribute("data-address"),
-        'editWorkplace': button.getAttribute("data-workplace"),
-        'editCareer': button.getAttribute("data-career"),
-        'editGuarantor': button.getAttribute("data-guarantor"),
-        'editGuarantorPhone': button.getAttribute("data-guarantor-phone"),
-        'editRole': button.getAttribute("data-role"),
-        'editCollateral': button.getAttribute("data-collateral"),
-        'editDOB': button.getAttribute("data-dob"),
-        'editGender': button.getAttribute("data-gender")
-    };
-
-    Object.keys(fields).forEach(fieldId => {
-        const field = document.getElementById(fieldId);
-        if (field) {
-            field.value = fields[fieldId] || '';
+    try {
+        // Fetch full member data from Firestore
+        const memberRef = doc(db, `groups/${groupId}/members`, memberId);
+        const memberDoc = await getDoc(memberRef);
+        
+        let memberData = {};
+        
+        // First try to get from members collection
+        if (memberDoc.exists()) {
+            memberData = { ...memberDoc.data(), id: memberDoc.id };
+        } else {
+            // If not in members collection, try users collection (for admins)
+            const userRef = doc(db, "users", memberId);
+            const userDoc = await getDoc(userRef);
+            if (userDoc.exists()) {
+                memberData = { ...userDoc.data(), id: userDoc.id };
+            } else {
+                // If still not found, try to get from current members list
+                const memberFromList = (window.allMembers || []).find(m => m.id === memberId);
+                if (memberFromList) {
+                    memberData = memberFromList;
+                } else {
+                    throw new Error('Member not found');
+                }
+            }
         }
-    });
+        
+        // Populate edit form fields with all member data
+        const formFieldsContainer = document.getElementById("editFormFields");
+        if (formFieldsContainer) {
+            formFieldsContainer.innerHTML = `
+                <!-- Personal Information -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Personal Information</h4>
+                    <div class="form-group">
+                        <label class="form-label">Full Name *</label>
+                        <input type="text" class="form-input" id="editFullName" value="${memberData.fullName || ''}" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Phone Number *</label>
+                            <input type="tel" class="form-input" id="editPhone" value="${memberData.phone || ''}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">WhatsApp</label>
+                            <input type="tel" class="form-input" id="editWhatsappNumber" value="${memberData.whatsappNumber || memberData.phone || ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Date of Birth</label>
+                            <input type="date" class="form-input" id="editDOB" value="${memberData.dateOfBirth || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Gender</label>
+                            <select class="form-select" id="editGender">
+                                <option value="">Select...</option>
+                                <option value="male" ${memberData.gender === 'male' ? 'selected' : ''}>Male</option>
+                                <option value="female" ${memberData.gender === 'female' ? 'selected' : ''}>Female</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Address</label>
+                        <textarea class="form-textarea" id="editAddress" rows="2">${memberData.address || ''}</textarea>
+                    </div>
+                </div>
 
-    editMemberModal.dataset.id = memberId;
-    editMemberModal.classList.remove('hidden');
-    editMemberModal.classList.add('active');
-    document.body.style.overflow = 'hidden';
+                <!-- Professional Information -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Professional Information</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Career/Profession</label>
+                            <input type="text" class="form-input" id="editCareer" value="${memberData.career || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Job Title</label>
+                            <input type="text" class="form-input" id="editJobTitle" value="${memberData.jobTitle || ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Workplace</label>
+                            <input type="text" class="form-input" id="editWorkplace" value="${memberData.workplace || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Work Address</label>
+                            <input type="text" class="form-input" id="editWorkAddress" value="${memberData.workAddress || ''}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Guarantor Information -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Guarantor Information</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Guarantor Name</label>
+                            <input type="text" class="form-input" id="editGuarantor" value="${memberData.guarantorName || memberData.guarantor || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Guarantor Phone</label>
+                            <input type="tel" class="form-input" id="editGuarantorPhone" value="${memberData.guarantorPhone || ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Relationship</label>
+                            <select class="form-select" id="editGuarantorRelationship">
+                                <option value="">Select...</option>
+                                <option value="spouse" ${memberData.guarantorRelationship === 'spouse' ? 'selected' : ''}>Spouse</option>
+                                <option value="parent" ${memberData.guarantorRelationship === 'parent' ? 'selected' : ''}>Parent</option>
+                                <option value="sibling" ${memberData.guarantorRelationship === 'sibling' ? 'selected' : ''}>Sibling</option>
+                                <option value="relative" ${memberData.guarantorRelationship === 'relative' ? 'selected' : ''}>Relative</option>
+                                <option value="friend" ${memberData.guarantorRelationship === 'friend' ? 'selected' : ''}>Friend</option>
+                                <option value="colleague" ${memberData.guarantorRelationship === 'colleague' ? 'selected' : ''}>Colleague</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Guarantor Address</label>
+                            <input type="text" class="form-input" id="editGuarantorAddress" value="${memberData.guarantorAddress || ''}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security & ID -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Identification & Security</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">ID Type</label>
+                            <select class="form-select" id="editIdType">
+                                <option value="">Select...</option>
+                                <option value="national_id" ${memberData.idType === 'national_id' ? 'selected' : ''}>National ID</option>
+                                <option value="passport" ${memberData.idType === 'passport' ? 'selected' : ''}>Passport</option>
+                                <option value="drivers_license" ${memberData.idType === 'drivers_license' ? 'selected' : ''}>Driver's License</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">ID Number</label>
+                            <input type="text" class="form-input" id="editIdNumber" value="${memberData.idNumber || ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Emergency Contact</label>
+                            <input type="text" class="form-input" id="editEmergencyContact" value="${memberData.emergencyContact || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Emergency Phone</label>
+                            <input type="tel" class="form-input" id="editEmergencyPhone" value="${memberData.emergencyPhone || ''}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Account & Collateral -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Account & Collateral</h4>
+                    <div class="form-group">
+                        <label class="form-label">Email Address *</label>
+                        <input type="email" class="form-input" id="editEmail" value="${memberData.email || ''}" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Role</label>
+                            <select class="form-select" id="editRole">
+                                <option value="member" ${(!memberData.role || memberData.role === 'member') ? 'selected' : ''}>Member</option>
+                                <option value="admin" ${memberData.role === 'admin' ? 'selected' : ''}>Admin</option>
+                                <option value="senior_admin" ${memberData.role === 'senior_admin' ? 'selected' : ''}>Senior Admin</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" id="editStatus">
+                                <option value="active" ${(!memberData.status || memberData.status === 'active') ? 'selected' : ''}>Active</option>
+                                <option value="pending" ${memberData.status === 'pending' ? 'selected' : ''}>Pending</option>
+                                <option value="inactive" ${memberData.status === 'inactive' ? 'selected' : ''}>Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Collateral Description</label>
+                        <textarea class="form-textarea" id="editCollateral" rows="2">${memberData.collateral || ''}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-textarea" id="editNotes" rows="2">${memberData.notes || ''}</textarea>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Update profile preview
+        const previewEl = document.getElementById("editMemberProfilePreview");
+        if (previewEl) {
+            if (memberData.profileImageUrl) {
+                previewEl.innerHTML = `<img src="${memberData.profileImageUrl}" alt="${memberData.fullName}">`;
+            } else {
+                const initials = getInitials(memberData.fullName || '');
+                previewEl.innerHTML = initials;
+            }
+        }
+
+        editMemberModal.dataset.id = memberId;
+        editMemberModal.classList.remove('hidden');
+        editMemberModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    } catch (error) {
+        console.error("Error loading member data:", error);
+        alert("Failed to load member data: " + error.message);
+    }
 }
 
 // ✅ Setup form handlers
@@ -325,6 +584,28 @@ function setupFormHandlers() {
         editMemberForm.addEventListener("submit", async (e) => {
             e.preventDefault();
             await handleEditMember();
+        });
+    }
+
+    // Filter tabs
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Update active state
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            // Filter members
+            const filter = tab.getAttribute('data-filter');
+            filterMembers(filter);
+        });
+    });
+
+    // Search functionality
+    const searchInput = document.getElementById('searchMembers');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            filterMembers(null, searchTerm);
         });
     }
 
@@ -464,7 +745,7 @@ async function createInvitationCode(email) {
     return code;
 }
 
-// ✅ Handle edit member
+// ✅ Handle edit member - Save all fields
 async function handleEditMember() {
     const memberId = editMemberModal?.dataset.id;
     if (!memberId) return;
@@ -475,13 +756,28 @@ async function handleEditMember() {
     const whatsappNumber = document.getElementById("editWhatsappNumber")?.value.trim() || phone;
     const address = document.getElementById("editAddress")?.value.trim() || "";
     const workplace = document.getElementById("editWorkplace")?.value.trim() || "";
+    const workAddress = document.getElementById("editWorkAddress")?.value.trim() || "";
     const career = document.getElementById("editCareer")?.value.trim() || "";
+    const jobTitle = document.getElementById("editJobTitle")?.value.trim() || "";
     const guarantorName = document.getElementById("editGuarantor")?.value.trim() || "";
     const guarantorPhone = document.getElementById("editGuarantorPhone")?.value.trim() || "";
-    const role = document.getElementById("editRole")?.value;
-    const collateral = document.getElementById("editCollateral")?.value.trim() || null;
+    const guarantorRelationship = document.getElementById("editGuarantorRelationship")?.value || "";
+    const guarantorAddress = document.getElementById("editGuarantorAddress")?.value.trim() || "";
+    const idType = document.getElementById("editIdType")?.value || "";
+    const idNumber = document.getElementById("editIdNumber")?.value.trim() || "";
+    const emergencyContact = document.getElementById("editEmergencyContact")?.value.trim() || "";
+    const emergencyPhone = document.getElementById("editEmergencyPhone")?.value.trim() || "";
+    const role = document.getElementById("editRole")?.value || "member";
+    const status = document.getElementById("editStatus")?.value || "active";
+    const collateral = document.getElementById("editCollateral")?.value.trim() || "";
+    const notes = document.getElementById("editNotes")?.value.trim() || "";
     const dateOfBirth = document.getElementById("editDOB")?.value || null;
     const gender = document.getElementById("editGender")?.value || null;
+
+    if (!fullName || !email || !phone) {
+        alert("Please fill in all required fields (Name, Email, Phone)");
+        return;
+    }
 
     try {
         const updateData = {
@@ -491,23 +787,65 @@ async function handleEditMember() {
             whatsappNumber,
             address,
             workplace,
+            workAddress,
             career,
+            jobTitle,
             guarantorName,
             guarantorPhone,
+            guarantorRelationship,
+            guarantorAddress,
+            idType,
+            idNumber,
+            emergencyContact,
+            emergencyPhone,
             role,
+            status,
             collateral,
+            notes,
             updatedAt: Timestamp.now()
         };
 
         if (dateOfBirth) updateData.dateOfBirth = dateOfBirth;
         if (gender) updateData.gender = gender;
 
-        // Update member in Firestore
-        await updateDoc(doc(db, `groups/${groupId}/members`, memberId), updateData);
+        // Handle profile picture upload if changed
+        const profilePictureInput = document.getElementById("editMemberProfilePicture");
+        if (profilePictureInput?.files?.length > 0) {
+            try {
+                const file = profilePictureInput.files[0];
+                const storageRef = ref(storage, `profiles/${groupId}/${memberId}/${Date.now()}_${file.name}`);
+                await uploadBytes(storageRef, file);
+                const downloadURL = await getDownloadURL(storageRef);
+                updateData.profileImageUrl = downloadURL;
+            } catch (uploadError) {
+                console.error("Error uploading profile picture:", uploadError);
+                // Continue without profile picture if upload fails
+            }
+        }
+
+        // Ensure member document exists in members collection
+        const memberRef = doc(db, `groups/${groupId}/members`, memberId);
+        const memberDoc = await getDoc(memberRef);
+        
+        if (memberDoc.exists()) {
+            // Update existing member document
+            await updateDoc(memberRef, updateData);
+        } else {
+            // Create member document if it doesn't exist (for admins)
+            await setDoc(memberRef, {
+                ...updateData,
+                joinedAt: Timestamp.now(),
+                createdAt: Timestamp.now()
+            });
+        }
 
         // Also update in users collection if exists
         try {
-            await updateDoc(doc(db, "users", memberId), updateData);
+            const userRef = doc(db, "users", memberId);
+            const userDoc = await getDoc(userRef);
+            if (userDoc.exists()) {
+                await updateDoc(userRef, updateData);
+            }
         } catch (e) {
             console.log("User document not found or already updated");
         }
@@ -525,6 +863,7 @@ async function handleEditMember() {
         await loadMembers();
         
     } catch (error) {
+        console.error("Error updating member:", error);
         alert("Failed to update member: " + error.message);
     }
 }

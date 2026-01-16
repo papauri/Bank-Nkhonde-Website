@@ -12,6 +12,263 @@
   <link rel="stylesheet" href="../styles/design-system.css">
   <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
+  <style>
+    /* Contributions Overview Specific Styles */
+    .monthly-breakdown-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: var(--bn-space-4);
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .breakdown-card {
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-space-5);
+      transition: all var(--bn-transition-base);
+    }
+
+    .breakdown-card:hover {
+      border-color: var(--bn-accent);
+      box-shadow: var(--bn-shadow-md);
+      transform: translateY(-2px);
+    }
+
+    .breakdown-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .breakdown-card-title {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-gray);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .breakdown-card-value {
+      font-size: var(--bn-text-2xl);
+      font-weight: 800;
+      color: var(--bn-dark);
+      margin-bottom: var(--bn-space-2);
+    }
+
+    .breakdown-card-progress {
+      height: 8px;
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-full);
+      overflow: hidden;
+      margin-top: var(--bn-space-3);
+    }
+
+    .breakdown-card-progress-bar {
+      height: 100%;
+      background: var(--bn-gradient-accent);
+      border-radius: var(--bn-radius-full);
+      transition: width var(--bn-transition-base);
+    }
+
+    .contributions-table-wrapper {
+      overflow-x: auto;
+      border-radius: var(--bn-radius-lg);
+      border: 1px solid var(--bn-gray-lighter);
+    }
+
+    .contributions-table {
+      width: 100%;
+      min-width: 800px;
+    }
+
+    .contributions-table table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .contributions-table thead {
+      background: var(--bn-gray-50);
+    }
+
+    .contributions-table th {
+      padding: var(--bn-space-4);
+      text-align: left;
+      font-size: var(--bn-text-xs);
+      font-weight: 700;
+      color: var(--bn-gray-700);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 2px solid var(--bn-gray-lighter);
+    }
+
+    .contributions-table td {
+      padding: var(--bn-space-4);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+      font-size: var(--bn-text-sm);
+    }
+
+    .contributions-table tbody tr {
+      transition: background var(--bn-transition-fast);
+    }
+
+    .contributions-table tbody tr:hover {
+      background: var(--bn-gray-50);
+    }
+
+    .contributions-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .member-name-cell {
+      font-weight: 600;
+      color: var(--bn-dark);
+    }
+
+    .amount-cell {
+      font-weight: 600;
+      font-family: 'Courier New', monospace;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: var(--bn-space-1) var(--bn-space-3);
+      border-radius: var(--bn-radius-full);
+      font-size: var(--bn-text-xs);
+      font-weight: 600;
+    }
+
+    .status-badge.completed {
+      background: rgba(34, 197, 94, 0.1);
+      color: #22c55e;
+    }
+
+    .status-badge.pending {
+      background: rgba(249, 115, 22, 0.1);
+      color: #f97316;
+    }
+
+    .status-badge.unpaid {
+      background: rgba(239, 68, 68, 0.1);
+      color: #ef4444;
+    }
+
+    .status-badge.partial {
+      background: rgba(59, 130, 246, 0.1);
+      color: #3b82f6;
+    }
+
+    /* History Section */
+    .history-timeline {
+      position: relative;
+      padding-left: var(--bn-space-6);
+    }
+
+    .history-timeline::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--bn-gray-lighter);
+    }
+
+    .history-item {
+      position: relative;
+      padding-bottom: var(--bn-space-6);
+      padding-left: var(--bn-space-6);
+    }
+
+    .history-item::before {
+      content: '';
+      position: absolute;
+      left: -9px;
+      top: 4px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--bn-white);
+      border: 3px solid var(--bn-accent);
+    }
+
+    .history-item-card {
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-space-4);
+      transition: all var(--bn-transition-base);
+    }
+
+    .history-item-card:hover {
+      border-color: var(--bn-accent);
+      box-shadow: var(--bn-shadow-sm);
+    }
+
+    .history-item-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--bn-space-2);
+    }
+
+    .history-item-month {
+      font-size: var(--bn-text-base);
+      font-weight: 700;
+      color: var(--bn-dark);
+    }
+
+    .history-item-date {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+
+    .history-item-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: var(--bn-space-3);
+      margin-top: var(--bn-space-3);
+    }
+
+    .history-stat {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .history-stat-label {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      margin-bottom: var(--bn-space-1);
+    }
+
+    .history-stat-value {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      color: var(--bn-dark);
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+      .contributions-table-wrapper {
+        border-radius: var(--bn-radius-md);
+      }
+
+      .contributions-table {
+        font-size: var(--bn-text-xs);
+      }
+
+      .contributions-table th,
+      .contributions-table td {
+        padding: var(--bn-space-2) var(--bn-space-3);
+      }
+
+      .monthly-breakdown-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
   <!-- Page Header -->
@@ -26,7 +283,7 @@
           </button>
           <div>
             <h1 class="page-title">Contributions Overview</h1>
-            <p class="page-subtitle">Track monthly contributions</p>
+            <p class="page-subtitle">Track monthly contributions and history</p>
           </div>
         </div>
         <div class="page-header-actions">
@@ -68,13 +325,23 @@
       <div class="content-section-header">
         <h2 class="content-section-title">Monthly Breakdown</h2>
         <select class="form-select" style="width: auto; padding: var(--bn-space-2) var(--bn-space-4); font-size: var(--bn-text-sm);" id="monthSelector">
-          <option value="current">Current Month</option>
+          <option value="">Select Month...</option>
         </select>
       </div>
-      <div class="content-section-body" id="contributionsList">
-        <div class="empty-state">
-          <div class="empty-state-icon">📊</div>
-          <p class="empty-state-text">Select a group to view contributions</p>
+      <div class="content-section-body">
+        <!-- Breakdown Cards -->
+        <div class="monthly-breakdown-grid" id="breakdownCards">
+          <!-- Cards will be populated by JavaScript -->
+        </div>
+
+        <!-- Contributions Table -->
+        <div class="contributions-table-wrapper">
+          <div class="contributions-table" id="contributionsList">
+            <div class="empty-state">
+              <div class="empty-state-icon">📊</div>
+              <p class="empty-state-text">Select a group and month to view contributions</p>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -83,11 +350,16 @@
     <section class="content-section">
       <div class="content-section-header">
         <h2 class="content-section-title">Contribution History</h2>
+        <select class="form-select" style="width: auto; padding: var(--bn-space-2) var(--bn-space-4); font-size: var(--bn-text-sm);" id="historyYearSelector">
+          <option value="">All Years</option>
+        </select>
       </div>
-      <div class="content-section-body" id="contributionHistory">
-        <div class="empty-state">
-          <div class="empty-state-icon">📋</div>
-          <p class="empty-state-text">No contribution history</p>
+      <div class="content-section-body">
+        <div class="history-timeline" id="contributionHistory">
+          <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <p class="empty-state-text">No contribution history available</p>
+          </div>
         </div>
       </div>
     </section>

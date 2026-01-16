@@ -69,7 +69,7 @@ function setupEventListeners() {
   });
   
   document.getElementById("notificationBtn")?.addEventListener("click", () => {
-    showToast("Notifications feature coming soon!", "info");
+    window.location.href = "messages.html";
   });
   
   // Quick actions

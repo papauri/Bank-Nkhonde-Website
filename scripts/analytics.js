@@ -176,7 +176,7 @@ async function loadAnalytics() {
     analyticsData.netProfit = analyticsData.totalIncome - analyticsData.totalExpenses;
 
     // Calculate member performance
-    calculateMemberPerformance(members);
+    await calculateMemberPerformance(members);
 
     // Update UI
     updateAnalyticsUI();
@@ -193,54 +193,67 @@ async function loadAnalytics() {
 // Calculate contribution income
 async function calculateContributionIncome(year, members) {
   try {
-    // Seed Money collections
-    const seedMoneyRef = doc(db, `groups/${selectedGroupId}/payments`, `${year}_SeedMoney`);
-    const seedMoneyDoc = await getDoc(seedMoneyRef);
-    
-    if (seedMoneyDoc.exists()) {
-      for (const member of members) {
-        try {
-          const userSeedRef = doc(db, `groups/${selectedGroupId}/payments/${year}_SeedMoney/${member.id}/PaymentDetails`);
-          const userSeedDoc = await getDoc(userSeedRef);
-          if (userSeedDoc.exists()) {
-            const data = userSeedDoc.data();
-            analyticsData.totalIncome += parseFloat(data.amountPaid || 0);
+    // Seed Money collections - only count approved payments
+    let seedMoneyTotal = 0;
+    for (const member of members) {
+      try {
+        const userSeedRef = doc(db, `groups/${selectedGroupId}/payments/${year}_SeedMoney/${member.id}/PaymentDetails`);
+        const userSeedDoc = await getDoc(userSeedRef);
+        if (userSeedDoc.exists()) {
+          const data = userSeedDoc.data();
+          // Only count approved seed money payments
+          if (data.approvalStatus === "approved") {
+            const amountPaid = parseFloat(data.amountPaid || 0);
+            seedMoneyTotal += amountPaid;
+            analyticsData.totalIncome += amountPaid;
           }
-        } catch (e) {
-          // Member may not have seed money record
         }
+      } catch (e) {
+        // Member may not have seed money record
       }
     }
-
-    // Monthly Contributions
-    const monthlyRef = doc(db, `groups/${selectedGroupId}/payments`, `${year}_MonthlyContributions`);
-    const monthlyDoc = await getDoc(monthlyRef);
     
-    if (monthlyDoc.exists()) {
-      const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-      const currentMonth = new Date().getMonth();
+    // Monthly Contributions - get from each member's monthly collection
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const currentMonth = new Date().getMonth();
 
-      for (let i = 0; i <= currentMonth; i++) {
-        let monthTotal = 0;
-        for (const member of members) {
-          try {
-            const monthDocRef = doc(db, `groups/${selectedGroupId}/payments/${year}_MonthlyContributions/${member.id}/${year}_${months[i]}`);
-            const monthDocSnap = await getDoc(monthDocRef);
-            if (monthDocSnap.exists()) {
-              const data = monthDocSnap.data();
-              monthTotal += parseFloat(data.amountPaid || 0);
-            }
-          } catch (e) {
-            // Member may not have monthly record
+    // Initialize monthly data array for all months up to current
+    for (let i = 0; i <= currentMonth; i++) {
+      analyticsData.monthlyData.push({
+        month: months[i].substring(0, 3),
+        fullMonth: months[i],
+        income: 0,
+        expenses: 0,
+      });
+    }
+
+    // Get monthly contributions for each member
+    for (const member of members) {
+      try {
+        const monthlyRef = collection(db, `groups/${selectedGroupId}/payments/${year}_MonthlyContributions/${member.id}`);
+        const monthlySnapshot = await getDocs(monthlyRef);
+        
+        monthlySnapshot.forEach((monthDoc) => {
+          const data = monthDoc.data();
+          const monthName = data.month;
+          const monthIndex = months.indexOf(monthName);
+          
+          // Only count approved payments
+          if (monthIndex >= 0 && monthIndex <= currentMonth && data.approvalStatus === "approved") {
+            const amountPaid = parseFloat(data.amountPaid || 0);
+            analyticsData.monthlyData[monthIndex].income += amountPaid;
+            analyticsData.totalIncome += amountPaid;
           }
-        }
-        analyticsData.monthlyData.push({
-          month: months[i].substring(0, 3),
-          income: monthTotal,
-          expenses: 0,
         });
-        analyticsData.totalIncome += monthTotal;
+      } catch (e) {
+        // Member may not have monthly contributions collection
       }
+    }
+    
+    // Add seed money to first month if monthlyData exists (as initial contribution)
+    // This ensures seed money appears in the chart
+    if (seedMoneyTotal > 0 && analyticsData.monthlyData.length > 0) {
+      analyticsData.monthlyData[0].income += seedMoneyTotal;
     }
   } catch (error) {
     console.error("Error calculating contribution income:", error);
@@ -294,26 +307,78 @@ async function calculateDisbursements() {
 }
 
 // Calculate member performance
-function calculateMemberPerformance(members) {
-  analyticsData.memberPerformance = members.map((member) => {
+async function calculateMemberPerformance(members) {
+  const currentYear = new Date().getFullYear();
+  const performanceData = [];
+
+  for (const member of members) {
     const financialSummary = member.financialSummary || {};
     const totalPaid = parseFloat(financialSummary.totalPaid || 0);
     const totalArrears = parseFloat(financialSummary.totalArrears || 0);
     const totalDue = totalPaid + totalArrears;
     const paymentRate = totalDue > 0 ? ((totalPaid / totalDue) * 100).toFixed(1) : 0;
 
-    return {
+    // Get payment breakdown by type
+    let seedMoneyPaid = 0;
+    let seedMoneyDue = 0;
+    let monthlyPaid = 0;
+    let monthlyDue = 0;
+    const paymentBreakdown = [];
+
+    // Check seed money
+    try {
+      const seedMoneyRef = doc(db, `groups/${selectedGroupId}/payments/${currentYear}_SeedMoney/${member.id}/PaymentDetails`);
+      const seedMoneyDoc = await getDoc(seedMoneyRef);
+      if (seedMoneyDoc.exists()) {
+        const seedData = seedMoneyDoc.data();
+        seedMoneyPaid = parseFloat(seedData.amountPaid || 0);
+        seedMoneyDue = parseFloat(seedData.totalAmount || 0);
+        if (seedMoneyDue > 0) {
+          paymentBreakdown.push({
+            type: 'Seed Money',
+            paid: seedMoneyPaid,
+            due: seedMoneyDue
+          });
+        }
+      }
+    } catch (e) {}
+
+    // Check monthly contributions
+    try {
+      const monthlyRef = collection(db, `groups/${selectedGroupId}/payments/${currentYear}_MonthlyContributions/${member.id}`);
+      const monthlySnapshot = await getDocs(monthlyRef);
+      monthlySnapshot.forEach((monthDoc) => {
+        const monthData = monthDoc.data();
+        const monthPaid = parseFloat(monthData.amountPaid || 0);
+        const monthDue = parseFloat(monthData.totalAmount || 0);
+        monthlyPaid += monthPaid;
+        monthlyDue += monthDue;
+        if (monthDue > 0) {
+          paymentBreakdown.push({
+            type: `Monthly (${monthData.month || 'Unknown'})`,
+            paid: monthPaid,
+            due: monthDue
+          });
+        }
+      });
+    } catch (e) {}
+
+    performanceData.push({
       id: member.id,
       name: member.fullName || "Unknown",
       totalPaid,
       totalArrears,
       paymentRate: parseFloat(paymentRate),
       status: parseFloat(paymentRate) >= 80 ? "good" : parseFloat(paymentRate) >= 50 ? "warning" : "danger",
-    };
-  });
+      paymentBreakdown,
+      seedMoneyPaid,
+      monthlyPaid,
+    });
+  }
 
   // Sort by payment rate descending
-  analyticsData.memberPerformance.sort((a, b) => b.paymentRate - a.paymentRate);
+  performanceData.sort((a, b) => b.paymentRate - a.paymentRate);
+  analyticsData.memberPerformance = performanceData;
 }
 
 // Update analytics UI
@@ -324,36 +389,241 @@ function updateAnalyticsUI() {
   if (loanInterestEl) loanInterestEl.textContent = formatCurrency(analyticsData.loanInterest);
 }
 
-// Render chart
+// Render pie charts
 function renderChart() {
   if (!chartContainer) return;
 
-  const maxValue = Math.max(
-    ...analyticsData.monthlyData.map((d) => Math.max(d.income, d.expenses)),
-    1
-  );
+  // Calculate totals from analytics data
+  const totalCollected = analyticsData.totalIncome || 0;
+  
+  // Calculate total arrears from all payment records
+  let totalArrears = 0;
+  let totalDue = 0;
+  
+  // Sum up arrears from member performance or calculate from payments
+  if (analyticsData.memberPerformance && analyticsData.memberPerformance.length > 0) {
+    analyticsData.memberPerformance.forEach((member) => {
+      totalArrears += member.totalArrears || 0;
+      totalDue += (member.totalPaid || 0) + (member.totalArrears || 0);
+    });
+  }
+  
+  // Calculate breakdown by payment type
+  let seedMoneyPaid = 0;
+  let seedMoneyDue = 0;
+  let monthlyPaid = 0;
+  let monthlyDue = 0;
 
-  let chartHTML = "";
-  analyticsData.monthlyData.forEach((data) => {
-    const incomeHeight = ((data.income / maxValue) * 100).toFixed(0);
-    chartHTML += `
-      <div class="chart-bar-wrapper">
-        <div class="chart-bar animated" style="height: 200px; --bar-height: ${incomeHeight}%;" title="Income: ${formatCurrency(data.income)}"></div>
-        <span class="chart-label">${data.month}</span>
-      </div>
-    `;
+  analyticsData.memberPerformance.forEach((member) => {
+    if (member.paymentBreakdown) {
+      member.paymentBreakdown.forEach((item) => {
+        if (item.type === 'Seed Money') {
+          seedMoneyPaid += item.paid || 0;
+          seedMoneyDue += item.due || 0;
+        } else if (item.type?.includes('Monthly')) {
+          monthlyPaid += item.paid || 0;
+          monthlyDue += item.due || 0;
+        }
+      });
+    }
   });
+
+  // Use calculated totalDue or calculate from collected + arrears
+  if (totalDue === 0) {
+    totalDue = totalCollected + totalArrears;
+  }
+  const paymentProgress = totalDue > 0 ? (totalCollected / totalDue) * 100 : 0;
+  const seedMoneyProgress = seedMoneyDue > 0 ? (seedMoneyPaid / seedMoneyDue) * 100 : 0;
+  const monthlyProgress = monthlyDue > 0 ? (monthlyPaid / monthlyDue) * 100 : 0;
+
+  let chartHTML = '';
+
+  // Chart 1: Overall Payment Status (Paid vs Left)
+  if (totalDue > 0) {
+    chartHTML += createPieChart(
+      'overall-payment-chart',
+      'Overall Payment Status',
+      [
+        { label: 'Paid', value: totalCollected, color: 'var(--bn-success)', percentage: paymentProgress },
+        { label: 'Remaining', value: totalArrears, color: 'var(--bn-danger)', percentage: 100 - paymentProgress }
+      ],
+      totalDue,
+      'Total Due'
+    );
+  }
+
+  // Chart 2: Seed Money Status
+  if (seedMoneyDue > 0) {
+    chartHTML += createPieChart(
+      'seed-money-chart',
+      'Seed Money Status',
+      [
+        { label: 'Paid', value: seedMoneyPaid, color: 'var(--bn-success)', percentage: seedMoneyProgress },
+        { label: 'Remaining', value: seedMoneyDue - seedMoneyPaid, color: 'var(--bn-danger)', percentage: 100 - seedMoneyProgress }
+      ],
+      seedMoneyDue,
+      'Seed Money'
+    );
+  }
+
+  // Chart 3: Monthly Contributions Status
+  if (monthlyDue > 0) {
+    chartHTML += createPieChart(
+      'monthly-contributions-chart',
+      'Monthly Contributions Status',
+      [
+        { label: 'Paid', value: monthlyPaid, color: 'var(--bn-success)', percentage: monthlyProgress },
+        { label: 'Remaining', value: monthlyDue - monthlyPaid, color: 'var(--bn-danger)', percentage: 100 - monthlyProgress }
+      ],
+      monthlyDue,
+      'Monthly Due'
+    );
+  }
+
+  // Chart 4: Income vs Expenses (if available)
+  if (analyticsData.totalExpenses > 0 || analyticsData.totalIncome > 0) {
+    const totalFinancial = analyticsData.totalIncome + analyticsData.totalExpenses;
+    const incomePercentage = totalFinancial > 0 ? (analyticsData.totalIncome / totalFinancial) * 100 : 0;
+    
+    chartHTML += createPieChart(
+      'income-expenses-chart',
+      'Income vs Expenses',
+      [
+        { label: 'Collections', value: analyticsData.totalIncome, color: 'var(--bn-accent)', percentage: incomePercentage },
+        { label: 'Disbursements', value: analyticsData.totalExpenses, color: 'var(--bn-gray-600)', percentage: 100 - incomePercentage }
+      ],
+      totalFinancial,
+      'Total'
+    );
+  }
 
   if (chartHTML) {
     chartContainer.innerHTML = chartHTML;
+    
+    // Animate pie charts after render
+    setTimeout(() => {
+      chartContainer.querySelectorAll('.pie-chart-svg').forEach((svg, index) => {
+        setTimeout(() => {
+          svg.style.opacity = '1';
+          // Segments are already positioned correctly via stroke-dasharray
+          // Just animate opacity
+          svg.querySelectorAll('.pie-chart-segment').forEach((segment, segIndex) => {
+            setTimeout(() => {
+              segment.style.opacity = '1';
+            }, segIndex * 200);
+          });
+        }, index * 300);
+      });
+    }, 100);
   } else {
     chartContainer.innerHTML = `
       <div class="empty-state" style="width: 100%;">
         <div class="empty-state-icon">📊</div>
         <p class="empty-state-text">No financial data available yet</p>
+        <p style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: var(--bn-space-2);">
+          Data will appear after members make payments
+        </p>
       </div>
     `;
   }
+}
+
+// Create a pie chart using SVG paths
+function createPieChart(id, title, segments, total, centerLabel) {
+  const radius = 80;
+  const centerX = 120;
+  const centerY = 120;
+  
+  let segmentsHTML = '';
+  let legendHTML = '';
+  let currentAngle = -90; // Start at top (12 o'clock)
+  
+  segments.forEach((segment, index) => {
+    const percentage = Math.min(segment.percentage || 0, 100);
+    if (percentage <= 0) return;
+    
+    // Calculate angles for this segment
+    const angle = (percentage / 100) * 360;
+    const startAngle = currentAngle;
+    const endAngle = currentAngle + angle;
+    currentAngle += angle;
+    
+    // Convert to radians
+    const startRad = (startAngle * Math.PI) / 180;
+    const endRad = (endAngle * Math.PI) / 180;
+    
+    // Calculate path coordinates
+    const x1 = centerX + radius * Math.cos(startRad);
+    const y1 = centerY + radius * Math.sin(startRad);
+    const x2 = centerX + radius * Math.cos(endRad);
+    const y2 = centerY + radius * Math.sin(endRad);
+    
+    // Large arc flag (1 if angle > 180, 0 otherwise)
+    const largeArcFlag = angle > 180 ? 1 : 0;
+    
+    // Create path for this segment (pie slice)
+    const pathData = [
+      `M ${centerX} ${centerY}`, // Move to center
+      `L ${x1} ${y1}`, // Line to start point
+      `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`, // Arc to end point
+      'Z' // Close path back to center
+    ].join(' ');
+    
+    segmentsHTML += `
+      <path
+        class="pie-chart-segment"
+        d="${pathData}"
+        fill="${segment.color}"
+        stroke="var(--bn-white)"
+        stroke-width="2"
+        data-percentage="${percentage.toFixed(1)}"
+        style="opacity: 0; transition: opacity 0.8s ease;"
+      />
+    `;
+    
+    legendHTML += `
+      <div class="legend-item" style="display: flex; align-items: center; gap: var(--bn-space-2);">
+        <span class="legend-dot" style="background: ${segment.color}; width: 12px; height: 12px; border-radius: 50%;"></span>
+        <div style="flex: 1; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: var(--bn-text-sm); color: var(--bn-gray-700);">${segment.label}:</span>
+          <span style="font-weight: 600; color: var(--bn-dark); margin-left: var(--bn-space-2);">${formatCurrency(segment.value)}</span>
+        </div>
+      </div>
+    `;
+  });
+
+  // Calculate paid percentage for center display
+  const paidPercentage = segments.find(s => s.label === 'Paid' || s.label === 'Collections')?.percentage || 0;
+  
+  return `
+    <div class="pie-chart-container">
+      <div class="pie-chart-title">${title}</div>
+      <div class="pie-chart-wrapper">
+        <svg class="pie-chart-svg" viewBox="0 0 240 240" style="opacity: 0; transition: opacity 0.5s ease; width: 100%; height: 100%;">
+          ${segmentsHTML}
+        </svg>
+        <div class="pie-chart-center">
+          <div class="pie-chart-center-value">${paidPercentage.toFixed(0)}%</div>
+          <div class="pie-chart-center-label">${centerLabel}</div>
+          <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: var(--bn-space-1);">${formatCurrencyShort(total)}</div>
+        </div>
+      </div>
+      <div class="pie-chart-legend">
+        ${legendHTML}
+      </div>
+    </div>
+  `;
+}
+
+// Format currency for chart center (shortened)
+function formatCurrencyShort(amount) {
+  const value = parseFloat(amount) || 0;
+  if (value >= 1000000) {
+    return `MWK ${(value / 1000000).toFixed(1)}M`;
+  } else if (value >= 1000) {
+    return `MWK ${(value / 1000).toFixed(1)}K`;
+  }
+  return `MWK ${value.toLocaleString('en-US')}`;
 }
 
 // Render member performance
@@ -375,6 +645,33 @@ function renderMemberPerformance() {
     const statusClass = member.status;
     const medal = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : "";
     
+    // Build payment breakdown text
+    let paymentDetails = [];
+    if (member.paymentBreakdown && member.paymentBreakdown.length > 0) {
+      member.paymentBreakdown.forEach(item => {
+        if (item.paid > 0) {
+          paymentDetails.push(`${item.type}: ${formatCurrency(item.paid)}`);
+        }
+      });
+    }
+    
+    // Fallback if no breakdown but has totals
+    if (paymentDetails.length === 0 && member.totalPaid > 0) {
+      if (member.seedMoneyPaid > 0) {
+        paymentDetails.push(`Seed Money: ${formatCurrency(member.seedMoneyPaid)}`);
+      }
+      if (member.monthlyPaid > 0) {
+        paymentDetails.push(`Monthly: ${formatCurrency(member.monthlyPaid)}`);
+      }
+      if (paymentDetails.length === 0) {
+        paymentDetails.push('Contributions');
+      }
+    }
+    
+    const paymentDetailsText = paymentDetails.length > 0 
+      ? paymentDetails.slice(0, 2).join(', ') + (paymentDetails.length > 2 ? '...' : '')
+      : 'No payments yet';
+    
     html += `
       <div class="performance-item">
         <div class="performance-rank">${medal || (index + 1)}</div>
@@ -382,7 +679,10 @@ function renderMemberPerformance() {
           <div class="performance-name">${member.name}</div>
           <div class="performance-stats">
             <span class="text-success">Paid: ${formatCurrency(member.totalPaid)}</span>
-            <span class="text-danger">Arrears: ${formatCurrency(member.totalArrears)}</span>
+            ${member.totalArrears > 0 ? `<span class="text-danger">Arrears: ${formatCurrency(member.totalArrears)}</span>` : ''}
+          </div>
+          <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: var(--bn-space-1);">
+            ${paymentDetailsText}
           </div>
         </div>
         <div class="performance-rate ${statusClass}">${member.paymentRate}%</div>

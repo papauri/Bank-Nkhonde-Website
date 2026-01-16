@@ -43,7 +43,8 @@ function showSpinner(show) {
 
 // Initialize
 document.addEventListener("DOMContentLoaded", () => {
-  selectedGroupId = sessionStorage.getItem('selectedGroupId');
+  // Check localStorage first, then sessionStorage
+  selectedGroupId = localStorage.getItem('selectedGroupId') || sessionStorage.getItem('selectedGroupId');
   
   if (!selectedGroupId) {
     window.location.href = 'user_dashboard.html';
@@ -86,9 +87,22 @@ async function loadGroupRules() {
       groupNameEl.textContent = groupData.groupName || "Group Rules";
     }
 
-    // Check for text rules
-    const textRules = groupData.governance?.rules || groupData.governanceRules || "";
-    const pdfUrl = groupData.governance?.rulesDocumentUrl || groupData.rulesDocumentUrl || "";
+    // Check for text rules - check all possible field names
+    const textRules = groupData.governance?.rules || 
+                      groupData.governance?.text || 
+                      groupData.governanceRules || 
+                      groupData.rules || 
+                      groupData.textRules || 
+                      "";
+
+    // Check for PDF URL - check all possible field names
+    const pdfUrl = groupData.governance?.rulesDocumentUrl || 
+                   groupData.governance?.documentUrl || 
+                   groupData.governance?.pdfUrl || 
+                   groupData.rulesDocumentUrl || 
+                   groupData.documentUrl || 
+                   groupData.pdfUrl || 
+                   "";
 
     let hasContent = false;
 
@@ -100,7 +114,7 @@ async function loadGroupRules() {
     }
 
     // Display PDF
-    if (pdfUrl) {
+    if (pdfUrl && pdfUrl.trim()) {
       if (pdfRulesContainer) pdfRulesContainer.style.display = 'block';
       if (pdfViewer) pdfViewer.src = pdfUrl;
       if (downloadPdfBtn) downloadPdfBtn.href = pdfUrl;
@@ -154,10 +168,38 @@ function displayFinancialRules() {
     ruleDueDay.textContent = `${day}${suffix} of month`;
   }
 
-  // Penalty
+  // Penalty - Calculate for both monthly contribution and seed money
   if (rulePenalty) {
-    const rate = groupData.penaltySettings?.dailyRate || rules.contributionPenalty?.dailyRate || groupData.dailyPenaltyRate || 1;
-    rulePenalty.textContent = `${rate}% per day`;
+    const rate = groupData.penaltySettings?.dailyRate || 
+                 rules.contributionPenalty?.dailyRate || 
+                 rules.penalty?.dailyRate ||
+                 groupData.dailyPenaltyRate || 
+                 groupData.monthlyPenalty || 
+                 1;
+    
+    // Get monthly contribution and seed money amounts for calculation
+    const monthlyAmount = parseFloat(rules.monthlyContribution?.amount || groupData.monthlyContribution || 0);
+    const seedMoneyAmount = parseFloat(rules.seedMoney?.amount || groupData.seedMoney || 0);
+    
+    // Calculate daily penalty in money value
+    const monthlyDailyPenalty = (monthlyAmount * rate / 100).toFixed(2);
+    const seedDailyPenalty = (seedMoneyAmount * rate / 100).toFixed(2);
+    
+    // Display both percentage and money values
+    let penaltyText = `${rate}% per day`;
+    if (monthlyAmount > 0 || seedMoneyAmount > 0) {
+      penaltyText += '<br><span style="font-size: 0.85em; color: var(--bn-gray); font-weight: 400;">';
+      if (monthlyAmount > 0) {
+        penaltyText += `Monthly: ${formatCurrency(monthlyDailyPenalty)}/day`;
+      }
+      if (seedMoneyAmount > 0) {
+        if (monthlyAmount > 0) penaltyText += ' • ';
+        penaltyText += `Seed: ${formatCurrency(seedDailyPenalty)}/day`;
+      }
+      penaltyText += '</span>';
+    }
+    
+    rulePenalty.innerHTML = penaltyText;
   }
 
   // Interest rates

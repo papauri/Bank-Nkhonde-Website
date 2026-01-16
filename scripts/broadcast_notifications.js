@@ -25,11 +25,20 @@ let adminGroups = [];
 let currentGroupId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-  const backBtn = document.getElementById('backBtn');
+  const backBtn = document.querySelector('.page-back-btn');
   const groupSelector = document.getElementById('groupSelector');
   const broadcastForm = document.getElementById('broadcastForm');
   const recentBroadcasts = document.getElementById('recentBroadcasts');
   const spinner = document.getElementById('spinner');
+  const messageType = document.getElementById('messageType');
+  const paymentType = document.getElementById('paymentType');
+  const paymentTypeGroup = document.getElementById('paymentTypeGroup');
+  const templateGroup = document.getElementById('templateGroup');
+  const messageTemplate = document.getElementById('messageTemplate');
+  const dueDateGroup = document.getElementById('dueDateGroup');
+  const dueDate = document.getElementById('dueDate');
+  const messageSubject = document.getElementById('messageSubject');
+  const messageBody = document.getElementById('messageBody');
 
   // Back button
   if (backBtn) {
@@ -59,11 +68,60 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Group selector change
   if (groupSelector) {
-    groupSelector.addEventListener('change', (e) => {
+    groupSelector.addEventListener('change', async (e) => {
       currentGroupId = e.target.value;
+      localStorage.setItem('selectedGroupId', currentGroupId);
       sessionStorage.setItem('selectedGroupId', currentGroupId);
+      await loadGroupDataForTemplates();
     });
   }
+
+  // Message type change - show/hide payment type and templates
+  if (messageType) {
+    messageType.addEventListener('change', (e) => {
+      const type = e.target.value;
+      if (type === 'payment' || type === 'reminder') {
+        if (paymentTypeGroup) paymentTypeGroup.classList.remove('hidden');
+        if (templateGroup) templateGroup.classList.remove('hidden');
+        if (dueDateGroup) dueDateGroup.classList.remove('hidden');
+      } else {
+        if (paymentTypeGroup) paymentTypeGroup.classList.add('hidden');
+        if (templateGroup) templateGroup.classList.add('hidden');
+        if (dueDateGroup) dueDateGroup.classList.add('hidden');
+      }
+      
+      // Load templates based on type
+      if (type === 'payment' || type === 'reminder') {
+        loadPaymentTemplates();
+      } else {
+        loadGeneralTemplates();
+      }
+    });
+  }
+
+  // Payment type change - update templates
+  if (paymentType) {
+    paymentType.addEventListener('change', () => {
+      loadPaymentTemplates();
+      autoPopulateFromTemplate();
+    });
+  }
+
+  // Template selection change - auto-populate
+  if (messageTemplate) {
+    messageTemplate.addEventListener('change', () => {
+      autoPopulateFromTemplate();
+    });
+  }
+
+  // Due date change - update message
+  if (dueDate) {
+    dueDate.addEventListener('change', () => {
+      autoPopulateFromTemplate();
+    });
+  }
+
+  let groupData = null;
 
   /**
    * Load admin groups
@@ -73,8 +131,8 @@ document.addEventListener('DOMContentLoaded', () => {
       showSpinner(true);
       adminGroups = [];
       
-      // Get selected group from session
-      const selectedGroupId = sessionStorage.getItem('selectedGroupId');
+      // Get selected group from localStorage or session
+      const selectedGroupId = localStorage.getItem('selectedGroupId') || sessionStorage.getItem('selectedGroupId');
       
       // Get groups where user is creator
       const groupsRef = collection(db, 'groups');
@@ -105,11 +163,237 @@ document.addEventListener('DOMContentLoaded', () => {
           groupSelector.appendChild(option);
         });
       }
+
+      // Load group data if group is selected
+      if (currentGroupId) {
+        await loadGroupDataForTemplates();
+      }
     } catch (error) {
       console.error('Error loading groups:', error);
       showToast('Error loading groups. Please try again.', 'error');
     } finally {
       showSpinner(false);
+    }
+  }
+
+  /**
+   * Load group data for templates
+   */
+  async function loadGroupDataForTemplates() {
+    if (!currentGroupId) return;
+    
+    try {
+      const groupDoc = await getDoc(doc(db, 'groups', currentGroupId));
+      if (groupDoc.exists()) {
+        groupData = groupDoc.data();
+        
+        // Set default due date to tomorrow if not set
+        if (dueDate && !dueDate.value) {
+          const today = new Date();
+          today.setDate(today.getDate() + 1);
+          dueDate.value = today.toISOString().split('T')[0];
+        }
+      }
+    } catch (error) {
+      console.error('Error loading group data:', error);
+    }
+  }
+
+  /**
+   * Load payment templates
+   */
+  function loadPaymentTemplates() {
+    if (!messageTemplate) return;
+    
+    const paymentTypeValue = paymentType?.value || '';
+    const templates = {
+      'seed': [
+        { value: 'due_reminder', text: 'Seed Money Due Reminder' },
+        { value: 'overdue_warning', text: 'Seed Money Overdue Warning' },
+        { value: 'payment_confirmation', text: 'Seed Money Payment Confirmation' },
+        { value: 'grace_period', text: 'Seed Money Grace Period Notice' },
+        { value: 'custom', text: 'Custom Message' }
+      ],
+      'monthly': [
+        { value: 'due_reminder', text: 'Monthly Contribution Due Reminder' },
+        { value: 'overdue_warning', text: 'Monthly Contribution Overdue Warning' },
+        { value: 'payment_confirmation', text: 'Monthly Contribution Payment Confirmation' },
+        { value: 'grace_period', text: 'Monthly Contribution Grace Period Notice' },
+        { value: 'custom', text: 'Custom Message' }
+      ],
+      '': [
+        { value: 'due_reminder', text: 'Payment Due Reminder' },
+        { value: 'overdue_warning', text: 'Overdue Payment Warning' },
+        { value: 'payment_confirmation', text: 'Payment Confirmation' },
+        { value: 'grace_period', text: 'Grace Period Notice' },
+        { value: 'custom', text: 'Custom Message' }
+      ]
+    };
+
+    const templateList = templates[paymentTypeValue] || templates[''];
+    messageTemplate.innerHTML = '<option value="">Select a template...</option>';
+    templateList.forEach(template => {
+      const option = document.createElement('option');
+      option.value = template.value;
+      option.textContent = template.text;
+      messageTemplate.appendChild(option);
+    });
+  }
+
+  /**
+   * Load general templates
+   */
+  function loadGeneralTemplates() {
+    if (!messageTemplate) return;
+    
+    const messageTypeValue = messageType?.value || '';
+    const templates = {
+      'announcement': [
+        { value: 'general', text: 'General Announcement' },
+        { value: 'meeting', text: 'Meeting Notice' },
+        { value: 'update', text: 'Group Update' },
+        { value: 'custom', text: 'Custom Message' }
+      ],
+      'meeting': [
+        { value: 'meeting_scheduled', text: 'Meeting Scheduled' },
+        { value: 'meeting_reminder', text: 'Meeting Reminder' },
+        { value: 'meeting_cancelled', text: 'Meeting Cancelled' },
+        { value: 'custom', text: 'Custom Message' }
+      ],
+      'urgent': [
+        { value: 'urgent_notice', text: 'Urgent Notice' },
+        { value: 'action_required', text: 'Action Required' },
+        { value: 'custom', text: 'Custom Message' }
+      ],
+      '': [
+        { value: 'custom', text: 'Custom Message' }
+      ]
+    };
+
+    const templateList = templates[messageTypeValue] || templates[''];
+    messageTemplate.innerHTML = '<option value="">Select a template...</option>';
+    templateList.forEach(template => {
+      const option = document.createElement('option');
+      option.value = template.value;
+      option.textContent = template.text;
+      messageTemplate.appendChild(option);
+    });
+  }
+
+  /**
+   * Auto-populate message from template
+   */
+  async function autoPopulateFromTemplate() {
+    if (!messageTemplate || !messageBody || !messageSubject) return;
+    
+    const template = messageTemplate.value;
+    const paymentTypeValue = paymentType?.value || '';
+    const dueDateValue = dueDate?.value || '';
+    
+    if (!template || template === 'custom') {
+      return; // Don't auto-populate for custom
+    }
+
+    if (!groupData && currentGroupId) {
+      await loadGroupDataForTemplates();
+    }
+
+    const rules = groupData?.rules || {};
+    let subject = '';
+    let message = '';
+
+    // Format due date
+    let dueDateFormatted = '';
+    if (dueDateValue) {
+      const date = new Date(dueDateValue);
+      dueDateFormatted = date.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    }
+
+    // Payment templates
+    if (template === 'due_reminder') {
+      if (paymentTypeValue === 'seed') {
+        const amount = rules.seedMoney?.amount || 0;
+        subject = `Seed Money Payment Due - ${dueDateFormatted || 'Soon'}`;
+        message = `Dear Member,\n\nThis is a reminder that your Seed Money payment of MWK ${amount.toLocaleString()} is due on ${dueDateFormatted || 'the specified date'}.\n\nPlease ensure your payment is submitted on time to avoid penalties.\n\nThank you for your prompt attention to this matter.\n\nBest regards,\n${groupData?.groupName || 'Group Admin'}`;
+      } else if (paymentTypeValue === 'monthly') {
+        const amount = rules.monthlyContribution?.amount || 0;
+        const dueDay = rules.monthlyContribution?.dayOfMonth || 15;
+        subject = `Monthly Contribution Due - ${dueDateFormatted || `${dueDay}th of the month`}`;
+        message = `Dear Member,\n\nThis is a reminder that your Monthly Contribution of MWK ${amount.toLocaleString()} is due on ${dueDateFormatted || `the ${dueDay}th of this month`}.\n\nPlease ensure your payment is submitted on time to avoid penalties.\n\nThank you for your cooperation.\n\nBest regards,\n${groupData?.groupName || 'Group Admin'}`;
+      } else {
+        subject = `Payment Due Reminder - ${dueDateFormatted || 'Soon'}`;
+        message = `Dear Member,\n\nThis is a reminder that your payment is due on ${dueDateFormatted || 'the specified date'}.\n\nPlease ensure your payment is submitted on time.\n\nThank you.\n\nBest regards,\n${groupData?.groupName || 'Group Admin'}`;
+      }
+    } else if (template === 'overdue_warning') {
+      if (paymentTypeValue === 'seed') {
+        const amount = rules.seedMoney?.amount || 0;
+        const penaltyRate = rules.monthlyPenalty?.rate || 0;
+        subject = `⚠️ URGENT: Seed Money Payment Overdue`;
+        message = `Dear Member,\n\nYour Seed Money payment of MWK ${amount.toLocaleString()} is now OVERDUE.\n\nPlease submit your payment immediately to avoid additional penalties (${penaltyRate}% per day).\n\nIf you have already made the payment, please contact us to update your records.\n\nThank you for your immediate attention.\n\nBest regards,\n${groupData?.groupName || 'Group Admin'}`;
+      } else if (paymentTypeValue === 'monthly') {
+        const amount = rules.monthlyContribution?.amount || 0;
+        const penaltyRate = rules.monthlyPenalty?.rate || 0;
+        subject = `⚠️ URGENT: Monthly Contribution Overdue`;
+        message = `Dear Member,\n\nYour Monthly Contribution of MWK ${amount.toLocaleString()} is now OVERDUE.\n\nPlease submit your payment immediately to avoid additional penalties (${penaltyRate}% per day).\n\nIf you have already made the payment, please contact us to update your records.\n\nThank you for your immediate attention.\n\nBest regards,\n${groupData?.groupName || 'Group Admin'}`;
+      } else {
+        subject = `⚠️ URGENT: Payment Overdue`;
+        message = `Dear Member,\n\nYour payment is now OVERDUE.\n\nPlease submit your payment immediately to avoid additional penalties.\n\nThank you for your immediate attention.\n\nBest regards,\n${groupData?.groupName || 'Group Admin'}`;
+      }
+    } else if (template === 'payment_confirmation') {
+      if (paymentTypeValue === 'seed') {
+        subject = `✓ Seed Money Payment Received`;
+        message = `Dear Member,\n\nWe have successfully received your Seed Money payment.\n\nThank you for your timely payment. Your account has been updated accordingly.\n\nIf you have any questions, please don't hesitate to contact us.\n\nBest regards,\n${groupData?.groupName || 'Group Admin'}`;
+      } else if (paymentTypeValue === 'monthly') {
+        subject = `✓ Monthly Contribution Received`;
+        message = `Dear Member,\n\nWe have successfully received your Monthly Contribution payment.\n\nThank you for your timely payment. Your account has been updated accordingly.\n\nIf you have any questions, please don't hesitate to contact us.\n\nBest regards,\n${groupData?.groupName || 'Group Admin'}`;
+      } else {
+        subject = `✓ Payment Received`;
+        message = `Dear Member,\n\nWe have successfully received your payment.\n\nThank you for your timely payment.\n\nBest regards,\n${groupData?.groupName || 'Group Admin'}`;
+      }
+    } else if (template === 'grace_period') {
+      const graceDays = paymentTypeValue === 'seed' 
+        ? (rules.seedMoney?.gracePeriodDays || rules.monthlyPenalty?.gracePeriodDays || 0)
+        : (rules.monthlyPenalty?.gracePeriodDays || 0);
+      if (paymentTypeValue === 'seed') {
+        const amount = rules.seedMoney?.amount || 0;
+        subject = `Seed Money Payment - Grace Period Notice`;
+        message = `Dear Member,\n\nThis is a friendly reminder that your Seed Money payment of MWK ${amount.toLocaleString()} is due.\n\nYou are currently within the ${graceDays}-day grace period. Please submit your payment before the grace period ends to avoid penalties.\n\nThank you for your attention.\n\nBest regards,\n${groupData?.groupName || 'Group Admin'}`;
+      } else if (paymentTypeValue === 'monthly') {
+        const amount = rules.monthlyContribution?.amount || 0;
+        subject = `Monthly Contribution - Grace Period Notice`;
+        message = `Dear Member,\n\nThis is a friendly reminder that your Monthly Contribution of MWK ${amount.toLocaleString()} is due.\n\nYou are currently within the ${graceDays}-day grace period. Please submit your payment before the grace period ends to avoid penalties.\n\nThank you for your attention.\n\nBest regards,\n${groupData?.groupName || 'Group Admin'}`;
+      } else {
+        subject = `Payment - Grace Period Notice`;
+        message = `Dear Member,\n\nThis is a friendly reminder that your payment is due.\n\nYou are currently within the ${graceDays}-day grace period. Please submit your payment before the grace period ends to avoid penalties.\n\nThank you.\n\nBest regards,\n${groupData?.groupName || 'Group Admin'}`;
+      }
+    }
+
+    // General templates
+    if (template === 'general') {
+      subject = `Group Announcement`;
+      message = `Dear Members,\n\nWe have an important announcement to share with you.\n\n[Your message here]\n\nThank you for your attention.\n\nBest regards,\n${groupData?.groupName || 'Group Admin'}`;
+    } else if (template === 'meeting_scheduled') {
+      subject = `Meeting Scheduled`;
+      message = `Dear Members,\n\nA group meeting has been scheduled.\n\nDate: ${dueDateFormatted || '[Select date]'}\nTime: [Time]\nLocation: [Location]\n\nPlease confirm your attendance.\n\nBest regards,\n${groupData?.groupName || 'Group Admin'}`;
+    } else if (template === 'meeting_reminder') {
+      subject = `Meeting Reminder`;
+      message = `Dear Members,\n\nThis is a reminder about our upcoming meeting.\n\nDate: ${dueDateFormatted || '[Select date]'}\nTime: [Time]\nLocation: [Location]\n\nWe look forward to seeing you there.\n\nBest regards,\n${groupData?.groupName || 'Group Admin'}`;
+    } else if (template === 'urgent_notice') {
+      subject = `⚠️ URGENT NOTICE`;
+      message = `Dear Members,\n\nThis is an urgent notice that requires your immediate attention.\n\n[Your urgent message here]\n\nPlease respond as soon as possible.\n\nBest regards,\n${groupData?.groupName || 'Group Admin'}`;
+    }
+
+    // Populate fields
+    if (subject && messageSubject) {
+      messageSubject.value = subject;
+    }
+    if (message && messageBody) {
+      messageBody.value = message;
     }
   }
 
@@ -123,8 +407,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const message = document.getElementById('messageBody')?.value.trim();
       const recipientsType = document.querySelector('input[name="recipients"]:checked')?.value || 'all';
 
-      // Use selected group from session or selector
-      const groupId = currentGroupId || groupSelector?.value || sessionStorage.getItem('selectedGroupId');
+      // Use selected group from localStorage, session, or selector
+      const groupId = currentGroupId || groupSelector?.value || localStorage.getItem('selectedGroupId') || sessionStorage.getItem('selectedGroupId');
       
       if (!groupId) {
         showToast('Please select a group first', 'error');
@@ -181,7 +465,8 @@ document.addEventListener('DOMContentLoaded', () => {
           notificationId: notificationRef.id,
           groupId,
           groupName: groupData.groupName || 'Unknown Group',
-          recipientId: memberId,
+          userId: memberId, // Use userId for consistency with other notifications
+          recipientId: memberId, // Keep for backward compatibility
           senderId: currentUser.uid,
           senderName: senderName,
           senderEmail: currentUser.email,

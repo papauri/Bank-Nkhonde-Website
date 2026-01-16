@@ -5,6 +5,8 @@ import {
   collection,
   query,
   where,
+  orderBy,
+  limit,
   getDocs,
   doc,
   getDoc,
@@ -32,6 +34,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
 } from "./errorLogger.js";
+import { initializeNotifications } from "./notifications-handler.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const groupList = document.getElementById("groupList");
@@ -56,6 +59,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // Quick action buttons
   const requestLoanBtn = document.getElementById("requestLoanBtn");
   const uploadPaymentBtn = document.getElementById("uploadPaymentBtn");
+  const upcomingPaymentsBtn = document.getElementById("upcomingPaymentsBtn");
+  const upcomingPaymentsModal = document.getElementById("upcomingPaymentsModal");
+  const upcomingPaymentsModalList = document.getElementById("upcomingPaymentsModalList");
 
   let currentUser = null;
   let currentGroup = null;
@@ -113,17 +119,70 @@ document.addEventListener("DOMContentLoaded", () => {
     const roles = userData.roles || [];
     const memberships = userData.groupMemberships || [];
     
+    // Check global admin roles
     isAdmin = roles.includes("admin") || roles.includes("senior_admin") ||
               memberships.some(m => m.role === "admin" || m.role === "senior_admin");
+    
+    // Also check if user is admin of the currently selected group
+    if (currentGroup && currentGroup.groupId && currentUser) {
+      try {
+        const groupDoc = await getDoc(doc(db, "groups", currentGroup.groupId));
+        if (groupDoc.exists()) {
+          const groupData = groupDoc.data();
+          // Check if user is in admins array or is the creator
+          const isGroupAdmin = groupData.admins?.some(admin => 
+            (typeof admin === 'object' ? admin.uid : admin) === currentUser.uid || 
+            (typeof admin === 'object' ? admin.email : admin) === currentUser.email
+          ) || groupData.createdBy === currentUser.uid;
+          
+          if (isGroupAdmin) {
+            isAdmin = true;
+          }
+        }
+      } catch (error) {
+        console.error("Error checking group admin status:", error);
+      }
+    }
     
     if (isAdmin && viewToggle) {
       viewToggle.classList.remove("hidden");
     }
+    
+    // Show mobile switch to admin button for admins
+    const mobileSwitchToAdmin = document.getElementById("mobileSwitchToAdmin");
+    const mobileNav = document.querySelector(".mobile-nav");
+    if (mobileSwitchToAdmin && mobileNav) {
+      if (isAdmin) {
+        mobileSwitchToAdmin.classList.remove("hidden");
+        mobileNav.classList.add("has-admin");
+      } else {
+        mobileSwitchToAdmin.classList.add("hidden");
+        mobileNav.classList.remove("has-admin");
+      }
+    }
   }
 
-  // Get selected group from session
+  // Get selected group from localStorage (with fallback to sessionStorage)
   function getSelectedGroupId() {
-    return sessionStorage.getItem('selectedGroupId');
+    return localStorage.getItem('selectedGroupId') || sessionStorage.getItem('selectedGroupId');
+  }
+  
+  // Save selected group to both storages for persistence
+  function saveSelectedGroupId(groupId) {
+    if (groupId) {
+      localStorage.setItem('selectedGroupId', groupId);
+      sessionStorage.setItem('selectedGroupId', groupId);
+    }
+  }
+  
+  // Auto-select first group if none is selected and user has groups
+  function autoSelectGroupIfNeeded() {
+    const selectedGroupId = getSelectedGroupId();
+    if (!selectedGroupId && userGroups.length > 0) {
+      saveSelectedGroupId(userGroups[0].groupId);
+      return userGroups[0].groupId;
+    }
+    return selectedGroupId;
   }
 
   // Fetch user's profile data
@@ -185,9 +244,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
       
-      // Get selected group from session
-      const selectedGroupId = getSelectedGroupId();
-      
       if (userGroups.length === 0) {
         // No groups - hide overlay and show empty state
         hideGroupSelectionOverlay();
@@ -195,13 +251,22 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       
+      // Get selected group from localStorage (with fallback to sessionStorage)
+      let selectedGroupId = getSelectedGroupId();
+      
+      // If no group is selected but user has groups, auto-select first group
+      if (!selectedGroupId || !userGroups.find(g => g.groupId === selectedGroupId)) {
+        selectedGroupId = autoSelectGroupIfNeeded();
+      }
+      
       // Check if we have a valid selected group
       if (selectedGroupId && userGroups.find(g => g.groupId === selectedGroupId)) {
         currentGroup = userGroups.find(g => g.groupId === selectedGroupId);
+        // Always hide overlay - group is auto-selected or already selected
         hideGroupSelectionOverlay();
         await loadDashboardAfterGroupSelection(user);
       } else {
-        // Show group selection overlay
+        // Only show overlay if we can't auto-select
         showGroupSelectionOverlay();
       }
     } catch (error) {
@@ -292,6 +357,21 @@ document.addEventListener("DOMContentLoaded", () => {
     await loadPaymentCalendar(currentGroup.groupId, user);
     await loadUpcomingPayments(currentGroup.groupId, user);
     await renderUserGroups();
+    
+    // Recheck admin status after group selection (user might be admin of this group)
+    const userDoc = await getDoc(doc(db, "users", user.uid));
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      await checkAdminStatus(userData);
+    }
+    
+    // Load notifications for dashboard display
+    await loadDashboardNotifications(user.uid, currentGroup.groupId);
+    
+    // Initialize notifications
+    if (user && user.uid && currentGroup.groupId) {
+      initializeNotifications(user.uid, currentGroup.groupId);
+    }
   }
   
   // Render user's groups list
@@ -308,7 +388,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const stats = group.statistics || {};
       
       return `
-        <div class="group-card ${isSelected ? 'selected' : ''}" onclick="window.selectUserGroup('${group.groupId}')">
+        <div class="group-card ${isSelected ? 'selected' : ''}" ${isSelected ? 'onclick="return false;"' : `onclick="window.selectUserGroup('${group.groupId}')"`}>
           <div class="group-card-header">
             <h4 class="group-name">${group.groupName || 'Unnamed Group'}</h4>
             <span class="badge badge-${group.role === 'admin' ? 'accent' : 'secondary'}">${group.role || 'member'}</span>
@@ -319,6 +399,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <span class="group-stat-label">Members</span>
             </div>
           </div>
+          ${isSelected ? '<div class="group-card-active-badge">Active</div>' : ''}
         </div>
       `;
     }).join('');
@@ -326,11 +407,28 @@ document.addEventListener("DOMContentLoaded", () => {
   
   // Expose selectUserGroup to window for onclick
   window.selectUserGroup = async function(groupId) {
-    sessionStorage.setItem('selectedGroupId', groupId);
+    const selectedGroupId = getSelectedGroupId();
+    
+    // If already selected, don't do anything
+    if (selectedGroupId === groupId) {
+      return;
+    }
+    
+    saveSelectedGroupId(groupId);
     currentGroup = userGroups.find(g => g.groupId === groupId);
     hideGroupSelectionOverlay();
     if (currentUser && currentGroup) {
       await loadDashboardAfterGroupSelection(currentUser);
+    }
+  };
+
+  // Handle switch to admin dashboard
+  window.handleSwitchToAdmin = function() {
+    const selectedGroupId = getSelectedGroupId();
+    if (selectedGroupId) {
+      window.location.href = `admin_dashboard.html?groupId=${selectedGroupId}`;
+    } else {
+      window.location.href = 'admin_dashboard.html';
     }
   };
 
@@ -361,6 +459,19 @@ document.addEventListener("DOMContentLoaded", () => {
         if (activeLoans) activeLoans.textContent = "0";
         if (pendingPayments) pendingPayments.textContent = "MWK 0";
         if (totalArrears) totalArrears.textContent = "MWK 0";
+      }
+      
+      // Load member count for the group
+      try {
+        const membersRef = collection(db, `groups/${groupId}/members`);
+        const membersSnapshot = await getDocs(membersRef);
+        const memberCount = membersSnapshot.size;
+        const totalMembersEl = document.getElementById("totalMembers");
+        if (totalMembersEl) {
+          totalMembersEl.innerHTML = `<span>${memberCount}</span><span class="badge" style="background: var(--bn-accent); color: var(--bn-dark); font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: 700;">Members</span>`;
+        }
+      } catch (error) {
+        console.error("Error loading member count:", error);
       }
     } catch (error) {
       await logDatabaseError(error, "loadDashboardData", { groupId, userId: user?.uid });
@@ -542,6 +653,389 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Store all upcoming payments for modal filtering
+  let allUpcomingPaymentsModal = [];
+
+  /**
+   * Load all upcoming payments for next year for modal display
+   */
+  async function loadUpcomingPaymentsForModal(groupId, user) {
+    try {
+      if (!upcomingPaymentsModalList) return;
+      
+      // Check if user is valid
+      if (!user || !user.uid) {
+        upcomingPaymentsModalList.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">❌</div>
+            <p class="empty-state-text">User information not available</p>
+          </div>
+        `;
+        return;
+      }
+
+      upcomingPaymentsModalList.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">⏳</div>
+          <p class="empty-state-text">Loading upcoming payments...</p>
+        </div>
+      `;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const nextYear = new Date(today);
+      nextYear.setFullYear(nextYear.getFullYear() + 1);
+      
+      const upcomingPayments = [];
+
+      // Get group data
+      const groupDoc = await getDoc(doc(db, "groups", groupId));
+      if (!groupDoc.exists()) {
+        upcomingPaymentsModalList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">❌</div><p class="empty-state-text">Group not found</p></div>';
+        return;
+      }
+      
+      const groupData = groupDoc.data();
+      const monthlyContribution = parseFloat(groupData?.rules?.monthlyContribution?.amount || 0);
+      const seedMoneyAmount = parseFloat(groupData?.rules?.seedMoney?.amount || 0);
+
+      // 1. Load Monthly Contributions for next year
+      try {
+        const currentYear = new Date().getFullYear();
+        const monthlyCollection = collection(db, `groups/${groupId}/payments/${currentYear}_MonthlyContributions/${user.uid}`);
+        const monthlySnapshot = await getDocs(monthlyCollection);
+
+        monthlySnapshot.forEach(monthDoc => {
+          const paymentData = monthDoc.data();
+          const dueDate = paymentData.dueDate;
+          
+          if (dueDate && dueDate.toDate) {
+            const dueDateObj = dueDate.toDate();
+            const isUnpaid = paymentData.approvalStatus === "unpaid" || paymentData.approvalStatus === "pending";
+            const amountDue = parseFloat(paymentData.arrears || paymentData.totalAmount || monthlyContribution);
+            
+            // Include if within next year and unpaid
+            if (isUnpaid && dueDateObj <= nextYear && amountDue > 0) {
+              const daysUntilDue = Math.ceil((dueDateObj - today) / (1000 * 60 * 60 * 24));
+              upcomingPayments.push({
+                type: "Monthly Contribution",
+                category: "monthly",
+                month: paymentData.month || "Unknown",
+                year: paymentData.year || currentYear,
+                amount: amountDue,
+                dueDate: dueDateObj,
+                status: paymentData.approvalStatus || "unpaid",
+                daysUntilDue: daysUntilDue,
+                isOverdue: daysUntilDue < 0,
+                paymentId: monthDoc.id
+              });
+            }
+          }
+        });
+
+        // Also project future monthly payments for next year
+        const months = ["January", "February", "March", "April", "May", "June",
+                       "July", "August", "September", "October", "November", "December"];
+        
+        for (let monthOffset = 0; monthOffset < 12; monthOffset++) {
+          const futureDate = new Date(today);
+          futureDate.setMonth(futureDate.getMonth() + monthOffset);
+          const futureYear = futureDate.getFullYear();
+          const futureMonth = months[futureDate.getMonth()];
+          
+          if (futureDate > nextYear) break;
+          
+          // Check if this month's payment exists
+          const existingPayment = upcomingPayments.find(p => 
+            p.type === "Monthly Contribution" && 
+            p.month === futureMonth && 
+            p.year === futureYear
+          );
+          
+          if (!existingPayment) {
+            // Project future monthly payment
+            const dueDateObj = new Date(futureYear, futureDate.getMonth(), groupData?.rules?.monthlyContribution?.dayOfMonth || 15);
+            if (dueDateObj >= today && dueDateObj <= nextYear) {
+              const daysUntilDue = Math.ceil((dueDateObj - today) / (1000 * 60 * 60 * 24));
+              upcomingPayments.push({
+                type: "Monthly Contribution",
+                category: "monthly",
+                month: futureMonth,
+                year: futureYear,
+                amount: monthlyContribution,
+                dueDate: dueDateObj,
+                status: "projected",
+                daysUntilDue: daysUntilDue,
+                isOverdue: false,
+                isProjected: true
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error loading monthly contributions:", error);
+      }
+
+      // 2. Load Seed Money Payment
+      try {
+        if (!user || !user.uid) throw new Error("User not available");
+        const currentYear = new Date().getFullYear();
+        const seedMoneyRef = doc(db, `groups/${groupId}/payments/${currentYear}_SeedMoney/${user.uid}/PaymentDetails`);
+        const seedMoneyDoc = await getDoc(seedMoneyRef);
+        
+        if (seedMoneyDoc.exists()) {
+          const seedMoneyData = seedMoneyDoc.data();
+          const dueDate = seedMoneyData.dueDate;
+          
+          if (dueDate && dueDate.toDate) {
+            const dueDateObj = dueDate.toDate();
+            const isUnpaid = seedMoneyData.approvalStatus === "unpaid" || seedMoneyData.approvalStatus === "pending";
+            const amountDue = parseFloat(seedMoneyData.arrears || (seedMoneyAmount - (parseFloat(seedMoneyData.amountPaid || 0))));
+            
+            if (isUnpaid && dueDateObj <= nextYear && amountDue > 0) {
+              const daysUntilDue = Math.ceil((dueDateObj - today) / (1000 * 60 * 60 * 24));
+              upcomingPayments.push({
+                type: "Seed Money",
+                category: "seed",
+                month: "Seed Money",
+                year: currentYear,
+                amount: amountDue,
+                dueDate: dueDateObj,
+                status: seedMoneyData.approvalStatus || "unpaid",
+                daysUntilDue: daysUntilDue,
+                isOverdue: daysUntilDue < 0,
+                paymentId: seedMoneyDoc.id
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error loading seed money:", error);
+      }
+
+      // 3. Load Loan Repayments - All unpaid installments for next year
+      try {
+        if (!user || !user.uid) throw new Error("User not available");
+        const loansRef = collection(db, `groups/${groupId}/loans`);
+        const activeLoansQuery = query(loansRef, where("borrowerId", "==", user.uid), where("status", "==", "active"));
+        const activeLoansSnapshot = await getDocs(activeLoansQuery);
+
+        activeLoansSnapshot.forEach(loanDoc => {
+          const loanData = loanDoc.data();
+          const repaymentSchedule = loanData.repaymentSchedule || {};
+          const loanAmount = parseFloat(loanData.amount || loanData.loanAmount || 0);
+
+          // Check each month in repayment schedule
+          Object.keys(repaymentSchedule).forEach(monthKey => {
+            const scheduleItem = repaymentSchedule[monthKey];
+            if (scheduleItem && !scheduleItem.paid && scheduleItem.dueDate) {
+              const dueDate = scheduleItem.dueDate.toDate ? scheduleItem.dueDate.toDate() : new Date(scheduleItem.dueDate);
+              
+              // Include if within next year
+              if (dueDate >= today && dueDate <= nextYear) {
+                const daysUntilDue = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+                const amountDue = parseFloat(scheduleItem.amount || 0);
+                
+                if (amountDue > 0) {
+                  upcomingPayments.push({
+                    type: "Loan Repayment",
+                    category: "loan",
+                    month: monthKey,
+                    year: dueDate.getFullYear(),
+                    amount: amountDue,
+                    dueDate: dueDate,
+                    status: "unpaid",
+                    daysUntilDue: daysUntilDue,
+                    isOverdue: false,
+                    loanId: loanDoc.id,
+                    loanAmount: loanAmount,
+                    installment: scheduleItem.month || 1,
+                    principal: scheduleItem.principal || 0,
+                    interest: scheduleItem.interest || 0,
+                    interestRate: scheduleItem.interestRate || 0
+                  });
+                }
+              }
+            }
+          });
+        });
+      } catch (error) {
+        console.error("Error loading loan repayments:", error);
+      }
+
+      // 4. Load Penalties (if any exist in the system)
+      // Note: Penalties are typically calculated dynamically, but we can check for recorded penalties
+      // Penalties are typically stored in member payment records, not a separate collection
+      // We'll skip this for now as penalties are usually calculated dynamically from arrears
+
+      // Sort by due date (earliest first)
+      upcomingPayments.sort((a, b) => a.dueDate - b.dueDate);
+
+      // Store for filtering
+      allUpcomingPaymentsModal = upcomingPayments;
+
+      // Display all by default
+      displayUpcomingPaymentsModal(upcomingPayments);
+    } catch (error) {
+      console.error("Error loading upcoming payments for modal:", error);
+      if (upcomingPaymentsModalList) {
+        upcomingPaymentsModalList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">❌</div><p class="empty-state-text">Error loading payments</p></div>';
+      }
+    }
+  }
+
+  /**
+   * Display upcoming payments in modal
+   */
+  function displayUpcomingPaymentsModal(payments) {
+    if (!upcomingPaymentsModalList) return;
+
+    if (payments.length === 0) {
+      upcomingPaymentsModalList.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📅</div>
+          <p class="empty-state-text">No upcoming payments for the next year</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Group by month for better organization
+    const groupedByMonth = {};
+    payments.forEach(payment => {
+      const monthKey = `${payment.year}-${payment.dueDate.getMonth()}`;
+      if (!groupedByMonth[monthKey]) {
+        groupedByMonth[monthKey] = [];
+      }
+      groupedByMonth[monthKey].push(payment);
+    });
+
+    let html = '';
+    Object.keys(groupedByMonth).sort().forEach(monthKey => {
+      const monthPayments = groupedByMonth[monthKey];
+      const firstPayment = monthPayments[0];
+      const monthName = firstPayment.dueDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      
+      html += `
+        <div style="margin-bottom: var(--bn-space-5);">
+          <h4 style="font-size: var(--bn-text-sm); font-weight: 700; color: var(--bn-dark); margin-bottom: var(--bn-space-3); padding-bottom: var(--bn-space-2); border-bottom: 2px solid var(--bn-primary);">
+            ${monthName}
+          </h4>
+          ${monthPayments.map(payment => createUpcomingPaymentModalItem(payment)).join('')}
+        </div>
+      `;
+    });
+
+    upcomingPaymentsModalList.innerHTML = html;
+  }
+
+  /**
+   * Create upcoming payment item for modal
+   */
+  function createUpcomingPaymentModalItem(payment) {
+    const dateStr = payment.dueDate.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+
+    let statusBadge = '';
+    let statusClass = '';
+    if (payment.isOverdue) {
+      statusBadge = '<span class="badge badge-danger">Overdue</span>';
+      statusClass = 'overdue';
+    } else if (payment.daysUntilDue <= 7) {
+      statusBadge = '<span class="badge badge-warning">Due Soon</span>';
+      statusClass = 'due-soon';
+    } else if (payment.status === 'projected' || payment.isProjected) {
+      statusBadge = '<span class="badge badge-info">Projected</span>';
+      statusClass = 'projected';
+    } else {
+      statusBadge = '<span class="badge badge-secondary">Upcoming</span>';
+      statusClass = 'upcoming';
+    }
+
+    const daysText = payment.isOverdue 
+      ? `${Math.abs(payment.daysUntilDue)} days overdue`
+      : payment.daysUntilDue === 0
+      ? 'Due today'
+      : payment.daysUntilDue === 1
+      ? 'Due tomorrow'
+      : `${payment.daysUntilDue} days`;
+
+    const typeIcon = payment.category === 'seed' ? '🌱' :
+                     payment.category === 'monthly' ? '📅' :
+                     payment.category === 'loan' ? '💰' :
+                     payment.category === 'penalty' ? '⚠️' : '💳';
+
+    let additionalInfo = '';
+    if (payment.category === 'loan' && payment.principal && payment.interest) {
+      additionalInfo = `<div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: 4px;">
+        Principal: ${formatCurrency(payment.principal)} | Interest: ${formatCurrency(payment.interest)} (${payment.interestRate}%)
+      </div>`;
+    }
+    if (payment.penaltyReason) {
+      additionalInfo = `<div style="font-size: var(--bn-text-xs); color: var(--bn-warning); margin-top: 4px;">
+        Reason: ${escapeHtml(payment.penaltyReason)}
+      </div>`;
+    }
+
+    return `
+      <div class="upcoming-payment-item ${statusClass}" style="margin-bottom: var(--bn-space-3);">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: var(--bn-space-2);">
+          <div style="display: flex; align-items: center; gap: var(--bn-space-3); flex: 1;">
+            <div style="font-size: 24px;">${typeIcon}</div>
+            <div style="flex: 1;">
+              <div style="font-weight: 600; color: var(--bn-dark); font-size: var(--bn-text-base);">
+                ${payment.type}
+              </div>
+              <div style="font-size: var(--bn-text-sm); color: var(--bn-gray); margin-top: 2px;">
+                ${payment.month} ${payment.year}
+              </div>
+              ${additionalInfo}
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-weight: 700; color: var(--bn-dark); font-size: var(--bn-text-lg); margin-bottom: 4px;">
+              ${formatCurrency(payment.amount)}
+            </div>
+            ${statusBadge}
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; padding-top: var(--bn-space-2); border-top: 1px solid var(--bn-gray-lighter); font-size: var(--bn-text-xs); color: var(--bn-gray);">
+          <span>Due: ${dateStr}</span>
+          <span style="font-weight: 600;">${daysText}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Filter upcoming payments by category
+   */
+  function filterUpcomingPayments(filter) {
+    if (!upcomingPaymentsModalList) return;
+
+    let filtered = allUpcomingPaymentsModal;
+    
+    if (filter !== 'all') {
+      filtered = allUpcomingPaymentsModal.filter(p => {
+        return p.category === filter;
+      });
+    }
+
+    displayUpcomingPaymentsModal(filtered);
+  }
+
+  /**
+   * Escape HTML helper
+   */
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
   // Create upcoming payment element
   function createUpcomingPaymentElement(payment) {
     const div = document.createElement('div');
@@ -582,13 +1076,6 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
 
     return div;
-  }
-
-  // Escape HTML
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
   }
 
   // Event Listeners for Quick Actions
@@ -716,26 +1203,92 @@ document.addEventListener("DOMContentLoaded", () => {
       const amount = parseFloat(loanAmountInput?.value || 0);
       const period = parseInt(loanPeriodSelect?.value || 1);
 
+      if (amount <= 0 || period <= 0) {
+        document.getElementById("loanPrincipalDisplay").textContent = formatCurrency(0);
+        document.getElementById("loanInterestDisplay").textContent = formatCurrency(0);
+        document.getElementById("loanTotalDisplay").textContent = formatCurrency(0);
+        const monthlyPaymentsList = document.getElementById("monthlyPaymentsList");
+        if (monthlyPaymentsList) {
+          monthlyPaymentsList.innerHTML = '<p style="font-size: var(--bn-text-xs); color: var(--bn-gray); text-align: center; padding: var(--bn-space-4);">Enter loan amount and repayment period to see monthly breakdown</p>';
+        }
+        return;
+      }
+
       let totalInterest = 0;
       let remainingBalance = amount;
+      const monthlyPrincipal = Math.round((amount / period) * 100) / 100;
+      const monthlyPayments = [];
 
-      // Calculate interest using reduced balance method (with rounding for accuracy)
+      // Calculate interest and monthly payments using reduced balance method
       for (let i = 1; i <= period; i++) {
         const rate = i === 1 ? interestRates.month1 : 
                      i === 2 ? interestRates.month2 : 
                      interestRates.month3;
         const monthlyInterest = Math.round(remainingBalance * (rate / 100) * 100) / 100;
         totalInterest += monthlyInterest;
-        remainingBalance -= amount / period;
+        
+        // Calculate principal for this month (last month might be different due to rounding)
+        const principalThisMonth = i === period ? remainingBalance : monthlyPrincipal;
+        const totalMonthlyPayment = Math.round((principalThisMonth + monthlyInterest) * 100) / 100;
+        
+        monthlyPayments.push({
+          month: i,
+          principal: principalThisMonth,
+          interest: monthlyInterest,
+          total: totalMonthlyPayment,
+          remainingBalance: Math.round((remainingBalance - principalThisMonth) * 100) / 100,
+          rate: rate
+        });
+        
+        remainingBalance -= principalThisMonth;
+        if (remainingBalance < 0) remainingBalance = 0;
       }
 
       // Round total interest
       totalInterest = Math.round(totalInterest * 100) / 100;
       const totalRepayable = Math.round((amount + totalInterest) * 100) / 100;
 
+      // Update summary displays
       document.getElementById("loanPrincipalDisplay").textContent = formatCurrency(amount);
       document.getElementById("loanInterestDisplay").textContent = formatCurrency(totalInterest);
       document.getElementById("loanTotalDisplay").textContent = formatCurrency(totalRepayable);
+
+      // Display monthly payment breakdown
+      const monthlyPaymentsList = document.getElementById("monthlyPaymentsList");
+      if (monthlyPaymentsList) {
+        let breakdownHTML = '<div style="display: flex; flex-direction: column; gap: var(--bn-space-2);">';
+        
+        monthlyPayments.forEach((payment, index) => {
+          breakdownHTML += `
+            <div style="background: var(--bn-white); border-radius: var(--bn-radius-md); padding: var(--bn-space-3); border-left: 3px solid var(--bn-primary);">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--bn-space-2);">
+                <div style="display: flex; align-items: center; gap: var(--bn-space-2);">
+                  <span style="font-size: var(--bn-text-xs); font-weight: 600; color: var(--bn-gray);">Month ${payment.month}:</span>
+                  <span style="font-size: var(--bn-text-xs); color: var(--bn-gray);">(${payment.rate}% interest)</span>
+                </div>
+                <span style="font-weight: 700; color: var(--bn-primary); font-size: var(--bn-text-base);">${formatCurrency(payment.total)}</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--bn-space-2); font-size: var(--bn-text-xs);">
+                <div>
+                  <span style="color: var(--bn-gray);">Principal:</span>
+                  <span style="font-weight: 600; color: var(--bn-dark); display: block;">${formatCurrency(payment.principal)}</span>
+                </div>
+                <div>
+                  <span style="color: var(--bn-gray);">Interest:</span>
+                  <span style="font-weight: 600; color: var(--bn-warning); display: block;">${formatCurrency(payment.interest)}</span>
+                </div>
+                <div>
+                  <span style="color: var(--bn-gray);">Remaining:</span>
+                  <span style="font-weight: 600; color: var(--bn-gray-700); display: block;">${formatCurrency(payment.remainingBalance)}</span>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        
+        breakdownHTML += '</div>';
+        monthlyPaymentsList.innerHTML = breakdownHTML;
+      }
     }
 
     // Add event listeners
@@ -848,35 +1401,56 @@ document.addEventListener("DOMContentLoaded", () => {
         interestRates: rates
       });
 
-      // Send notification to admins
-      const adminIds = groupData.admins?.map(a => a.uid) || [];
+      // Send notification to all admins
+      // Get admins from group data
+      const adminIds = new Set();
+      if (groupData.admins?.length > 0) {
+        groupData.admins.forEach(a => adminIds.add(a.uid || a));
+      }
       if (groupData.createdBy) {
-        adminIds.push(groupData.createdBy);
+        adminIds.add(groupData.createdBy);
       }
-      const uniqueAdminIds = [...new Set(adminIds)];
 
-      const batch = writeBatch(db);
-      for (const adminId of uniqueAdminIds) {
-        const notificationRef = doc(collection(db, `groups/${groupId}/notifications`));
-        batch.set(notificationRef, {
-          notificationId: notificationRef.id,
-          groupId: groupId,
-          groupName: groupData.groupName || "Unknown Group",
-          recipientId: adminId,
-          senderId: currentUser.uid,
-          senderName: userName,
-          senderEmail: currentUser.email,
-          title: `New Loan Booking: ${formatCurrency(amount)}`,
-          message: `${userName} has booked a loan of ${formatCurrency(amount)} for ${targetMonthName} ${targetYear}. Purpose: ${purpose}. Repayment period: ${repaymentPeriod} month(s). Please review and approve.`,
-          type: "loan_booking",
-          loanId: loanRef.id,
-          allowReplies: false,
-          read: false,
-          createdAt: Timestamp.now(),
-          replies: []
+      // Also get admins from members collection
+      try {
+        const membersRef = collection(db, `groups/${groupId}/members`);
+        const membersSnapshot = await getDocs(membersRef);
+        membersSnapshot.forEach((memberDoc) => {
+          const memberData = memberDoc.data();
+          if (memberData.role === "admin" || memberData.role === "senior_admin") {
+            adminIds.add(memberDoc.id);
+          }
         });
+      } catch (error) {
+        console.error("Error loading members for admin notification:", error);
       }
-      await batch.commit();
+
+      // Send notifications to all admins
+      if (adminIds.size > 0) {
+        const batch = writeBatch(db);
+        for (const adminId of adminIds) {
+          const notificationRef = doc(collection(db, `groups/${groupId}/notifications`));
+          batch.set(notificationRef, {
+            notificationId: notificationRef.id,
+            groupId: groupId,
+            groupName: groupData.groupName || "Unknown Group",
+            userId: adminId, // Use userId for consistency
+            recipientId: adminId, // Keep for backward compatibility
+            senderId: currentUser.uid,
+            senderName: userName,
+            senderEmail: currentUser.email,
+            title: `New Loan Booking: ${formatCurrency(amount)}`,
+            message: `${userName} has booked a loan of ${formatCurrency(amount)} for ${targetMonthName} ${targetYear}. Purpose: ${purpose}. Repayment period: ${repaymentPeriod} month(s). Please review and approve in Manage Loans.`,
+            type: "loan_booking",
+            loanId: loanRef.id,
+            allowReplies: false,
+            read: false,
+            createdAt: Timestamp.now(),
+            replies: []
+          });
+        }
+        await batch.commit();
+      }
 
       alert(`Loan booking submitted successfully!\n\nAmount: ${formatCurrency(amount)}\nTarget Month: ${targetMonthName} ${targetYear}\nEstimated Total Repayable: ${formatCurrency(amount + totalInterest)}\n\nYour request will be reviewed by the group admin.`);
 
@@ -884,9 +1458,14 @@ document.addEventListener("DOMContentLoaded", () => {
       if (loanModal) loanModal.classList.add("hidden");
       document.getElementById("loanRequestForm")?.reset();
 
-      // Reload dashboard
+      // Reload dashboard and upcoming payments (including modal if open)
       if (currentGroup) {
         await loadDashboardData(currentGroup.groupId, currentUser);
+        await loadUpcomingPayments(currentGroup.groupId, currentUser);
+        // If upcoming payments modal is open, reload it too
+        if (upcomingPaymentsModal && !upcomingPaymentsModal.classList.contains('hidden')) {
+          await loadUpcomingPaymentsForModal(currentGroup.groupId, currentUser);
+        }
       }
 
     } catch (error) {
@@ -900,6 +1479,113 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   }
+
+  // Upcoming Payments button - Opens modal with all payments for next year
+  if (upcomingPaymentsBtn) {
+    upcomingPaymentsBtn.addEventListener("click", async () => {
+      const groupId = getSelectedGroupId();
+      if (!groupId) {
+        alert("Please select a group first from the group selection page.");
+        window.location.href = "select_group.html";
+        return;
+      }
+      if (!currentUser || !currentUser.uid) {
+        alert("User information not available. Please refresh the page.");
+        return;
+      }
+      if (upcomingPaymentsModal) {
+        // Load fresh data every time modal opens
+        await loadUpcomingPaymentsForModal(groupId, currentUser);
+        
+        // Set up real-time listener for loans to auto-update when loans are approved
+        setupUpcomingPaymentsListener(groupId, currentUser);
+        
+        if (window.openModal) {
+          window.openModal("upcomingPaymentsModal");
+        } else {
+          upcomingPaymentsModal.classList.remove("hidden");
+          upcomingPaymentsModal.classList.add("active");
+        }
+      }
+    });
+  }
+
+  // Real-time listener for upcoming payments (only when modal is open)
+  let upcomingPaymentsUnsubscribes = [];
+
+  function setupUpcomingPaymentsListener(groupId, user) {
+    // Clean up existing listeners
+    upcomingPaymentsUnsubscribes.forEach(unsub => unsub());
+    upcomingPaymentsUnsubscribes = [];
+
+    if (!groupId || !user || !user.uid) return;
+
+    // Listen for active loans changes
+    try {
+      const loansRef = collection(db, `groups/${groupId}/loans`);
+      const activeLoansQuery = query(loansRef, where("borrowerId", "==", user.uid), where("status", "==", "active"));
+      
+      const unsubscribe = onSnapshot(activeLoansQuery, async (snapshot) => {
+        // Only reload if modal is open
+        if (upcomingPaymentsModal && !upcomingPaymentsModal.classList.contains('hidden')) {
+          await loadUpcomingPaymentsForModal(groupId, currentUser);
+        }
+      }, (error) => {
+        console.error("Error listening to loans:", error);
+      });
+      
+      upcomingPaymentsUnsubscribes.push(unsubscribe);
+    } catch (error) {
+      console.error("Error setting up loans listener:", error);
+    }
+
+    // Listen for loan status changes (pending to active)
+    try {
+      const loansRef = collection(db, `groups/${groupId}/loans`);
+      const pendingLoansQuery = query(loansRef, where("borrowerId", "==", user.uid), where("status", "==", "pending"));
+      
+      const unsubscribe = onSnapshot(pendingLoansQuery, async (snapshot) => {
+        if (upcomingPaymentsModal && !upcomingPaymentsModal.classList.contains('hidden')) {
+          await loadUpcomingPaymentsForModal(groupId, currentUser);
+        }
+      }, (error) => {
+        console.error("Error listening to pending loans:", error);
+      });
+      
+      upcomingPaymentsUnsubscribes.push(unsubscribe);
+    } catch (error) {
+      console.error("Error setting up pending loans listener:", error);
+    }
+  }
+
+  // Close upcoming payments modal
+  const closeUpcomingPaymentsModal = document.getElementById("closeUpcomingPaymentsModal");
+  if (closeUpcomingPaymentsModal) {
+    closeUpcomingPaymentsModal.addEventListener("click", () => {
+      // Clean up listeners when modal closes
+      upcomingPaymentsUnsubscribes.forEach(unsub => unsub());
+      upcomingPaymentsUnsubscribes = [];
+      
+      if (window.closeModal) {
+        window.closeModal("upcomingPaymentsModal");
+      } else {
+        if (upcomingPaymentsModal) upcomingPaymentsModal.classList.add("hidden");
+        if (upcomingPaymentsModal) upcomingPaymentsModal.classList.remove("active");
+      }
+    });
+  }
+
+  // Payment filter buttons in modal
+  document.addEventListener('click', (e) => {
+    if (e.target.matches('[data-payment-filter]')) {
+      const filter = e.target.dataset.paymentFilter;
+      document.querySelectorAll('[data-payment-filter]').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      e.target.classList.add('active');
+      filterUpcomingPayments(filter);
+    }
+  });
 
   if (uploadPaymentBtn) {
     uploadPaymentBtn.addEventListener("click", async () => {
@@ -1035,11 +1721,13 @@ document.addEventListener("DOMContentLoaded", () => {
             
             // Find next unpaid repayment
             const repaymentSchedule = loanData.repaymentSchedule || {};
-            for (const monthKey of Object.keys(repaymentSchedule)) {
-              const scheduleItem = repaymentSchedule[monthKey];
-              if (scheduleItem && !scheduleItem.paid) {
-                amountsDue.loan_repayment = parseFloat(scheduleItem.amount || 0);
-                break;
+            if (repaymentSchedule && typeof repaymentSchedule === 'object') {
+              for (const monthKey of Object.keys(repaymentSchedule)) {
+                const scheduleItem = repaymentSchedule[monthKey];
+                if (scheduleItem && !scheduleItem.paid) {
+                  amountsDue.loan_repayment = parseFloat(scheduleItem.amount || 0);
+                  break;
+                }
               }
             }
           }
@@ -1187,10 +1875,11 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    // Disable submit button
+    const submitBtn = paymentUploadForm.querySelector('button[type="submit"]');
+    const originalText = submitBtn?.textContent || "Submit Payment";
+    
     try {
-      // Disable submit button
-      const submitBtn = paymentUploadForm.querySelector('button[type="submit"]');
-      const originalText = submitBtn?.textContent;
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.textContent = "Uploading...";
@@ -1217,8 +1906,11 @@ document.addEventListener("DOMContentLoaded", () => {
         await handlePenaltyPayment(groupId, amount, paymentDate, proofUrl, userName);
       }
 
-      // Send notification to admins
-      await sendPaymentNotificationToAdmins(groupId, paymentType, amount, userName);
+      // Get member ID based on payment type
+      let memberIdForNotification = currentUser.uid;
+      
+      // Send notification to admins with payment details for approval
+      await sendPaymentNotificationToAdmins(groupId, paymentType, amount, userName, memberIdForNotification);
 
       alert("Payment uploaded successfully! It will be reviewed by an admin.");
       
@@ -1236,10 +1928,9 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Error uploading payment:", error);
       alert("Error uploading payment: " + error.message);
     } finally {
-      const submitBtn = paymentUploadForm?.querySelector('button[type="submit"]');
       if (submitBtn) {
         submitBtn.disabled = false;
-        submitBtn.textContent = originalText || "Submit Payment";
+        submitBtn.textContent = originalText;
       }
     }
   }
@@ -1376,22 +2067,38 @@ document.addEventListener("DOMContentLoaded", () => {
   /**
    * Send payment notification to admins
    */
-  async function sendPaymentNotificationToAdmins(groupId, paymentType, amount, userName) {
+  async function sendPaymentNotificationToAdmins(groupId, paymentType, amount, userName, memberId = null, paymentId = null) {
     try {
       // Get group data
       const groupDoc = await getDoc(doc(db, "groups", groupId));
       if (!groupDoc.exists()) return;
 
       const groupData = groupDoc.data();
-      const adminIds = groupData.admins?.map(a => a.uid) || [];
+      
+      // Get all admin IDs (from admins array and createdBy)
+      const adminIds = new Set();
+      if (groupData.admins?.length > 0) {
+        groupData.admins.forEach(a => adminIds.add(a.uid || a));
+      }
       if (groupData.createdBy) {
-        adminIds.push(groupData.createdBy);
+        adminIds.add(groupData.createdBy);
       }
       
-      // Remove duplicates
-      const uniqueAdminIds = [...new Set(adminIds)];
+      // Also get admins from members collection
+      try {
+        const membersRef = collection(db, `groups/${groupId}/members`);
+        const membersSnapshot = await getDocs(membersRef);
+        membersSnapshot.forEach((memberDoc) => {
+          const memberData = memberDoc.data();
+          if (memberData.role === "admin" || memberData.role === "senior_admin") {
+            adminIds.add(memberDoc.id);
+          }
+        });
+      } catch (error) {
+        console.error("Error loading members for admin notification:", error);
+      }
 
-      if (uniqueAdminIds.length === 0) return;
+      if (adminIds.size === 0) return;
 
       const paymentTypeNames = {
         seed_money: "Seed Money",
@@ -1401,23 +2108,29 @@ document.addEventListener("DOMContentLoaded", () => {
       };
 
       const paymentTypeName = paymentTypeNames[paymentType] || paymentType;
+      const memberIdToUse = memberId || currentUser.uid;
 
-      // Create notification for each admin
+      // Create notification for each admin with all details needed for approval
       const batch = writeBatch(db);
       
-      for (const adminId of uniqueAdminIds) {
+      for (const adminId of adminIds) {
         const notificationRef = doc(collection(db, `groups/${groupId}/notifications`));
         batch.set(notificationRef, {
           notificationId: notificationRef.id,
           groupId: groupId,
           groupName: groupData.groupName || "Unknown Group",
-          recipientId: adminId,
+          userId: adminId, // Use userId for consistency
+          recipientId: adminId, // Keep for backward compatibility
           senderId: currentUser.uid,
           senderName: userName,
           senderEmail: currentUser.email,
           title: `New Payment Uploaded: ${paymentTypeName}`,
-          message: `${userName} has uploaded a payment proof for ${paymentTypeName} (MWK ${amount.toLocaleString()}). Please review and approve.`,
-          type: "info",
+          message: `${userName} has uploaded a payment proof for ${paymentTypeName} (${formatCurrency(amount)}). Please review and approve from Messages.`,
+          type: "payment_upload", // Specific type for filtering
+          paymentType: paymentType,
+          paymentId: paymentId || notificationRef.id,
+          memberId: memberIdToUse,
+          amount: amount,
           allowReplies: false,
           read: false,
           createdAt: Timestamp.now(),
@@ -1431,7 +2144,7 @@ document.addEventListener("DOMContentLoaded", () => {
         category: ErrorCategory.NOTIFICATION,
         severity: ErrorSeverity.MEDIUM,
         context: "sendPaymentNotificationToAdmins",
-        metadata: { groupId, paymentType, amount, userName },
+        metadata: { groupId, paymentType, amount, userName, memberId, paymentId },
         logToFirestore: false, // Don't log notification errors to Firestore
       });
       // Don't throw - notification failure shouldn't prevent payment upload
@@ -1501,19 +2214,37 @@ document.addEventListener("DOMContentLoaded", () => {
           if (isToday) dayClass += ' today';
           if (hasEvents) dayClass += ' has-events';
 
-          calendarHTML += `<div class="${dayClass}" data-date="${dateKey}">`;
+          calendarHTML += `<div class="${dayClass}" data-date="${dateKey}" title="${hasEvents ? events.map(e => `${e.type}: ${formatCurrency(e.amount)}`).join(', ') : ''}">`;
           calendarHTML += `<span class="calendar-day-number">${day}</span>`;
           
           if (hasEvents) {
             calendarHTML += '<div class="calendar-day-events">';
-            events.forEach(event => {
-              let dotClass = 'calendar-event-dot';
-              if (event.type === 'Monthly Contribution') dotClass += ' monthly';
-              else if (event.type === 'Seed Money') dotClass += ' seed';
-              else if (event.type === 'Loan Repayment') dotClass += ' loan';
-              if (event.isOverdue) dotClass += ' overdue';
-              calendarHTML += `<div class="${dotClass}" title="${event.type}: ${formatCurrency(event.amount)}"></div>`;
+            events.slice(0, 3).forEach(event => {
+              let noteClass = 'calendar-event-note';
+              let eventLabel = '';
+              const amountShort = formatCurrency(event.amount).replace(/MWK\s*/, '').replace(/,/g, 'K').replace('.00', '');
+              
+              if (event.type === 'Monthly Contribution') {
+                noteClass += ' monthly';
+                eventLabel = `💵 ${amountShort}`;
+              } else if (event.type === 'Seed Money') {
+                noteClass += ' seed';
+                eventLabel = `🌱 ${amountShort}`;
+              } else if (event.type === 'Loan Repayment') {
+                noteClass += ' loan';
+                eventLabel = `💰 ${amountShort}`;
+              }
+              
+              if (event.isOverdue) {
+                noteClass += ' overdue';
+                eventLabel = `⚠️ ${eventLabel}`;
+              }
+              
+              calendarHTML += `<div class="${noteClass}" title="${event.type}: ${formatCurrency(event.amount)}${event.isOverdue ? ' (Overdue)' : ''}">${eventLabel}</div>`;
             });
+            if (events.length > 3) {
+              calendarHTML += `<div class="calendar-event-note" style="background: rgba(0,0,0,0.05); color: var(--bn-gray); font-size: 8px; padding: 1px 2px;">+${events.length - 3} more</div>`;
+            }
             calendarHTML += '</div>';
           }
           
@@ -1569,15 +2300,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Initial render
       renderCalendar(currentMonth, currentYear);
-      } catch (error) {
-        await logError(error, {
-          category: ErrorCategory.CALENDAR,
-          severity: ErrorSeverity.MEDIUM,
-          context: "loadPaymentCalendar",
-          metadata: { groupId, userId: user?.uid },
-        });
-      }
+    } catch (error) {
+      await logError(error, {
+        category: ErrorCategory.CALENDAR,
+        severity: ErrorSeverity.MEDIUM,
+        context: "loadPaymentCalendar",
+        metadata: { groupId, userId: user?.uid },
+      });
+      console.error("Error loading payment calendar:", error);
     }
+  }
 
   /**
    * Load payment dates for calendar
@@ -1750,6 +2482,169 @@ document.addEventListener("DOMContentLoaded", () => {
     if (existingModal) existingModal.remove();
 
     document.body.insertAdjacentHTML('beforeend', modalHTML);
+  }
+
+  /**
+   * Load notifications for dashboard display (up to 4 unread)
+   */
+  async function loadDashboardNotifications(userId, groupId) {
+    try {
+      const notificationsList = document.getElementById("notificationsList");
+      const unreadBadge = document.getElementById("unreadBadge");
+      if (!notificationsList) return;
+
+      let unreadCount = 0;
+      const notifications = [];
+
+      // Load group notifications
+      if (groupId) {
+        const groupNotifRef = collection(db, `groups/${groupId}/notifications`);
+        let groupNotifSnapshot;
+        try {
+          groupNotifSnapshot = await getDocs(query(
+            groupNotifRef,
+            orderBy('createdAt', 'desc'),
+            limit(50)
+          ));
+        } catch (error) {
+          // Query might fail if index not available, get all and filter
+          groupNotifSnapshot = await getDocs(groupNotifRef);
+        }
+
+        groupNotifSnapshot.forEach(doc => {
+          const data = doc.data();
+          const isForUser = (data.userId === userId) || (data.recipientId === userId);
+          if (isForUser) {
+            const isRead = data.read || data.readBy?.includes(userId) || false;
+            notifications.push({
+              id: doc.id,
+              ...data,
+              isRead,
+              source: 'group'
+            });
+            if (!isRead) {
+              unreadCount++;
+            }
+          }
+        });
+      }
+
+      // Sort by date (newest first) and unread first
+      notifications.sort((a, b) => {
+        // Unread first
+        if (!a.isRead && b.isRead) return -1;
+        if (a.isRead && !b.isRead) return 1;
+        // Then by date
+        const dateA = a.createdAt?.toDate?.() || new Date(0);
+        const dateB = b.createdAt?.toDate?.() || new Date(0);
+        return dateB - dateA;
+      });
+
+      // Update unread badge
+      if (unreadBadge) {
+        if (unreadCount > 0) {
+          unreadBadge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+          unreadBadge.classList.remove('hidden');
+        } else {
+          unreadBadge.classList.add('hidden');
+        }
+      }
+
+      // Display only unread notifications (up to 4)
+      const displayNotifications = notifications.filter(n => !n.isRead).slice(0, 4);
+
+      if (displayNotifications.length === 0) {
+        notificationsList.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📬</div>
+            <p class="empty-state-text">No notifications</p>
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      displayNotifications.forEach(notif => {
+        const icon = getNotificationIconForDashboard(notif.type);
+        const timeAgo = getTimeAgo(notif.createdAt?.toDate?.() || new Date());
+        const message = (notif.title || notif.message || 'Notification').substring(0, 80);
+        const isUnread = !notif.isRead;
+        
+        html += `
+          <div class="notification-item ${isUnread ? 'unread' : ''}" 
+               onclick="window.location.href='messages.html'"
+               style="cursor: pointer;">
+            <div class="notification-icon">${icon}</div>
+            <div class="notification-content">
+              <div class="notification-text" title="${escapeHtml(message)}">${escapeHtml(message)}</div>
+              <div class="notification-time">${timeAgo}</div>
+            </div>
+          </div>
+        `;
+      });
+
+      notificationsList.innerHTML = html;
+    } catch (error) {
+      console.error("Error loading dashboard notifications:", error);
+      const notificationsList = document.getElementById("notificationsList");
+      if (notificationsList) {
+        notificationsList.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📬</div>
+            <p class="empty-state-text">No notifications</p>
+          </div>
+        `;
+      }
+    }
+  }
+
+  /**
+   * Get notification icon for dashboard
+   */
+  function getNotificationIconForDashboard(type) {
+    const icons = {
+      'loan_booking': '💰',
+      'loan_approved': '✅',
+      'loan_approved_disbursed': '💵',
+      'loan_rejected': '❌',
+      'loan_cancelled': '🚫',
+      'payment_upload': '📤',
+      'payment_approved': '✅',
+      'payment_rejected': '❌',
+      'seed_money': '🌱',
+      'monthly_contribution': '💵',
+      'penalty': '⚠️',
+      'notification': '🔔',
+      'message': '💬',
+      'reminder': '⏰'
+    };
+    return icons[type] || '🔔';
+  }
+
+  /**
+   * Get time ago format
+   */
+  function getTimeAgo(date) {
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  /**
+   * Escape HTML helper
+   */
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   /**

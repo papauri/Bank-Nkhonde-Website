@@ -13,58 +13,74 @@
   <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
-    .chart-container {
-      height: 280px;
-      display: flex;
-      align-items: flex-end;
-      gap: var(--bn-space-4);
-      padding: var(--bn-space-6) 0;
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: var(--bn-space-6);
+      padding: var(--bn-space-4) 0;
     }
 
-    .chart-bar-wrapper {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: var(--bn-space-2);
+    .pie-chart-container {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-xl);
+      padding: var(--bn-space-6);
+      box-shadow: var(--bn-shadow-sm);
+      border: 1px solid var(--bn-gray-lighter);
     }
 
-    .chart-bar {
-      width: 100%;
-      max-width: 56px;
-      background: var(--bn-gray-100);
-      border-radius: var(--bn-radius-md) var(--bn-radius-md) 0 0;
+    .pie-chart-title {
+      font-size: var(--bn-text-base);
+      font-weight: 600;
+      color: var(--bn-dark);
+      text-align: center;
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .pie-chart-wrapper {
       position: relative;
-      overflow: hidden;
-      min-height: 8px;
+      width: 100%;
+      max-width: 240px;
+      margin: 0 auto;
+      aspect-ratio: 1;
     }
 
-    .chart-bar::after {
-      content: '';
+    .pie-chart-svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+
+    .pie-chart-segment {
+      fill: none;
+      stroke-width: 32;
+      transition: all 0.5s ease;
+    }
+
+    .pie-chart-center {
       position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: var(--bn-gradient-accent);
-      height: 0;
-      transition: height 1s var(--bn-ease-out);
-      border-radius: var(--bn-radius-md) var(--bn-radius-md) 0 0;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
     }
 
-    .chart-bar.animated::after {
-      height: var(--bar-height, 0);
+    .pie-chart-center-value {
+      font-size: var(--bn-text-2xl);
+      font-weight: 700;
+      color: var(--bn-dark);
+      line-height: 1.2;
     }
 
-    .chart-label {
+    .pie-chart-center-label {
       font-size: var(--bn-text-xs);
       color: var(--bn-gray);
-      font-weight: 500;
+      margin-top: var(--bn-space-1);
     }
 
-    .chart-legend {
+    .pie-chart-legend {
       display: flex;
-      justify-content: center;
-      gap: var(--bn-space-6);
+      flex-direction: column;
+      gap: var(--bn-space-2);
       margin-top: var(--bn-space-4);
       padding-top: var(--bn-space-4);
       border-top: 1px solid var(--bn-gray-lighter);
@@ -212,41 +228,8 @@
         </div>
       </div>
       <div class="content-section-body" id="chartsContainer">
-        <div class="chart-container" id="chartContainer">
-          <div class="chart-bar-wrapper">
-            <div class="chart-bar" style="height: 200px; --bar-height: 45%;"></div>
-            <span class="chart-label">Jul</span>
-          </div>
-          <div class="chart-bar-wrapper">
-            <div class="chart-bar" style="height: 200px; --bar-height: 65%;"></div>
-            <span class="chart-label">Aug</span>
-          </div>
-          <div class="chart-bar-wrapper">
-            <div class="chart-bar" style="height: 200px; --bar-height: 55%;"></div>
-            <span class="chart-label">Sep</span>
-          </div>
-          <div class="chart-bar-wrapper">
-            <div class="chart-bar" style="height: 200px; --bar-height: 78%;"></div>
-            <span class="chart-label">Oct</span>
-          </div>
-          <div class="chart-bar-wrapper">
-            <div class="chart-bar" style="height: 200px; --bar-height: 68%;"></div>
-            <span class="chart-label">Nov</span>
-          </div>
-          <div class="chart-bar-wrapper">
-            <div class="chart-bar" style="height: 200px; --bar-height: 88%;"></div>
-            <span class="chart-label">Dec</span>
-          </div>
-        </div>
-        <div class="chart-legend">
-          <div class="legend-item">
-            <span class="legend-dot income"></span>
-            <span>Collections</span>
-          </div>
-          <div class="legend-item">
-            <span class="legend-dot expense"></span>
-            <span>Disbursements</span>
-          </div>
+        <div class="charts-grid" id="chartContainer">
+          <!-- Pie charts will be rendered here -->
         </div>
       </div>
     </section>

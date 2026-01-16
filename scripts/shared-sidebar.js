@@ -57,9 +57,13 @@ function createSidebar(isAdmin) {
   
   const navItems = isAdmin ? getAdminNavItems() : getUserNavItems();
   
+  // Get groupId for URL
+  const groupIdParam = selectedGroupId ? `?groupId=${selectedGroupId}` : '';
+  const dashboardHref = isAdmin ? `admin_dashboard.html${groupIdParam}` : `user_dashboard.html${groupIdParam}`;
+  
   sidebar.innerHTML = `
     <div class="sidebar-header">
-      <a href="${isAdmin ? 'admin_dashboard.html' : 'user_dashboard.html'}" class="sidebar-logo">
+      <a href="${dashboardHref}" class="sidebar-logo" id="sidebarHeaderLink">
         <div class="sidebar-logo-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 2L2 7l10 5 10-5-10-5z"/>
@@ -495,6 +499,15 @@ async function loadUserData() {
 
 // Setup sidebar event listeners
 function setupSidebarListeners(isAdmin) {
+  // Sidebar header link - ensure it preserves auth state
+  const sidebarHeaderLink = document.getElementById('sidebarHeaderLink');
+  if (sidebarHeaderLink) {
+    sidebarHeaderLink.addEventListener('click', (e) => {
+      // Don't clear session - just navigate normally
+      // Auth state will persist through Firebase
+    });
+  }
+  
   // Logout button
   const logoutBtn = document.getElementById('logoutBtn');
   if (logoutBtn) {
@@ -502,7 +515,10 @@ function setupSidebarListeners(isAdmin) {
       if (confirm('Are you sure you want to logout?')) {
         try {
           await signOut(auth);
+          // Only clear session-related data, not all sessionStorage
+          const groupId = sessionStorage.getItem('selectedGroupId');
           sessionStorage.clear();
+          localStorage.clear();
           window.location.href = "../login.html";
         } catch (error) {
           console.error("Error signing out:", error);

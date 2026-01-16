@@ -68,16 +68,31 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   
-  // Initialize search
+  // Initialize search - Enhanced to work even without group selected
   const searchInput = document.querySelector('.topbar-search-input');
   if (searchInput) {
+    let debounceTimer;
     searchInput.addEventListener('input', (e) => {
+      clearTimeout(debounceTimer);
       const searchTerm = e.target.value.trim();
+      
       if (searchTerm.length >= 2) {
-        const selectedGroupId = sessionStorage.getItem('selectedGroupId');
-        if (selectedGroupId) {
+        debounceTimer = setTimeout(() => {
+          const selectedGroupId = localStorage.getItem('selectedGroupId') || sessionStorage.getItem('selectedGroupId');
+          performDashboardSearch(searchTerm, selectedGroupId); // Can work without groupId for groups search
+        }, 300); // Debounce for better performance
+      } else {
+        const container = document.getElementById('searchResultsDropdown');
+        if (container) container.style.display = 'none';
+      }
+    });
+    
+    // Show results on focus if there's a search term
+    searchInput.addEventListener('focus', () => {
+      const searchTerm = searchInput.value.trim();
+      if (searchTerm.length >= 2) {
+        const selectedGroupId = localStorage.getItem('selectedGroupId') || sessionStorage.getItem('selectedGroupId');
           performDashboardSearch(searchTerm, selectedGroupId);
-        }
       }
     });
   }
@@ -85,6 +100,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Expose selectGroup to global scope for onclick
 window.selectGroup = function(groupId) {
+  // Store in both localStorage and sessionStorage for persistence
+  localStorage.setItem('selectedGroupId', groupId);
   sessionStorage.setItem('selectedGroupId', groupId);
   currentGroup = adminGroups.find(g => g.groupId === groupId);
   hideGroupSelectionOverlay();
@@ -99,6 +116,7 @@ window.selectGroup = function(groupId) {
 
 // Expose switchGroup to global scope
 window.switchGroup = function(groupId) {
+  localStorage.setItem('selectedGroupId', groupId);
   sessionStorage.setItem('selectedGroupId', groupId);
   window.location.reload();
 };
@@ -109,6 +127,7 @@ function setupEventListeners() {
   
   // Switch to user view button
   document.getElementById("switchViewBtn")?.addEventListener("click", () => {
+    localStorage.setItem("viewMode", "user");
     sessionStorage.setItem("viewMode", "user");
     window.location.href = "user_dashboard.html";
   });
@@ -176,19 +195,28 @@ async function loadAdminData() {
       return;
     }
     
-    // Get selected group from URL or session
+    // Get selected group from URL, localStorage, or sessionStorage (in that order)
     const urlParams = new URLSearchParams(window.location.search);
     const urlGroupId = urlParams.get('groupId');
-    let selectedGroupId = urlGroupId || sessionStorage.getItem('selectedGroupId');
+    let selectedGroupId = urlGroupId || localStorage.getItem('selectedGroupId') || sessionStorage.getItem('selectedGroupId');
     
-    // If we have a groupId from URL, save it to session
-    if (urlGroupId) {
-      sessionStorage.setItem('selectedGroupId', urlGroupId);
+    // If we have a groupId from URL or localStorage, save it to both storages
+    if (urlGroupId || selectedGroupId) {
+      const groupToSave = urlGroupId || selectedGroupId;
+      localStorage.setItem('selectedGroupId', groupToSave);
+      sessionStorage.setItem('selectedGroupId', groupToSave);
+    }
+    
+    // Auto-select first group if none is selected but user has groups
+    if (!selectedGroupId && adminGroups.length > 0) {
+      selectedGroupId = adminGroups[0].groupId;
+      localStorage.setItem('selectedGroupId', selectedGroupId);
+      sessionStorage.setItem('selectedGroupId', selectedGroupId);
     }
     
     // Check if we have a valid selected group
     if (selectedGroupId && adminGroups.find(g => g.groupId === selectedGroupId)) {
-      // Group already selected, hide overlay and load dashboard
+      // Group already selected or auto-selected, hide overlay and load dashboard
       currentGroup = adminGroups.find(g => g.groupId === selectedGroupId);
       hideGroupSelectionOverlay();
       await loadDashboardAfterGroupSelection();
@@ -198,9 +226,12 @@ async function loadAdminData() {
       updateTopbarGroupName();
       // Initialize notifications
       initializeDashboardNotifications();
-    } else {
-      // Show group selection overlay
+    } else if (adminGroups.length > 0) {
+      // Show group selection overlay only if we have groups but can't auto-select
       showGroupSelectionOverlay();
+    } else {
+      // No groups available, hide overlay
+      hideGroupSelectionOverlay();
     }
     
   } catch (error) {
@@ -324,14 +355,30 @@ async function loadAdminGroups() {
 
 async function loadDashboardStats() {
   try {
+    // Require a selected group - don't process all groups
+    if (!currentGroup || !currentGroup.groupId) {
+      console.warn('No group selected, cannot load dashboard stats');
+      return;
+    }
+    
     let totalCollectionsAmount = 0;
     let activeLoansCount = 0;
     let totalArrearsAmount = 0;
     let pendingApprovalsCount = 0;
     const monthlyCollections = {};
     
-    // Calculate stats for current group or all groups
-    const groupsToProcess = currentGroup ? [currentGroup] : adminGroups;
+    // New variables for pie chart analysis
+    let seedMoneyAmount = 0;
+    let monthlyContributionAmount = 0;
+    let approvedAmount = 0;
+    let pendingAmount = 0;
+    let unpaidAmount = 0;
+    let totalMembersCount = 0;
+    let membersWithPayments = 0;
+    let loanInterestEarned = 0;
+    
+    // Calculate stats for the selected group only
+    const groupsToProcess = [currentGroup];
     const currentYear = new Date().getFullYear();
     const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     
@@ -345,18 +392,35 @@ async function loadDashboardStats() {
       const membersRef = collection(db, "groups", groupId, "members");
       const membersSnapshot = await getDocs(membersRef);
       const memberIds = membersSnapshot.docs.map(d => d.id);
+      totalMembersCount += memberIds.length;
       
       // Calculate actual collections from payments
       for (const userId of memberIds) {
+        let memberHasPayment = false;
+        
         // Seed Money collections
         try {
           const seedMoneyRef = doc(db, `groups/${groupId}/payments/${currentYear}_SeedMoney/${userId}/PaymentDetails`);
           const seedMoneyDoc = await getDoc(seedMoneyRef);
           if (seedMoneyDoc.exists()) {
             const data = seedMoneyDoc.data();
-            totalCollectionsAmount += parseFloat(data.amountPaid || 0);
+            const amountPaid = parseFloat(data.amountPaid || 0);
+            const approvalStatus = data.approvalStatus || "unpaid";
+            
+            seedMoneyAmount += amountPaid;
+            totalCollectionsAmount += amountPaid;
             totalArrearsAmount += parseFloat(data.arrears || 0);
-            if (data.approvalStatus === "pending") pendingApprovalsCount++;
+            
+            if (approvalStatus === "approved") {
+              approvedAmount += amountPaid;
+            } else if (approvalStatus === "pending") {
+              pendingAmount += amountPaid;
+              pendingApprovalsCount++;
+            } else {
+              unpaidAmount += amountPaid;
+            }
+            
+            if (amountPaid > 0) memberHasPayment = true;
           }
         } catch (e) {}
         
@@ -367,18 +431,40 @@ async function loadDashboardStats() {
           monthlySnapshot.forEach(monthDoc => {
             const data = monthDoc.data();
             const amountPaid = parseFloat(data.amountPaid || 0);
+            const approvalStatus = data.approvalStatus || "unpaid";
+            
+            monthlyContributionAmount += amountPaid;
+            
+            // Only count approved payments in total collections
+            if (approvalStatus === "approved") {
+              approvedAmount += amountPaid;
             totalCollectionsAmount += amountPaid;
+            } else {
+              // Count pending and unpaid towards arrears
+              if (approvalStatus === "pending") {
+                pendingAmount += amountPaid;
+                pendingApprovalsCount++;
+              } else {
+                unpaidAmount += amountPaid;
+              }
+              totalCollectionsAmount += amountPaid; // Still count as collected but may need approval
+            }
+            
             totalArrearsAmount += parseFloat(data.arrears || 0);
             
-            // Track monthly collections for chart
+            // Track monthly collections for chart - ONLY approved payments
+            if (approvalStatus === "approved") {
             const month = data.month;
             if (month && monthlyCollections[month] !== undefined) {
               monthlyCollections[month] += amountPaid;
+              }
             }
             
-            if (data.approvalStatus === "pending") pendingApprovalsCount++;
+            if (amountPaid > 0) memberHasPayment = true;
           });
         } catch (e) {}
+        
+        if (memberHasPayment) membersWithPayments++;
       }
       
       // Count active loans
@@ -391,7 +477,9 @@ async function loadDashboardStats() {
         // Add loan interest to collections
         activeLoansSnapshot.forEach(loanDoc => {
           const loan = loanDoc.data();
-          totalCollectionsAmount += parseFloat(loan.interestEarned || 0);
+          const interest = parseFloat(loan.interestEarned || 0);
+          loanInterestEarned += interest;
+          totalCollectionsAmount += interest;
         });
         
         // Pending loans
@@ -407,83 +495,334 @@ async function loadDashboardStats() {
     if (pendingApprovals) pendingApprovals.textContent = pendingApprovalsCount;
     if (totalArrears) totalArrears.textContent = formatCurrency(totalArrearsAmount);
     
-    // Render collection trends chart
-    renderCollectionTrends(monthlyCollections);
+    // Render collection trends with pie charts
+    renderCollectionTrends({
+      monthlyCollections,
+      seedMoneyAmount,
+      monthlyContributionAmount,
+      approvedAmount,
+      pendingAmount,
+      unpaidAmount,
+      totalMembersCount,
+      membersWithPayments,
+      totalCollectionsAmount,
+      totalArrearsAmount,
+      loanInterestEarned
+    });
     
   } catch (error) {
     console.error("Error loading dashboard stats:", error);
   }
 }
 
-// Render collection trends chart - starting from group's first month
-function renderCollectionTrends(monthlyData) {
+// Render collection trends with pie charts showing various analyses
+function renderCollectionTrends(data) {
   const chartContainer = document.querySelector('.chart-container');
-  if (!chartContainer) return;
-  
-  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  const currentMonth = new Date().getMonth();
-  
-  // Get group start date if available
-  let startMonth = 0;
-  if (currentGroup) {
-    const cycleStartDate = currentGroup.rules?.cycleDuration?.startDate || 
-                           currentGroup.cycleStartDate ||
-                           currentGroup.createdAt?.toDate?.();
-    if (cycleStartDate) {
-      const startDate = new Date(cycleStartDate);
-      if (!isNaN(startDate.getTime())) {
-        startMonth = startDate.getMonth();
-      }
+  if (!chartContainer || !currentGroup) {
+    if (chartContainer) {
+      chartContainer.innerHTML = '<div class="empty-state"><p>Select a group to view collection trends</p></div>';
     }
+    return;
   }
   
-  // Calculate months since group started (up to current month)
-  const monthsSinceStart = [];
-  let monthIndex = startMonth;
-  const today = new Date();
-  const currentMonthIndex = today.getMonth();
-  
-  // Get months from start to current (max 6 for display)
-  let count = 0;
-  while (count < 6) {
-    const displayMonth = (currentMonth - 5 + count + 12) % 12;
-    // Only show months from start date onwards
-    const monthName = months[displayMonth];
-    const amount = monthlyData[monthName] || 0;
-    
-    monthsSinceStart.push({
-      name: monthName.substring(0, 3),
-      fullName: monthName,
-      amount: amount,
-      hasData: amount > 0
-    });
-    count++;
-  }
-  
-  const last6Months = monthsSinceStart;
-  
-  // Find max for scaling
-  const maxAmount = Math.max(...last6Months.map(m => m.amount), 1);
+  const {
+    monthlyCollections = {},
+    seedMoneyAmount = 0,
+    monthlyContributionAmount = 0,
+    approvedAmount = 0,
+    pendingAmount = 0,
+    unpaidAmount = 0,
+    totalMembersCount = 0,
+    membersWithPayments = 0,
+    totalCollectionsAmount = 0,
+    totalArrearsAmount = 0,
+    loanInterestEarned = 0
+  } = data;
   
   let chartHTML = '';
-  last6Months.forEach(month => {
-    const heightPercent = Math.max((month.amount / maxAmount) * 100, 5);
-    chartHTML += `
-      <div class="chart-bar-wrapper">
-        <div class="chart-bar" style="height: 200px; --bar-height: ${heightPercent}%;" title="${formatCurrency(month.amount)}"></div>
-        <span class="chart-label">${month.name}</span>
+  
+  // 1. Payment Type Breakdown (Seed Money vs Monthly Contributions)
+  const totalPaymentTypes = seedMoneyAmount + monthlyContributionAmount;
+  if (totalPaymentTypes > 0) {
+    const seedMoneyPercent = (seedMoneyAmount / totalPaymentTypes) * 100;
+    const monthlyPercent = (monthlyContributionAmount / totalPaymentTypes) * 100;
+    
+    chartHTML += createPieChart(
+      'Payment Type Breakdown',
+      [
+        {
+          label: 'Seed Money',
+          value: seedMoneyAmount,
+          percentage: seedMoneyPercent,
+          color: '#10B981' // Green
+        },
+        {
+          label: 'Monthly Contributions',
+          value: monthlyContributionAmount,
+          percentage: monthlyPercent,
+          color: '#3B82F6' // Blue
+        }
+      ],
+      totalPaymentTypes,
+      'Total Collections'
+    );
+  }
+  
+  // 2. Payment Status Breakdown (Approved vs Pending vs Unpaid)
+  const totalPaymentStatus = approvedAmount + pendingAmount + unpaidAmount;
+  if (totalPaymentStatus > 0) {
+    const approvedPercent = (approvedAmount / totalPaymentStatus) * 100;
+    const pendingPercent = (pendingAmount / totalPaymentStatus) * 100;
+    const unpaidPercent = (unpaidAmount / totalPaymentStatus) * 100;
+    
+    chartHTML += createPieChart(
+      'Payment Status',
+      [
+        {
+          label: 'Approved',
+          value: approvedAmount,
+          percentage: approvedPercent,
+          color: '#10B981' // Green
+        },
+        {
+          label: 'Pending',
+          value: pendingAmount,
+          percentage: pendingPercent,
+          color: '#F59E0B' // Amber
+        },
+        {
+          label: 'Unpaid',
+          value: unpaidAmount,
+          percentage: unpaidPercent,
+          color: '#EF4444' // Red
+        }
+      ],
+      totalPaymentStatus,
+      'Status'
+    );
+  }
+  
+  // 3. Collections vs Arrears
+  const totalFinancial = totalCollectionsAmount + totalArrearsAmount;
+  if (totalFinancial > 0) {
+    const collectionsPercent = (totalCollectionsAmount / totalFinancial) * 100;
+    const arrearsPercent = (totalArrearsAmount / totalFinancial) * 100;
+    
+    chartHTML += createPieChart(
+      'Collections vs Arrears',
+      [
+        {
+          label: 'Collections',
+          value: totalCollectionsAmount,
+          percentage: collectionsPercent,
+          color: '#10B981' // Green
+        },
+        {
+          label: 'Arrears',
+          value: totalArrearsAmount,
+          percentage: arrearsPercent,
+          color: '#EF4444' // Red
+        }
+      ],
+      totalFinancial,
+      'Financial Health'
+    );
+  }
+  
+  // 4. Member Participation Rate
+  if (totalMembersCount > 0) {
+    const membersWithPaymentsCount = membersWithPayments;
+    const membersWithoutPayments = totalMembersCount - membersWithPaymentsCount;
+    const participationPercent = (membersWithPaymentsCount / totalMembersCount) * 100;
+    const nonParticipationPercent = (membersWithoutPayments / totalMembersCount) * 100;
+    
+    chartHTML += createPieChart(
+      'Member Participation',
+      [
+        {
+          label: 'Active Members',
+          value: membersWithPaymentsCount,
+          percentage: participationPercent,
+          color: '#10B981' // Green
+        },
+        {
+          label: 'Inactive Members',
+          value: membersWithoutPayments,
+          percentage: nonParticipationPercent,
+          color: '#9CA3AF' // Gray
+        }
+      ],
+      totalMembersCount,
+      'Participation',
+      true // This is a count chart, not currency
+    );
+  }
+  
+  // 5. Income Sources (Contributions vs Loan Interest)
+  const totalIncome = (seedMoneyAmount + monthlyContributionAmount) + loanInterestEarned;
+  if (totalIncome > 0 && loanInterestEarned > 0) {
+    const contributionsPercent = ((seedMoneyAmount + monthlyContributionAmount) / totalIncome) * 100;
+    const interestPercent = (loanInterestEarned / totalIncome) * 100;
+    
+    chartHTML += createPieChart(
+      'Income Sources',
+      [
+        {
+          label: 'Contributions',
+          value: seedMoneyAmount + monthlyContributionAmount,
+          percentage: contributionsPercent,
+          color: '#3B82F6' // Blue
+        },
+        {
+          label: 'Loan Interest',
+          value: loanInterestEarned,
+          percentage: interestPercent,
+          color: '#8B5CF6' // Purple
+        }
+      ],
+      totalIncome,
+      'Total Income'
+    );
+  }
+  
+  if (chartHTML) {
+    chartContainer.innerHTML = chartHTML;
+    
+    // Animate pie charts after render
+    setTimeout(() => {
+      chartContainer.querySelectorAll('.pie-chart-svg').forEach((svg, index) => {
+        setTimeout(() => {
+          svg.style.opacity = '1';
+          svg.querySelectorAll('.pie-chart-segment').forEach((segment, segIndex) => {
+            setTimeout(() => {
+              segment.style.opacity = '1';
+            }, segIndex * 200);
+          });
+        }, index * 300);
+      });
+    }, 100);
+  } else {
+    chartContainer.innerHTML = `
+      <div class="empty-state" style="width: 100%; grid-column: 1 / -1;">
+        <div class="empty-state-icon">📊</div>
+        <p class="empty-state-text">No collection data for current cycle yet</p>
+        <p style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: var(--bn-space-2);">
+          Pie charts will appear once members start making payments
+        </p>
+      </div>
+    `;
+  }
+}
+
+// Create a pie chart using SVG paths (reused from analytics.js pattern)
+function createPieChart(title, segments, total, centerLabel, isCount = false) {
+  const radius = 80;
+  const centerX = 120;
+  const centerY = 120;
+  
+  let segmentsHTML = '';
+  let legendHTML = '';
+  let currentAngle = -90; // Start at top (12 o'clock)
+  
+  // Filter out zero segments and calculate percentages
+  const validSegments = segments.filter(s => (s.value || 0) > 0).map(s => ({
+    ...s,
+    percentage: total > 0 ? ((s.value / total) * 100) : 0
+  }));
+  
+  validSegments.forEach((segment, index) => {
+    const percentage = Math.min(segment.percentage || 0, 100);
+    if (percentage <= 0) return;
+    
+    // Calculate angles for this segment
+    const angle = (percentage / 100) * 360;
+    const startAngle = currentAngle;
+    const endAngle = currentAngle + angle;
+    currentAngle += angle;
+    
+    // Convert to radians
+    const startRad = (startAngle * Math.PI) / 180;
+    const endRad = (endAngle * Math.PI) / 180;
+    
+    // Calculate path coordinates
+    const x1 = centerX + radius * Math.cos(startRad);
+    const y1 = centerY + radius * Math.sin(startRad);
+    const x2 = centerX + radius * Math.cos(endRad);
+    const y2 = centerY + radius * Math.sin(endRad);
+    
+    // Large arc flag (1 if angle > 180, 0 otherwise)
+    const largeArcFlag = angle > 180 ? 1 : 0;
+    
+    // Create path for this segment (pie slice)
+    const pathData = [
+      `M ${centerX} ${centerY}`, // Move to center
+      `L ${x1} ${y1}`, // Line to start point
+      `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`, // Arc to end point
+      'Z' // Close path back to center
+    ].join(' ');
+    
+    segmentsHTML += `
+      <path
+        class="pie-chart-segment"
+        d="${pathData}"
+        fill="${segment.color}"
+        stroke="var(--bn-white)"
+        stroke-width="2"
+        data-percentage="${percentage.toFixed(1)}"
+        style="opacity: 0; transition: opacity 0.8s ease;"
+      />
+    `;
+    
+    const displayValue = isCount ? Math.round(segment.value) : formatCurrency(segment.value);
+    legendHTML += `
+      <div class="legend-item">
+        <span class="legend-dot" style="background: ${segment.color};"></span>
+        <div style="flex: 1; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: var(--bn-text-sm); color: var(--bn-gray-700);">${segment.label}:</span>
+          <span style="font-weight: 600; color: var(--bn-dark); margin-left: var(--bn-space-2);">${displayValue}</span>
+        </div>
       </div>
     `;
   });
   
-  chartContainer.innerHTML = chartHTML;
+  // Calculate main percentage for center display
+  const mainPercentage = validSegments[0]?.percentage || 0;
+  const centerDisplay = isCount ? 
+    `${Math.round(validSegments[0]?.value || 0)} / ${Math.round(total)}` :
+    `${mainPercentage.toFixed(0)}%`;
+  const centerSubDisplay = isCount ? 
+    `${Math.round((validSegments[0]?.value || 0) / total * 100)}%` :
+    formatCurrencyShort(total);
   
-  // Animate bars
-  setTimeout(() => {
-    chartContainer.querySelectorAll('.chart-bar').forEach(bar => {
-      bar.classList.add('animated');
-    });
-  }, 100);
+  return `
+    <div class="pie-chart-container">
+      <div class="pie-chart-title">${title}</div>
+      <div class="pie-chart-wrapper">
+        <svg class="pie-chart-svg" viewBox="0 0 240 240" style="opacity: 0; transition: opacity 0.5s ease; width: 100%; height: 100%;">
+          ${segmentsHTML}
+        </svg>
+        <div class="pie-chart-center">
+          <div class="pie-chart-center-value">${centerDisplay}</div>
+          <div class="pie-chart-center-label">${centerLabel}</div>
+          <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: var(--bn-space-1);">${centerSubDisplay}</div>
+        </div>
+      </div>
+      <div class="pie-chart-legend">
+        ${legendHTML}
+      </div>
+    </div>
+  `;
+}
+
+// Format currency for chart center (shortened)
+function formatCurrencyShort(amount) {
+  const value = parseFloat(amount) || 0;
+  if (value >= 1000000) {
+    return `MWK ${(value / 1000000).toFixed(1)}M`;
+  } else if (value >= 1000) {
+    return `MWK ${(value / 1000).toFixed(1)}K`;
+  }
+  return `MWK ${value.toLocaleString('en-US')}`;
 }
 
 async function loadGroups() {
@@ -499,7 +838,7 @@ async function loadGroups() {
     const isSelected = currentGroup && currentGroup.groupId === group.groupId;
     
     return `
-      <a href="javascript:void(0)" class="group-card ${isSelected ? 'selected' : ''}" onclick="switchGroup('${group.groupId}')">
+      <a href="javascript:void(0)" class="group-card ${isSelected ? 'selected' : ''}" ${isSelected ? 'onclick="return false;"' : `onclick="switchGroup('${group.groupId}')"`}>
         <h4 class="group-name">${group.groupName || 'Unnamed Group'}</h4>
         <div class="group-stats">
           <div class="group-stat-item">
@@ -511,6 +850,7 @@ async function loadGroups() {
             <div class="group-stat-label">Funds</div>
           </div>
         </div>
+        ${isSelected ? '<div class="group-card-active-badge">Active</div>' : ''}
       </a>
     `;
   }).join('');
@@ -519,8 +859,14 @@ async function loadGroups() {
 async function loadPendingApprovals() {
   if (!pendingApprovalsList) return;
   
+  // Require a selected group - don't process all groups
+  if (!currentGroup || !currentGroup.groupId) {
+    pendingApprovalsList.innerHTML = '<div class="empty-state"><p>Select a group to view pending approvals</p></div>';
+    return;
+  }
+  
   const allPending = [];
-  const groupsToProcess = currentGroup ? [currentGroup] : adminGroups;
+  const groupsToProcess = [currentGroup];
   
   for (const group of groupsToProcess) {
     // Pending loans
@@ -619,8 +965,16 @@ function renderEmptyState() {
 
 // Global functions for onclick handlers
 window.switchGroup = async function(groupId) {
+  const selectedGroupId = localStorage.getItem('selectedGroupId') || sessionStorage.getItem('selectedGroupId');
+  
+  // If already selected, don't do anything
+  if (selectedGroupId === groupId) {
+    return;
+  }
+  
   currentGroup = adminGroups.find(g => g.groupId === groupId);
   if (currentGroup) {
+    localStorage.setItem('selectedGroupId', groupId);
     sessionStorage.setItem('selectedGroupId', groupId);
     showSpinner(true);
     await Promise.all([
@@ -737,34 +1091,47 @@ function formatCurrency(amount) {
   return `MWK ${parseFloat(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
-function formatCurrencyShort(amount) {
-  const num = parseFloat(amount || 0);
-  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-  if (num >= 1000) return `${(num / 1000).toFixed(0)}K`;
-  return num.toLocaleString();
-}
-
-// Dashboard search functionality
+// Dashboard search functionality - Enhanced to include groups, seed money, payments, etc.
 async function performDashboardSearch(searchTerm, groupId) {
-  if (!groupId || searchTerm.length < 2) return;
+  if (!searchTerm || searchTerm.length < 2) return;
   
   const searchLower = searchTerm.toLowerCase();
   const searchResults = [];
   
   try {
-    // Search members
+    // Search groups (all admin groups)
+    if (adminGroups && adminGroups.length > 0) {
+      adminGroups.forEach(group => {
+        const groupName = (group.groupName || '').toLowerCase();
+        if (groupName.includes(searchLower)) {
+          searchResults.push({
+            id: group.groupId,
+            type: 'group',
+            name: group.groupName,
+            icon: '🏢',
+            subtitle: `${group.statistics?.totalMembers || 0} members`
+          });
+        }
+      });
+    }
+    
+    // Search members (current group)
+    if (groupId) {
     const membersSnapshot = await getDocs(collection(db, `groups/${groupId}/members`));
     membersSnapshot.forEach(doc => {
       const member = doc.data();
       const name = (member.fullName || '').toLowerCase();
       const email = (member.email || '').toLowerCase();
+        const phone = (member.phone || '').toLowerCase();
       
-      if (name.includes(searchLower) || email.includes(searchLower)) {
+        if (name.includes(searchLower) || email.includes(searchLower) || phone.includes(searchLower)) {
         searchResults.push({
           id: doc.id,
           type: 'member',
           name: member.fullName,
-          email: member.email
+            email: member.email,
+            phone: member.phone,
+            icon: '👤'
         });
       }
     });
@@ -774,16 +1141,141 @@ async function performDashboardSearch(searchTerm, groupId) {
     loansSnapshot.forEach(doc => {
       const loan = doc.data();
       const borrowerName = (loan.borrowerName || '').toLowerCase();
+        const purpose = (loan.purpose || '').toLowerCase();
+        const amount = (loan.amount || loan.loanAmount || 0).toString();
       
-      if (borrowerName.includes(searchLower)) {
+        if (borrowerName.includes(searchLower) || purpose.includes(searchLower) || amount.includes(searchLower)) {
         searchResults.push({
           id: doc.id,
           type: 'loan',
           name: loan.borrowerName,
-          amount: loan.loanAmount
+            amount: loan.amount || loan.loanAmount || 0,
+            status: loan.status,
+            purpose: loan.purpose,
+            icon: '💰'
         });
       }
     });
+      
+      // Search seed money payments
+      const currentYear = new Date().getFullYear();
+      try {
+        const seedMoneyRef = collection(db, `groups/${groupId}/payments/${currentYear}_SeedMoney`);
+        const seedMoneySnapshot = await getDocs(seedMoneyRef);
+        
+        for (const memberDoc of seedMoneySnapshot.docs) {
+          try {
+            const paymentRef = doc(db, `groups/${groupId}/payments/${currentYear}_SeedMoney/${memberDoc.id}/PaymentDetails`);
+            const paymentDoc = await getDoc(paymentRef);
+            
+            if (paymentDoc.exists()) {
+              const paymentData = paymentDoc.data();
+              const amount = (paymentData.totalAmount || 0).toString();
+              const amountPaid = (paymentData.amountPaid || 0).toString();
+              
+              // Get member name
+              const memberRef = doc(db, `groups/${groupId}/members`, memberDoc.id);
+              const memberDocSnap = await getDoc(memberRef);
+              const memberName = memberDocSnap.exists() ? (memberDocSnap.data().fullName || '').toLowerCase() : '';
+              
+              if (memberName.includes(searchLower) || amount.includes(searchLower) || amountPaid.includes(searchLower) || 'seed money'.includes(searchLower)) {
+                if (!searchResults.find(r => r.type === 'seed_money' && r.memberId === memberDoc.id)) {
+                  searchResults.push({
+                    id: memberDoc.id,
+                    memberId: memberDoc.id,
+                    type: 'seed_money',
+                    name: memberDocSnap.exists() ? memberDocSnap.data().fullName : 'Unknown Member',
+                    amount: paymentData.totalAmount || 0,
+                    amountPaid: paymentData.amountPaid || 0,
+                    status: paymentData.approvalStatus,
+                    icon: '🌱'
+                  });
+                }
+              }
+            }
+          } catch (e) {
+            // Skip if subcollection doesn't exist
+          }
+        }
+      } catch (e) {
+        console.log('Error searching seed money:', e);
+      }
+      
+      // Search monthly contributions
+      try {
+        const monthlyContributionsRef = collection(db, `groups/${groupId}/payments/${currentYear}_MonthlyContributions`);
+        const monthlySnapshot = await getDocs(monthlyContributionsRef);
+        
+        for (const memberDoc of monthlySnapshot.docs) {
+          // Get member info
+          const memberRef = doc(db, `groups/${groupId}/members`, memberDoc.id);
+          const memberDocSnap = await getDoc(memberRef);
+          const memberName = memberDocSnap.exists() ? (memberDocSnap.data().fullName || '').toLowerCase() : '';
+          
+          if (memberName.includes(searchLower) || 'monthly contribution'.includes(searchLower) || 'monthly'.includes(searchLower)) {
+            // Get monthly payments for this member
+            const monthlyPaymentsRef = collection(db, `groups/${groupId}/payments/${currentYear}_MonthlyContributions/${memberDoc.id}`);
+            const monthlyPaymentsSnapshot = await getDocs(monthlyPaymentsRef);
+            
+            if (monthlyPaymentsSnapshot.size > 0) {
+              if (!searchResults.find(r => r.type === 'monthly' && r.memberId === memberDoc.id)) {
+                searchResults.push({
+                  id: memberDoc.id,
+                  memberId: memberDoc.id,
+                  type: 'monthly',
+                  name: memberDocSnap.exists() ? memberDocSnap.data().fullName : 'Unknown Member',
+                  icon: '📅'
+                });
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.log('Error searching monthly contributions:', e);
+      }
+      
+      // Search payments by amount
+      if (searchLower.match(/^\d+$/)) {
+        // If search term is a number, search for payments with that amount
+        const searchAmount = parseFloat(searchLower);
+        
+        // Check seed money
+        try {
+          const seedMoneyRef = collection(db, `groups/${groupId}/payments/${currentYear}_SeedMoney`);
+          const seedMoneySnapshot = await getDocs(seedMoneyRef);
+          
+          for (const memberDoc of seedMoneySnapshot.docs) {
+            try {
+              const paymentRef = doc(db, `groups/${groupId}/payments/${currentYear}_SeedMoney/${memberDoc.id}/PaymentDetails`);
+              const paymentDoc = await getDoc(paymentRef);
+              
+              if (paymentDoc.exists()) {
+                const paymentData = paymentDoc.data();
+                const totalAmount = paymentData.totalAmount || 0;
+                const amountPaid = paymentData.amountPaid || 0;
+                
+                if (totalAmount.toString().includes(searchLower) || amountPaid.toString().includes(searchLower)) {
+                  const memberRef = doc(db, `groups/${groupId}/members`, memberDoc.id);
+                  const memberDocSnap = await getDoc(memberRef);
+                  
+                  if (!searchResults.find(r => r.type === 'seed_money' && r.memberId === memberDoc.id)) {
+                    searchResults.push({
+                      id: memberDoc.id,
+                      memberId: memberDoc.id,
+                      type: 'seed_money',
+                      name: memberDocSnap.exists() ? memberDocSnap.data().fullName : 'Unknown Member',
+                      amount: totalAmount,
+                      amountPaid: amountPaid,
+                      icon: '🌱'
+                    });
+                  }
+                }
+              }
+            } catch (e) {}
+          }
+        } catch (e) {}
+      }
+    }
     
     displaySearchResults(searchResults);
   } catch (error) {
@@ -808,7 +1300,7 @@ function displaySearchResults(results) {
       border: 1px solid var(--bn-gray-lighter);
       border-radius: 12px;
       box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-      max-height: 400px;
+      max-height: 500px;
       overflow-y: auto;
       z-index: 1000;
       margin-top: 4px;
@@ -828,27 +1320,142 @@ function displaySearchResults(results) {
   
   if (results.length === 0) {
     container.innerHTML = '<div style="padding: 16px; text-align: center; color: var(--bn-gray);">No results found</div>';
-  } else {
-    container.innerHTML = results.slice(0, 10).map(result => `
-      <a href="${result.type === 'member' ? 'manage_members.html' : 'manage_loans.html'}?search=${encodeURIComponent(result.name)}" 
-         style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; text-decoration: none; color: inherit; border-bottom: 1px solid var(--bn-gray-lighter);">
-        <div style="width: 32px; height: 32px; border-radius: 50%; background: ${result.type === 'member' ? 'var(--bn-primary)' : 'var(--bn-accent)'}; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 12px;">
-          ${result.type === 'member' ? result.name.charAt(0) : '💰'}
+    container.style.display = 'block';
+    return;
+  }
+  
+  // Group results by type
+  const groupedResults = {
+    group: results.filter(r => r.type === 'group'),
+    member: results.filter(r => r.type === 'member'),
+    loan: results.filter(r => r.type === 'loan'),
+    seed_money: results.filter(r => r.type === 'seed_money'),
+    monthly: results.filter(r => r.type === 'monthly')
+  };
+  
+  let html = '';
+  const selectedGroupId = localStorage.getItem('selectedGroupId') || sessionStorage.getItem('selectedGroupId');
+  
+  // Groups section
+  if (groupedResults.group.length > 0) {
+    html += '<div style="padding: 8px 16px; font-size: 11px; font-weight: 600; color: var(--bn-gray); text-transform: uppercase; background: var(--bn-gray-100); border-top-left-radius: 12px; border-top-right-radius: 12px;">Groups</div>';
+    groupedResults.group.slice(0, 5).forEach(result => {
+      html += `
+        <a href="admin_dashboard.html?groupId=${result.id}" 
+           style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; text-decoration: none; color: inherit; border-bottom: 1px solid var(--bn-gray-lighter); cursor: pointer; transition: background 0.2s;"
+           onmouseover="this.style.background='var(--bn-gray-100)'" onmouseout="this.style.background=''">
+          <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--bn-primary); display: flex; align-items: center; justify-content: center; font-size: 18px;">
+            ${result.icon || '🏢'}
         </div>
         <div style="flex: 1;">
           <div style="font-weight: 600; color: var(--bn-dark);">${result.name}</div>
-          <div style="font-size: 12px; color: var(--bn-gray);">${result.type === 'member' ? (result.email || 'Member') : 'Loan: MWK ' + (result.amount || 0).toLocaleString()}</div>
+            <div style="font-size: 12px; color: var(--bn-gray);">${result.subtitle || 'Group'}</div>
         </div>
       </a>
-    `).join('');
+      `;
+    });
   }
   
+  // Members section
+  if (groupedResults.member.length > 0) {
+    html += '<div style="padding: 8px 16px; font-size: 11px; font-weight: 600; color: var(--bn-gray); text-transform: uppercase; background: var(--bn-gray-100);">Members</div>';
+    groupedResults.member.slice(0, 5).forEach(result => {
+      html += `
+        <a href="manage_members.html?groupId=${selectedGroupId}&search=${encodeURIComponent(result.name)}" 
+           style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; text-decoration: none; color: inherit; border-bottom: 1px solid var(--bn-gray-lighter); cursor: pointer; transition: background 0.2s;"
+           onmouseover="this.style.background='var(--bn-gray-100)'" onmouseout="this.style.background=''">
+          <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--bn-gradient-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px;">
+            ${result.icon || result.name.charAt(0).toUpperCase()}
+          </div>
+          <div style="flex: 1;">
+            <div style="font-weight: 600; color: var(--bn-dark);">${result.name}</div>
+            <div style="font-size: 12px; color: var(--bn-gray);">${result.email || result.phone || 'Member'}</div>
+          </div>
+        </a>
+      `;
+    });
+  }
+  
+  // Loans section
+  if (groupedResults.loan.length > 0) {
+    html += '<div style="padding: 8px 16px; font-size: 11px; font-weight: 600; color: var(--bn-gray); text-transform: uppercase; background: var(--bn-gray-100);">Loans</div>';
+    groupedResults.loan.slice(0, 5).forEach(result => {
+      const statusColor = result.status === 'active' ? 'var(--bn-success)' : result.status === 'pending' ? 'var(--bn-warning)' : result.status === 'overdue' ? 'var(--bn-danger)' : 'var(--bn-gray)';
+      html += `
+        <a href="manage_loans.html?groupId=${selectedGroupId}&loanId=${result.id}" 
+           style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; text-decoration: none; color: inherit; border-bottom: 1px solid var(--bn-gray-lighter); cursor: pointer; transition: background 0.2s;"
+           onmouseover="this.style.background='var(--bn-gray-100)'" onmouseout="this.style.background=''">
+          <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(249, 115, 22, 0.1); display: flex; align-items: center; justify-content: center; font-size: 18px;">
+            ${result.icon || '💰'}
+          </div>
+          <div style="flex: 1;">
+            <div style="font-weight: 600; color: var(--bn-dark);">${result.name}</div>
+            <div style="font-size: 12px; color: var(--bn-gray);">MWK ${(result.amount || 0).toLocaleString()}${result.purpose ? ` • ${result.purpose}` : ''}</div>
+          </div>
+          ${result.status ? `<span style="font-size: 10px; font-weight: 600; padding: 4px 8px; border-radius: 999px; background: ${statusColor}15; color: ${statusColor}; text-transform: capitalize;">${result.status}</span>` : ''}
+        </a>
+      `;
+    });
+  }
+  
+  // Seed Money section
+  if (groupedResults.seed_money.length > 0) {
+    html += '<div style="padding: 8px 16px; font-size: 11px; font-weight: 600; color: var(--bn-gray); text-transform: uppercase; background: var(--bn-gray-100);">Seed Money</div>';
+    groupedResults.seed_money.slice(0, 5).forEach(result => {
+      const status = result.amountPaid >= result.amount ? 'Paid' : 'Pending';
+      html += `
+        <a href="manage_payments.html?groupId=${selectedGroupId}&tab=seed&memberId=${result.memberId}" 
+           style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; text-decoration: none; color: inherit; border-bottom: 1px solid var(--bn-gray-lighter); cursor: pointer; transition: background 0.2s;"
+           onmouseover="this.style.background='var(--bn-gray-100)'" onmouseout="this.style.background=''">
+          <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(201, 162, 39, 0.1); display: flex; align-items: center; justify-content: center; font-size: 18px;">
+            ${result.icon || '🌱'}
+          </div>
+          <div style="flex: 1;">
+            <div style="font-weight: 600; color: var(--bn-dark);">${result.name}</div>
+            <div style="font-size: 12px; color: var(--bn-gray);">MWK ${(result.amountPaid || 0).toLocaleString()} / MWK ${(result.amount || 0).toLocaleString()}</div>
+          </div>
+          <span style="font-size: 10px; font-weight: 600; padding: 4px 8px; border-radius: 999px; background: ${status === 'Paid' ? 'var(--bn-success)15' : 'var(--bn-warning)15'}; color: ${status === 'Paid' ? 'var(--bn-success)' : 'var(--bn-warning)'};">${status}</span>
+        </a>
+      `;
+    });
+  }
+  
+  // Monthly Contributions section
+  if (groupedResults.monthly.length > 0) {
+    html += '<div style="padding: 8px 16px; font-size: 11px; font-weight: 600; color: var(--bn-gray); text-transform: uppercase; background: var(--bn-gray-100);">Monthly Contributions</div>';
+    groupedResults.monthly.slice(0, 5).forEach(result => {
+      html += `
+        <a href="manage_payments.html?groupId=${selectedGroupId}&tab=monthly&memberId=${result.memberId}" 
+           style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; text-decoration: none; color: inherit; border-bottom: 1px solid var(--bn-gray-lighter); cursor: pointer; transition: background 0.2s;"
+           onmouseover="this.style.background='var(--bn-gray-100)'" onmouseout="this.style.background=''">
+          <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(34, 197, 94, 0.1); display: flex; align-items: center; justify-content: center; font-size: 18px;">
+            ${result.icon || '📅'}
+          </div>
+          <div style="flex: 1;">
+            <div style="font-weight: 600; color: var(--bn-dark);">${result.name}</div>
+            <div style="font-size: 12px; color: var(--bn-gray);">Monthly Contributions</div>
+          </div>
+        </a>
+      `;
+    });
+  }
+  
+  // Show total count if more results
+  const totalShown = Object.values(groupedResults).reduce((sum, arr) => sum + Math.min(arr.length, 5), 0);
+  const totalResults = results.length;
+  if (totalResults > totalShown) {
+    html += `<div style="padding: 12px 16px; text-align: center; font-size: 12px; color: var(--bn-gray); background: var(--bn-gray-100); border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;">
+      ${totalResults - totalShown} more result${totalResults - totalShown > 1 ? 's' : ''}
+    </div>`;
+  }
+  
+  container.innerHTML = html;
   container.style.display = 'block';
 }
 
 // Initialize notifications when dashboard loads
 function initializeDashboardNotifications() {
-  const selectedGroupId = sessionStorage.getItem('selectedGroupId');
+  const selectedGroupId = localStorage.getItem('selectedGroupId') || sessionStorage.getItem('selectedGroupId');
   if (currentUser && selectedGroupId) {
     initializeNotifications(currentUser.uid, selectedGroupId);
   }
