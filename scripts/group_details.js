@@ -18,12 +18,23 @@ onAuthStateChanged(auth, (user) => {
 
 document.addEventListener("DOMContentLoaded", async () => {
   const urlParams = new URLSearchParams(window.location.search);
-  const groupId = urlParams.get("groupId");
+  let groupId = urlParams.get("groupId");
 
+  // If no groupId in URL, try to get from localStorage/sessionStorage
   if (!groupId) {
-    alert("Group ID is missing. Redirecting to the admin dashboard...");
-    window.location.href = "../login.html";
-    return;
+    groupId = localStorage.getItem("selectedGroupId") || sessionStorage.getItem("selectedGroupId");
+    
+    if (groupId) {
+      // Update URL with groupId for bookmarking
+      const url = new URL(window.location.href);
+      url.searchParams.set("groupId", groupId);
+      window.history.replaceState({}, "", url);
+    } else {
+      // If still no groupId, redirect to select group page
+      alert("Please select a group first.");
+      window.location.href = "select_group.html";
+      return;
+    }
   }
 
   // ✅ Select DOM elements for group details

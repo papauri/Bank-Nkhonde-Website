@@ -228,6 +228,9 @@
         </div>
       </div>
       <div class="content-section-body" id="chartsContainer">
+        <div id="monthlyTrendChart" style="margin-bottom: var(--bn-space-6);">
+          <!-- Monthly trend chart will be rendered here -->
+        </div>
         <div class="charts-grid" id="chartContainer">
           <!-- Pie charts will be rendered here -->
         </div>
@@ -249,22 +252,27 @@
   </main>
 
   <!-- Mobile Navigation -->
+  <!-- Mobile Navigation -->
   <nav class="mobile-nav">
     <a href="admin_dashboard.html" class="mobile-nav-item">
       <span class="mobile-nav-icon">🏠</span>
       <span>Home</span>
     </a>
+    <a href="manage_loans.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">💰</span>
+      <span>Loans</span>
+    </a>
+    <a href="manage_payments.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">💳</span>
+      <span>Payments</span>
+    </a>
     <a href="analytics.html" class="mobile-nav-item active">
       <span class="mobile-nav-icon">📊</span>
       <span>Analytics</span>
     </a>
-    <a href="financial_reports.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">📋</span>
-      <span>Reports</span>
-    </a>
-    <a href="settings.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">⚙️</span>
-      <span>Settings</span>
+    <a href="user_dashboard.html" class="mobile-nav-item" id="switchToUserViewMobile" style="display: none;">
+      <span class="mobile-nav-icon">👤</span>
+      <span>User View</span>
     </a>
   </nav>
 

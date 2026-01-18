@@ -8,6 +8,22 @@
    PREMIUM FONT STACK
    ============================================ */
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap');
+@import url('mobile-modals.css');
+@import url('unified-mobile-nav.css');
+
+/* Global overflow fixes for mobile - prevent border-radius from hiding content */
+@media (max-width: 768px) {
+  .content-section,
+  .content-card,
+  .rules-container,
+  .info-card,
+  .member-card,
+  .interest-rates-display,
+  .content-section-body,
+  .content-card-body {
+    overflow: visible !important;
+  }
+}
 
 /* ============================================
    DESIGN TOKENS - PREMIUM COLOR PALETTE

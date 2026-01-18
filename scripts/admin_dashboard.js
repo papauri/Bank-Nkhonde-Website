@@ -55,6 +55,7 @@ onAuthStateChanged(auth, async (user) => {
 
 document.addEventListener("DOMContentLoaded", () => {
   setupEventListeners();
+  updateCurrentDate();
   
   // Initialize currency selector
   const currencySelector = document.getElementById('currencySelector');
@@ -110,6 +111,8 @@ window.selectGroup = function(groupId) {
   updateURLWithGroup(groupId);
   // Update topbar with group name
   updateTopbarGroupName();
+  // Update mobile nav user view option
+  updateMobileNavUserView();
   // Initialize notifications for this group
   initializeDashboardNotifications();
 };
@@ -122,7 +125,10 @@ window.switchGroup = function(groupId) {
 };
 
 function setupEventListeners() {
-  // Logout button in sidebar
+  // Logout button in sidebar (from dropdown menu)
+  document.getElementById("logoutBtnSidebar")?.addEventListener("click", handleLogout);
+  
+  // Legacy logout button if exists
   document.getElementById("logoutBtn")?.addEventListener("click", handleLogout);
   
   // Switch to user view button
@@ -132,10 +138,46 @@ function setupEventListeners() {
     window.location.href = "user_dashboard.html";
   });
   
+  // Switch to user view in mobile nav
+  const switchToUserViewMobile = document.getElementById("switchToUserViewMobile");
+  if (switchToUserViewMobile) {
+    switchToUserViewMobile.addEventListener("click", (e) => {
+      e.preventDefault();
+      localStorage.setItem("viewMode", "user");
+      sessionStorage.setItem("viewMode", "user");
+      window.location.href = "user_dashboard.html";
+    });
+  }
+  
   // Sidebar user click (for dropdown menu)
-  document.getElementById("sidebarUser")?.addEventListener("click", (e) => {
-    // Could open a dropdown menu here
+  const sidebarUser = document.getElementById("sidebarUser");
+  if (sidebarUser) {
+    sidebarUser.addEventListener("click", (e) => {
+      // Don't open menu if clicking on links/buttons inside
+      if (e.target.closest('a') || e.target.closest('button')) {
+        return;
+      }
+      e.stopPropagation();
+      toggleUserMenu();
+    });
+  }
+  
+  // Close user menu when clicking outside
+  document.addEventListener("click", (e) => {
+    const userMenu = document.getElementById("userMenuDropdown");
+    const sidebarUser = document.getElementById("sidebarUser");
+    if (userMenu && sidebarUser && !sidebarUser.contains(e.target) && !userMenu.contains(e.target)) {
+      userMenu.classList.remove("show");
+    }
   });
+}
+
+// Toggle user menu dropdown
+function toggleUserMenu() {
+  const userMenu = document.getElementById("userMenuDropdown");
+  if (userMenu) {
+    userMenu.classList.toggle("show");
+  }
 }
 
 async function handleLogout() {
@@ -189,6 +231,9 @@ async function loadAdminData() {
     // Load admin groups first
     await loadAdminGroups();
     
+    // Update mobile nav user view option
+    updateMobileNavUserView();
+    
     if (adminGroups.length === 0) {
       hideGroupSelectionOverlay();
       renderEmptyState();
@@ -224,6 +269,8 @@ async function loadAdminData() {
       updateURLWithGroup(selectedGroupId);
       // Update topbar with group name
       updateTopbarGroupName();
+      // Update mobile nav user view option
+      updateMobileNavUserView();
       // Initialize notifications
       initializeDashboardNotifications();
     } else if (adminGroups.length > 0) {
@@ -322,10 +369,12 @@ async function renderGroupSelectionCards() {
 
 // Load dashboard after group selection
 async function loadDashboardAfterGroupSelection() {
+  updateCurrentDate();
   await Promise.all([
     loadDashboardStats(),
     loadGroups(),
-    loadPendingApprovals()
+    loadPendingApprovals(),
+    loadDuePayments()
   ]);
 }
 
@@ -517,7 +566,7 @@ async function loadDashboardStats() {
 
 // Render collection trends with pie charts showing various analyses
 function renderCollectionTrends(data) {
-  const chartContainer = document.querySelector('.chart-container');
+  const chartContainer = document.getElementById('chartContainer') || document.querySelector('.chart-container');
   if (!chartContainer || !currentGroup) {
     if (chartContainer) {
       chartContainer.innerHTML = '<div class="empty-state"><p>Select a group to view collection trends</p></div>';
@@ -568,37 +617,31 @@ function renderCollectionTrends(data) {
     );
   }
   
-  // 2. Payment Status Breakdown (Approved vs Pending vs Unpaid)
-  const totalPaymentStatus = approvedAmount + pendingAmount + unpaidAmount;
-  if (totalPaymentStatus > 0) {
-    const approvedPercent = (approvedAmount / totalPaymentStatus) * 100;
-    const pendingPercent = (pendingAmount / totalPaymentStatus) * 100;
-    const unpaidPercent = (unpaidAmount / totalPaymentStatus) * 100;
+  // 2. Collection Rate (Paid vs Outstanding)
+  // Calculate total expected and total collected
+  const totalExpected = totalCollectionsAmount + totalArrearsAmount;
+  if (totalExpected > 0) {
+    const collectedPercent = (totalCollectionsAmount / totalExpected) * 100;
+    const outstandingPercent = (totalArrearsAmount / totalExpected) * 100;
     
     chartHTML += createPieChart(
-      'Payment Status',
+      'Collection Rate',
       [
         {
-          label: 'Approved',
-          value: approvedAmount,
-          percentage: approvedPercent,
+          label: 'Collected',
+          value: totalCollectionsAmount,
+          percentage: collectedPercent,
           color: '#10B981' // Green
         },
         {
-          label: 'Pending',
-          value: pendingAmount,
-          percentage: pendingPercent,
-          color: '#F59E0B' // Amber
-        },
-        {
-          label: 'Unpaid',
-          value: unpaidAmount,
-          percentage: unpaidPercent,
+          label: 'Outstanding',
+          value: totalArrearsAmount,
+          percentage: outstandingPercent,
           color: '#EF4444' // Red
         }
       ],
-      totalPaymentStatus,
-      'Status'
+      totalExpected,
+      'Collection'
     );
   }
   
@@ -977,10 +1020,12 @@ window.switchGroup = async function(groupId) {
     localStorage.setItem('selectedGroupId', groupId);
     sessionStorage.setItem('selectedGroupId', groupId);
     showSpinner(true);
+    updateCurrentDate();
     await Promise.all([
       loadDashboardStats(),
       loadGroups(),
-      loadPendingApprovals()
+      loadPendingApprovals(),
+      loadDuePayments()
     ]);
     showSpinner(false);
     showToast(`Switched to ${currentGroup.groupName}`, "success");
@@ -1474,9 +1519,705 @@ function updateTopbarGroupName() {
   const topbarTitle = document.querySelector('.topbar-title');
   if (topbarTitle && currentGroup) {
     topbarTitle.innerHTML = `
-      <div style="display: flex; flex-direction: column; align-items: flex-start;">
-        <span style="font-size: 14px; font-weight: 600; color: var(--bn-dark);">${currentGroup.groupName || 'Dashboard'}</span>
-        <span style="font-size: 11px; color: var(--bn-gray); font-weight: 400;">Admin Dashboard</span>
+      <span style="font-size: 14px; font-weight: 600; color: var(--bn-dark); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;">${currentGroup.groupName || 'Dashboard'}</span>
+      <span style="font-size: 11px; color: var(--bn-gray); font-weight: 400; display: block; margin-top: 1px;">Admin Dashboard</span>
+    `;
+  }
+}
+
+// Show/hide "Switch to User View" in mobile nav based on admin status
+function updateMobileNavUserView() {
+  const switchToUserViewMobile = document.getElementById("switchToUserViewMobile");
+  if (switchToUserViewMobile) {
+    // Only show if user has admin groups (is an admin)
+    if (adminGroups && adminGroups.length > 0) {
+      switchToUserViewMobile.style.display = "flex";
+    } else {
+      switchToUserViewMobile.style.display = "none";
+    }
+  }
+}
+
+// Open stat modal
+window.openStatModal = async function(type) {
+  if (!currentGroup || !currentGroup.groupId) {
+    showToast("Please select a group first", "warning");
+    return;
+  }
+
+  const modalOverlay = document.getElementById('statModalOverlay');
+  const modalTitle = document.getElementById('statModalTitleText');
+  const modalIcon = document.getElementById('statModalIcon');
+  const modalBody = document.getElementById('statModalBody');
+
+  if (!modalOverlay || !modalTitle || !modalIcon || !modalBody) return;
+
+  // Set modal title and icon based on type
+  const modalConfig = {
+    arrears: { title: 'Arrears Details', icon: '⚠️' },
+    loans: { title: 'Active Loans', icon: '💰' },
+    pending: { title: 'Pending Approvals', icon: '⏳' },
+    collections: { title: 'Collections Overview', icon: '💵' }
+  };
+
+  const config = modalConfig[type] || { title: 'Details', icon: '📊' };
+  modalTitle.textContent = config.title;
+  modalIcon.textContent = config.icon;
+
+  // Show loading state
+  modalBody.innerHTML = `
+    <div class="stat-modal-empty">
+      <div class="stat-modal-empty-icon">⏳</div>
+      <p class="stat-modal-empty-text">Loading...</p>
+    </div>
+  `;
+
+  // Open modal
+  modalOverlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  // Load data based on type
+  try {
+    let items = [];
+    switch(type) {
+      case 'arrears':
+        items = await loadArrearsData();
+        break;
+      case 'loans':
+        items = await loadActiveLoansData();
+        break;
+      case 'pending':
+        items = await loadPendingApprovalsData();
+        break;
+      case 'collections':
+        items = await loadCollectionsData();
+        break;
+    }
+    renderStatModalItems(items, type);
+  } catch (error) {
+    console.error('Error loading modal data:', error);
+    modalBody.innerHTML = `
+      <div class="stat-modal-empty">
+        <div class="stat-modal-empty-icon">❌</div>
+        <p class="stat-modal-empty-text">Error loading data. Please try again.</p>
+      </div>
+    `;
+  }
+};
+
+// Close stat modal
+window.closeStatModal = function() {
+  const modalOverlay = document.getElementById('statModalOverlay');
+  if (modalOverlay) {
+    modalOverlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+};
+
+// Close modal when clicking overlay
+window.closeStatModalOnOverlay = function(event) {
+  if (event.target.id === 'statModalOverlay') {
+    closeStatModal();
+  }
+};
+
+// Load arrears data
+async function loadArrearsData() {
+  if (!currentGroup || !currentGroup.groupId) return [];
+
+  const arrearsList = [];
+  const groupId = currentGroup.groupId;
+  const currentYear = new Date().getFullYear();
+
+  try {
+    // Get all members
+    const membersRef = collection(db, "groups", groupId, "members");
+    const membersSnapshot = await getDocs(membersRef);
+
+    for (const memberDoc of membersSnapshot.docs) {
+      const member = memberDoc.data();
+      const memberId = memberDoc.id;
+      let totalArrears = 0;
+      const arrearsBreakdown = [];
+
+      // Check seed money arrears
+      try {
+        const seedMoneyRef = doc(db, `groups/${groupId}/payments/${currentYear}_SeedMoney/${memberId}/PaymentDetails`);
+        const seedMoneyDoc = await getDoc(seedMoneyRef);
+        if (seedMoneyDoc.exists()) {
+          const paymentData = seedMoneyDoc.data();
+          const arrears = parseFloat(paymentData.arrears || 0);
+          if (arrears > 0) {
+            totalArrears += arrears;
+            arrearsBreakdown.push({
+              type: 'Seed Money',
+              amount: arrears,
+              dueDate: paymentData.dueDate || null
+            });
+          }
+        }
+      } catch (e) {}
+
+      // Check monthly contribution arrears
+      try {
+        const monthlyRef = collection(db, `groups/${groupId}/payments/${currentYear}_MonthlyContributions/${memberId}`);
+        const monthlySnapshot = await getDocs(monthlyRef);
+        monthlySnapshot.forEach(monthDoc => {
+          const paymentData = monthDoc.data();
+          const arrears = parseFloat(paymentData.arrears || 0);
+          if (arrears > 0) {
+            totalArrears += arrears;
+            arrearsBreakdown.push({
+              type: `Monthly - ${paymentData.month || 'Unknown'}`,
+              amount: arrears,
+              dueDate: paymentData.dueDate || null
+            });
+          }
+        });
+      } catch (e) {}
+
+      if (totalArrears > 0) {
+        arrearsList.push({
+          id: memberId,
+          name: member.fullName || 'Unknown Member',
+          email: member.email || '',
+          phone: member.phone || '',
+          totalArrears: totalArrears,
+          breakdown: arrearsBreakdown,
+          type: 'arrear'
+        });
+      }
+    }
+
+    // Sort by arrears amount (highest first)
+    arrearsList.sort((a, b) => b.totalArrears - a.totalArrears);
+  } catch (error) {
+    console.error('Error loading arrears:', error);
+  }
+
+  return arrearsList;
+}
+
+// Load active loans data
+async function loadActiveLoansData() {
+  if (!currentGroup || !currentGroup.groupId) return [];
+
+  const loansList = [];
+  const groupId = currentGroup.groupId;
+
+  try {
+    const loansRef = collection(db, "groups", groupId, "loans");
+    const activeLoansQuery = query(loansRef, where("status", "==", "active"));
+    const loansSnapshot = await getDocs(activeLoansQuery);
+
+    loansSnapshot.forEach(loanDoc => {
+      const loan = loanDoc.data();
+      loansList.push({
+        id: loanDoc.id,
+        name: loan.borrowerName || 'Unknown Borrower',
+        amount: parseFloat(loan.loanAmount || loan.amount || 0),
+        purpose: loan.purpose || '',
+        dateIssued: loan.dateIssued || loan.createdAt || null,
+        repaymentDate: loan.repaymentDate || null,
+        status: loan.status,
+        type: 'loan'
+      });
+    });
+
+    // Sort by date (newest first)
+    loansList.sort((a, b) => {
+      const dateA = a.dateIssued?.toDate ? a.dateIssued.toDate() : new Date(0);
+      const dateB = b.dateIssued?.toDate ? b.dateIssued.toDate() : new Date(0);
+      return dateB - dateA;
+    });
+  } catch (error) {
+    console.error('Error loading active loans:', error);
+  }
+
+  return loansList;
+}
+
+// Load pending approvals data
+async function loadPendingApprovalsData() {
+  if (!currentGroup || !currentGroup.groupId) return [];
+
+  const pendingList = [];
+  const groupId = currentGroup.groupId;
+  const currentYear = new Date().getFullYear();
+
+  try {
+    // Pending loans
+    const loansRef = collection(db, "groups", groupId, "loans");
+    const pendingLoansQuery = query(loansRef, where("status", "==", "pending"));
+    const loansSnapshot = await getDocs(pendingLoansQuery);
+
+    loansSnapshot.forEach(loanDoc => {
+      const loan = loanDoc.data();
+      pendingList.push({
+        id: loanDoc.id,
+        name: loan.borrowerName || 'Unknown Borrower',
+        amount: parseFloat(loan.loanAmount || loan.amount || 0),
+        purpose: loan.purpose || '',
+        requestedDate: loan.createdAt || loan.requestedDate || null,
+        type: 'loan_approval'
+      });
+    });
+
+    // Pending payments
+    const membersRef = collection(db, "groups", groupId, "members");
+    const membersSnapshot = await getDocs(membersRef);
+
+    for (const memberDoc of membersSnapshot.docs) {
+      const member = memberDoc.data();
+      const memberId = memberDoc.id;
+
+      try {
+        const seedMoneyRef = doc(db, `groups/${groupId}/payments/${currentYear}_SeedMoney/${memberId}/PaymentDetails`);
+        const seedMoneyDoc = await getDoc(seedMoneyRef);
+        if (seedMoneyDoc.exists()) {
+          const paymentData = seedMoneyDoc.data();
+          if (paymentData.approvalStatus === "pending") {
+            pendingList.push({
+              id: `${memberId}_seed`,
+              name: member.fullName || 'Unknown Member',
+              amount: parseFloat(paymentData.amountPaid || 0),
+              paymentType: 'Seed Money',
+              submittedDate: paymentData.submittedAt || paymentData.createdAt || null,
+              type: 'payment_approval',
+              memberId: memberId
+            });
+          }
+        }
+      } catch (e) {}
+    }
+
+    // Sort by date (newest first)
+    pendingList.sort((a, b) => {
+      const dateA = (a.requestedDate || a.submittedDate)?.toDate ? (a.requestedDate || a.submittedDate).toDate() : new Date(0);
+      const dateB = (b.requestedDate || b.submittedDate)?.toDate ? (b.requestedDate || b.submittedDate).toDate() : new Date(0);
+      return dateB - dateA;
+    });
+  } catch (error) {
+    console.error('Error loading pending approvals:', error);
+  }
+
+  return pendingList;
+}
+
+// Load collections data
+async function loadCollectionsData() {
+  if (!currentGroup || !currentGroup.groupId) return [];
+
+  const collectionsList = [];
+  const groupId = currentGroup.groupId;
+  const currentYear = new Date().getFullYear();
+
+  try {
+    const membersRef = collection(db, "groups", groupId, "members");
+    const membersSnapshot = await getDocs(membersRef);
+
+    for (const memberDoc of membersSnapshot.docs) {
+      const member = memberDoc.data();
+      const memberId = memberDoc.id;
+      let totalCollections = 0;
+
+      // Seed money collections
+      try {
+        const seedMoneyRef = doc(db, `groups/${groupId}/payments/${currentYear}_SeedMoney/${memberId}/PaymentDetails`);
+        const seedMoneyDoc = await getDoc(seedMoneyRef);
+        if (seedMoneyDoc.exists()) {
+          const paymentData = seedMoneyDoc.data();
+          if (paymentData.approvalStatus === "approved") {
+            totalCollections += parseFloat(paymentData.amountPaid || 0);
+          }
+        }
+      } catch (e) {}
+
+      // Monthly contributions
+      try {
+        const monthlyRef = collection(db, `groups/${groupId}/payments/${currentYear}_MonthlyContributions/${memberId}`);
+        const monthlySnapshot = await getDocs(monthlyRef);
+        monthlySnapshot.forEach(monthDoc => {
+          const paymentData = monthDoc.data();
+          if (paymentData.approvalStatus === "approved") {
+            totalCollections += parseFloat(paymentData.amountPaid || 0);
+          }
+        });
+      } catch (e) {}
+
+      if (totalCollections > 0) {
+        collectionsList.push({
+          id: memberId,
+          name: member.fullName || 'Unknown Member',
+          email: member.email || '',
+          phone: member.phone || '',
+          totalCollections: totalCollections,
+          type: 'collection'
+        });
+      }
+    }
+
+    // Sort by collections amount (highest first)
+    collectionsList.sort((a, b) => b.totalCollections - a.totalCollections);
+  } catch (error) {
+    console.error('Error loading collections:', error);
+  }
+
+  return collectionsList;
+}
+
+// Render stat modal items
+function renderStatModalItems(items, type) {
+  const modalBody = document.getElementById('statModalBody');
+  if (!modalBody) return;
+
+  if (items.length === 0) {
+    modalBody.innerHTML = `
+      <div class="stat-modal-empty">
+        <div class="stat-modal-empty-icon">✅</div>
+        <p class="stat-modal-empty-text">No items found</p>
+      </div>
+    `;
+    return;
+  }
+
+  let html = '<div class="stat-modal-list">';
+
+  items.forEach(item => {
+    const initials = item.name ? item.name.charAt(0).toUpperCase() : '?';
+    const amount = item.totalArrears || item.amount || item.totalCollections || 0;
+    const detail = item.purpose || item.paymentType || item.email || item.phone || '';
+    const breakdown = item.breakdown || [];
+
+    html += `
+      <div class="stat-modal-item">
+        <div class="stat-modal-item-avatar">${initials}</div>
+        <div class="stat-modal-item-info">
+          <div class="stat-modal-item-name">${item.name}</div>
+          <div class="stat-modal-item-detail">
+            ${detail}
+            ${breakdown.length > 0 ? `<br><small style="color: var(--bn-gray); font-size: 0.75rem;">${breakdown.map(b => `${b.type}: ${formatCurrency(b.amount)}`).join(', ')}</small>` : ''}
+          </div>
+        </div>
+        <div class="stat-modal-item-amount">${formatCurrency(amount)}</div>
+        <div class="stat-modal-item-actions">
+          ${getActionButtons(item, type)}
+        </div>
+      </div>
+    `;
+  });
+
+  html += '</div>';
+  modalBody.innerHTML = html;
+}
+
+// Get action buttons based on item type and modal type
+function getActionButtons(item, modalType) {
+  if (modalType === 'arrears') {
+    return `
+      <button class="stat-modal-action-btn stat-modal-action-btn-primary" onclick="handleArrearsAction('view', '${item.id}')">
+        <span>View</span>
+      </button>
+      <button class="stat-modal-action-btn stat-modal-action-btn-secondary" onclick="handleArrearsAction('contact', '${item.id}')">
+        <span>Contact</span>
+      </button>
+    `;
+  } else if (modalType === 'loans') {
+    return `
+      <button class="stat-modal-action-btn stat-modal-action-btn-primary" onclick="handleLoanAction('view', '${item.id}')">
+        <span>View</span>
+      </button>
+      <button class="stat-modal-action-btn stat-modal-action-btn-secondary" onclick="handleLoanAction('manage', '${item.id}')">
+        <span>Manage</span>
+      </button>
+    `;
+  } else if (modalType === 'pending') {
+    if (item.type === 'loan_approval') {
+      return `
+        <button class="stat-modal-action-btn stat-modal-action-btn-primary" onclick="handleApproval('${item.id}', 'loan', '${currentGroup.groupId}', true)">
+          <span>Approve</span>
+        </button>
+        <button class="stat-modal-action-btn stat-modal-action-btn-secondary" onclick="handleApproval('${item.id}', 'loan', '${currentGroup.groupId}', false)">
+          <span>Reject</span>
+        </button>
+      `;
+    } else {
+      return `
+        <button class="stat-modal-action-btn stat-modal-action-btn-primary" onclick="handlePaymentApproval('${item.memberId}', 'seed', '${currentGroup.groupId}', true)">
+          <span>Approve</span>
+        </button>
+        <button class="stat-modal-action-btn stat-modal-action-btn-secondary" onclick="handlePaymentApproval('${item.memberId}', 'seed', '${currentGroup.groupId}', false)">
+          <span>Reject</span>
+        </button>
+      `;
+    }
+  } else if (modalType === 'collections') {
+    return `
+      <button class="stat-modal-action-btn stat-modal-action-btn-primary" onclick="handleCollectionAction('view', '${item.id}')">
+        <span>View</span>
+      </button>
+      <button class="stat-modal-action-btn stat-modal-action-btn-secondary" onclick="handleCollectionAction('history', '${item.id}')">
+        <span>History</span>
+      </button>
+    `;
+  }
+  return '';
+}
+
+// Navigate to stat page instead of modal
+window.navigateToStatPage = function(type) {
+  if (!currentGroup || !currentGroup.groupId) {
+    showToast("Please select a group first", "warning");
+    return;
+  }
+  
+  const groupId = currentGroup.groupId;
+  const pageMap = {
+    'arrears': `manage_payments.html?groupId=${groupId}&tab=arrears`,
+    'collections': `manage_payments.html?groupId=${groupId}&tab=collected`,
+    'pending': `manage_payments.html?groupId=${groupId}&tab=pending`,
+    'loans': `manage_loans.html?groupId=${groupId}`
+  };
+  
+  const url = pageMap[type];
+  if (url) {
+    window.location.href = url;
+  } else {
+    // Fallback to modal if no page mapping
+    openStatModal(type);
+  }
+};
+
+// Handle arrears actions (for modal View button - now redirects)
+window.handleArrearsAction = async function(action, memberId) {
+  if (action === 'view') {
+    window.location.href = `manage_payments.html?groupId=${currentGroup.groupId}&memberId=${memberId}&tab=arrears`;
+  } else if (action === 'contact') {
+    // Get member details and open contact options
+    try {
+      const memberRef = doc(db, "groups", currentGroup.groupId, "members", memberId);
+      const memberDoc = await getDoc(memberRef);
+      if (memberDoc.exists()) {
+        const member = memberDoc.data();
+        const phone = member.phone || '';
+        const email = member.email || '';
+        
+        if (phone) {
+          window.location.href = `tel:${phone}`;
+        } else if (email) {
+          window.location.href = `mailto:${email}`;
+        } else {
+          showToast("No contact information available", "warning");
+        }
+      }
+    } catch (error) {
+      console.error('Error getting member details:', error);
+      showToast("Error loading member details", "danger");
+    }
+  }
+};
+
+// Handle loan actions (for modal View button - now redirects)
+window.handleLoanAction = function(action, loanId) {
+  if (action === 'view' || action === 'manage') {
+    window.location.href = `manage_loans.html?groupId=${currentGroup.groupId}${loanId ? `&loanId=${loanId}` : ''}`;
+  }
+};
+
+// Handle collection actions (for modal View button - now redirects)
+window.handleCollectionAction = function(action, memberId) {
+  if (action === 'view' || action === 'history') {
+    window.location.href = `manage_payments.html?groupId=${currentGroup.groupId}&memberId=${memberId}&tab=collected`;
+  }
+};
+
+// Handle collection actions
+window.handleCollectionAction = function(action, memberId) {
+  if (action === 'view' || action === 'history') {
+    window.location.href = `manage_payments.html?groupId=${currentGroup.groupId}&memberId=${memberId}&tab=history`;
+  }
+};
+
+// Handle payment approval
+window.handlePaymentApproval = async function(memberId, paymentType, groupId, approve) {
+  try {
+    showSpinner(true);
+    const currentYear = new Date().getFullYear();
+    
+    const paymentRef = doc(db, `groups/${groupId}/payments/${currentYear}_SeedMoney/${memberId}/PaymentDetails`);
+    await updateDoc(paymentRef, {
+      approvalStatus: approve ? "approved" : "rejected",
+      approvedBy: currentUser.uid,
+      approvedAt: Timestamp.now(),
+      updatedAt: Timestamp.now()
+    });
+    
+    showToast(`Payment ${approve ? "approved" : "rejected"} successfully`, "success");
+    addSystemAlert(`Payment ${approve ? "approved" : "rejected"}`, approve ? 'success' : 'warning');
+    
+    // Reload modal data and dashboard stats
+    await loadDashboardStats();
+    
+    // Reload pending modal if it's open
+    const modalOverlay = document.getElementById('statModalOverlay');
+    if (modalOverlay && modalOverlay.classList.contains('open')) {
+      const items = await loadPendingApprovalsData();
+      renderStatModalItems(items, 'pending');
+    }
+    
+  } catch (error) {
+    console.error("Error handling payment approval:", error);
+    showToast("Error: " + error.message, "danger");
+  } finally {
+    showSpinner(false);
+  }
+};
+
+// Close modal on ESC key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const modalOverlay = document.getElementById('statModalOverlay');
+    if (modalOverlay && modalOverlay.classList.contains('open')) {
+      closeStatModal();
+    }
+  }
+});
+
+// Update current date display
+function updateCurrentDate() {
+  const dateElement = document.getElementById('currentDate');
+  if (dateElement) {
+    const now = new Date();
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    dateElement.textContent = now.toLocaleDateString('en-US', options);
+  }
+}
+
+// Load due payments for current month
+async function loadDuePayments() {
+  const duePaymentsContainer = document.getElementById('duePaymentsCards');
+  if (!duePaymentsContainer) return;
+  
+  if (!currentGroup || !currentGroup.groupId) {
+    duePaymentsContainer.innerHTML = '<div class="empty-state"><p>Select a group to view due payments</p></div>';
+    return;
+  }
+  
+  try {
+    const groupId = currentGroup.groupId;
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const monthNames = ["January", "February", "March", "April", "May", "June", 
+                       "July", "August", "September", "October", "November", "December"];
+    const currentMonthName = monthNames[currentMonth];
+    
+    const duePayments = [];
+    
+    // Get members
+    const membersRef = collection(db, "groups", groupId, "members");
+    const membersSnapshot = await getDocs(membersRef);
+    
+    // Get group data for due date settings
+    const groupDoc = await getDoc(doc(db, "groups", groupId));
+    const groupData = groupDoc.exists() ? groupDoc.data() : {};
+    const monthlyDueDay = groupData?.rules?.monthlyContribution?.dayOfMonth || groupData?.monthlyDueDay || 15;
+    
+    for (const memberDoc of membersSnapshot.docs) {
+      const member = memberDoc.data();
+      const memberId = memberDoc.id;
+      
+      // Check monthly contribution for current month
+      try {
+        const monthlyRef = collection(db, `groups/${groupId}/payments/${currentYear}_MonthlyContributions/${memberId}`);
+        const monthlySnapshot = await getDocs(monthlyRef);
+        
+        monthlySnapshot.forEach(monthDoc => {
+          const paymentData = monthDoc.data();
+          if (paymentData.month === currentMonthName && parseInt(paymentData.year) === currentYear) {
+            const arrears = parseFloat(paymentData.arrears || 0);
+            const totalAmount = parseFloat(paymentData.totalAmount || 0);
+            const amountPaid = parseFloat(paymentData.amountPaid || 0);
+            
+            // Calculate due date
+            const dueDate = new Date(currentYear, currentMonth, monthlyDueDay);
+            const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+            const isOverdue = now > dueDate && arrears > 0;
+            
+            // Only show if there's an amount due or overdue
+            if (totalAmount > 0 && (arrears > 0 || amountPaid < totalAmount)) {
+              duePayments.push({
+                memberId,
+                memberName: member.fullName || 'Unknown Member',
+                type: 'Monthly Contribution',
+                amount: arrears > 0 ? arrears : (totalAmount - amountPaid),
+                dueDate: dueDate,
+                daysUntilDue,
+                isOverdue
+              });
+            }
+          }
+        });
+      } catch (e) {
+        console.warn('Error loading monthly payment:', e);
+      }
+    }
+    
+    // Sort by overdue first, then by days until due
+    duePayments.sort((a, b) => {
+      if (a.isOverdue && !b.isOverdue) return -1;
+      if (!a.isOverdue && b.isOverdue) return 1;
+      return a.daysUntilDue - b.daysUntilDue;
+    });
+    
+    // Render cards (limit to 6 for sleek display)
+    if (duePayments.length === 0) {
+      duePaymentsContainer.innerHTML = `
+        <div class="empty-state" style="grid-column: 1 / -1; padding: var(--bn-space-4);">
+          <div class="empty-state-icon">✅</div>
+          <p class="empty-state-text">No payments due this month</p>
+        </div>
+      `;
+    } else {
+      const displayPayments = duePayments.slice(0, 6);
+      let html = '';
+      
+      displayPayments.forEach(payment => {
+        const initials = payment.memberName.charAt(0).toUpperCase();
+        const dueDateStr = payment.dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        
+        html += `
+          <div class="due-payment-card ${payment.isOverdue ? 'overdue' : ''}" onclick="window.location.href='manage_payments.html?groupId=${groupId}&memberId=${payment.memberId}&tab=arrears'" title="View ${payment.memberName}'s payments">
+            <div class="due-payment-card-header">
+              <div class="due-payment-avatar">${initials}</div>
+              <div class="due-payment-name">${payment.memberName}</div>
+            </div>
+            <div class="due-payment-amount">${formatCurrency(payment.amount)}</div>
+            <div class="due-payment-type">${payment.type}</div>
+            <div class="due-payment-date">
+              ${payment.isOverdue ? `⚠️ Overdue (${Math.abs(payment.daysUntilDue)} days)` : `Due: ${dueDateStr}`}
+            </div>
+          </div>
+        `;
+      });
+      
+      if (duePayments.length > 6) {
+        html += `
+          <div class="due-payment-card" style="border-left-color: var(--bn-gray-lighter); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-direction: column;" onclick="window.location.href='manage_payments.html?groupId=${groupId}&tab=arrears'">
+            <div style="font-size: var(--bn-text-2xl); margin-bottom: var(--bn-space-2);">+${duePayments.length - 6}</div>
+            <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); text-align: center;">More payments</div>
+          </div>
+        `;
+      }
+      
+      duePaymentsContainer.innerHTML = html;
+    }
+  } catch (error) {
+    console.error('Error loading due payments:', error);
+    duePaymentsContainer.innerHTML = `
+      <div class="empty-state" style="grid-column: 1 / -1;">
+        <div class="empty-state-icon">⚠️</div>
+        <p class="empty-state-text">Error loading due payments</p>
       </div>
     `;
   }

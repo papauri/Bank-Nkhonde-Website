@@ -292,10 +292,29 @@
     <!-- Action Tabs -->
     <div class="action-tabs">
       <button class="action-tab active" data-tab="pending">Pending Requests</button>
+      <button class="action-tab" data-tab="approved">Approved (Awaiting Disbursement)</button>
+      <button class="action-tab" data-tab="disbursed">Disbursed Loans</button>
       <button class="action-tab" data-tab="active">Active Loans</button>
       <button class="action-tab" data-tab="repaid">Repaid</button>
       <button class="action-tab" data-tab="cancelled">Cancelled</button>
       <button class="action-tab" data-tab="overdue">Overdue</button>
+    </div>
+    
+    <!-- Filter Dropdown -->
+    <div style="margin-bottom: var(--bn-space-4); display: flex; gap: var(--bn-space-3); flex-wrap: wrap; align-items: center;">
+      <select id="loanFilterDropdown" class="form-select" style="min-width: 200px;">
+        <option value="all">All Loans</option>
+        <option value="pending">Pending Only</option>
+        <option value="approved">Approved Only</option>
+        <option value="disbursed">Disbursed Only</option>
+        <option value="active">Active Only</option>
+        <option value="repaid">Repaid Only</option>
+        <option value="cancelled">Cancelled Only</option>
+        <option value="overdue">Overdue Only</option>
+      </select>
+      <select id="borrowerFilterDropdown" class="form-select" style="min-width: 200px;">
+        <option value="all">All Borrowers</option>
+      </select>
     </div>
 
     <!-- Loans List -->
@@ -523,6 +542,7 @@
   </div>
 
   <!-- Mobile Navigation -->
+  <!-- Mobile Navigation -->
   <nav class="mobile-nav">
     <a href="admin_dashboard.html" class="mobile-nav-item">
       <span class="mobile-nav-icon">🏠</span>
@@ -536,9 +556,13 @@
       <span class="mobile-nav-icon">💳</span>
       <span>Payments</span>
     </a>
-    <a href="settings.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">⚙️</span>
-      <span>Settings</span>
+    <a href="analytics.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">📊</span>
+      <span>Analytics</span>
+    </a>
+    <a href="user_dashboard.html" class="mobile-nav-item" id="switchToUserViewMobile" style="display: none;">
+      <span class="mobile-nav-icon">👤</span>
+      <span>User View</span>
     </a>
   </nav>
 

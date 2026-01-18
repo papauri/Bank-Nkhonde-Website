@@ -1,0 +1,200 @@
+/* ============================================
+   UNIFIED MOBILE NAVIGATION
+   Consistent bottom navigation across all pages
+   ============================================ */
+
+.mobile-nav {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  background: var(--bn-white) !important;
+  border-top: 1px solid var(--bn-gray-lighter) !important;
+  display: none !important;
+  justify-content: space-around !important;
+  align-items: center !important;
+  padding: var(--bn-space-2) 0 calc(var(--bn-space-2) + env(safe-area-inset-bottom, 0px)) !important;
+  z-index: var(--z-fixed) !important;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08) !important;
+  min-height: 64px !important;
+  max-height: 80px !important;
+}
+
+.mobile-nav-item {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: var(--bn-space-1) !important;
+  padding: var(--bn-space-2) var(--bn-space-3) !important;
+  text-decoration: none !important;
+  color: var(--bn-gray) !important;
+  font-size: var(--bn-text-xs) !important;
+  font-weight: 500 !important;
+  transition: all var(--bn-transition-fast) !important;
+  min-width: 0 !important;
+  flex: 1 !important;
+  max-width: 100% !important;
+  border: none !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  font-family: inherit !important;
+  touch-action: manipulation !important;
+  position: relative !important;
+}
+
+.mobile-nav-item:hover {
+  color: var(--bn-dark) !important;
+  background: var(--bn-gray-100) !important;
+}
+
+.mobile-nav-item.active {
+  color: var(--bn-accent) !important;
+  background: var(--bn-accent-subtle) !important;
+}
+
+.mobile-nav-item:active {
+  transform: scale(0.95) !important;
+}
+
+.mobile-nav-icon {
+  font-size: 1.5rem !important;
+  line-height: 1 !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 24px !important;
+}
+
+.mobile-nav-item span:not(.mobile-nav-icon) {
+  font-size: var(--bn-text-xs) !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  max-width: 100% !important;
+  letter-spacing: -0.01em !important;
+}
+
+/* Admin-specific nav item */
+.mobile-nav-item-admin {
+  color: var(--bn-gray) !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-family: inherit !important;
+  display: flex !important;
+}
+
+.mobile-nav-item-admin:active,
+.mobile-nav-item-admin:focus {
+  color: var(--bn-primary) !important;
+  outline: none !important;
+}
+
+.mobile-nav-item-admin.hidden {
+  display: none !important;
+}
+
+/* Adjust spacing when admin button is visible */
+.mobile-nav.has-admin .mobile-nav-item {
+  padding: var(--bn-space-2) var(--bn-space-2) !important;
+  gap: 2px !important;
+}
+
+.mobile-nav.has-admin .mobile-nav-item span:not(.mobile-nav-icon) {
+  font-size: 10px !important;
+}
+
+/* Show on mobile only */
+@media (max-width: 1024px) {
+  .mobile-nav {
+    display: flex !important;
+  }
+
+  /* Add padding to body on mobile to prevent content from being hidden behind nav */
+  body {
+    padding-bottom: 80px !important;
+  }
+
+  @supports (padding-bottom: env(safe-area-inset-bottom)) {
+    body {
+      padding-bottom: calc(80px + env(safe-area-inset-bottom)) !important;
+    }
+
+    .mobile-nav {
+      padding-bottom: calc(var(--bn-space-2) + env(safe-area-inset-bottom)) !important;
+    }
+  }
+}
+
+/* Hide on desktop */
+@media (min-width: 1025px) {
+  .mobile-nav {
+    display: none !important;
+  }
+
+  body {
+    padding-bottom: 0 !important;
+  }
+}
+
+
+/* Very small screens - adjust icon size */
+@media (max-width: 360px) {
+  .mobile-nav-icon {
+    font-size: 1.25rem !important;
+  }
+
+  .mobile-nav-item span:not(.mobile-nav-icon) {
+    font-size: 10px !important;
+  }
+
+  .mobile-nav-item {
+    padding: var(--bn-space-2) var(--bn-space-2) !important;
+  }
+}
+
+/* Active state with badge support */
+.mobile-nav-item.active::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  background: var(--bn-accent);
+  border-radius: 50%;
+  border: 2px solid var(--bn-white);
+}
+
+/* Notification badge on nav items */
+.mobile-nav-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--bn-danger);
+  color: var(--bn-white);
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  border: 2px solid var(--bn-white);
+  z-index: 1;
+}
+
+.mobile-nav-badge:empty {
+  min-width: 8px;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border-radius: 50%;
+}

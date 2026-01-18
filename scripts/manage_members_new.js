@@ -200,6 +200,9 @@ function openEditMemberModal(member) {
         <div class="form-group">
           <label class="form-label">Date of Birth</label>
           <input type="date" class="form-input" id="editMemberDOB" value="${member.dateOfBirth || ""}">
+          <span class="help-text" style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: var(--bn-space-1); display: block;">
+            Member must be at least 18 years old
+          </span>
         </div>
         <div class="form-group">
           <label class="form-label">Gender</label>
@@ -629,11 +632,28 @@ async function handleEditMember(e) {
 
   try {
     // Collect form data
+    const editMemberDOBInput = document.getElementById("editMemberDOB");
+    const editMemberDOB = editMemberDOBInput?.value;
+    
+    // Validate age if DOB is provided
+    if (editMemberDOB && window.DOBValidation) {
+      const validation = window.DOBValidation.validateAge(editMemberDOB);
+      if (!validation.isValid) {
+        showLoading(false);
+        alert(validation.error);
+        if (editMemberDOBInput) {
+          editMemberDOBInput.focus();
+          editMemberDOBInput.reportValidity();
+        }
+        return;
+      }
+    }
+    
     const formData = {
       fullName: document.getElementById("editMemberName")?.value.trim(),
       phone: document.getElementById("editMemberPhone")?.value.trim(),
       whatsappNumber: document.getElementById("editMemberWhatsApp")?.value.trim(),
-      dateOfBirth: document.getElementById("editMemberDOB")?.value,
+      dateOfBirth: editMemberDOB,
       gender: document.getElementById("editMemberGender")?.value,
       address: document.getElementById("editMemberAddress")?.value.trim(),
       career: document.getElementById("editMemberCareer")?.value.trim(),
@@ -704,11 +724,28 @@ async function handleAddMember(e) {
 
   try {
     // Collect form data
+    const memberDOBInput = document.getElementById("memberDOB");
+    const memberDOB = memberDOBInput?.value;
+    
+    // Validate age if DOB is provided
+    if (memberDOB && window.DOBValidation) {
+      const validation = window.DOBValidation.validateAge(memberDOB);
+      if (!validation.isValid) {
+        showLoading(false);
+        alert(validation.error);
+        if (memberDOBInput) {
+          memberDOBInput.focus();
+          memberDOBInput.reportValidity();
+        }
+        return;
+      }
+    }
+    
     const formData = {
       fullName: document.getElementById("memberName")?.value.trim(),
       phone: document.getElementById("memberPhone")?.value.trim(),
       whatsappNumber: document.getElementById("memberWhatsApp")?.value.trim() || document.getElementById("memberPhone")?.value.trim(),
-      dateOfBirth: document.getElementById("memberDOB")?.value,
+      dateOfBirth: memberDOB,
       gender: document.getElementById("memberGender")?.value,
       address: document.getElementById("memberAddress")?.value.trim(),
       career: document.getElementById("memberCareer")?.value.trim(),
@@ -802,6 +839,7 @@ async function handleAddMember(e) {
     const monthlyContributionAmount = groupData?.rules?.monthlyContribution?.amount || 0;
     const loanPenalty = groupData?.rules?.loanPenalty?.rate || 0;
     const monthlyPenalty = groupData?.rules?.monthlyPenalty?.rate || 0;
+    const serviceFeeAmount = groupData?.rules?.serviceFee?.amount || 0;
 
     // Create user document
     await setDoc(doc(db, "users", newUser.uid), {
@@ -888,7 +926,8 @@ async function handleAddMember(e) {
       seedMoneyAmount,
       monthlyContributionAmount,
       loanPenalty,
-      monthlyPenalty
+      monthlyPenalty,
+      serviceFeeAmount
     );
 
     // Update group statistics

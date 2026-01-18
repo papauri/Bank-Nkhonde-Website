@@ -175,6 +175,17 @@
       gap: var(--bn-space-4);
     }
 
+    /* Improve amount input visibility */
+    #paymentAmount {
+      font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+      letter-spacing: 0.02em;
+    }
+
+    #paymentAmount:focus {
+      border-color: var(--bn-accent);
+      box-shadow: 0 0 0 3px var(--bn-accent-subtle);
+    }
+
     @media (max-width: 640px) {
       .payment-card {
         flex-direction: column;
@@ -187,6 +198,17 @@
       }
       .form-row {
         grid-template-columns: 1fr;
+      }
+
+      #paymentAmount {
+        min-width: 100% !important;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      #paymentAmount {
+        min-width: 400px;
+        font-size: var(--bn-text-lg) !important;
       }
     }
     
@@ -280,6 +302,11 @@
         <div class="quick-action-title">Reminders</div>
         <div class="quick-action-desc">Send payment reminders</div>
       </div>
+      <div class="quick-action-card" id="viewAllPaymentDetailsBtn">
+        <div class="quick-action-icon">📋</div>
+        <div class="quick-action-title">Payment Details</div>
+        <div class="quick-action-desc">View all payment details table</div>
+      </div>
     </div>
 
     <!-- Payment Tabs -->
@@ -287,13 +314,14 @@
       <button class="payment-tab active" data-tab="pending">Pending Approval</button>
       <button class="payment-tab" data-tab="seed">Seed Money</button>
       <button class="payment-tab" data-tab="monthly">Monthly</button>
-      <button class="payment-tab" data-tab="overdue">Overdue</button>
+      <button class="payment-tab" data-tab="servicefee" style="display: none;">Service Fee</button>
+      <button class="payment-tab" data-tab="arrears">Arrears</button>
       <button class="payment-tab" data-tab="recent">Recent</button>
     </div>
 
     <!-- Payments List -->
     <section class="content-section">
-      <div class="content-section-header" style="display: flex; align-items: center; justify-content: space-between;">
+      <div class="content-section-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--bn-space-3);">
         <h2 class="content-section-title" id="paymentsListTitle">Pending Approvals</h2>
         <button class="btn btn-accent btn-sm" id="addPaymentInTabBtn" style="display: none;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -303,6 +331,42 @@
           Record Payment
         </button>
       </div>
+      
+      <!-- Filter Section -->
+      <div id="paymentFiltersContainer" style="display: none; padding: var(--bn-space-4) var(--bn-space-6); background: var(--bn-gray-50); border-radius: var(--bn-radius-lg); margin-bottom: var(--bn-space-4); border: 1px solid var(--bn-gray-lighter);">
+        <div style="display: flex; align-items: center; gap: var(--bn-space-4); flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 200px;">
+            <label style="display: block; font-size: var(--bn-text-xs); font-weight: 600; color: var(--bn-gray); text-transform: uppercase; margin-bottom: var(--bn-space-2);">Filter by Member</label>
+            <select class="form-select" id="filterByMember" style="width: 100%;">
+              <option value="">All Members</option>
+            </select>
+          </div>
+          <div style="flex: 1; min-width: 200px;">
+            <label style="display: block; font-size: var(--bn-text-xs); font-weight: 600; color: var(--bn-gray); text-transform: uppercase; margin-bottom: var(--bn-space-2);">Filter by Payment Type</label>
+            <select class="form-select" id="filterByPaymentType" style="width: 100%;">
+              <option value="">All Types</option>
+              <option value="Seed Money">Seed Money</option>
+              <option value="Monthly Contribution">Monthly Contribution</option>
+            </select>
+          </div>
+          <div id="monthFilterContainer" style="flex: 1; min-width: 200px; display: none;">
+            <label style="display: block; font-size: var(--bn-text-xs); font-weight: 600; color: var(--bn-gray); text-transform: uppercase; margin-bottom: var(--bn-space-2);">Filter by Month (Current Cycle)</label>
+            <select class="form-select" id="filterByMonth" style="width: 100%;">
+              <option value="">All Months</option>
+            </select>
+          </div>
+          <div style="display: flex; align-items: flex-end; gap: var(--bn-space-2);">
+            <button class="btn btn-ghost btn-sm" id="clearFiltersBtn" style="white-space: nowrap;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+              Clear Filters
+            </button>
+          </div>
+        </div>
+      </div>
+      
       <div class="content-section-body" id="pendingPaymentsList">
         <div class="empty-state">
           <div class="empty-state-icon">💳</div>
@@ -313,8 +377,8 @@
   </main>
 
   <!-- Record Payment Modal -->
-  <div class="modal-overlay" id="recordPaymentModal">
-    <div class="modal-content" style="max-width: 520px;">
+  <div class="modal-overlay hidden" id="recordPaymentModal" style="display: none;">
+    <div class="modal-content" style="max-width: 720px;">
       <div class="modal-header">
         <h2 class="modal-title">Record Manual Payment</h2>
         <button class="modal-close" id="closeRecordPaymentModal">&times;</button>
@@ -340,11 +404,10 @@
               <option value="">Select month...</option>
             </select>
           </div>
-          <div class="form-row">
             <div class="form-group">
               <label class="form-label">Amount (MWK) *</label>
               <div style="display: flex; gap: var(--bn-space-2); align-items: flex-end;">
-                <input type="number" class="form-input" id="paymentAmount" required min="1" step="100" style="flex: 1;">
+              <input type="number" class="form-input" id="paymentAmount" required min="0.01" step="0.01" style="flex: 1; min-width: 300px; font-size: var(--bn-text-base); padding: var(--bn-space-3) var(--bn-space-4); font-weight: 600;">
                 <button type="button" class="btn btn-ghost btn-sm" id="autoFillAmountBtn" title="Auto-fill amount due" style="white-space: nowrap;">
                   🔄 Auto-fill Due
                 </button>
@@ -353,9 +416,27 @@
                 Click "Auto-fill Due" to populate with amount owed for selected member/month
               </small>
             </div>
+          <div class="form-group">
+            <label class="form-label">
+              <input type="checkbox" id="isAdvancedPayment" style="margin-right: var(--bn-space-2);">
+              This is an Advanced Payment
+            </label>
+            <small style="color: var(--bn-gray); font-size: var(--bn-text-xs); display: block; margin-top: 4px;">
+              Advanced payments allow paying for future months/cycles. Admin payments are auto-approved.
+            </small>
+          </div>
+          <div class="form-row">
             <div class="form-group">
               <label class="form-label">Payment Date *</label>
               <input type="date" class="form-input" id="paymentDate" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Payment Method</label>
+              <select class="form-select" id="paymentMethod">
+                <option value="cash">Cash</option>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="mobile_money">Mobile Money</option>
+              </select>
             </div>
           </div>
           <div class="form-group" style="margin-top: var(--bn-space-3);">
@@ -384,12 +465,18 @@
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Payment Method</label>
-            <select class="form-select" id="paymentMethod">
-              <option value="cash">Cash</option>
-              <option value="bank_transfer">Bank Transfer</option>
-              <option value="mobile_money">Mobile Money</option>
-            </select>
+            <label class="form-label">Proof of Payment (POP) <span style="color: var(--bn-gray); font-weight: 400;">(Optional)</span></label>
+            <input type="file" class="form-input" id="recordPaymentPOP" accept="image/*,.pdf" />
+            <small style="color: var(--bn-gray); font-size: var(--bn-text-xs); margin-top: 4px; display: block;">
+              Upload proof of payment document (image or PDF). This will be linked to the payment record.
+            </small>
+            <div id="recordPaymentPOPPreview" style="margin-top: var(--bn-space-2); display: none;">
+              <div style="padding: var(--bn-space-2); background: var(--bn-success-light); border-radius: var(--bn-radius-md); display: flex; align-items: center; gap: var(--bn-space-2);">
+                <span style="color: var(--bn-success);">✓</span>
+                <span style="font-size: var(--bn-text-sm); color: var(--bn-dark);" id="recordPaymentPOPFileName"></span>
+                <button type="button" onclick="clearPOPUpload()" style="margin-left: auto; background: none; border: none; color: var(--bn-danger); cursor: pointer; font-size: var(--bn-text-lg);">×</button>
+              </div>
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label">Notes</label>
@@ -405,7 +492,7 @@
   </div>
 
   <!-- Apply Penalties Modal -->
-  <div class="modal-overlay" id="applyPenaltyModal">
+  <div class="modal-overlay hidden" id="applyPenaltyModal" style="display: none;">
     <div class="modal-content" style="max-width: 520px;">
       <div class="modal-header">
         <h2 class="modal-title">Apply Penalties</h2>
@@ -437,7 +524,7 @@
   </div>
 
   <!-- Payment Settings Modal -->
-  <div class="modal-overlay" id="paymentSettingsModal">
+  <div class="modal-overlay hidden" id="paymentSettingsModal" style="display: none;">
     <div class="modal-content" style="max-width: 520px;">
       <div class="modal-header">
         <h2 class="modal-title">Payment Settings</h2>
@@ -512,6 +599,7 @@
   </div>
 
   <!-- Mobile Navigation -->
+  <!-- Mobile Navigation -->
   <nav class="mobile-nav">
     <a href="admin_dashboard.html" class="mobile-nav-item">
       <span class="mobile-nav-icon">🏠</span>
@@ -525,15 +613,19 @@
       <span class="mobile-nav-icon">💳</span>
       <span>Payments</span>
     </a>
-    <a href="settings.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">⚙️</span>
-      <span>Settings</span>
+    <a href="analytics.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">📊</span>
+      <span>Analytics</span>
+    </a>
+    <a href="user_dashboard.html" class="mobile-nav-item" id="switchToUserViewMobile" style="display: none;">
+      <span class="mobile-nav-icon">👤</span>
+      <span>User View</span>
     </a>
   </nav>
 
   <!-- Approve Payment with POP Modal -->
   <div class="modal-overlay hidden" id="approvePaymentModal" style="display: none;">
-    <div class="modal-content" style="max-width: 500px;">
+    <div class="modal-content" style="max-width: 600px;">
       <div class="modal-header">
         <h2 class="modal-title">Approve Payment & Upload POP</h2>
         <button class="modal-close" id="closeApprovePaymentModal">&times;</button>
@@ -544,7 +636,7 @@
           
           <div class="form-group">
             <label class="form-label">Member</label>
-            <input type="text" class="form-input" id="approvePaymentMemberName" readonly style="background: var(--bn-gray-100);">
+            <input type="text" class="form-input" id="approvePaymentMemberName" readonly style="background: var(--bn-gray-100); font-weight: 600;">
           </div>
           
           <div class="form-group">
@@ -552,9 +644,26 @@
             <input type="text" class="form-input" id="approvePaymentType" readonly style="background: var(--bn-gray-100);">
           </div>
           
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--bn-space-4); margin-bottom: var(--bn-space-4);">
+            <div class="form-group">
+              <label class="form-label">Total Amount Due</label>
+              <div style="padding: var(--bn-space-3); background: var(--bn-gray-100); border-radius: var(--bn-radius-md); font-size: var(--bn-text-lg); font-weight: 700; color: var(--bn-dark);" id="approvePaymentTotalAmount">MWK 0</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Amount Paid</label>
+              <div style="padding: var(--bn-space-3); background: var(--bn-success-light); border-radius: var(--bn-radius-md); font-size: var(--bn-text-lg); font-weight: 700; color: var(--bn-success);" id="approvePaymentAmount">MWK 0</div>
+            </div>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--bn-space-4); margin-bottom: var(--bn-space-4);">
+            <div class="form-group">
+              <label class="form-label">Remaining Arrears</label>
+              <div style="padding: var(--bn-space-3); background: var(--bn-danger-light); border-radius: var(--bn-radius-md); font-size: var(--bn-text-lg); font-weight: 700; color: var(--bn-danger);" id="approvePaymentArrears">MWK 0</div>
+            </div>
           <div class="form-group">
-            <label class="form-label">Amount</label>
-            <input type="text" class="form-input" id="approvePaymentAmount" readonly style="background: var(--bn-gray-100);">
+              <label class="form-label">Payment Status</label>
+              <div style="padding: var(--bn-space-3); background: var(--bn-gray-100); border-radius: var(--bn-radius-md); font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-dark);" id="approvePaymentStatus">Pending</div>
+            </div>
           </div>
           
           <div class="form-group">
@@ -578,6 +687,22 @@
     </div>
   </div>
 
+  <!-- Payment Details Modal -->
+  <div class="modal-overlay hidden" id="paymentDetailsModal" style="display: none;">
+    <div class="modal-content" style="max-width: 800px; max-height: 90vh;">
+      <div class="modal-header">
+        <h2 class="modal-title" id="paymentDetailsModalTitle">Payment Details</h2>
+        <button class="modal-close" id="closePaymentDetailsModal">&times;</button>
+      </div>
+      <div class="modal-body" id="paymentDetailsContent" style="overflow-y: auto; max-height: calc(90vh - 150px);">
+        <!-- Content will be dynamically inserted here -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="cancelPaymentDetails">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
@@ -586,6 +711,34 @@
     <div class="spinner-content">
       <div class="spinner"></div>
       <p class="loading-text">Loading...</p>
+    </div>
+  </div>
+
+  <!-- All Payment Details Modal -->
+  <div class="modal-overlay hidden" id="allPaymentDetailsModal" style="display: none;">
+    <div class="modal-content" style="max-width: 1400px; max-height: 90vh;">
+      <div class="modal-header">
+        <h2 class="modal-title">All Payment Details</h2>
+        <button class="modal-close" id="closeAllPaymentDetailsModal">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 0;">
+        <div style="padding: var(--bn-space-4); border-bottom: 1px solid var(--bn-gray-lighter);">
+          <div style="display: flex; gap: var(--bn-space-3); align-items: center; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 200px;">
+              <label style="display: block; font-size: var(--bn-text-xs); font-weight: 600; color: var(--bn-gray); text-transform: uppercase; margin-bottom: var(--bn-space-2);">Filter by Member</label>
+              <select class="form-select" id="paymentDetailsMemberFilter" style="width: 100%;">
+                <option value="">All Members</option>
+              </select>
+            </div>
+            <button class="btn btn-ghost btn-sm" id="paymentDetailsClearFilterBtn" style="white-space: nowrap; margin-top: 24px;">
+              Clear Filter
+            </button>
+          </div>
+        </div>
+        <div id="allPaymentDetailsTableContainer" style="padding: var(--bn-space-4); max-height: calc(90vh - 180px); overflow-y: auto;">
+          <!-- Payment details table will be loaded here -->
+        </div>
+      </div>
     </div>
   </div>
 

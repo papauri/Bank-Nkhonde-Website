@@ -5,6 +5,7 @@ import {
   doc,
   getDoc,
   updateDoc,
+  setDoc,
   getDocs,
   collection,
   onAuthStateChanged,
@@ -68,10 +69,205 @@ function setupEventListeners() {
   document.getElementById("professionalForm")?.addEventListener("submit", handleProfessionalFormSubmit);
   document.getElementById("securityForm")?.addEventListener("submit", handleSecurityFormSubmit);
   document.getElementById("passwordForm")?.addEventListener("submit", handlePasswordChange);
+  document.getElementById("bankAccountForm")?.addEventListener("submit", handleBankAccountFormSubmit);
 
   // Buttons
   document.getElementById("logoutBtn")?.addEventListener("click", handleLogout);
   document.getElementById("resendVerificationBtn")?.addEventListener("click", handleResendVerification);
+  
+  // Currency selector
+  const currencySelector = document.getElementById('currencySelector');
+  if (currencySelector) {
+    const savedCurrency = localStorage.getItem('selectedCurrency') || 'MWK';
+    currencySelector.value = savedCurrency;
+    currencySelector.addEventListener('change', (e) => {
+      localStorage.setItem('selectedCurrency', e.target.value);
+      showToast('Currency preference saved. Page will reload...', 'success');
+      // Reload after a short delay to show the toast
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    });
+  }
+
+  // Notification settings
+  setupNotificationSettings();
+  
+  // Push notification setup
+  setupPushNotifications();
+  
+}
+
+/**
+ * Load notification settings from localStorage
+ */
+async function loadNotificationSettings() {
+  // This is called after form fields are populated to ensure settings are loaded
+  await setupNotificationSettings();
+}
+
+/**
+ * Setup notification sound settings
+ */
+async function setupNotificationSettings() {
+  // Import notification sounds
+  const { getSoundSettings, saveSoundSettings, testNotificationSound, SOUND_TYPES } = await import('./notification-sounds.js');
+  
+  // Load saved settings
+  const settings = getSoundSettings();
+  
+  // Sound enabled toggle
+  const soundEnabledToggle = document.getElementById('soundNotificationsEnabled');
+  if (soundEnabledToggle) {
+    soundEnabledToggle.checked = settings.enabled;
+    soundEnabledToggle.addEventListener('change', (e) => {
+      const newSettings = { ...settings, enabled: e.target.checked };
+      saveSoundSettings(newSettings);
+      showToast('Sound notification setting saved', 'success');
+      updateSoundControlsVisibility(e.target.checked);
+    });
+  }
+  
+  // Sound type selector
+  const soundTypeSelector = document.getElementById('soundTypeSelector');
+  if (soundTypeSelector) {
+    soundTypeSelector.value = settings.type;
+    soundTypeSelector.addEventListener('change', (e) => {
+      const newSettings = { ...settings, type: e.target.value };
+      saveSoundSettings(newSettings);
+      showToast('Sound type updated', 'success');
+    });
+  }
+  
+  // Volume slider
+  const volumeSlider = document.getElementById('soundVolumeSlider');
+  const volumeValue = document.getElementById('volumeValue');
+  if (volumeSlider && volumeValue) {
+    volumeSlider.value = (settings.volume * 100).toFixed(0);
+    volumeValue.textContent = (settings.volume * 100).toFixed(0);
+    
+    volumeSlider.addEventListener('input', (e) => {
+      const volume = parseInt(e.target.value) / 100;
+      volumeValue.textContent = e.target.value;
+      const newSettings = { ...settings, volume };
+      saveSoundSettings(newSettings);
+    });
+  }
+  
+  // Test sound button
+  const testSoundBtn = document.getElementById('testSoundBtn');
+  if (testSoundBtn) {
+    testSoundBtn.addEventListener('click', async () => {
+      const currentSettings = getSoundSettings();
+      testNotificationSound(currentSettings.type, currentSettings.volume);
+    });
+  }
+  
+  // Update visibility of sound controls
+  updateSoundControlsVisibility(settings.enabled);
+}
+
+/**
+ * Update visibility of sound controls based on enabled state
+ */
+function updateSoundControlsVisibility(enabled) {
+  const soundTypeGroup = document.getElementById('soundTypeGroup');
+  const soundVolumeGroup = document.getElementById('soundVolumeGroup');
+  
+  if (soundTypeGroup) {
+    soundTypeGroup.style.display = enabled ? 'block' : 'none';
+  }
+  if (soundVolumeGroup) {
+    soundVolumeGroup.style.display = enabled ? 'block' : 'none';
+  }
+}
+
+/**
+ * Setup push notifications
+ */
+async function setupPushNotifications() {
+  // Check if browser supports notifications
+  if (!('Notification' in window)) {
+    console.log('This browser does not support notifications');
+    const pushToggle = document.getElementById('pushNotificationsEnabled');
+    if (pushToggle) {
+      pushToggle.disabled = true;
+      pushToggle.parentElement.querySelector('p').textContent = 'Push notifications are not supported in this browser';
+    }
+    return;
+  }
+  
+  // Check current permission
+  const permission = Notification.permission;
+  
+  const pushToggle = document.getElementById('pushNotificationsEnabled');
+  if (!pushToggle) return;
+  
+  // Load saved preference
+  const pushEnabled = localStorage.getItem('pushNotificationsEnabled') === 'true';
+  pushToggle.checked = pushEnabled && (permission === 'granted');
+  
+  // Handle toggle change
+  pushToggle.addEventListener('change', async (e) => {
+    if (e.target.checked) {
+      // Request permission
+      const permission = await Notification.requestPermission();
+      
+      if (permission === 'granted') {
+        localStorage.setItem('pushNotificationsEnabled', 'true');
+        showToast('Push notifications enabled', 'success');
+        
+        // Register service worker and get FCM token
+        try {
+          await registerServiceWorker();
+        } catch (error) {
+          console.error('Error registering service worker:', error);
+          showToast('Failed to enable push notifications', 'error');
+          e.target.checked = false;
+        }
+      } else {
+        showToast('Push notifications permission denied', 'warning');
+        e.target.checked = false;
+      }
+    } else {
+      localStorage.setItem('pushNotificationsEnabled', 'false');
+      showToast('Push notifications disabled', 'success');
+    }
+  });
+  
+  // Auto-enable if permission was already granted
+  if (permission === 'granted' && pushEnabled) {
+    try {
+      await registerServiceWorker();
+    } catch (error) {
+      console.error('Error registering service worker:', error);
+    }
+  }
+}
+
+/**
+ * Register service worker for push notifications
+ */
+async function registerServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    try {
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+        scope: '/'
+      });
+      console.log('Service Worker registered:', registration);
+      
+      // Get FCM token (requires Firebase Cloud Messaging setup)
+      // Note: This requires Firebase Cloud Messaging SDK
+      // For now, we'll just register the service worker
+      
+      return registration;
+    } catch (error) {
+      console.error('Service Worker registration failed:', error);
+      throw error;
+    }
+  } else {
+    throw new Error('Service Workers are not supported in this browser');
+  }
 }
 
 // Load User Data
@@ -95,7 +291,7 @@ async function loadUserData() {
 }
 
 // Populate Form Fields
-function populateFormFields(data) {
+async function populateFormFields(data) {
   // Profile section
   const profileName = document.getElementById("profileName");
   const profileEmail = document.getElementById("profileEmail");
@@ -115,6 +311,9 @@ function populateFormFields(data) {
     profileImage.style.display = "block";
     if (profileInitials) profileInitials.style.display = "none";
   }
+  
+  // Load notification settings
+  await loadNotificationSettings();
 
   // Personal form
   setValue("fullName", data.fullName);
@@ -140,6 +339,14 @@ function populateFormFields(data) {
   // Security form
   setSelectValue("idType", data.idType);
   setValue("idNumber", data.idNumber);
+
+  // Bank Account form
+  setValue("bankName", data.bankName);
+  setValue("branchName", data.branchName);
+  setValue("accountNumber", data.accountNumber);
+  setValue("accountHolderName", data.accountHolderName);
+  setSelectValue("accountType", data.accountType);
+  setValue("swiftCode", data.swiftCode);
 }
 
 // Helper to set input value
@@ -226,7 +433,22 @@ async function handlePersonalFormSubmit(e) {
       fullName: document.getElementById("fullName")?.value.trim(),
       phone: document.getElementById("phone")?.value.trim(),
       whatsappNumber: document.getElementById("whatsappNumber")?.value.trim(),
-      dateOfBirth: document.getElementById("dateOfBirth")?.value,
+      dateOfBirth: (() => {
+        const dob = document.getElementById("dateOfBirth")?.value;
+        if (dob && window.DOBValidation) {
+          const validation = window.DOBValidation.validateAge(dob);
+          if (!validation.isValid) {
+            showToast(validation.error, "error");
+            const dobInput = document.getElementById("dateOfBirth");
+            if (dobInput) {
+              dobInput.focus();
+              dobInput.reportValidity();
+            }
+            throw new Error(validation.error);
+          }
+        }
+        return dob;
+      })(),
       gender: document.getElementById("gender")?.value,
       address: document.getElementById("address")?.value.trim(),
       emergencyContact: document.getElementById("emergencyContact")?.value.trim(),
@@ -325,6 +547,96 @@ async function handleSecurityFormSubmit(e) {
   } catch (error) {
     console.error("Error saving security info:", error);
     showToast("Failed to save security information", "error");
+  } finally {
+    showSpinner(false);
+  }
+}
+
+// Handle Bank Account Form Submit
+async function handleBankAccountFormSubmit(e) {
+  e.preventDefault();
+  showSpinner(true);
+
+  try {
+    const bankName = document.getElementById("bankName")?.value.trim();
+    const accountNumber = document.getElementById("accountNumber")?.value.trim();
+    const accountHolderName = document.getElementById("accountHolderName")?.value.trim();
+
+    // Validate required fields
+    if (!bankName || !accountNumber || !accountHolderName) {
+      showToast("Bank name, account number, and account holder name are required", "error");
+      showSpinner(false);
+      return;
+    }
+
+    // Get current bank account data to detect changes
+    const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+    const currentData = userDoc.exists() ? userDoc.data() : {};
+    const oldBankData = {
+      bankName: currentData.bankName || "",
+      accountNumber: currentData.accountNumber || "",
+      accountHolderName: currentData.accountHolderName || "",
+      branchName: currentData.branchName || "",
+      accountType: currentData.accountType || "",
+      swiftCode: currentData.swiftCode || "",
+    };
+
+    const newFormData = {
+      bankName: bankName,
+      branchName: document.getElementById("branchName")?.value.trim() || "",
+      accountNumber: accountNumber,
+      accountHolderName: accountHolderName,
+      accountType: document.getElementById("accountType")?.value || "",
+      swiftCode: document.getElementById("swiftCode")?.value.trim() || "",
+      updatedAt: Timestamp.now(),
+    };
+
+    // Detect changes
+    const hasChanges = 
+      oldBankData.bankName !== newFormData.bankName ||
+      oldBankData.accountNumber !== newFormData.accountNumber ||
+      oldBankData.accountHolderName !== newFormData.accountHolderName ||
+      oldBankData.branchName !== newFormData.branchName ||
+      oldBankData.accountType !== newFormData.accountType ||
+      oldBankData.swiftCode !== newFormData.swiftCode;
+
+    // Update user document
+    await updateDoc(doc(db, "users", currentUser.uid), {
+      ...newFormData,
+      bankAccountUpdatedAt: Timestamp.now(),
+      bankAccountChanged: hasChanges ? true : (currentData.bankAccountChanged || false),
+    });
+
+    // Update in all group memberships
+    await updateMemberProfileInGroups(newFormData);
+
+    // Show alert if changes detected
+    if (hasChanges) {
+      const changes = [];
+      if (oldBankData.bankName !== newFormData.bankName) {
+        changes.push(`Bank: ${oldBankData.bankName || "N/A"} → ${newFormData.bankName}`);
+      }
+      if (oldBankData.accountNumber !== newFormData.accountNumber) {
+        changes.push(`Account Number: ${oldBankData.accountNumber ? "****" + oldBankData.accountNumber.slice(-4) : "N/A"} → ****${newFormData.accountNumber.slice(-4)}`);
+      }
+      if (oldBankData.accountHolderName !== newFormData.accountHolderName) {
+        changes.push(`Account Holder: ${oldBankData.accountHolderName || "N/A"} → ${newFormData.accountHolderName}`);
+      }
+      if (oldBankData.branchName !== newFormData.branchName) {
+        changes.push(`Branch: ${oldBankData.branchName || "N/A"} → ${newFormData.branchName || "N/A"}`);
+      }
+      if (oldBankData.accountType !== newFormData.accountType) {
+        changes.push(`Account Type: ${oldBankData.accountType || "N/A"} → ${newFormData.accountType || "N/A"}`);
+      }
+
+      alert(`⚠️ BANK ACCOUNT DETAILS UPDATED\n\nChanges detected:\n${changes.join("\n")}\n\nAdmins have been notified of these changes.`);
+      showToast("Bank account details saved successfully. Admins have been notified.", "success");
+    } else {
+      showToast("Bank account details saved successfully", "success");
+    }
+  } catch (error) {
+    console.error("Error saving bank account info:", error);
+    showToast("Failed to save bank account details", "error");
   } finally {
     showSpinner(false);
   }

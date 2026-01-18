@@ -340,10 +340,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const monthlyContribution = parseFloat(groupData.monthlyContribution);
       const loanPenalty = parseFloat(groupData.loanPenalty);
       const monthlyPenalty = parseFloat(groupData.monthlyPenalty);
+      const serviceFee = parseFloat(groupData.serviceFee || 0); // Optional service fee
 
       if (
         isNaN(seedMoney) || isNaN(loanInterestMonth1) || isNaN(monthlyContribution) ||
-        isNaN(loanPenalty) || isNaN(monthlyPenalty)
+        isNaN(loanPenalty) || isNaN(monthlyPenalty) || isNaN(serviceFee)
       ) {
         throw new Error("Invalid numeric input detected. Ensure all numeric fields have valid values.");
       }
@@ -415,6 +416,15 @@ document.addEventListener("DOMContentLoaded", () => {
             required: true,
             dayOfMonth: groupData.contributionDueDay || 15,
             allowPartialPayment: true
+          },
+          // Service Fee: Optional one-time fee per cycle for operational costs (bank charges, etc.)
+          serviceFee: {
+            amount: serviceFee,
+            required: serviceFee > 0,
+            dueDate: groupData.serviceFeeDueDate || null,
+            perCycle: true, // Paid once per cycle, not monthly
+            nonRefundable: true, // Service fee is not refundable
+            description: "Operational service fee (bank charges, etc.)"
           },
           // Loan Interest: Dynamic rates per month based on max repayment period
           loanInterest: {
@@ -573,40 +583,8 @@ document.addEventListener("DOMContentLoaded", () => {
               canManageSettings: true,
               canViewReports: true
             }
-          },
-          // Additional co-admins (pending invitation acceptance)
-          ...(groupData.additionalAdmins || []).map(admin => ({
-            uid: null, // Will be set when they accept invitation
-            fullName: admin.name,
-            email: admin.email,
-            phone: null,
-            role: "admin",
-            status: "pending_invitation",
-            assignedAt: Timestamp.now(),
-            assignedBy: userId,
-            isContactAdmin: false,
-            permissions: {
-              canApprovePayments: true,
-              canApproveLoan: true,
-              canAddMembers: true,
-              canRemoveMembers: false,
-              canPromoteToAdmin: false,
-              canDemoteAdmin: false,
-              canSendBroadcasts: true,
-              canManageSettings: false,
-              canViewReports: true
-            }
-          }))
+          }
         ],
-        
-        // Pending admin invitations for tracking
-        pendingAdminInvitations: (groupData.additionalAdmins || []).map(admin => ({
-          email: admin.email,
-          name: admin.name,
-          invitedAt: Timestamp.now(),
-          invitedBy: userId,
-          status: "pending"
-        })),
         
         // Contact Information
         contactInfo: {
@@ -760,6 +738,52 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       });
 
+      // ✅ Create Service Fee Payment Document (if service fee is set)
+      if (serviceFee > 0) {
+        const serviceFeeDueDate = groupData.serviceFeeDueDate 
+          ? Timestamp.fromDate(new Date(groupData.serviceFeeDueDate))
+          : seedMoneyDueDate; // Default to seed money due date if not specified
+        
+        const serviceFeeDocRef = doc(db, `groups/${groupId}/payments`, `${currentYear}_ServiceFee`);
+        batch.set(serviceFeeDocRef, {
+          year: currentYear,
+          paymentType: "ServiceFee",
+          createdAt: Timestamp.now(),
+          totalExpected: serviceFee,
+          totalReceived: 0,
+          totalPending: 0,
+          perCycle: true,
+          nonRefundable: true
+        });
+
+        // ✅ Create User Service Fee Document
+        const userServiceFeeRef = doc(collection(serviceFeeDocRef, userId), PAYMENT_DETAILS_DOC);
+        batch.set(userServiceFeeRef, {
+          userId,
+          fullName: name,
+          paymentType: "Service Fee",
+          totalAmount: serviceFee,
+          amountPaid: 0,
+          arrears: serviceFee,
+          approvalStatus: "unpaid",
+          paymentStatus: "unpaid",
+          dueDate: serviceFeeDueDate,
+          paidAt: null,
+          approvedAt: null,
+          createdAt: Timestamp.now(),
+          updatedAt: null,
+          proofOfPayment: {
+            imageUrl: "",
+            uploadedAt: null,
+            verifiedBy: ""
+          },
+          currency: "MWK",
+          perCycle: true,
+          nonRefundable: true,
+          description: "Operational service fee (bank charges, etc.)"
+        });
+      }
+
       // ✅ Commit all changes
       toggleLoadingOverlay(true, "Finalizing your registration...");
       await batch.commit();
@@ -844,6 +868,7 @@ registrationForm.addEventListener("submit", async (e) => {
   // Get currency values (handles comma-formatted inputs)
   const seedMoney = getCurrencyValue("seedMoney");
   const monthlyContribution = getCurrencyValue("monthlyContribution");
+  const serviceFee = getCurrencyValue("serviceFee"); // Optional service fee
   const maxLoanAmountVal = getCurrencyValue("maxLoanAmount");
   const minCycleLoanAmount = getCurrencyValue("minCycleLoanAmount"); // Min loan each member must take during cycle
   
@@ -853,6 +878,7 @@ registrationForm.addEventListener("submit", async (e) => {
   const contributionDueDay = parseInt(document.getElementById("contributionDueDay")?.value) || 15;
   const expectedMembers = parseInt(document.getElementById("expectedMembers")?.value) || 0;
   const seedMoneyDueDateVal = document.getElementById("seedMoneyDueDate")?.value || '';
+  const serviceFeeDueDateVal = document.getElementById("serviceFeeDueDate")?.value || '';
   
   // Penalty settings
   const gracePeriod = parseInt(document.getElementById("gracePeriod")?.value) || 5;
@@ -917,8 +943,8 @@ registrationForm.addEventListener("submit", async (e) => {
   const requirePhoto = document.getElementById("requirePhoto")?.checked || false;
   const requireBankDetails = document.getElementById("requireBankDetails")?.checked || false;
   
-  // Get additional admins from window (set by inline script)
-  const additionalAdmins = window.additionalAdmins || [];
+  // Co-admin feature removed - keeping for backward compatibility
+  const additionalAdmins = [];
   
   // Get rules file if uploaded
   const rulesFile = window.rulesFile || null;
@@ -968,7 +994,8 @@ registrationForm.addEventListener("submit", async (e) => {
     validateField(phone, "Phone Number"),
     validateField(groupName, "Group Name"),
     validateNumericField(seedMoney, "Seed Money", 0),
-    validateNumericField(monthlyContribution, "Monthly Contribution", 1000),
+    validateNumericField(monthlyContribution, "Monthly Contribution", 0), // Allow 0 for groups that only use seed money
+    validateNumericField(serviceFee, "Service Fee", 0), // Service fee is optional, min 0
   ].forEach(error => {
     if (error) errors.push(error);
   });
@@ -1091,6 +1118,8 @@ registrationForm.addEventListener("submit", async (e) => {
       whatsappNumber, // WhatsApp number for easier communication
       seedMoney: seedMoney,
       seedMoneyDueDate: seedMoneyDueDateStr,
+      serviceFee: serviceFee || 0,
+      serviceFeeDueDate: serviceFeeDueDateVal || '',
       loanInterestMonth1: loanInterestMonth1,
       loanInterestMonth2: loanInterestMonth2,
       loanInterestMonth3: loanInterestMonth3,
@@ -1142,8 +1171,6 @@ registrationForm.addEventListener("submit", async (e) => {
       autoMonthlyReports,
       allowPartialPayments,
       
-      // Additional Admins
-      additionalAdmins: additionalAdmins || [],
       
       // Required Documents
       requiredDocuments: {

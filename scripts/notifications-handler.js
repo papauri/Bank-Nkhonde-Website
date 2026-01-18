@@ -5,8 +5,10 @@
 
 import {
   db,
+  auth,
   collection,
   getDocs,
+  getDoc,
   query,
   where,
   orderBy,
@@ -17,7 +19,9 @@ import {
   Timestamp,
   onSnapshot,
   arrayUnion,
+  writeBatch,
 } from "./firebaseConfig.js";
+import { playNotificationSound } from "./notification-sounds.js";
 
 let notificationUnsubscribe = null;
 
@@ -40,19 +44,87 @@ export function initializeNotifications(userId, groupId) {
   notificationBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     const isOpen = dropdown.classList.contains('show');
-    dropdown.classList.toggle('show');
+    const isMobile = window.innerWidth <= 768;
+    const overlay = dropdown._overlay;
     
-    if (!isOpen) {
+    if (isOpen) {
+      // Close dropdown
+      dropdown.classList.remove('show');
+      dropdown.style.display = 'none';
+      dropdown.style.opacity = '0';
+      dropdown.style.visibility = 'hidden';
+      if (overlay) {
+        overlay.style.display = 'none';
+        overlay.style.opacity = '0';
+        overlay.style.visibility = 'hidden';
+      }
+      document.body.style.overflow = '';
+    } else {
+      // Open dropdown
+      dropdown.classList.add('show');
+      dropdown.style.display = 'block';
+      dropdown.style.opacity = '1';
+      dropdown.style.visibility = 'visible';
+      if (isMobile && overlay) {
+        overlay.style.display = 'block';
+        overlay.style.opacity = '1';
+        overlay.style.visibility = 'visible';
+        overlay.style.pointerEvents = 'all';
+        document.body.style.overflow = 'hidden';
+      }
       loadNotifications(userId, groupId);
     }
   });
 
-  // Close on outside click
-  document.addEventListener('click', (e) => {
-    if (!dropdown.contains(e.target) && !notificationBtn.contains(e.target)) {
+  // Close button handler
+  const closeBtn = dropdown.querySelector('#notificationCloseBtn');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
       dropdown.classList.remove('show');
+      dropdown.style.display = 'none';
+      dropdown.style.opacity = '0';
+      dropdown.style.visibility = 'hidden';
+      const overlay = dropdown._overlay;
+      if (overlay) {
+        overlay.style.display = 'none';
+        overlay.style.opacity = '0';
+        overlay.style.visibility = 'hidden';
+      }
+      document.body.style.overflow = '';
+    });
+  }
+
+  // Close on outside click (desktop only - mobile uses overlay)
+  document.addEventListener('click', (e) => {
+    const isMobile = window.innerWidth <= 768;
+    if (!isMobile) {
+      if (!dropdown.contains(e.target) && !notificationBtn.contains(e.target)) {
+        dropdown.classList.remove('show');
+        dropdown.style.display = 'none';
+        dropdown.style.opacity = '0';
+        dropdown.style.visibility = 'hidden';
+      }
     }
   });
+  
+  // Close on escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && dropdown.classList.contains('show')) {
+      dropdown.classList.remove('show');
+      dropdown.style.display = 'none';
+      dropdown.style.opacity = '0';
+      dropdown.style.visibility = 'hidden';
+      const overlay = dropdown._overlay;
+        if (overlay) {
+          overlay.style.display = 'none';
+          overlay.style.opacity = '0';
+          overlay.style.visibility = 'hidden';
+          overlay.style.pointerEvents = 'none';
+        }
+        document.body.style.overflow = '';
+      }
+    });
 
   // Load initial notification count
   loadNotificationCount(userId, groupId, notificationBadge);
@@ -65,13 +137,31 @@ export function initializeNotifications(userId, groupId) {
 
 // Create notification dropdown
 function createNotificationDropdown() {
+  // Declare overlay variable at the top to ensure it's in scope
+  let overlay = null;
+  
+  // Check if dropdown already exists and remove it
+  const existingDropdown = document.getElementById('notificationDropdown');
+  if (existingDropdown) {
+    existingDropdown.remove();
+  }
+  
+  // Check if overlay exists and remove it
+  const existingOverlay = document.querySelector('.notification-dropdown-overlay');
+  if (existingOverlay) {
+    existingOverlay.remove();
+  }
+  
   const dropdown = document.createElement('div');
   dropdown.id = 'notificationDropdown';
   dropdown.className = 'notification-dropdown';
   dropdown.innerHTML = `
     <div class="notification-header">
       <span class="notification-title">Notifications</span>
-      <button class="notification-mark-read" id="markAllRead">Mark all read</button>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button class="notification-mark-read" id="markAllRead">Mark all read</button>
+        <button class="notification-close" id="notificationCloseBtn" aria-label="Close">×</button>
+      </div>
     </div>
     <div class="notification-list" id="notificationList">
       <div class="notification-loading">Loading...</div>
@@ -79,34 +169,107 @@ function createNotificationDropdown() {
     <a href="messages.html" class="notification-footer">View All Messages</a>
   `;
   
-  // Add styles
-  dropdown.style.cssText = `
-    position: absolute;
-    top: 100%;
-    right: 0;
-    width: 360px;
-    max-width: 90vw;
-    background: white;
-    border: 1px solid var(--bn-gray-lighter);
-    border-radius: var(--bn-radius-xl);
-    box-shadow: var(--bn-shadow-lg);
-    z-index: 1000;
-    display: none;
-    overflow: hidden;
-    margin-top: 8px;
+  // Add styles - responsive positioning
+  const isMobile = window.innerWidth <= 768;
+  dropdown.style.cssText = isMobile ? `
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 90vw !important;
+    max-width: 420px !important;
+    max-height: 85vh !important;
+    background: white !important;
+    border: 1px solid var(--bn-gray-lighter) !important;
+    border-radius: var(--bn-radius-xl) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+    z-index: 10001 !important;
+    display: none !important;
+    overflow: hidden !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  ` : `
+    position: absolute !important;
+    top: 100% !important;
+    right: 0 !important;
+    width: 360px !important;
+    max-width: 90vw !important;
+    background: white !important;
+    border: 1px solid var(--bn-gray-lighter) !important;
+    border-radius: var(--bn-radius-xl) !important;
+    box-shadow: var(--bn-shadow-lg) !important;
+    z-index: 1000 !important;
+    display: none !important;
+    overflow: hidden !important;
+    margin-top: 8px !important;
   `;
+
+  // Create overlay for mobile
+  if (isMobile) {
+    overlay = document.createElement('div');
+    overlay.className = 'notification-dropdown-overlay';
+    overlay.style.cssText = `
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      background: rgba(10, 22, 40, 0.75) !important;
+      backdrop-filter: blur(8px) !important;
+      -webkit-backdrop-filter: blur(8px) !important;
+      z-index: 10000 !important;
+      display: none !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      pointer-events: all !important;
+    `;
+    overlay.addEventListener('click', () => {
+      dropdown.classList.remove('show');
+      dropdown.style.display = 'none';
+      dropdown.style.opacity = '0';
+      dropdown.style.visibility = 'hidden';
+      if (overlay) {
+        overlay.style.display = 'none';
+        overlay.style.opacity = '0';
+        overlay.style.visibility = 'hidden';
+        overlay.style.pointerEvents = 'none';
+      }
+      document.body.style.overflow = '';
+    });
+    document.body.appendChild(overlay);
+  }
+  
+  // Store overlay reference on dropdown for access in event handlers
+  dropdown._overlay = overlay;
 
   // Add CSS for dropdown
   if (!document.getElementById('notificationStyles')) {
     const style = document.createElement('style');
     style.id = 'notificationStyles';
     style.textContent = `
-      .notification-dropdown.show { display: block !important; }
+      .notification-dropdown.show { 
+        display: block !important; 
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
+      .notification-dropdown-overlay.show { 
+        display: block !important; 
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: all !important;
+      }
+      
       .notification-header { 
         display: flex; justify-content: space-between; align-items: center;
         padding: 16px; border-bottom: 1px solid var(--bn-gray-lighter);
         background: var(--bn-gray-100);
+        position: relative;
       }
+      
+      .notification-header .notification-close {
+        display: none;
+      }
+      
       .notification-title { font-weight: 700; color: var(--bn-dark); }
       .notification-mark-read { 
         font-size: 12px; color: var(--bn-primary); background: none; 
@@ -142,20 +305,149 @@ function createNotificationDropdown() {
         text-decoration: none; border-top: 1px solid var(--bn-gray-lighter);
       }
       .notification-footer:hover { background: var(--bn-gray-100); }
+      
+      /* Mobile styles */
+      @media (max-width: 768px) {
+        .notification-dropdown {
+          position: fixed !important;
+          top: 50% !important;
+          left: 50% !important;
+          transform: translate(-50%, -50%) !important;
+          width: 90vw !important;
+          max-width: 420px !important;
+          max-height: 85vh !important;
+          z-index: 10001 !important;
+          background: white !important;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+          display: none !important;
+          opacity: 0 !important;
+          visibility: hidden !important;
+        }
+        
+        .notification-dropdown.show {
+          display: block !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+        
+        .notification-dropdown-overlay {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          background: rgba(10, 22, 40, 0.75) !important;
+          backdrop-filter: blur(8px) !important;
+          -webkit-backdrop-filter: blur(8px) !important;
+          z-index: 10000 !important;
+          display: none !important;
+          opacity: 0 !important;
+          visibility: hidden !important;
+          pointer-events: none !important;
+        }
+        
+        .notification-dropdown-overlay.show {
+          display: block !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+          pointer-events: all !important;
+        }
+        
+        .notification-header .notification-close {
+          display: flex !important;
+        }
+        
+        .notification-list {
+          max-height: calc(85vh - 140px) !important;
+          overflow-y: auto !important;
+          -webkit-overflow-scrolling: touch !important;
+        }
+        
+        .notification-header {
+          padding: 12px 16px;
+        }
+        
+        .notification-header .notification-close {
+          display: flex !important;
+          width: 32px;
+          height: 32px;
+          align-items: center;
+          justify-content: center;
+          border: none;
+          background: transparent;
+          border-radius: 50%;
+          cursor: pointer;
+          color: var(--bn-gray);
+          font-size: 20px;
+          padding: 0;
+        }
+        
+        .notification-header .notification-close:hover {
+          background: var(--bn-gray-200);
+          color: var(--bn-dark);
+        }
+      }
     `;
     document.head.appendChild(style);
   }
 
   // Mark all read handler
-  dropdown.querySelector('#markAllRead').addEventListener('click', async (e) => {
-    e.stopPropagation();
-    await markAllNotificationsRead();
-    dropdown.querySelectorAll('.notification-item.unread').forEach(item => {
-      item.classList.remove('unread');
+  const markAllReadBtn = dropdown.querySelector('#markAllRead');
+  if (markAllReadBtn) {
+    markAllReadBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      
+      // Disable button during operation
+      const originalText = markAllReadBtn.textContent;
+      markAllReadBtn.disabled = true;
+      markAllReadBtn.textContent = 'Marking...';
+      
+      try {
+        const count = await markAllNotificationsRead();
+        
+        // Reload notifications after marking as read
+        const currentUserId = auth.currentUser?.uid || window.currentUser?.uid;
+        const selectedGroupId = localStorage.getItem('selectedGroupId') || sessionStorage.getItem('selectedGroupId');
+        
+        if (count > 0) {
+          // Update UI immediately
+          dropdown.querySelectorAll('.notification-item.unread').forEach(item => {
+            item.classList.remove('unread');
+          });
+          
+          // Remove unread items from list on mobile
+          const isMobile = window.innerWidth <= 768;
+          if (isMobile) {
+            dropdown.querySelectorAll('.notification-item.unread').forEach(item => {
+              item.remove();
+            });
+          }
+          
+          const badge = document.getElementById('notificationBadge');
+          if (badge) badge.style.display = 'none';
+          
+          // Hide "Mark all as read" button if no unread notifications
+          markAllReadBtn.style.display = 'none';
+          
+          // Reload notifications to update the list
+          if (currentUserId && selectedGroupId) {
+            await loadNotifications(currentUserId, selectedGroupId);
+          }
+        } else {
+          // No notifications to mark
+          markAllReadBtn.style.display = 'none';
+        }
+      } catch (error) {
+        console.error('Error marking all as read:', error);
+        alert('Error marking notifications as read. Please try again.');
+      } finally {
+        // Re-enable button
+        markAllReadBtn.disabled = false;
+        markAllReadBtn.textContent = originalText;
+      }
     });
-    const badge = document.getElementById('notificationBadge');
-    if (badge) badge.style.display = 'none';
-  });
+  }
 
   return dropdown;
 }
@@ -202,7 +494,8 @@ async function loadNotifications(userId, groupId) {
         // Check if notification is for this user
         const isForUser = (data.userId === userId) || (data.recipientId === userId);
         if (isForUser) {
-          const isRead = data.read || data.readBy?.includes(userId) || false;
+          // Check if notification is read (using both read flag and readBy array)
+          const isRead = data.read === true || data.readBy?.includes(userId);
           notifications.push({
             id: doc.id,
             ...data,
@@ -221,10 +514,12 @@ async function loadNotifications(userId, groupId) {
       
       userNotifSnapshot.forEach(doc => {
         const data = doc.data();
+        // Check if notification is read (using both read flag and readBy array)
+        const isRead = data.read === true || data.readBy?.includes(userId);
         notifications.push({
           id: doc.id,
           ...data,
-          isRead: data.read || false,
+          isRead,
           source: 'user'
         });
       });
@@ -239,17 +534,43 @@ async function loadNotifications(userId, groupId) {
       return dateB - dateA;
     });
 
+    // Filter unread notifications for mobile
+    const isMobile = window.innerWidth <= 768;
+    const unreadNotifications = notifications.filter(notif => !notif.isRead);
+    const notificationsToShow = isMobile ? unreadNotifications : notifications;
+
+    // Update "Mark all as read" button visibility
+    const markAllReadBtn = document.getElementById('markAllRead');
+    if (markAllReadBtn) {
+      if (unreadNotifications.length === 0) {
+        markAllReadBtn.style.display = 'none';
+      } else {
+        markAllReadBtn.style.display = 'block';
+      }
+    }
+
     // Render
-    if (notifications.length === 0) {
-      list.innerHTML = '<div class="notification-empty">No notifications</div>';
+    if (notificationsToShow.length === 0) {
+      if (isMobile && unreadNotifications.length === 0 && notifications.length > 0) {
+        list.innerHTML = '<div class="notification-empty">No unread notifications</div>';
+      } else {
+        list.innerHTML = '<div class="notification-empty">No notifications</div>';
+      }
       return;
     }
 
-    list.innerHTML = notifications.slice(0, 15).map(notif => {
+    list.innerHTML = notificationsToShow.slice(0, 15).map(notif => {
       const icon = getNotificationIcon(notif.type);
       const timeAgo = getTimeAgo(notif.createdAt?.toDate?.() || new Date());
       const notifGroupId = notif.groupId || (notif.source === 'group' ? groupId : null);
       const notifUserId = notif.userId || notif.recipientId;
+      
+      // Escape JavaScript string values properly for onclick attributes
+      const safeId = (notif.id || '').replace(/'/g, "\\'").replace(/"/g, '\\"');
+      const safeGroupId = (notifGroupId || '').replace(/'/g, "\\'").replace(/"/g, '\\"');
+      const safeSource = (notif.source || '').replace(/'/g, "\\'").replace(/"/g, '\\"');
+      const safeTitle = (notif.title || 'Notification').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, ' ').replace(/\r/g, '');
+      const safeMessage = (notif.message || '').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, ' ').replace(/\r/g, '');
       
       return `
         <div class="notification-item ${notif.isRead ? '' : 'unread'}" 
@@ -257,14 +578,14 @@ async function loadNotifications(userId, groupId) {
              data-source="${notif.source}"
              data-group-id="${notifGroupId || ''}"
              data-user-id="${notifUserId || ''}"
-             onclick="openNotification('${notif.id}', '${notifGroupId || ''}', '${notif.source}', '${escapeHtml(notif.title || 'Notification')}', '${escapeHtml(notif.message || '')}')">
+             onclick="openNotification('${safeId}', '${safeGroupId}', '${safeSource}', '${safeTitle}', '${safeMessage}')">
           <div class="notification-icon">${icon}</div>
           <div class="notification-content">
             <div class="notification-text">${escapeHtml(notif.title || notif.message || 'Notification')}</div>
             <div class="notification-time">${timeAgo}</div>
           </div>
           <button class="notification-delete" 
-                  onclick="event.stopPropagation(); deleteNotification('${notif.id}', '${notifGroupId || ''}', '${notif.source}');" 
+                  onclick="event.stopPropagation(); deleteNotification('${safeId}', '${safeGroupId}', '${safeSource}');" 
                   title="Delete notification">
             ×
           </button>
@@ -324,16 +645,25 @@ async function loadNotificationCount(userId, groupId, badgeElement) {
       const groupNotifRef = collection(db, `groups/${groupId}/notifications`);
       let groupNotifSnapshot;
       try {
-        groupNotifSnapshot = await getDocs(query(groupNotifRef, orderBy('createdAt', 'desc'), limit(50)));
+        groupNotifSnapshot = await getDocs(query(groupNotifRef, orderBy('createdAt', 'desc'), limit(100)));
       } catch (error) {
-        groupNotifSnapshot = { forEach: () => {} }; // Empty snapshot if query fails
+        // If ordering fails, get all without order
+        try {
+          groupNotifSnapshot = await getDocs(groupNotifRef);
+        } catch (err) {
+          groupNotifSnapshot = { forEach: () => {} }; // Empty snapshot if query fails
+        }
       }
       
       groupNotifSnapshot.forEach(doc => {
         const data = doc.data();
         const isForUser = (data.userId === userId) || (data.recipientId === userId);
-        if (isForUser && !data.read && !data.readBy?.includes(userId)) {
-          unreadCount++;
+        if (isForUser) {
+          // Check if notification is unread
+          const isRead = data.read === true || data.readBy?.includes(userId);
+          if (!isRead) {
+            unreadCount++;
+          }
         }
       });
     }
@@ -357,22 +687,45 @@ function setupRealtimeNotifications(userId, groupId, badgeElement) {
 
   try {
     const groupNotifRef = collection(db, `groups/${groupId}/notifications`);
+    let notificationQuery;
+    try {
+      notificationQuery = query(groupNotifRef, orderBy('createdAt', 'desc'), limit(100));
+    } catch (error) {
+      // If ordering fails, get all without order
+      notificationQuery = groupNotifRef;
+    }
+    
     notificationUnsubscribe = onSnapshot(
-      query(groupNotifRef, orderBy('createdAt', 'desc'), limit(50)),
+      notificationQuery,
       (snapshot) => {
         let unreadCount = 0;
         snapshot.forEach(doc => {
           const data = doc.data();
           const isForUser = (data.userId === userId) || (data.recipientId === userId);
-          if (isForUser && !data.read && !data.readBy?.includes(userId)) {
-            unreadCount++;
+          if (isForUser) {
+            // Check if notification is unread (using both read flag and readBy array)
+            const isRead = data.read === true || data.readBy?.includes(userId);
+            if (!isRead) {
+              unreadCount++;
+            }
           }
         });
 
         if (badgeElement) {
+          const previousCount = parseInt(badgeElement.textContent) || 0;
           if (unreadCount > 0) {
             badgeElement.style.display = 'block';
             badgeElement.textContent = unreadCount > 9 ? '9+' : unreadCount;
+            
+            // Play sound if new notification arrived
+            if (unreadCount > previousCount) {
+              playNotificationSound();
+              
+              // Show browser notification if permission granted
+              if (Notification.permission === 'granted' && localStorage.getItem('pushNotificationsEnabled') === 'true') {
+                showBrowserNotification('New Notification', 'You have a new notification');
+              }
+            }
           } else {
             badgeElement.style.display = 'none';
           }
@@ -387,11 +740,122 @@ function setupRealtimeNotifications(userId, groupId, badgeElement) {
   }
 }
 
+/**
+ * Show browser notification
+ */
+function showBrowserNotification(title, body, data = {}) {
+  if (!('Notification' in window)) {
+    return;
+  }
+  
+  if (Notification.permission === 'granted') {
+    const notification = new Notification(title, {
+      body,
+      icon: '/assets/favicon.png',
+      badge: '/assets/favicon.png',
+      tag: 'bank-nkhonde-notification',
+      requireInteraction: false,
+      silent: false,
+      vibrate: [200, 100, 200],
+      data
+    });
+    
+    notification.onclick = () => {
+      window.focus();
+      notification.close();
+    };
+    
+    // Auto-close after 5 seconds
+    setTimeout(() => {
+      notification.close();
+    }, 5000);
+  }
+}
+
 // Mark all notifications as read
 async function markAllNotificationsRead() {
-  // This would update the readBy array for all group notifications
-  // Implementation depends on your exact requirements
-  console.log('Mark all read triggered');
+  try {
+    // Get userId from auth.currentUser first, then fallback to window.currentUser
+    const userId = auth.currentUser?.uid || window.currentUser?.uid;
+    if (!userId) {
+      console.error('No user ID available for marking notifications as read');
+      return 0;
+    }
+    
+    const selectedGroupId = localStorage.getItem('selectedGroupId') || sessionStorage.getItem('selectedGroupId');
+    if (!selectedGroupId) return 0;
+    
+    // Get all notifications for this user in this group and filter unread ones
+    const groupNotifRef = collection(db, `groups/${selectedGroupId}/notifications`);
+    let allSnapshot;
+    try {
+      // Try to get all notifications ordered by date
+      allSnapshot = await getDocs(query(groupNotifRef, orderBy('createdAt', 'desc'), limit(100)));
+    } catch (error) {
+      // If ordering fails, get all without order
+      allSnapshot = await getDocs(groupNotifRef);
+    }
+    
+    // Filter for unread notifications for this user
+    const unreadDocs = allSnapshot.docs.filter(docSnap => {
+      const data = docSnap.data();
+      const isForUser = (data.userId === userId) || (data.recipientId === userId);
+      if (!isForUser) return false;
+      
+      // Check if notification is unread
+      const isRead = data.read === true || data.readBy?.includes(userId);
+      return !isRead;
+    });
+    
+    if (unreadDocs.length === 0) {
+      return 0;
+    }
+    
+    // Mark all as read using batch
+    const batch = writeBatch(db);
+    let updateCount = 0;
+    
+    unreadDocs.forEach((docSnap) => {
+      const notificationRef = doc(db, `groups/${selectedGroupId}/notifications`, docSnap.id);
+      const currentData = docSnap.data();
+      const currentReadBy = currentData.readBy || [];
+      
+      // Only update if not already read by this user
+      if (!currentReadBy.includes(userId)) {
+        batch.update(notificationRef, {
+          read: true,
+          readAt: Timestamp.now(),
+          readBy: arrayUnion(userId)
+        });
+        updateCount++;
+      }
+    });
+    
+    if (updateCount > 0) {
+      await batch.commit();
+      
+      // Wait a bit for Firestore to propagate changes
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    // Reload notifications immediately
+    const badgeElement = document.getElementById('notificationBadge');
+    if (badgeElement) {
+      await loadNotificationCount(userId, selectedGroupId, badgeElement);
+    }
+    
+    await loadNotifications(userId, selectedGroupId);
+    
+    // Reload dashboard notifications if on user dashboard
+    if (window.loadDashboardNotifications) {
+      await window.loadDashboardNotifications(userId, selectedGroupId);
+    }
+    
+    return updateCount;
+  } catch (error) {
+    console.error('Error marking all notifications as read:', error);
+    throw error;
+  }
 }
 
 // Get notification icon based on type
@@ -431,16 +895,38 @@ function getTimeAgo(date) {
 // Open notification (click handler)
 async function openNotification(notifId, groupId, source, title, message) {
   try {
+    // Play notification sound if enabled
+    try {
+      const { playNotificationSound } = await import('./notification-sounds.js');
+      playNotificationSound();
+    } catch (error) {
+      console.log('Could not play notification sound:', error);
+    }
+    
     // Mark as read - update both read flag and readBy array
     if (source === 'group' && groupId) {
-      const userId = window.currentUser?.uid;
+      // Get userId from auth.currentUser first, then fallback to window.currentUser
+      const userId = auth.currentUser?.uid || window.currentUser?.uid;
       if (userId) {
         const notificationRef = doc(db, `groups/${groupId}/notifications`, notifId);
-        await updateDoc(notificationRef, {
-          read: true,
-          readAt: Timestamp.now(),
-          readBy: arrayUnion(userId)
-        });
+        
+        // First check if it's already read to avoid unnecessary updates
+        const notifDoc = await getDoc(notificationRef);
+        if (notifDoc.exists()) {
+          const currentData = notifDoc.data();
+          const isAlreadyRead = currentData.read === true || currentData.readBy?.includes(userId);
+          
+          if (!isAlreadyRead) {
+            await updateDoc(notificationRef, {
+              read: true,
+              readAt: Timestamp.now(),
+              readBy: arrayUnion(userId)
+            });
+            
+            // Wait a bit for Firestore to propagate changes
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+        }
         
         // Update badge count immediately
         const badgeElement = document.getElementById('notificationBadge');
@@ -490,13 +976,28 @@ async function openNotification(notifId, groupId, source, title, message) {
     document.body.appendChild(modal);
     
     // Reload notifications to update read status and badge
-    const currentUserId = window.currentUser?.uid;
+    const currentUserId = auth.currentUser?.uid || window.currentUser?.uid;
     if (groupId && currentUserId) {
       const badgeElement = document.getElementById('notificationBadge');
       if (badgeElement) {
         await loadNotificationCount(currentUserId, groupId, badgeElement);
       }
-      loadNotifications(currentUserId, groupId);
+      
+      // Remove notification from list on mobile if it becomes read
+      const isMobile = window.innerWidth <= 768;
+      if (isMobile) {
+        const notificationItem = document.querySelector(`[data-id="${notifId}"]`);
+        if (notificationItem) {
+          notificationItem.remove();
+        }
+      }
+      
+      await loadNotifications(currentUserId, groupId);
+      
+      // Reload dashboard notifications if on user dashboard
+      if (window.loadDashboardNotifications) {
+        await window.loadDashboardNotifications(currentUserId, groupId);
+      }
     }
   } catch (error) {
     console.error('Error opening notification:', error);
@@ -530,10 +1031,21 @@ async function deleteNotification(notifId, groupId, source) {
     }
     
     // Reload notifications
-    const userId = window.currentUser?.uid;
+    const userId = auth.currentUser?.uid || window.currentUser?.uid;
     if (groupId && userId) {
-      loadNotifications(userId, groupId);
-      loadNotificationCount(userId, groupId, document.getElementById('notificationBadge'));
+      await loadNotifications(userId, groupId);
+      await loadNotificationCount(userId, groupId, document.getElementById('notificationBadge'));
+      
+      // Check if "Mark all as read" should be hidden
+      const markAllReadBtn = document.getElementById('markAllRead');
+      if (markAllReadBtn) {
+        const unreadItems = document.querySelectorAll('.notification-item.unread');
+        if (unreadItems.length === 0) {
+          markAllReadBtn.style.display = 'none';
+        } else {
+          markAllReadBtn.style.display = 'block';
+        }
+      }
     }
   } catch (error) {
     console.error('Error deleting notification:', error);
@@ -551,6 +1063,9 @@ function escapeHtml(text) {
 // Make functions available globally
 window.openNotification = openNotification;
 window.deleteNotification = deleteNotification;
+window.loadNotifications = loadNotifications;
+window.loadNotificationCount = loadNotificationCount;
+window.markAllNotificationsRead = markAllNotificationsRead;
 
 // Cleanup
 export function cleanupNotifications() {

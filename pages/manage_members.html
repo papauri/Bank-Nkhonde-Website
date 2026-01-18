@@ -506,6 +506,9 @@
               <div class="form-group">
                 <label class="form-label">Date of Birth</label>
                 <input type="date" class="form-input" id="memberDOB">
+                <span class="help-text" style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: var(--bn-space-1); display: block;">
+                  Member must be at least 18 years old
+                </span>
               </div>
               <div class="form-group">
                 <label class="form-label">Gender</label>
@@ -706,22 +709,27 @@
   </div>
 
   <!-- Mobile Navigation -->
+  <!-- Mobile Navigation -->
   <nav class="mobile-nav">
     <a href="admin_dashboard.html" class="mobile-nav-item">
       <span class="mobile-nav-icon">🏠</span>
       <span>Home</span>
     </a>
-    <a href="manage_members.html" class="mobile-nav-item active">
-      <span class="mobile-nav-icon">👥</span>
-      <span>Members</span>
+    <a href="manage_loans.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">💰</span>
+      <span>Loans</span>
     </a>
     <a href="manage_payments.html" class="mobile-nav-item">
       <span class="mobile-nav-icon">💳</span>
       <span>Payments</span>
     </a>
-    <a href="settings.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">⚙️</span>
-      <span>Settings</span>
+    <a href="analytics.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">📊</span>
+      <span>Analytics</span>
+    </a>
+    <a href="user_dashboard.html" class="mobile-nav-item" id="switchToUserViewMobile" style="display: none;">
+      <span class="mobile-nav-icon">👤</span>
+      <span>User View</span>
     </a>
   </nav>
 
@@ -736,6 +744,7 @@
     </div>
   </div>
 
+  <script src="../scripts/dob-validation.js"></script>
   <script src="../scripts/modal-utils.js"></script>
   <script type="module" src="../scripts/manage_members_new.js"></script>
 </body>

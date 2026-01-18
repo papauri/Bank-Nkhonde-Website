@@ -88,12 +88,22 @@ async function loadGroupRules() {
     }
 
     // Check for text rules - check all possible field names
-    const textRules = groupData.governance?.rules || 
-                      groupData.governance?.text || 
-                      groupData.governanceRules || 
-                      groupData.rules || 
-                      groupData.textRules || 
-                      "";
+    // Note: groupData.rules might be an object, so we check text-specific fields first
+    let textRules = groupData.governance?.text || 
+                    groupData.governance?.rulesText || 
+                    groupData.governanceRules ||
+                    groupData.textRules || 
+                    "";
+    
+    // If governance.rules exists and is a string, use it
+    if (!textRules && groupData.governance?.rules && typeof groupData.governance.rules === 'string') {
+      textRules = groupData.governance.rules;
+    }
+    
+    // Ensure textRules is a string
+    if (typeof textRules !== 'string') {
+      textRules = "";
+    }
 
     // Check for PDF URL - check all possible field names
     const pdfUrl = groupData.governance?.rulesDocumentUrl || 
@@ -107,7 +117,7 @@ async function loadGroupRules() {
     let hasContent = false;
 
     // Display text rules
-    if (textRules && textRules.trim()) {
+    if (textRules && typeof textRules === 'string' && textRules.trim()) {
       if (textRulesContainer) textRulesContainer.style.display = 'block';
       if (textRulesContent) textRulesContent.textContent = textRules;
       hasContent = true;

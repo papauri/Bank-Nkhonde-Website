@@ -2,7 +2,7 @@ import { db, doc, setDoc, getDoc, collection, Timestamp } from "./firebaseConfig
 
 /**
  * Initialize payment records for a new member
- * Creates seed money and monthly contribution records matching the database structure
+ * Creates seed money, monthly contribution, and service fee records matching the database structure
  * @param {string} groupId - The group ID
  * @param {string} memberId - The member's user ID
  * @param {string} memberName - The member's full name
@@ -10,8 +10,9 @@ import { db, doc, setDoc, getDoc, collection, Timestamp } from "./firebaseConfig
  * @param {number} monthlyContribution - Monthly contribution amount
  * @param {number} loanPenalty - Loan penalty percentage
  * @param {number} monthlyPenalty - Monthly penalty percentage
+ * @param {number} serviceFee - Service fee amount (optional, defaults to 0)
  */
-export async function updatePaymentsForNewMember(groupId, memberId, memberName, seedMoney, monthlyContribution, loanPenalty, monthlyPenalty) {
+export async function updatePaymentsForNewMember(groupId, memberId, memberName, seedMoney, monthlyContribution, loanPenalty, monthlyPenalty, serviceFee = 0) {
   try {
     const currentYear = new Date().getFullYear();
     const PAYMENT_DETAILS_DOC = "PaymentDetails";
@@ -24,6 +25,8 @@ export async function updatePaymentsForNewMember(groupId, memberId, memberName, 
     const groupData = groupDoc.data();
     const cycleDates = groupData.cycleDates || [];
     const seedMoneyDueDate = groupData.rules?.seedMoney?.dueDate || Timestamp.now();
+    const serviceFeeAmount = serviceFee || (groupData.rules?.serviceFee?.amount || 0);
+    const serviceFeeDueDate = groupData.rules?.serviceFee?.dueDate || seedMoneyDueDate;
 
     // 1. Create Seed Money Payment Record
     const seedMoneyDocRef = doc(db, `groups/${groupId}/payments`, `${currentYear}_SeedMoney`);
@@ -121,7 +124,54 @@ export async function updatePaymentsForNewMember(groupId, memberId, memberName, 
       }
     }
 
-    // 3. Update member's financial summary
+    // 3. Create Service Fee Payment Record (if service fee is set)
+    if (serviceFeeAmount > 0) {
+      const serviceFeeDocRef = doc(db, `groups/${groupId}/payments`, `${currentYear}_ServiceFee`);
+      
+      // Ensure parent document exists
+      const serviceFeeParent = await getDoc(serviceFeeDocRef);
+      if (!serviceFeeParent.exists()) {
+        await setDoc(serviceFeeDocRef, {
+          year: currentYear,
+          paymentType: "ServiceFee",
+          createdAt: Timestamp.now(),
+          totalExpected: parseFloat(serviceFeeAmount) || 0,
+          totalReceived: 0,
+          totalPending: 0,
+          perCycle: true,
+          nonRefundable: true
+        });
+      }
+
+      // Create user service fee document
+      const userServiceFeeRef = doc(collection(serviceFeeDocRef, memberId), PAYMENT_DETAILS_DOC);
+      await setDoc(userServiceFeeRef, {
+        userId: memberId,
+        fullName: memberName,
+        paymentType: "Service Fee",
+        totalAmount: parseFloat(serviceFeeAmount) || 0,
+        amountPaid: 0,
+        arrears: parseFloat(serviceFeeAmount) || 0,
+        approvalStatus: "unpaid",
+        paymentStatus: "unpaid",
+        dueDate: serviceFeeDueDate.toDate ? serviceFeeDueDate : Timestamp.fromDate(new Date(serviceFeeDueDate)),
+        paidAt: null,
+        approvedAt: null,
+        createdAt: Timestamp.now(),
+        updatedAt: null,
+        proofOfPayment: {
+          imageUrl: "",
+          uploadedAt: null,
+          verifiedBy: ""
+        },
+        currency: "MWK",
+        perCycle: true,
+        nonRefundable: true,
+        description: "Operational service fee (bank charges, etc.)"
+      });
+    }
+
+    // 4. Update member's financial summary
     const memberRef = doc(db, `groups/${groupId}/members`, memberId);
     const memberDoc = await getDoc(memberRef);
     if (memberDoc.exists()) {

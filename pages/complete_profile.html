@@ -182,8 +182,11 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Date of Birth</label>
-              <input type="date" id="dateOfBirth" class="form-input">
+              <label class="form-label">Date of Birth *</label>
+              <input type="date" id="dateOfBirth" class="form-input" required>
+              <span class="help-text" style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: var(--bn-space-1); display: block;">
+                You must be at least 18 years old to use this service
+              </span>
             </div>
             <div class="form-group">
               <label class="form-label">Gender</label>
@@ -341,6 +344,7 @@
     </div>
   </div>
 
+  <script src="../scripts/dob-validation.js"></script>
   <script type="module" src="../scripts/complete_profile.js"></script>
 </body>
 </html>

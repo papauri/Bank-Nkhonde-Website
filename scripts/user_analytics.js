@@ -90,6 +90,24 @@ document.addEventListener("DOMContentLoaded", () => {
           } else if (tab === "bookings") {
             await loadBookings();
           }
+        } else {
+          // Default to contributions if no tab active
+          await loadContributions();
+        }
+        // Reload user overall stats after group change
+        await loadUserOverallStats();
+      } else {
+        // Hide group stats when no group selected
+        document.getElementById("groupStatsSection").style.display = "none";
+        // Clear chart
+        const chartContainer = document.getElementById("chartContainer");
+        if (chartContainer) {
+          chartContainer.innerHTML = `
+            <div class="empty-state" style="width: 100%;">
+              <div class="empty-state-icon">📊</div>
+              <p class="empty-state-text">Select a group to view contribution trends</p>
+            </div>
+          `;
         }
       }
     });
@@ -117,7 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /**
-   * Load user groups
+   * Load user groups and calculate overall stats
    */
   async function loadUserGroups() {
     try {
@@ -145,15 +163,93 @@ document.addEventListener("DOMContentLoaded", () => {
           groupSelector.appendChild(option);
         });
 
-        // Auto-select first group
+        // Auto-select first group and load data
         if (userGroups.length > 0) {
           groupSelector.value = userGroups[0].id;
           currentGroupId = userGroups[0].id;
+          // Load contributions (which includes the trend chart)
           await loadContributions();
         }
       }
+
+      // Load overall user stats across all groups
+      await loadUserOverallStats();
     } catch (error) {
       console.error("Error loading groups:", error);
+    }
+  }
+
+  /**
+   * Load user overall stats across all groups
+   */
+  async function loadUserOverallStats() {
+    try {
+      let totalContributed = 0;
+      let totalBorrowed = 0;
+      let totalLoanOutstanding = 0;
+      let totalArrears = 0;
+      let activeLoansCount = 0;
+      const currentYear = new Date().getFullYear();
+
+      // Calculate stats across all groups
+      for (const group of userGroups) {
+        const groupId = group.id;
+
+        try {
+          // Get user's financial summary from member document
+          const memberRef = doc(db, `groups/${groupId}/members`, currentUser.uid);
+          const memberDoc = await getDoc(memberRef);
+          
+          if (memberDoc.exists()) {
+            const memberData = memberDoc.data();
+            const financialSummary = memberData.financialSummary || {};
+            
+            // Add contributions (paid amounts)
+            totalContributed += parseFloat(financialSummary.totalPaid || 0);
+            
+            // Add arrears and penalties
+            totalArrears += parseFloat(financialSummary.totalArrears || 0);
+            totalArrears += parseFloat(financialSummary.totalPenalties || 0);
+          }
+
+          // Get user's loans
+          const loansRef = collection(db, `groups/${groupId}/loans`);
+          const userLoansQuery = query(loansRef, where("borrowerId", "==", currentUser.uid));
+          const loansSnapshot = await getDocs(userLoansQuery);
+
+          loansSnapshot.forEach(loanDoc => {
+            const loan = loanDoc.data();
+            const amount = parseFloat(loan.amount || loan.loanAmount || 0);
+            const repaid = parseFloat(loan.amountRepaid || 0);
+            const totalRepayable = parseFloat(loan.totalRepayable || (amount + parseFloat(loan.totalInterest || 0)));
+            
+            if (loan.status === "active" || loan.status === "approved" || loan.status === "disbursed") {
+              totalBorrowed += amount;
+              const outstanding = Math.max(0, totalRepayable - repaid);
+              totalLoanOutstanding += outstanding;
+              activeLoansCount++;
+            }
+          });
+        } catch (error) {
+          console.error(`Error loading stats for group ${groupId}:`, error);
+        }
+      }
+
+      // Update page-stats (top bar)
+      document.getElementById("totalContributed").textContent = formatCurrency(totalContributed);
+      document.getElementById("totalBorrowed").textContent = formatCurrency(totalBorrowed);
+      document.getElementById("outstanding").textContent = formatCurrency(totalLoanOutstanding);
+      document.getElementById("totalArrears").textContent = formatCurrency(totalArrears);
+
+      // Update user overview stats
+      document.getElementById("userTotalContributed").textContent = formatCurrency(totalContributed);
+      document.getElementById("userTotalLoans").textContent = formatCurrency(totalBorrowed);
+      document.getElementById("userLoanOutstanding").textContent = formatCurrency(totalLoanOutstanding);
+      document.getElementById("userTotalArrears").textContent = formatCurrency(totalArrears);
+      document.getElementById("userActiveLoans").textContent = activeLoansCount;
+      document.getElementById("userGroupsCount").textContent = userGroups.length;
+    } catch (error) {
+      console.error("Error loading user overall stats:", error);
     }
   }
 
@@ -188,19 +284,30 @@ document.addEventListener("DOMContentLoaded", () => {
         let userMonthPaid = 0;
         let groupMonthPaid = 0;
 
-        // User's monthly contribution
+        // User's monthly contribution - check new structure first
         const userMonthlyRef = doc(db, `groups/${currentGroupId}/payments/${currentYear}_MonthlyContributions/${currentUser.uid}/${currentYear}_${monthName}`);
         const userMonthlyDoc = await getDoc(userMonthlyRef);
         if (userMonthlyDoc.exists()) {
           const monthlyData = userMonthlyDoc.data();
-          const totalPaid = monthlyData.paid?.reduce((sum, p) => {
-            if (p.approvalStatus === "approved") {
-              return sum + parseFloat(p.amount || 0);
+          // Check new structure (amountPaid) or old structure (paid array)
+          if (monthlyData.amountPaid !== undefined) {
+            // New structure
+            const amountPaid = parseFloat(monthlyData.amountPaid || 0);
+            if (monthlyData.approvalStatus === "approved" || monthlyData.paymentStatus === "completed") {
+              userMonthPaid = amountPaid;
+              groupMonthPaid += amountPaid;
             }
-            return sum;
-          }, 0) || 0;
-          userMonthPaid = totalPaid;
-          groupMonthPaid += totalPaid;
+          } else if (monthlyData.paid && Array.isArray(monthlyData.paid)) {
+            // Old structure - array of payments
+            const totalPaid = monthlyData.paid.reduce((sum, p) => {
+              if (p.approvalStatus === "approved") {
+                return sum + parseFloat(p.amount || 0);
+              }
+              return sum;
+            }, 0);
+            userMonthPaid = totalPaid;
+            groupMonthPaid += totalPaid;
+          }
         }
 
         // Group totals
@@ -231,17 +338,114 @@ document.addEventListener("DOMContentLoaded", () => {
         userYearlyTotal += seedPaid;
       }
 
-      // Update UI
-      document.getElementById("monthlyContribution").textContent = formatCurrency(monthlyAmount);
-      document.getElementById("yearlyTotal").textContent = formatCurrency(userYearlyTotal);
-      document.getElementById("yourContributions").textContent = formatCurrency(userYearlyTotal);
-      document.getElementById("groupTotal").textContent = formatCurrency(groupYearlyTotal);
+      // Get service fee (if enabled)
+      const serviceFeeRef = doc(db, `groups/${currentGroupId}/payments/${currentYear}_ServiceFee/${currentUser.uid}/PaymentDetails`);
+      const serviceFeeDoc = await getDoc(serviceFeeRef);
+      if (serviceFeeDoc.exists()) {
+        const serviceFeeData = serviceFeeDoc.data();
+        const serviceFeePaid = parseFloat(serviceFeeData.amountPaid || 0);
+        userYearlyTotal += serviceFeePaid;
+      }
+
+      // Update UI (if elements exist)
+      const monthlyContributionEl = document.getElementById("monthlyContribution");
+      if (monthlyContributionEl) monthlyContributionEl.textContent = formatCurrency(monthlyAmount);
+      
+      const yearlyTotalEl = document.getElementById("yearlyTotal");
+      if (yearlyTotalEl) yearlyTotalEl.textContent = formatCurrency(userYearlyTotal);
+      
+      const yourContributionsEl = document.getElementById("yourContributions");
+      if (yourContributionsEl) yourContributionsEl.textContent = formatCurrency(userYearlyTotal);
+      
+      const groupTotalEl = document.getElementById("groupTotal");
+      if (groupTotalEl) groupTotalEl.textContent = formatCurrency(groupYearlyTotal);
+
+      // Update group stats
+      await updateGroupStats(currentGroupId, userYearlyTotal);
 
       displayMonthlyBreakdown(monthlyBreakdown);
       displayContributionHistory(contributionHistory);
+      renderContributionTrendChart(monthlyBreakdown);
+      
+      // Load recent activity
+      await loadRecentActivity(currentGroupId);
+      
+      // Reload user overall stats to ensure accuracy
+      await loadUserOverallStats();
     } catch (error) {
       console.error("Error loading contributions:", error);
     }
+  }
+
+  /**
+   * Render contribution trend bar chart
+   */
+  function renderContributionTrendChart(monthlyBreakdown) {
+    const chartContainer = document.getElementById("chartContainer");
+    if (!chartContainer) return;
+
+    if (!monthlyBreakdown || monthlyBreakdown.length === 0) {
+      chartContainer.innerHTML = `
+        <div class="empty-state" style="width: 100%;">
+          <div class="empty-state-icon">📊</div>
+          <p class="empty-state-text">No contribution data available yet</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Get last 6 months for the chart (or all available months) - filter to show months with data
+    const monthsWithData = monthlyBreakdown.filter(m => (m.userPaid || 0) > 0 || (m.expected || 0) > 0);
+    const monthsToShow = monthsWithData.length > 0 ? monthsWithData.slice(-6) : monthlyBreakdown.slice(-6);
+    
+    // Calculate max amount from both userPaid and expected to ensure bars are visible
+    const maxAmount = Math.max(
+      ...monthsToShow.map(m => Math.max(m.userPaid || 0, m.expected || 0)),
+      1
+    );
+
+    let chartHTML = '';
+    if (monthsToShow.length > 0) {
+      monthsToShow.forEach(monthData => {
+        const paidAmount = monthData.userPaid || 0;
+        const expectedAmount = monthData.expected || 0;
+        const percentage = expectedAmount > 0 ? (paidAmount / expectedAmount) * 100 : 0;
+        const barHeight = maxAmount > 0 ? (paidAmount / maxAmount) * 100 : 0;
+
+        const monthLabel = monthData.month.substring(0, 3); // Short month name
+
+        chartHTML += `
+          <div class="chart-bar-wrapper">
+            <div class="chart-bar" style="height: 160px; --bar-height: ${Math.max(barHeight, 2)}%;" data-amount="${paidAmount}" data-expected="${expectedAmount}" title="${monthData.month}: ${formatCurrency(paidAmount)} / ${formatCurrency(expectedAmount)}">
+            </div>
+            <span class="chart-label">${monthLabel}</span>
+          </div>
+        `;
+      });
+    } else {
+      // Show placeholder bars if no data
+      const currentMonth = new Date().getMonth();
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      for (let i = 5; i >= 0; i--) {
+        const monthIndex = (currentMonth - i + 12) % 12;
+        chartHTML += `
+          <div class="chart-bar-wrapper">
+            <div class="chart-bar" style="height: 160px; --bar-height: 0%;" title="No data">
+            </div>
+            <span class="chart-label">${monthNames[monthIndex]}</span>
+          </div>
+        `;
+      }
+    }
+
+    chartContainer.innerHTML = chartHTML;
+
+    // Animate bars after a short delay
+    setTimeout(() => {
+      chartContainer.querySelectorAll('.chart-bar').forEach(bar => {
+        bar.classList.add('animated');
+      });
+    }, 100);
   }
 
   /**
@@ -295,6 +499,184 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /**
+   * Load recent activity (payments, loans, etc.)
+   */
+  async function loadRecentActivity(groupId) {
+    if (!groupId) {
+      const recentActivityEl = document.getElementById("recentActivity");
+      if (recentActivityEl) {
+        recentActivityEl.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📊</div>
+            <p class="empty-state-text">Select a group to view recent activity</p>
+          </div>
+        `;
+      }
+      return;
+    }
+
+    try {
+      const recentActivity = [];
+      const currentYear = new Date().getFullYear();
+
+      // Get recent monthly contribution payments
+      try {
+        const monthlyRef = collection(db, `groups/${groupId}/payments/${currentYear}_MonthlyContributions/${currentUser.uid}`);
+        const monthlySnapshot = await getDocs(monthlyRef);
+        
+        monthlySnapshot.forEach(monthDoc => {
+          const monthData = monthDoc.data();
+          const isApproved = monthData.approvalStatus === "approved" || monthData.paymentStatus === "completed";
+          const amountPaid = parseFloat(monthData.amountPaid || 0);
+          
+          if (isApproved && amountPaid > 0) {
+            const paidAt = monthData.paidAt || monthData.approvedAt || monthData.updatedAt;
+            if (paidAt) {
+              recentActivity.push({
+                type: "Monthly Contribution",
+                amount: amountPaid,
+                date: paidAt,
+                month: monthDoc.id
+              });
+            }
+          }
+        });
+      } catch (error) {
+        console.error("Error loading monthly contributions for recent activity:", error);
+      }
+
+      // Get seed money payment
+      try {
+        const seedRef = doc(db, `groups/${groupId}/payments/${currentYear}_SeedMoney/${currentUser.uid}/PaymentDetails`);
+        const seedDoc = await getDoc(seedRef);
+        if (seedDoc.exists()) {
+          const seedData = seedDoc.data();
+          if (seedData.approvalStatus === "approved" && seedData.updatedAt) {
+            recentActivity.push({
+              type: "Seed Money",
+              amount: parseFloat(seedData.amountPaid || 0),
+              date: seedData.updatedAt
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error loading seed money for recent activity:", error);
+      }
+
+      // Get service fee payment
+      try {
+        const serviceFeeRef = doc(db, `groups/${groupId}/payments/${currentYear}_ServiceFee/${currentUser.uid}/PaymentDetails`);
+        const serviceFeeDoc = await getDoc(serviceFeeRef);
+        if (serviceFeeDoc.exists()) {
+          const serviceFeeData = serviceFeeDoc.data();
+          const isApproved = serviceFeeData.approvalStatus === "approved" || serviceFeeData.paymentStatus === "completed";
+          const amountPaid = parseFloat(serviceFeeData.amountPaid || 0);
+          
+          if (isApproved && amountPaid > 0) {
+            const paidAt = serviceFeeData.paidAt || serviceFeeData.approvedAt || serviceFeeData.updatedAt;
+            if (paidAt) {
+              recentActivity.push({
+                type: "Service Fee",
+                amount: amountPaid,
+                date: paidAt
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error loading service fee for recent activity:", error);
+      }
+
+      // Get loan payments
+      try {
+        const loansRef = collection(db, `groups/${groupId}/loans`);
+        const userLoansQuery = query(loansRef, where("borrowerId", "==", currentUser.uid));
+        const loansSnapshot = await getDocs(userLoansQuery);
+
+        for (const loanDoc of loansSnapshot.docs) {
+          const loanData = loanDoc.data();
+          if (loanData.lastPaymentDate) {
+            recentActivity.push({
+              type: "Loan Payment",
+              amount: parseFloat(loanData.lastPaymentAmount || 0),
+              date: loanData.lastPaymentDate,
+              loanId: loanDoc.id
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error loading loan payments for recent activity:", error);
+      }
+
+      // Sort by date (most recent first)
+      recentActivity.sort((a, b) => {
+        const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date);
+        const dateB = b.date?.toDate ? b.date.toDate() : new Date(b.date);
+        return dateB - dateA;
+      });
+
+      // Display recent activity
+      displayRecentActivity(recentActivity.slice(0, 10)); // Show last 10
+    } catch (error) {
+      console.error("Error loading recent activity:", error);
+      const recentActivityEl = document.getElementById("recentActivity");
+      if (recentActivityEl) {
+        recentActivityEl.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">❌</div>
+            <p class="empty-state-text">Error loading recent activity</p>
+          </div>
+        `;
+      }
+    }
+  }
+
+  /**
+   * Display recent activity
+   */
+  function displayRecentActivity(activities) {
+    const container = document.getElementById("recentActivity");
+    if (!container) return;
+
+    if (activities.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📊</div>
+          <p class="empty-state-text">No recent activity</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+    activities.forEach(activity => {
+      const div = document.createElement("div");
+      div.className = "list-item";
+      const activityDate = activity.date?.toDate ? activity.date.toDate().toLocaleDateString() : "N/A";
+      
+      const typeColors = {
+        "Monthly Contribution": "var(--bn-primary)",
+        "Seed Money": "var(--bn-success)",
+        "Service Fee": "var(--bn-info)",
+        "Loan Payment": "var(--bn-accent)"
+      };
+      
+      div.innerHTML = `
+        <div style="flex: 1;">
+          <div class="list-item-title">${activity.type}</div>
+          <div class="list-item-subtitle">${activityDate}${activity.month ? ` • ${activity.month}` : ''}</div>
+        </div>
+        <div>
+          <span style="font-size: 1.125rem; font-weight: 700; color: ${typeColors[activity.type] || 'var(--bn-primary)'};">
+            ${formatCurrency(activity.amount)}
+          </span>
+        </div>
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  /**
    * Load loans data
    */
   async function loadLoans() {
@@ -337,14 +719,24 @@ document.addEventListener("DOMContentLoaded", () => {
         nextDisbursement += parseFloat(loan.loanAmount || 0);
       });
 
-      // Update stats
-      document.getElementById("activeLoansCount").textContent = userLoans.filter(l => l.status === "active" || l.status === "approved").length;
-      document.getElementById("outstandingLoans").textContent = formatCurrency(totalOutstanding);
-      document.getElementById("totalLoansPaid").textContent = formatCurrency(totalPaid);
-      document.getElementById("nextDisbursement").textContent = formatCurrency(nextDisbursement);
+      // Update stats (if elements exist)
+      const activeLoansCountEl = document.getElementById("activeLoansCount");
+      if (activeLoansCountEl) activeLoansCountEl.textContent = userLoans.filter(l => l.status === "active" || l.status === "approved").length;
+      
+      const outstandingLoansEl = document.getElementById("outstandingLoans");
+      if (outstandingLoansEl) outstandingLoansEl.textContent = formatCurrency(totalOutstanding);
+      
+      const totalLoansPaidEl = document.getElementById("totalLoansPaid");
+      if (totalLoansPaidEl) totalLoansPaidEl.textContent = formatCurrency(totalPaid);
+      
+      const nextDisbursementEl = document.getElementById("nextDisbursement");
+      if (nextDisbursementEl) nextDisbursementEl.textContent = formatCurrency(nextDisbursement);
 
-      displayDisbursedLoans(disbursedLoans);
+      await displayDisbursedLoans(disbursedLoans);
       displayYourLoans(userLoans);
+      
+      // Reload user overall stats to ensure accuracy
+      await loadUserOverallStats();
     } catch (error) {
       console.error("Error loading loans:", error);
     }
@@ -353,7 +745,7 @@ document.addEventListener("DOMContentLoaded", () => {
   /**
    * Display disbursed loans
    */
-  function displayDisbursedLoans(loans) {
+  async function displayDisbursedLoans(loans) {
     const container = document.getElementById("disbursedLoans");
     if (!container) return;
 
@@ -363,7 +755,36 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     container.innerHTML = '';
-    loans.slice(0, 10).forEach(loan => {
+    
+    // Fetch account information for each loan borrower
+    const loansWithAccounts = await Promise.all(loans.slice(0, 10).map(async (loan) => {
+      let accountInfo = '';
+      try {
+        if (loan.borrowerId && currentGroupId) {
+          const memberRef = doc(db, `groups/${currentGroupId}/members`, loan.borrowerId);
+          const memberDoc = await getDoc(memberRef);
+          if (memberDoc.exists()) {
+            const memberData = memberDoc.data();
+            if (memberData.accountNumber || memberData.bankName) {
+              const accountNumber = memberData.accountNumber ? `****${memberData.accountNumber.slice(-4)}` : '';
+              const bankName = memberData.bankName || '';
+              accountInfo = accountNumber && bankName 
+                ? `<div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: 4px;">Account: ${accountNumber} (${bankName})</div>`
+                : accountNumber 
+                  ? `<div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: 4px;">Account: ${accountNumber}</div>`
+                  : bankName
+                    ? `<div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: 4px;">Bank: ${bankName}</div>`
+                    : '';
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching account info:', error);
+      }
+      return { loan, accountInfo };
+    }));
+
+    loansWithAccounts.forEach(({ loan, accountInfo }) => {
       const div = document.createElement("div");
       div.className = "list-item";
       const disbursedDate = loan.disbursedAt?.toDate ? loan.disbursedAt.toDate().toLocaleDateString() : "N/A";
@@ -372,6 +793,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <div style="flex: 1;">
           <div class="list-item-title">${loan.borrowerName || "Unknown"}</div>
           <div class="list-item-subtitle">Disbursed ${disbursedDate}</div>
+          ${accountInfo}
           <div style="margin-top: 8px; font-size: 1.125rem; font-weight: 700; color: var(--bn-primary);">
             ${formatCurrency(loan.loanAmount || 0)}
           </div>

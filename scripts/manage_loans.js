@@ -73,9 +73,57 @@ function setupEventListeners() {
       document.querySelectorAll(".action-tab").forEach((t) => t.classList.remove("active"));
       tab.classList.add("active");
       currentTab = tab.dataset.tab;
+      
+      // Update filter dropdown to match tab
+      const filterDropdown = document.getElementById("loanFilterDropdown");
+      if (filterDropdown && filterDropdown.value !== "all") {
+        filterDropdown.value = currentTab === "pending" ? "pending" : 
+                               currentTab === "approved" ? "approved" :
+                               currentTab === "disbursed" ? "disbursed" :
+                               currentTab === "active" ? "active" :
+                               currentTab === "repaid" ? "repaid" :
+                               currentTab === "cancelled" ? "cancelled" :
+                               currentTab === "overdue" ? "overdue" : "all";
+      }
+      
       renderLoans();
     });
   });
+
+  // Filter dropdown
+  const loanFilterDropdown = document.getElementById("loanFilterDropdown");
+  if (loanFilterDropdown) {
+    loanFilterDropdown.addEventListener("change", (e) => {
+      if (e.target.value !== "all") {
+        // Switch to appropriate tab when filter changes
+        const tabs = {
+          "pending": "pending",
+          "approved": "approved",
+          "disbursed": "disbursed",
+          "active": "active",
+          "repaid": "repaid",
+          "cancelled": "cancelled",
+          "overdue": "overdue"
+        };
+        if (tabs[e.target.value]) {
+          currentTab = tabs[e.target.value];
+          document.querySelectorAll(".action-tab").forEach((t) => {
+            t.classList.remove("active");
+            if (t.dataset.tab === currentTab) t.classList.add("active");
+          });
+        }
+      }
+      renderLoans();
+    });
+  }
+
+  // Borrower filter dropdown
+  const borrowerFilterDropdown = document.getElementById("borrowerFilterDropdown");
+  if (borrowerFilterDropdown) {
+    borrowerFilterDropdown.addEventListener("change", () => {
+      renderLoans();
+    });
+  }
 
   // Quick action buttons
   document.getElementById("newLoanBtn")?.addEventListener("click", openNewLoanModal);
@@ -231,36 +279,86 @@ async function loadMembers() {
     membersSnapshot.forEach((doc) => {
       members.push({ id: doc.id, ...doc.data() });
     });
+    
+    // Populate borrower filter dropdown
+    populateBorrowerFilter();
   } catch (error) {
     console.error("Error loading members:", error);
   }
 }
 
+// Populate borrower filter dropdown
+function populateBorrowerFilter() {
+  const borrowerFilterDropdown = document.getElementById("borrowerFilterDropdown");
+  if (!borrowerFilterDropdown) return;
+  
+  borrowerFilterDropdown.innerHTML = '<option value="all">All Borrowers</option>';
+  members.forEach(member => {
+    const option = document.createElement("option");
+    option.value = member.id;
+    option.textContent = member.fullName || member.name || `${member.firstName || ''} ${member.lastName || ''}`.trim() || 'Unknown';
+    borrowerFilterDropdown.appendChild(option);
+  });
+}
+
 // Load loans
 async function loadLoans() {
   try {
+    if (!selectedGroupId) {
+      console.warn("No group selected, cannot load loans");
+      loans = [];
+      return;
+    }
+
     const loansRef = collection(db, `groups/${selectedGroupId}/loans`);
     const loansSnapshot = await getDocs(loansRef);
 
     loans = [];
     loansSnapshot.forEach((doc) => {
-      loans.push({ id: doc.id, ...doc.data() });
+      const loanData = doc.data();
+      loans.push({ 
+        id: doc.id, 
+        ...loanData,
+        // Ensure status exists and is valid
+        status: loanData.status || "pending",
+        // Ensure dates are properly handled
+        createdAt: loanData.createdAt || loanData.requestedAt || Timestamp.now(),
+        requestedAt: loanData.requestedAt || loanData.createdAt || Timestamp.now()
+      });
     });
 
-    // Sort by date
+    console.log(`Loaded ${loans.length} loans from group ${selectedGroupId}`);
+
+    // Sort by date (most recent first)
     loans.sort((a, b) => {
-      const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
-      const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+      const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : 
+                    a.requestedAt?.toDate ? a.requestedAt.toDate() : 
+                    new Date(0);
+      const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : 
+                    b.requestedAt?.toDate ? b.requestedAt.toDate() : 
+                    new Date(0);
       return dateB - dateA;
     });
-    } catch (error) {
-      console.error("Error loading loans:", error);
+
+    // Log loan statuses for debugging
+    const statusCounts = {};
+    loans.forEach(loan => {
+      const status = loan.status || "unknown";
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+    });
+    console.log("Loan status breakdown:", statusCounts);
+
+  } catch (error) {
+    console.error("Error loading loans:", error);
+    loans = [];
+    showToast("Failed to load loans. Please refresh the page.", "error");
   }
 }
 
 // Update stats
 function updateStats() {
   const pending = loans.filter((l) => l.status === "pending").length;
+  const approved = loans.filter((l) => l.status === "approved").length;
   const active = loans.filter((l) => l.status === "active").length;
   
   let totalDisbursed = 0;
@@ -269,13 +367,18 @@ function updateStats() {
   loans.forEach((loan) => {
     const amount = parseFloat(loan.amount || loan.loanAmount || 0);
     const repaid = parseFloat(loan.amountRepaid || 0);
+    const totalRepayable = parseFloat(loan.totalRepayable || 0);
     const interest = parseFloat(loan.totalInterest || 0);
+
+    // Calculate total repayable if not set
+    const calculatedTotalRepayable = totalRepayable > 0 ? totalRepayable : (amount + interest);
 
     if (loan.status === "active" || loan.status === "repaid") {
       totalDisbursed += amount;
     }
     if (loan.status === "active") {
-      totalOutstanding += (amount + interest - repaid);
+      const remaining = Math.max(0, calculatedTotalRepayable - repaid);
+      totalOutstanding += remaining;
     }
   });
 
@@ -295,9 +398,19 @@ function renderLoans() {
 
   switch (currentTab) {
     case "pending":
+      // Show only pending loans (awaiting approval)
       filteredLoans = loans.filter((l) => l.status === "pending");
       break;
+    case "approved":
+      // Show only approved loans (awaiting disbursement)
+      filteredLoans = loans.filter((l) => l.status === "approved");
+      break;
+    case "disbursed":
+      // Show only disbursed loans (fully disbursed and working)
+      filteredLoans = loans.filter((l) => l.status === "disbursed");
+      break;
     case "active":
+      // Show only active loans (not disbursed status, just active)
       filteredLoans = loans.filter((l) => l.status === "active");
       break;
     case "repaid":
@@ -308,11 +421,17 @@ function renderLoans() {
       break;
     case "overdue":
       filteredLoans = loans.filter((l) => {
-        if (l.status !== "active") return false;
+        if (l.status !== "active" && l.status !== "disbursed") return false;
         const dueDate = l.dueDate?.toDate ? l.dueDate.toDate() : new Date(l.dueDate);
         return dueDate < today;
       });
       break;
+  }
+
+  // Apply borrower filter if set
+  const borrowerFilter = document.getElementById("borrowerFilterDropdown")?.value;
+  if (borrowerFilter && borrowerFilter !== "all") {
+    filteredLoans = filteredLoans.filter((l) => l.borrowerId === borrowerFilter);
   }
 
   if (filteredLoans.length === 0) {
@@ -346,8 +465,11 @@ function createLoanCard(loan) {
   const amount = parseFloat(loan.amount || loan.loanAmount || 0);
   const interest = parseFloat(loan.totalInterest || 0);
   const repaid = parseFloat(loan.amountRepaid || 0);
-  const totalDue = amount + interest;
-  const remaining = totalDue - repaid;
+  const totalRepayable = parseFloat(loan.totalRepayable || 0);
+  
+  // Use totalRepayable if available, otherwise calculate it
+  const totalDue = totalRepayable > 0 ? totalRepayable : (amount + interest);
+  const remaining = Math.max(0, totalDue - repaid);
   const progressPercent = totalDue > 0 ? Math.min((repaid / totalDue) * 100, 100) : 0;
 
   const createdDate = loan.createdAt?.toDate ? loan.createdAt.toDate().toLocaleDateString() : 
@@ -519,12 +641,51 @@ async function approveLoan(loanId) {
     }
 
     const amount = parseFloat(loan.amount || loan.loanAmount || 0);
+    const period = parseInt(loan.repaymentPeriod || 1);
     
-    // Just approve, don't disburse yet
+    // Calculate accounting (interest and total repayable) when approving
+    // Get interest rates - use loan's saved rates or group settings
+    const savedRates = loan.interestRates || {};
+    const rules = groupData?.rules?.loanInterest || {};
+    
+    const month1Rate = savedRates.month1 || parseFloat(rules.month1 || 10);
+    const month2Rate = savedRates.month2 || parseFloat(rules.month2 || rules.month1 || 7);
+    const month3Rate = savedRates.month3 || parseFloat(rules.month3AndBeyond || rules.month2 || 5);
+    
+    // Calculate total interest based on repayment period
+    let totalInterest = 0;
+    let remainingBalance = amount;
+    const monthlyPrincipal = amount / period;
+    
+    for (let i = 1; i <= period; i++) {
+      const rate = i === 1 ? month1Rate : i === 2 ? month2Rate : month3Rate;
+      const monthlyInterest = Math.round(remainingBalance * (rate / 100) * 100) / 100;
+      totalInterest += monthlyInterest;
+      remainingBalance -= monthlyPrincipal;
+    }
+    
+    totalInterest = Math.round(totalInterest * 100) / 100;
+    const totalRepayable = Math.round((amount + totalInterest) * 100) / 100;
+    
+    // Calculate tentative due date (based on requested disbursement date or current date)
+    const requestedDate = loan.targetDate ? (loan.targetDate.toDate ? loan.targetDate.toDate() : new Date(loan.targetDate)) : new Date();
+    const finalDueDate = new Date(requestedDate);
+    finalDueDate.setMonth(finalDueDate.getMonth() + period);
+    
+    // Just approve with calculated accounting, don't disburse yet
     await updateDoc(doc(db, `groups/${selectedGroupId}/loans`, loanId), {
       status: "approved",
       approvedBy: currentUser.uid,
       approvedAt: Timestamp.now(),
+      totalInterest: totalInterest,
+      totalRepayable: totalRepayable,
+      amountRepaid: 0,
+      dueDate: Timestamp.fromDate(finalDueDate),
+      interestRates: {
+        month1: month1Rate,
+        month2: month2Rate,
+        month3: month3Rate
+      },
       updatedAt: Timestamp.now(),
     });
 
@@ -534,13 +695,15 @@ async function approveLoan(loanId) {
       recipientId: loan.borrowerId,
       type: "loan_approved",
       title: "Loan Approved",
-      message: `Your loan booking of ${formatCurrency(amount)} has been approved. The loan will be disbursed soon.`,
+      message: `Your loan booking of ${formatCurrency(amount)} has been approved. The loan will be disbursed soon.\n\nLoan Details:\n- Principal: ${formatCurrency(amount)}\n- Total Interest: ${formatCurrency(totalInterest)}\n- Total Repayable: ${formatCurrency(totalRepayable)}\n- Repayment Period: ${period} month(s)\n- Status: Approved (Pending Disbursement)\n\nYou can start making payments even before disbursement.`,
       loanId: loanId,
       groupId: selectedGroupId,
       groupName: groupData?.groupName || "Unknown Group",
       senderId: currentUser.uid,
+      senderName: currentUser.displayName || currentUser.email,
       createdAt: Timestamp.now(),
       read: false,
+      readBy: [],
     });
 
     showToast("Loan approved successfully", "success");
@@ -654,19 +817,31 @@ async function disburseLoan(loanId) {
       });
     }
 
+    // Get member account information for notification
+    const memberRef = doc(db, `groups/${selectedGroupId}/members`, loan.borrowerId);
+    const memberDoc = await getDoc(memberRef);
+    const memberData = memberDoc.exists() ? memberDoc.data() : {};
+    const accountNumber = memberData.accountNumber ? `****${memberData.accountNumber.slice(-4)}` : 'Not provided';
+    const bankName = memberData.bankName || 'Not provided';
+    const accountInfo = (memberData.accountNumber || memberData.bankName) 
+      ? `\n- Disbursed to Account: ${accountNumber} (${bankName})`
+      : '\n- Disbursed to: Account details not available';
+
     // Send notification to borrower
     await addDoc(collection(db, `groups/${selectedGroupId}/notifications`), {
       userId: loan.borrowerId,
       recipientId: loan.borrowerId,
       type: "loan_disbursed",
       title: "Loan Disbursed",
-      message: `Your approved loan of ${formatCurrency(amount)} has been disbursed.\n\nTotal Interest: ${formatCurrency(totalInterest)}\nTotal Repayable: ${formatCurrency(totalRepayable)}\nRepayment Period: ${period} month(s)\nFinal Due Date: ${finalDueDate.toLocaleDateString()}\n\nYou can view repayment schedule and make payments from your dashboard.`,
+      message: `Your approved loan of ${formatCurrency(amount)} has been disbursed.${accountInfo}\n\nLoan Details:\n- Principal: ${formatCurrency(amount)}\n- Total Interest: ${formatCurrency(totalInterest)}\n- Total Repayable: ${formatCurrency(totalRepayable)}\n- Repayment Period: ${period} month(s)\n- Final Due Date: ${finalDueDate.toLocaleDateString()}\n\nYou can view repayment schedule and make payments from your dashboard.`,
       loanId: loanId,
       groupId: selectedGroupId,
       groupName: groupData?.groupName || "Unknown Group",
       senderId: currentUser.uid,
+      senderName: currentUser.displayName || currentUser.email,
       createdAt: Timestamp.now(),
       read: false,
+      readBy: [],
     });
 
     showToast("Loan disbursed successfully", "success");
@@ -690,17 +865,17 @@ async function rejectLoan(loanId) {
     const loan = loans.find((l) => l.id === loanId);
 
     await updateDoc(doc(db, `groups/${selectedGroupId}/loans`, loanId), {
-        status: "rejected",
-        rejectedBy: currentUser.uid,
-      rejectedAt: Timestamp.now(),
-      rejectionReason: reason,
+        status: "cancelled",
+        cancelledBy: currentUser.uid,
+      cancelledAt: Timestamp.now(),
+      cancelReason: reason,
       updatedAt: Timestamp.now(),
     });
 
     // Send notification to borrower
     await addDoc(collection(db, `groups/${selectedGroupId}/notifications`), {
       userId: loan.borrowerId,
-      recipientId: loan.borrowerId, // Keep for backward compatibility
+      recipientId: loan.borrowerId,
       type: "loan_rejected",
       title: "Loan Request Rejected",
       message: `Your loan booking of ${formatCurrency(loan.amount || loan.loanAmount || 0)} was rejected.\n\nReason: ${reason}\n\nYou can submit a new loan booking request from your dashboard.`,
@@ -708,8 +883,10 @@ async function rejectLoan(loanId) {
       groupId: selectedGroupId,
       groupName: groupData?.groupName || "Unknown Group",
       senderId: currentUser.uid,
+      senderName: currentUser.displayName || currentUser.email,
       createdAt: Timestamp.now(),
       read: false,
+      readBy: [],
     });
 
     showToast("Loan rejected", "success");
@@ -856,7 +1033,7 @@ async function handleNewLoan(e) {
 
     const member = members.find((m) => m.id === memberId);
 
-    await addDoc(collection(db, `groups/${selectedGroupId}/loans`), {
+    const loanDocRef = await addDoc(collection(db, `groups/${selectedGroupId}/loans`), {
       borrowerId: memberId,
       borrowerName: member?.fullName || "Unknown",
       amount,
@@ -895,12 +1072,18 @@ async function handleNewLoan(e) {
       });
     }
 
-    // Send notification
+    // Send notification to borrower
     await addDoc(collection(db, `groups/${selectedGroupId}/notifications`), {
       userId: memberId,
+      recipientId: memberId,
       type: "loan_disbursed",
       title: "Loan Disbursed",
-      message: `A loan of ${formatCurrency(amount)} has been disbursed to you. Total repayable: ${formatCurrency(amount + totalInterest)}.`,
+      message: `A loan of ${formatCurrency(amount)} has been disbursed to you.\n\nLoan Details:\n- Principal: ${formatCurrency(amount)}\n- Total Interest: ${formatCurrency(totalInterest)}\n- Total Repayable: ${formatCurrency(totalRepayable)}\n- Repayment Period: ${period} month(s)\n- Final Due Date: ${finalDueDate.toLocaleDateString()}`,
+      loanId: loanDocRef.id,
+      groupId: selectedGroupId,
+      groupName: groupData?.groupName || "Unknown Group",
+      senderId: currentUser.uid,
+      senderName: currentUser.displayName || currentUser.email,
       createdAt: Timestamp.now(),
       read: false,
     });
@@ -1089,17 +1272,22 @@ async function handleRecordPayment(e) {
         });
       }
 
-      // Send notification
-    await addDoc(collection(db, `groups/${selectedGroupId}/notifications`), {
-      userId: loan.borrowerId,
-      type: "payment_recorded",
-      title: newStatus === "repaid" ? "🎉 Loan Fully Repaid!" : "Loan Payment Recorded",
-      message: newStatus === "repaid" 
-        ? `Congratulations! Your loan has been fully repaid. Final payment of ${formatCurrency(amount)} recorded.`
-        : `A payment of ${formatCurrency(amount)} has been recorded for your loan. Remaining balance: ${formatCurrency(remaining)}.`,
-      createdAt: Timestamp.now(),
-      read: false,
-    });
+      // Send notification to borrower
+      await addDoc(collection(db, `groups/${selectedGroupId}/notifications`), {
+        userId: loan.borrowerId,
+        recipientId: loan.borrowerId,
+        type: newStatus === "repaid" ? "loan_repaid" : "loan_payment_recorded",
+        title: newStatus === "repaid" ? "🎉 Loan Fully Repaid!" : "Loan Payment Recorded",
+        message: newStatus === "repaid" 
+          ? `Congratulations! Your loan has been fully repaid. Final payment of ${formatCurrency(amount)} recorded.\n\nTotal Repaid: ${formatCurrency(newRepaid)}\nLoan Amount: ${formatCurrency(amount)}\nTotal Interest: ${formatCurrency(parseFloat(loan.totalInterest || 0))}`
+          : `A payment of ${formatCurrency(amount)} has been recorded for your loan.\n\nRemaining balance: ${formatCurrency(remaining)}\nTotal repaid: ${formatCurrency(newRepaid)} of ${formatCurrency(totalRepayable)}`,
+        loanId: loanId,
+        groupId: selectedGroupId,
+        groupName: groupData?.groupName || "Unknown Group",
+        senderId: currentUser.uid,
+        createdAt: Timestamp.now(),
+        read: false,
+      });
 
     if (window.closeModal) {
       window.closeModal("recordPaymentModal");

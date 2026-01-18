@@ -34,7 +34,8 @@ import {
   getStorage,
   ref,
   uploadBytes,
-  getDownloadURL, // ✅ Removed redundant `storage` declaration
+  getDownloadURL,
+  deleteObject,
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
 import {
   getFunctions,
@@ -87,6 +88,7 @@ export {
   ref,
   uploadBytes,
   getDownloadURL,
+  deleteObject,
   Timestamp,
   writeBatch,
   arrayRemove,

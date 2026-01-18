@@ -178,9 +178,13 @@ async function loadAnalytics() {
     // Calculate member performance
     await calculateMemberPerformance(members);
 
+    // Calculate monthly trend data for line/bar chart
+    calculateMonthlyTrends();
+
     // Update UI
     updateAnalyticsUI();
     renderChart();
+    renderMonthlyTrendChart();
     renderMemberPerformance();
   } catch (error) {
     console.error("Error loading analytics:", error);
@@ -195,6 +199,8 @@ async function calculateContributionIncome(year, members) {
   try {
     // Seed Money collections - only count approved payments
     let seedMoneyTotal = 0;
+    let serviceFeeTotal = 0;
+    
     for (const member of members) {
       try {
         const userSeedRef = doc(db, `groups/${selectedGroupId}/payments/${year}_SeedMoney/${member.id}/PaymentDetails`);
@@ -202,7 +208,7 @@ async function calculateContributionIncome(year, members) {
         if (userSeedDoc.exists()) {
           const data = userSeedDoc.data();
           // Only count approved seed money payments
-          if (data.approvalStatus === "approved") {
+          if (data.approvalStatus === "approved" || data.paymentStatus === "completed") {
             const amountPaid = parseFloat(data.amountPaid || 0);
             seedMoneyTotal += amountPaid;
             analyticsData.totalIncome += amountPaid;
@@ -210,6 +216,23 @@ async function calculateContributionIncome(year, members) {
         }
       } catch (e) {
         // Member may not have seed money record
+      }
+
+      // Service Fee collections - only count approved payments
+      try {
+        const serviceFeeRef = doc(db, `groups/${selectedGroupId}/payments/${year}_ServiceFee/${member.id}/PaymentDetails`);
+        const serviceFeeDoc = await getDoc(serviceFeeRef);
+        if (serviceFeeDoc.exists()) {
+          const data = serviceFeeDoc.data();
+          // Only count approved service fee payments
+          if (data.approvalStatus === "approved" || data.paymentStatus === "completed") {
+            const amountPaid = parseFloat(data.amountPaid || 0);
+            serviceFeeTotal += amountPaid;
+            analyticsData.totalIncome += amountPaid;
+          }
+        }
+      } catch (e) {
+        // Member may not have service fee record (service fee is optional)
       }
     }
     
@@ -239,7 +262,7 @@ async function calculateContributionIncome(year, members) {
           const monthIndex = months.indexOf(monthName);
           
           // Only count approved payments
-          if (monthIndex >= 0 && monthIndex <= currentMonth && data.approvalStatus === "approved") {
+          if (monthIndex >= 0 && monthIndex <= currentMonth && (data.approvalStatus === "approved" || data.paymentStatus === "completed")) {
             const amountPaid = parseFloat(data.amountPaid || 0);
             analyticsData.monthlyData[monthIndex].income += amountPaid;
             analyticsData.totalIncome += amountPaid;
@@ -250,10 +273,10 @@ async function calculateContributionIncome(year, members) {
       }
     }
     
-    // Add seed money to first month if monthlyData exists (as initial contribution)
-    // This ensures seed money appears in the chart
-    if (seedMoneyTotal > 0 && analyticsData.monthlyData.length > 0) {
-      analyticsData.monthlyData[0].income += seedMoneyTotal;
+    // Add seed money and service fee to first month if monthlyData exists (as initial contributions)
+    // This ensures seed money and service fee appear in the chart
+    if ((seedMoneyTotal > 0 || serviceFeeTotal > 0) && analyticsData.monthlyData.length > 0) {
+      analyticsData.monthlyData[0].income += seedMoneyTotal + serviceFeeTotal;
     }
   } catch (error) {
     console.error("Error calculating contribution income:", error);
@@ -306,6 +329,78 @@ async function calculateDisbursements() {
   }
 }
 
+// Calculate monthly trends for trend chart display
+function calculateMonthlyTrends() {
+  // This ensures monthlyData has complete data for trend visualization
+  // Data is already populated in calculateContributionIncome and calculateDisbursements
+  // This function can be extended for additional trend calculations
+}
+
+// Render monthly trend bar/line chart showing income vs expenses over months
+function renderMonthlyTrendChart() {
+  const trendChartContainer = document.getElementById("monthlyTrendChart");
+  if (!trendChartContainer) return; // Element might not exist in HTML
+
+  if (!analyticsData.monthlyData || analyticsData.monthlyData.length === 0) {
+    return;
+  }
+
+  // Find max value for scaling
+  const maxValue = Math.max(
+    ...analyticsData.monthlyData.map(d => Math.max(d.income || 0, d.expenses || 0)),
+    1000 // Minimum scale
+  );
+
+  let chartHTML = `
+    <div style="padding: var(--bn-space-4); background: var(--bn-white); border-radius: var(--bn-radius-xl); box-shadow: var(--bn-shadow-sm); margin-bottom: var(--bn-space-6);">
+      <h3 style="font-size: var(--bn-text-base); font-weight: 600; color: var(--bn-dark); margin-bottom: var(--bn-space-4); text-align: center;">
+        Monthly Income vs Expenses Trend
+      </h3>
+      <div style="display: flex; align-items: flex-end; gap: var(--bn-space-2); height: 200px; padding: var(--bn-space-4) 0; border-bottom: 2px solid var(--bn-gray-lighter);">
+  `;
+
+  analyticsData.monthlyData.forEach((monthData) => {
+    const incomeHeight = maxValue > 0 ? ((monthData.income || 0) / maxValue) * 100 : 0;
+    const expenseHeight = maxValue > 0 ? ((monthData.expenses || 0) / maxValue) * 100 : 0;
+
+    chartHTML += `
+      <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: var(--bn-space-1); height: 100%;">
+        <div style="flex: 1; display: flex; align-items: flex-end; gap: 2px; width: 100%; max-width: 50px;">
+          <div style="flex: 1; background: var(--bn-success); border-radius: var(--bn-radius-sm) var(--bn-radius-sm) 0 0; height: ${incomeHeight}%; min-height: ${incomeHeight > 0 ? '4px' : '0'}; transition: height 0.8s ease; opacity: ${incomeHeight > 0 ? '1' : '0.3'};" title="Income: ${formatCurrency(monthData.income || 0)}"></div>
+          <div style="flex: 1; background: var(--bn-danger); border-radius: var(--bn-radius-sm) var(--bn-radius-sm) 0 0; height: ${expenseHeight}%; min-height: ${expenseHeight > 0 ? '4px' : '0'}; transition: height 0.8s ease; opacity: ${expenseHeight > 0 ? '1' : '0.3'};" title="Expenses: ${formatCurrency(monthData.expenses || 0)}"></div>
+        </div>
+        <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); font-weight: 500; margin-top: var(--bn-space-1);">${monthData.month}</div>
+      </div>
+    `;
+  });
+
+  chartHTML += `
+      </div>
+      <div style="display: flex; justify-content: center; gap: var(--bn-space-6); margin-top: var(--bn-space-4); padding-top: var(--bn-space-4); border-top: 1px solid var(--bn-gray-lighter);">
+        <div style="display: flex; align-items: center; gap: var(--bn-space-2);">
+          <div style="width: 12px; height: 12px; background: var(--bn-success); border-radius: var(--bn-radius-sm);"></div>
+          <span style="font-size: var(--bn-text-sm); color: var(--bn-gray-700);">Income</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: var(--bn-space-2);">
+          <div style="width: 12px; height: 12px; background: var(--bn-danger); border-radius: var(--bn-radius-sm);"></div>
+          <span style="font-size: var(--bn-text-sm); color: var(--bn-gray-700);">Expenses</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  trendChartContainer.innerHTML = chartHTML;
+
+  // Animate bars after a short delay
+  setTimeout(() => {
+    trendChartContainer.querySelectorAll('[style*="height"]').forEach((bar, index) => {
+      setTimeout(() => {
+        bar.style.transition = 'height 0.8s ease, opacity 0.8s ease';
+      }, index * 50);
+    });
+  }, 100);
+}
+
 // Calculate member performance
 async function calculateMemberPerformance(members) {
   const currentYear = new Date().getFullYear();
@@ -323,6 +418,8 @@ async function calculateMemberPerformance(members) {
     let seedMoneyDue = 0;
     let monthlyPaid = 0;
     let monthlyDue = 0;
+    let serviceFeePaid = 0;
+    let serviceFeeDue = 0;
     const paymentBreakdown = [];
 
     // Check seed money
@@ -363,6 +460,24 @@ async function calculateMemberPerformance(members) {
       });
     } catch (e) {}
 
+    // Check service fee payments
+    try {
+      const serviceFeeRef = doc(db, `groups/${selectedGroupId}/payments/${currentYear}_ServiceFee/${member.id}/PaymentDetails`);
+      const serviceFeeDoc = await getDoc(serviceFeeRef);
+      if (serviceFeeDoc.exists()) {
+        const serviceFeeData = serviceFeeDoc.data();
+        serviceFeePaid = parseFloat(serviceFeeData.amountPaid || 0);
+        serviceFeeDue = parseFloat(serviceFeeData.totalAmount || 0);
+        if (serviceFeeDue > 0) {
+          paymentBreakdown.push({
+            type: 'Service Fee',
+            paid: serviceFeePaid,
+            due: serviceFeeDue
+          });
+        }
+      }
+    } catch (e) {}
+
     performanceData.push({
       id: member.id,
       name: member.fullName || "Unknown",
@@ -373,6 +488,7 @@ async function calculateMemberPerformance(members) {
       paymentBreakdown,
       seedMoneyPaid,
       monthlyPaid,
+      serviceFeePaid,
     });
   }
 
@@ -413,6 +529,8 @@ function renderChart() {
   let seedMoneyDue = 0;
   let monthlyPaid = 0;
   let monthlyDue = 0;
+    let serviceFeePaid = 0;
+    let serviceFeeDue = 0;
 
   analyticsData.memberPerformance.forEach((member) => {
     if (member.paymentBreakdown) {
@@ -423,6 +541,9 @@ function renderChart() {
         } else if (item.type?.includes('Monthly')) {
           monthlyPaid += item.paid || 0;
           monthlyDue += item.due || 0;
+          } else if (item.type === 'Service Fee') {
+            serviceFeePaid += item.paid || 0;
+            serviceFeeDue += item.due || 0;
         }
       });
     }
@@ -480,7 +601,22 @@ function renderChart() {
     );
   }
 
-  // Chart 4: Income vs Expenses (if available)
+  // Chart 4: Service Fee Status (if service fee is enabled)
+  const serviceFeeProgress = serviceFeeDue > 0 ? (serviceFeePaid / serviceFeeDue) * 100 : 0;
+  if (serviceFeeDue > 0) {
+    chartHTML += createPieChart(
+      'service-fee-chart',
+      'Service Fee Status',
+      [
+        { label: 'Paid', value: serviceFeePaid, color: 'var(--bn-info)', percentage: serviceFeeProgress },
+        { label: 'Remaining', value: serviceFeeDue - serviceFeePaid, color: 'var(--bn-warning)', percentage: 100 - serviceFeeProgress }
+      ],
+      serviceFeeDue,
+      'Service Fee'
+    );
+  }
+
+  // Chart 5: Income vs Expenses (if available)
   if (analyticsData.totalExpenses > 0 || analyticsData.totalIncome > 0) {
     const totalFinancial = analyticsData.totalIncome + analyticsData.totalExpenses;
     const incomePercentage = totalFinancial > 0 ? (analyticsData.totalIncome / totalFinancial) * 100 : 0;

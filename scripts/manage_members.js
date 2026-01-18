@@ -88,7 +88,7 @@ async function fetchGroupPaymentSettings() {
         const groupSnap = await getDoc(groupRef);
 
         if (groupSnap.exists()) {
-            groupData = groupSnap.data();
+            groupData = { id: groupSnap.id, ...groupSnap.data() };
             groupPaymentSettings = groupData;
 
             const seedMoney = groupPaymentSettings.rules?.seedMoney?.amount ?? groupPaymentSettings.seedMoney ?? 0;
@@ -118,6 +118,35 @@ async function loadMembers() {
     `;
 
     try {
+        // Always ensure groupData is loaded first
+        if (!groupData) {
+            try {
+                const groupRef = doc(db, "groups", groupId);
+                const groupSnap = await getDoc(groupRef);
+                if (groupSnap.exists()) {
+                    groupData = { id: groupSnap.id, ...groupSnap.data() };
+                } else {
+                    console.error("Group not found:", groupId);
+                    memberList.innerHTML = `
+                        <div class="empty-state" style="grid-column: 1 / -1;">
+                            <div class="empty-state-icon">❌</div>
+                            <p class="empty-state-text">Group not found</p>
+                        </div>
+                    `;
+                    return;
+                }
+            } catch (e) {
+                console.error("Error loading group data:", e);
+                memberList.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <div class="empty-state-icon">❌</div>
+                        <p class="empty-state-text">Error loading group: ${e.message}</p>
+                    </div>
+                `;
+                return;
+            }
+        }
+
         const membersRef = collection(db, `groups/${groupId}/members`);
         const querySnapshot = await getDocs(membersRef);
 
@@ -132,56 +161,132 @@ async function loadMembers() {
             });
         });
 
-        // Also check if admins are in the group document and add them to members list
-        if (groupData) {
-            const createdBy = groupData.createdBy;
-            const admins = groupData.admins || [];
-            const adminIds = new Set();
+        // ALWAYS ensure admins are included in members list
+        const createdBy = groupData.createdBy;
+        const admins = groupData.admins || [];
+        const adminIds = new Set();
+        
+        // Collect all admin IDs
+        if (createdBy) adminIds.add(createdBy);
+        admins.forEach(a => {
+            if (a && (a.uid || typeof a === 'string')) {
+                adminIds.add(a.uid || a);
+            }
+        });
+        
+        // Add all admins who are not already in members list
+        for (const adminId of adminIds) {
+            if (!adminId) continue; // Skip invalid IDs
             
-            // Collect all admin IDs
-            if (createdBy) adminIds.add(createdBy);
-            admins.forEach(a => {
-                if (a.uid) adminIds.add(a.uid);
-            });
+            const adminInMembers = members.find(m => m.id === adminId || m.uid === adminId);
             
-            // Add all admins who are not already in members list
-            for (const adminId of adminIds) {
-                const adminInMembers = members.find(m => m.id === adminId);
-                
-                if (!adminInMembers) {
-                    // Try to get admin from members collection first
-                    try {
-                        const adminMemberDoc = await getDoc(doc(db, `groups/${groupId}/members`, adminId));
-                        if (adminMemberDoc.exists()) {
-                            const adminData = adminMemberDoc.data();
-                            members.unshift({
-                                id: adminId,
-                                ...adminData,
-                                role: adminData.role || (createdBy === adminId ? 'senior_admin' : 'admin')
-                            });
-                            continue;
-                        }
-                    } catch (e) {
-                        console.log("Admin not in members collection, trying users collection");
+            if (!adminInMembers) {
+                // Try to get admin from members collection first
+                try {
+                    const adminMemberDoc = await getDoc(doc(db, `groups/${groupId}/members`, adminId));
+                    if (adminMemberDoc.exists()) {
+                        const adminData = adminMemberDoc.data();
+                        members.unshift({
+                            id: adminId,
+                            ...adminData,
+                            role: adminData.role || (createdBy === adminId ? 'senior_admin' : 'admin')
+                        });
+                        continue;
                     }
-                    
-                    // If not in members collection, get from users collection
-                    try {
-                        const userDoc = await getDoc(doc(db, "users", adminId));
-                        if (userDoc.exists()) {
-                            const userData = userDoc.data();
-                            members.unshift({
-                                id: adminId,
-                                ...userData,
-                                role: createdBy === adminId ? 'senior_admin' : 'admin',
-                                joinedAt: groupData.createdAt || Timestamp.now(),
-                                status: 'active'
-                            });
-                        }
-                    } catch (e) {
-                        console.error("Error loading admin user:", e);
+                } catch (e) {
+                    console.log("Admin not in members collection, trying users collection");
+                }
+                
+                // If not in members collection, get from users collection
+                try {
+                    const userDoc = await getDoc(doc(db, "users", adminId));
+                    if (userDoc.exists()) {
+                        const userData = userDoc.data();
+                        members.unshift({
+                            id: adminId,
+                            uid: adminId,
+                            fullName: userData.fullName || userData.name || "Admin",
+                            email: userData.email || "",
+                            phone: userData.phone || userData.phoneNumber || "",
+                            whatsappNumber: userData.whatsappNumber || "",
+                            profileImageUrl: userData.profileImageUrl || "",
+                            ...userData,
+                            role: createdBy === adminId ? 'senior_admin' : 'admin',
+                            joinedAt: groupData.createdAt || Timestamp.now(),
+                            status: 'active'
+                        });
+                    } else {
+                        // If user doesn't exist in users collection, create a basic admin entry
+                        console.warn("Admin user not found in users collection, creating basic entry:", adminId);
+                        members.unshift({
+                            id: adminId,
+                            uid: adminId,
+                            fullName: "Admin",
+                            email: "",
+                            phone: "",
+                            role: createdBy === adminId ? 'senior_admin' : 'admin',
+                            joinedAt: groupData.createdAt || Timestamp.now(),
+                            status: 'active'
+                        });
+                    }
+                } catch (e) {
+                    console.error("Error loading admin user:", e);
+                    // Even if there's an error, create a basic admin entry
+                    members.unshift({
+                        id: adminId,
+                        uid: adminId,
+                        fullName: "Admin",
+                        email: "",
+                        phone: "",
+                        role: createdBy === adminId ? 'senior_admin' : 'admin',
+                        joinedAt: groupData.createdAt || Timestamp.now(),
+                        status: 'active'
+                    });
+                }
+            } else {
+                // Admin is already in members, but ensure role is set correctly
+                const adminIndex = members.findIndex(m => (m.id === adminId || m.uid === adminId));
+                if (adminIndex >= 0) {
+                    if (!members[adminIndex].role) {
+                        members[adminIndex].role = createdBy === adminId ? 'senior_admin' : 'admin';
                     }
                 }
+            }
+        }
+
+        // Fallback: If no members found and we have a current user, add them as admin
+        if (members.length === 0 && currentUser && groupData) {
+            console.warn("No members found, adding current user as admin");
+            try {
+                const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+                const userData = userDoc.exists() ? userDoc.data() : {};
+                
+                members.push({
+                    id: currentUser.uid,
+                    uid: currentUser.uid,
+                    fullName: userData.fullName || userData.name || currentUser.displayName || "Admin",
+                    email: currentUser.email || userData.email || "",
+                    phone: userData.phone || userData.phoneNumber || "",
+                    whatsappNumber: userData.whatsappNumber || "",
+                    profileImageUrl: userData.profileImageUrl || currentUser.photoURL || "",
+                    role: (groupData.createdBy === currentUser.uid) ? 'senior_admin' : 'admin',
+                    joinedAt: groupData.createdAt || Timestamp.now(),
+                    status: 'active',
+                    ...userData
+                });
+            } catch (e) {
+                console.error("Error adding current user as admin:", e);
+                // Still add basic entry
+                members.push({
+                    id: currentUser.uid,
+                    uid: currentUser.uid,
+                    fullName: currentUser.displayName || "Admin",
+                    email: currentUser.email || "",
+                    phone: "",
+                    role: (groupData.createdBy === currentUser.uid) ? 'senior_admin' : 'admin',
+                    joinedAt: groupData.createdAt || Timestamp.now(),
+                    status: 'active'
+                });
             }
         }
 
@@ -247,24 +352,67 @@ function renderMembers(members) {
                     </div>
                 </div>
                 <div class="member-card-body">
-                    <div class="member-detail">
-                        <span class="member-detail-label">📧 Email</span>
-                        <span class="member-detail-value">${member.email || 'N/A'}</span>
+                    <div class="member-details-grid">
+                        <div class="member-detail">
+                            <span class="member-detail-label">📧 Email</span>
+                            <span class="member-detail-value">${member.email || 'N/A'}</span>
+                        </div>
+                        <div class="member-detail">
+                            <span class="member-detail-label">📞 Phone</span>
+                            <span class="member-detail-value">${member.phone || 'N/A'}</span>
+                        </div>
+                        ${member.whatsappNumber ? `
+                        <div class="member-detail">
+                            <span class="member-detail-label">💬 WhatsApp</span>
+                            <span class="member-detail-value">${member.whatsappNumber}</span>
+                        </div>
+                        ` : ''}
+                        ${member.career ? `
+                        <div class="member-detail">
+                            <span class="member-detail-label">💼 Career</span>
+                            <span class="member-detail-value">${member.career}</span>
+                        </div>
+                        ` : ''}
                     </div>
-                    <div class="member-detail">
-                        <span class="member-detail-label">📞 Phone</span>
-                        <span class="member-detail-value">${member.phone || 'N/A'}</span>
-                    </div>
-                    ${member.whatsappNumber ? `
-                    <div class="member-detail">
-                        <span class="member-detail-label">💬 WhatsApp</span>
-                        <span class="member-detail-value">${member.whatsappNumber}</span>
-                    </div>
-                    ` : ''}
-                    ${member.career ? `
-                    <div class="member-detail">
-                        <span class="member-detail-label">💼 Career</span>
-                        <span class="member-detail-value">${member.career}</span>
+                    ${(member.bankName || member.accountNumber) ? `
+                    <div class="member-details-grid" style="margin-top: var(--bn-space-3); padding-top: var(--bn-space-3); border-top: 1px solid var(--bn-gray-lighter);">
+                        <h4 style="grid-column: 1 / -1; font-size: var(--bn-text-sm); font-weight: 700; color: var(--bn-dark); margin-bottom: var(--bn-space-2);">🏦 Bank Account Details</h4>
+                        ${member.bankName ? `
+                        <div class="member-detail">
+                            <span class="member-detail-label">Bank Name</span>
+                            <span class="member-detail-value">${member.bankName}</span>
+                        </div>
+                        ` : ''}
+                        ${member.accountNumber ? `
+                        <div class="member-detail">
+                            <span class="member-detail-label">Account Number</span>
+                            <span class="member-detail-value" style="font-family: monospace;">****${member.accountNumber.slice(-4)}</span>
+                        </div>
+                        ` : ''}
+                        ${member.accountHolderName ? `
+                        <div class="member-detail">
+                            <span class="member-detail-label">Account Holder</span>
+                            <span class="member-detail-value">${member.accountHolderName}</span>
+                        </div>
+                        ` : ''}
+                        ${member.branchName ? `
+                        <div class="member-detail">
+                            <span class="member-detail-label">Branch</span>
+                            <span class="member-detail-value">${member.branchName}</span>
+                        </div>
+                        ` : ''}
+                        ${member.accountType ? `
+                        <div class="member-detail">
+                            <span class="member-detail-label">Account Type</span>
+                            <span class="member-detail-value">${member.accountType === 'savings' ? 'Savings' : member.accountType === 'current' ? 'Current' : member.accountType === 'checking' ? 'Checking' : member.accountType}</span>
+                        </div>
+                        ` : ''}
+                        ${member.bankAccountChanged ? `
+                        <div class="member-detail" style="grid-column: 1 / -1;">
+                            <span class="member-detail-label" style="color: var(--bn-warning);">⚠️ Recently Updated</span>
+                            <span class="member-detail-value" style="color: var(--bn-warning); font-size: var(--bn-text-xs);">Bank account details were recently changed</span>
+                        </div>
+                        ` : ''}
                     </div>
                     ` : ''}
                 </div>
@@ -331,31 +479,80 @@ function filterMembers(filter = 'all', searchTerm = '') {
     renderMembers(filtered);
 }
 
-// ✅ Attach event listeners for edit and remove buttons
+// ✅ Attach event listeners for edit and remove buttons using event delegation
 function attachMemberEventListeners() {
-    // Edit buttons
-    document.querySelectorAll(".edit-member-btn").forEach((button) => {
-        button.addEventListener("click", () => {
-            openEditModal(button);
-        });
-    });
-
-    // Remove buttons
-    document.querySelectorAll(".remove-member-btn").forEach((button) => {
-        button.addEventListener("click", async () => {
-            const memberId = button.getAttribute("data-id");
-            await confirmAndRemoveMember(memberId);
-        });
-    });
+    // Use event delegation on document for better reliability (handles dynamic content)
+    // Remove existing listener if any
+    const clickHandler = async (e) => {
+        // Handle edit button clicks
+        const editBtn = e.target.closest(".edit-member-btn");
+        if (editBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            const memberId = editBtn.getAttribute("data-id");
+            console.log("Edit button clicked", memberId);
+            if (memberId) {
+                await openEditModal(editBtn);
+            }
+            return false;
+        }
+        
+        // Handle remove button clicks
+        const removeBtn = e.target.closest(".remove-member-btn");
+        if (removeBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            const memberId = removeBtn.getAttribute("data-id");
+            if (memberId) {
+                await confirmAndRemoveMember(memberId);
+            }
+            return false;
+        }
+    };
+    
+    // Remove old listener if it exists
+    if (window._memberClickHandler) {
+        document.removeEventListener("click", window._memberClickHandler);
+    }
+    
+    // Store reference and add new listener
+    window._memberClickHandler = clickHandler;
+    document.addEventListener("click", clickHandler, true); // Use capture phase
 }
 
 // ✅ Open edit modal - Load full member data
 async function openEditModal(button) {
-    if (!editMemberModal) return;
+    console.log("openEditModal called", button);
+    
+    // Ensure editMemberModal is found
+    if (!editMemberModal) {
+        editMemberModal = document.getElementById("editMemberModal");
+        if (!editMemberModal) {
+            console.error("Edit member modal not found in DOM");
+            alert("Edit modal not found. Please refresh the page.");
+            return;
+        }
+    }
 
-    const memberId = button.getAttribute("data-id");
+    const memberId = button.getAttribute("data-id") || button.dataset.id || (button.nodeType === 1 ? button.getAttribute("data-id") : null);
+    if (!memberId) {
+        console.error("Member ID not found on button", button);
+        alert("Member ID not found. Please try again.");
+        return;
+    }
+    
+    console.log("Opening edit modal for member:", memberId);
     
     try {
+        // Ensure groupData is loaded
+        if (!groupData) {
+            const groupRef = doc(db, "groups", groupId);
+            const groupSnap = await getDoc(groupRef);
+            if (groupSnap.exists()) {
+                groupData = { id: groupSnap.id, ...groupSnap.data() };
+            }
+        }
+        
         // Fetch full member data from Firestore
         const memberRef = doc(db, `groups/${groupId}/members`, memberId);
         const memberDoc = await getDoc(memberRef);
@@ -407,6 +604,9 @@ async function openEditModal(button) {
                         <div class="form-group">
                             <label class="form-label">Date of Birth</label>
                             <input type="date" class="form-input" id="editDOB" value="${memberData.dateOfBirth || ''}">
+                            <span class="help-text" style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: var(--bn-space-1); display: block;">
+                              Member must be at least 18 years old
+                            </span>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Gender</label>
@@ -511,6 +711,51 @@ async function openEditModal(button) {
                     </div>
                 </div>
 
+                <!-- Bank Account Details (Read-only for Admin) -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Bank Account Details</h4>
+                    <p style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: var(--bn-space-3);">
+                        ℹ️ Bank account details are managed by the member in their settings. Changes will be visible here automatically.
+                    </p>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Bank Name</label>
+                            <input type="text" class="form-input" value="${memberData.bankName || 'Not provided'}" disabled style="background: var(--bn-gray-100); color: var(--bn-gray);">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Account Number</label>
+                            <input type="text" class="form-input" value="${memberData.accountNumber ? '****' + memberData.accountNumber.slice(-4) : 'Not provided'}" disabled style="background: var(--bn-gray-100); color: var(--bn-gray); font-family: monospace;">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Account Holder Name</label>
+                            <input type="text" class="form-input" value="${memberData.accountHolderName || 'Not provided'}" disabled style="background: var(--bn-gray-100); color: var(--bn-gray);">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Branch Name</label>
+                            <input type="text" class="form-input" value="${memberData.branchName || 'Not provided'}" disabled style="background: var(--bn-gray-100); color: var(--bn-gray);">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Account Type</label>
+                            <input type="text" class="form-input" value="${memberData.accountType ? (memberData.accountType === 'savings' ? 'Savings' : memberData.accountType === 'current' ? 'Current' : memberData.accountType === 'checking' ? 'Checking' : memberData.accountType) : 'Not provided'}" disabled style="background: var(--bn-gray-100); color: var(--bn-gray);">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Swift Code</label>
+                            <input type="text" class="form-input" value="${memberData.swiftCode || 'Not provided'}" disabled style="background: var(--bn-gray-100); color: var(--bn-gray);">
+                        </div>
+                    </div>
+                    ${memberData.bankAccountChanged ? `
+                    <div style="margin-top: var(--bn-space-3); padding: var(--bn-space-3); background: var(--bn-warning-light); border-left: 3px solid var(--bn-warning); border-radius: var(--bn-radius-md);">
+                        <p style="font-size: var(--bn-text-xs); color: var(--bn-warning-dark); margin: 0; font-weight: 600;">
+                            ⚠️ Bank account details were recently updated. Please verify before processing payments.
+                        </p>
+                    </div>
+                    ` : ''}
+                </div>
+
                 <!-- Account & Collateral -->
                 <div class="form-section">
                     <h4 class="form-section-title">Account & Collateral</h4>
@@ -521,11 +766,28 @@ async function openEditModal(button) {
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Role</label>
-                            <select class="form-select" id="editRole">
-                                <option value="member" ${(!memberData.role || memberData.role === 'member') ? 'selected' : ''}>Member</option>
-                                <option value="admin" ${memberData.role === 'admin' ? 'selected' : ''}>Admin</option>
-                                <option value="senior_admin" ${memberData.role === 'senior_admin' ? 'selected' : ''}>Senior Admin</option>
-                            </select>
+                            ${(() => {
+                                const isGroupCreator = memberData.id === (groupData?.createdBy || '');
+                                const isSeniorAdmin = memberData.role === 'senior_admin';
+                                const canChangeRole = !(isSeniorAdmin && isGroupCreator);
+                                
+                                return `
+                                    <select class="form-select" id="editRole" ${!canChangeRole ? 'disabled' : ''}>
+                                        <option value="member" ${(!memberData.role || memberData.role === 'member') ? 'selected' : ''}>Member</option>
+                                        <option value="admin" ${memberData.role === 'admin' ? 'selected' : ''}>Admin (Full Permissions)</option>
+                                        ${isSeniorAdmin ? `<option value="senior_admin" ${isSeniorAdmin ? 'selected' : ''}>Senior Admin</option>` : ''}
+                                    </select>
+                                    ${!canChangeRole ? `
+                                    <p style="font-size: var(--bn-text-xs); color: var(--bn-warning); margin-top: 4px;">
+                                        ⚠️ Senior Admin (Group Creator) role cannot be changed
+                                    </p>
+                                    ` : memberData.role !== 'senior_admin' ? `
+                                    <p style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: 4px;">
+                                        💡 Admin role grants full permissions: approve payments, manage loans, add/remove members, manage settings
+                                    </p>
+                                    ` : ''}
+                                `;
+                            })()}
                         </div>
                         <div class="form-group">
                             <label class="form-label">Status</label>
@@ -560,9 +822,11 @@ async function openEditModal(button) {
         }
 
         editMemberModal.dataset.id = memberId;
+        editMemberModal.style.display = 'flex';
         editMemberModal.classList.remove('hidden');
         editMemberModal.classList.add('active');
         document.body.style.overflow = 'hidden';
+        console.log("Edit modal opened for member:", memberId);
     } catch (error) {
         console.error("Error loading member data:", error);
         alert("Failed to load member data: " + error.message);
@@ -586,6 +850,39 @@ function setupFormHandlers() {
             await handleEditMember();
         });
     }
+    
+    // Close edit modal buttons
+    const cancelEditBtn = document.getElementById("cancelEditMember");
+    const closeEditBtn = document.getElementById("closeEditMemberModal");
+    
+    const closeEditModal = () => {
+        if (editMemberModal) {
+            editMemberModal.style.display = 'none';
+            editMemberModal.classList.add('hidden');
+            editMemberModal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    };
+    
+    if (cancelEditBtn) {
+        cancelEditBtn.addEventListener("click", closeEditModal);
+    }
+    
+    if (closeEditBtn) {
+        closeEditBtn.addEventListener("click", closeEditModal);
+    }
+    
+    // Close modal on overlay click
+    if (editMemberModal) {
+        editMemberModal.addEventListener("click", (e) => {
+            if (e.target === editMemberModal) {
+                closeEditModal();
+            }
+        });
+    }
+    
+    // Initialize event listeners for member buttons (using delegation)
+    attachMemberEventListeners();
 
     // Filter tabs
     document.querySelectorAll('.filter-tab').forEach(tab => {
@@ -652,8 +949,22 @@ async function handleAddMember() {
     const guarantorPhone = document.getElementById("memberGuarantorPhone")?.value.trim() || "";
     const role = document.getElementById("memberRole")?.value || "member";
     const collateral = document.getElementById("memberCollateral")?.value.trim() || null;
-    const dateOfBirth = document.getElementById("memberDOB")?.value || null;
+    const dateOfBirthInput = document.getElementById("memberDOB");
+    const dateOfBirth = dateOfBirthInput?.value || null;
     const gender = document.getElementById("memberGender")?.value || null;
+    
+    // Validate age if DOB is provided
+    if (dateOfBirth && window.DOBValidation) {
+      const validation = window.DOBValidation.validateAge(dateOfBirth);
+      if (!validation.isValid) {
+        alert(validation.error);
+        if (dateOfBirthInput) {
+          dateOfBirthInput.focus();
+          dateOfBirthInput.reportValidity();
+        }
+        return;
+      }
+    }
 
     if (!fullName || !email || !phone) {
         alert("Please fill in all required fields (Name, Email, Phone)");
@@ -771,7 +1082,21 @@ async function handleEditMember() {
     const status = document.getElementById("editStatus")?.value || "active";
     const collateral = document.getElementById("editCollateral")?.value.trim() || "";
     const notes = document.getElementById("editNotes")?.value.trim() || "";
-    const dateOfBirth = document.getElementById("editDOB")?.value || null;
+    const dateOfBirthInput = document.getElementById("editDOB");
+    const dateOfBirth = dateOfBirthInput?.value || null;
+    
+    // Validate age if DOB is provided
+    if (dateOfBirth && window.DOBValidation) {
+      const validation = window.DOBValidation.validateAge(dateOfBirth);
+      if (!validation.isValid) {
+        alert(validation.error);
+        if (dateOfBirthInput) {
+          dateOfBirthInput.focus();
+          dateOfBirthInput.reportValidity();
+        }
+        return;
+      }
+    }
     const gender = document.getElementById("editGender")?.value || null;
 
     if (!fullName || !email || !phone) {
@@ -823,10 +1148,97 @@ async function handleEditMember() {
             }
         }
 
-        // Ensure member document exists in members collection
+        // Get current member data to check role changes
         const memberRef = doc(db, `groups/${groupId}/members`, memberId);
         const memberDoc = await getDoc(memberRef);
+        const currentMemberData = memberDoc.exists() ? memberDoc.data() : {};
+        const oldRole = currentMemberData.role || 'member';
+        const newRole = role;
         
+        // Handle role change (promote/demote admin)
+        if (oldRole !== newRole && (oldRole === 'admin' || oldRole === 'senior_admin' || newRole === 'admin')) {
+            // Get group data
+            const groupRef = doc(db, "groups", groupId);
+            const groupDoc = await getDoc(groupRef);
+            if (!groupDoc.exists()) {
+                throw new Error("Group not found");
+            }
+            const groupData = groupDoc.data();
+            const admins = groupData.admins || [];
+            
+            // Get user data for admin entry
+            const userRef = doc(db, "users", memberId);
+            const userDoc = await getDoc(userRef);
+            const userData = userDoc.exists() ? userDoc.data() : {};
+            
+            if (newRole === 'admin' || newRole === 'senior_admin') {
+                // Promote to admin - add to admins array
+                const isAlreadyAdmin = admins.some(a => a.uid === memberId || a.email === email);
+                if (!isAlreadyAdmin) {
+                    admins.push({
+                        uid: memberId,
+                        fullName: fullName,
+                        email: email,
+                        phone: phone,
+                        whatsappNumber: whatsappNumber,
+                        role: newRole === 'senior_admin' ? 'senior_admin' : 'admin',
+                        assignedAt: Timestamp.now(),
+                        assignedBy: currentUser.uid,
+                        isContactAdmin: false,
+                        canPromoteMembers: true,
+                        permissions: {
+                            canApprovePayments: true,
+                            canApproveLoan: true,
+                            canAddMembers: true,
+                            canRemoveMembers: true,
+                            canPromoteToAdmin: true,
+                            canDemoteAdmin: true,
+                            canSendBroadcasts: true,
+                            canManageSettings: true,
+                            canViewReports: true
+                        }
+                    });
+                    await updateDoc(groupRef, { admins });
+                } else {
+                    // Update existing admin entry
+                    const adminIndex = admins.findIndex(a => a.uid === memberId || a.email === email);
+                    if (adminIndex >= 0) {
+                        admins[adminIndex] = {
+                            ...admins[adminIndex],
+                            fullName: fullName,
+                            email: email,
+                            phone: phone,
+                            whatsappNumber: whatsappNumber,
+                            role: newRole === 'senior_admin' ? 'senior_admin' : 'admin',
+                            permissions: {
+                                canApprovePayments: true,
+                                canApproveLoan: true,
+                                canAddMembers: true,
+                                canRemoveMembers: true,
+                                canPromoteToAdmin: true,
+                                canDemoteAdmin: true,
+                                canSendBroadcasts: true,
+                                canManageSettings: true,
+                                canViewReports: true
+                            }
+                        };
+                        await updateDoc(groupRef, { admins });
+                    }
+                }
+            } else if (oldRole === 'admin' || oldRole === 'senior_admin') {
+                // Demote from admin - remove from admins array (but not if they're the creator)
+                if (groupData.createdBy !== memberId) {
+                    const filteredAdmins = admins.filter(a => a.uid !== memberId && a.email !== email);
+                    await updateDoc(groupRef, { admins: filteredAdmins });
+                } else {
+                    // Cannot demote the group creator
+                    alert("⚠️ Cannot demote the group creator from admin role!");
+                    return;
+                }
+            }
+        }
+        
+        // Ensure member document exists in members collection
         if (memberDoc.exists()) {
             // Update existing member document
             await updateDoc(memberRef, updateData);
@@ -854,6 +1266,7 @@ async function handleEditMember() {
         
         // Close modal
         if (editMemberModal) {
+            editMemberModal.style.display = 'none';
             editMemberModal.classList.add('hidden');
             editMemberModal.classList.remove('active');
             document.body.style.overflow = '';

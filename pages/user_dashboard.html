@@ -36,6 +36,8 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: var(--bn-space-3);
+      position: relative;
     }
 
     .top-nav-logo {
@@ -193,7 +195,175 @@
       .view-toggle {
         display: none;
       }
+      
+      /* Hide Select Group and Logout buttons on mobile */
+      .top-nav-btn[onclick*="select_group"],
+      .top-nav-btn#logoutBtn {
+        display: none !important;
+      }
+      
+      /* Show burger menu on mobile - ensure it's visible */
+      .mobile-menu-btn {
+        display: flex !important;
+        position: relative;
+        z-index: 10;
+        visibility: visible;
+        opacity: 1;
+      }
+      
+      .top-nav-actions {
+        gap: var(--bn-space-2);
+      }
+      
+      /* Make sure container doesn't hide it */
+      .top-nav-container {
+        position: relative;
+      }
     }
+    
+    /* Mobile Menu Button (hidden on desktop) */
+    .mobile-menu-btn {
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      width: 40px;
+      height: 40px;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      border-radius: var(--bn-radius-md);
+      cursor: pointer;
+      justify-content: center;
+      align-items: center;
+      transition: all var(--bn-transition-fast);
+      flex-shrink: 0;
+    }
+    
+    .mobile-menu-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+    
+    .mobile-menu-btn span {
+      width: 20px;
+      height: 2px;
+      background: var(--bn-white);
+      border-radius: 2px;
+      transition: all var(--bn-transition-fast);
+    }
+    
+    .mobile-menu-btn.active span:nth-child(1) {
+      transform: rotate(45deg) translate(5px, 5px);
+    }
+    
+    .mobile-menu-btn.active span:nth-child(2) {
+      opacity: 0;
+    }
+    
+    .mobile-menu-btn.active span:nth-child(3) {
+      transform: rotate(-45deg) translate(7px, -6px);
+    }
+    
+    /* Mobile Menu Overlay */
+    .mobile-menu-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: calc(var(--z-fixed) + 100);
+      opacity: 0;
+      transition: opacity var(--bn-transition-base);
+    }
+    
+    .mobile-menu-overlay.active {
+      display: block;
+      opacity: 1;
+    }
+    
+    /* Mobile Menu Sidebar */
+    .mobile-menu {
+      position: fixed;
+      top: 0;
+      right: -100%;
+      width: 280px;
+      max-width: 85vw;
+      height: 100vh;
+      background: var(--bn-dark);
+      z-index: calc(var(--z-fixed) + 101);
+      padding: var(--bn-space-6);
+      transition: right var(--bn-transition-base);
+      overflow-y: auto;
+      box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .mobile-menu.active {
+      right: 0;
+    }
+    
+    .mobile-menu-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--bn-space-6);
+      padding-bottom: var(--bn-space-4);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .mobile-menu-title {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      color: var(--bn-white);
+    }
+    
+    .mobile-menu-close {
+      width: 36px;
+      height: 36px;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      border-radius: var(--bn-radius-md);
+      color: var(--bn-white);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--bn-transition-fast);
+    }
+    
+    .mobile-menu-close:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+    
+    .mobile-menu-item {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+      padding: var(--bn-space-4);
+      color: var(--bn-white);
+      text-decoration: none;
+      border-radius: var(--bn-radius-lg);
+      transition: all var(--bn-transition-fast);
+      margin-bottom: var(--bn-space-2);
+      font-size: var(--bn-text-base);
+      font-weight: 500;
+    }
+    
+    .mobile-menu-item:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .mobile-menu-item svg {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+    
+    .mobile-menu-item.danger {
+      color: #ef4444;
+    }
+    
+    .mobile-menu-item.danger:hover {
+      background: rgba(239, 68, 68, 0.1);
+    }
+    
 
     /* ============================================
        HERO SECTION
@@ -244,6 +414,7 @@
       gap: var(--bn-space-3);
       overflow-x: auto;
       padding-bottom: var(--bn-space-2);
+      align-items: stretch;
     }
 
     .hero-stat {
@@ -255,10 +426,69 @@
       border-radius: var(--bn-radius-lg);
       padding: var(--bn-space-4);
       transition: all var(--bn-transition-base);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
     }
 
     .hero-stat:hover {
       background: rgba(255, 255, 255, 0.12);
+    }
+
+    .hero-stat.clickable {
+      cursor: pointer;
+    }
+
+    .hero-stat.clickable:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .hero-stat-status {
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: var(--bn-space-1);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .hero-stat-status.paid {
+      color: rgba(16, 185, 129, 0.9);
+    }
+
+    .hero-stat-status.pending {
+      color: rgba(251, 191, 36, 0.9);
+    }
+
+    .hero-stat-status.due {
+      color: rgba(239, 68, 68, 0.9);
+    }
+
+    .hero-stat-status.overdue {
+      color: rgba(239, 68, 68, 1);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .hero-stat.flash {
+      animation: cardFlash 2s ease-in-out infinite;
+    }
+
+    @keyframes cardFlash {
+      0%, 100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+        border-color: rgba(255, 255, 255, 0.1);
+      }
+      50% {
+        box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
+        border-color: rgba(239, 68, 68, 0.3);
+      }
+    }
+
+    .hero-stat-badge {
+      animation: pulse 2s ease-in-out infinite;
     }
 
     .hero-stat-value {
@@ -268,6 +498,10 @@
       font-feature-settings: 'tnum' 1;
       margin-bottom: var(--bn-space-1);
       white-space: nowrap;
+      min-height: 1.5em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .hero-stat-label {
@@ -276,6 +510,18 @@
       color: rgba(255, 255, 255, 0.6);
       text-transform: uppercase;
       letter-spacing: 0.05em;
+      margin-top: 0;
+    }
+
+    .hero-stat-details {
+      margin-top: var(--bn-space-2);
+      padding-top: var(--bn-space-2);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: var(--bn-text-xs);
+      color: rgba(255, 255, 255, 0.65);
+      line-height: 1.5;
+      text-align: left;
+      font-weight: 400;
     }
 
     /* ============================================
@@ -321,6 +567,9 @@
 
     .content-card-body {
       padding: var(--bn-space-6);
+      width: 100%;
+      overflow-x: hidden;
+      box-sizing: border-box;
     }
 
     /* Quick Actions - Minimal */
@@ -442,160 +691,405 @@
       opacity: 0.8;
     }
 
-    /* Payment Calendar - Compact Outlook-style */
+    /* Payment Calendar - Feature-visual style (like index.html) */
     .calendar {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
-      gap: 3px;
+      gap: var(--bn-space-1);
       margin-bottom: var(--bn-space-3);
-      font-size: 11px;
     }
 
     .calendar-header {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
-      gap: 3px;
-      margin-bottom: var(--bn-space-2);
+      gap: var(--bn-space-1);
+      margin-bottom: var(--bn-space-1);
     }
 
     .calendar-day-name {
       text-align: center;
-      font-size: 10px;
+      font-size: var(--bn-text-sm);
       font-weight: 600;
       color: var(--bn-gray);
       text-transform: uppercase;
       letter-spacing: 0.03em;
-      padding: 4px 2px;
+      padding: var(--bn-space-1);
     }
 
     .calendar-day {
       aspect-ratio: 1;
       display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      justify-content: flex-start;
-      padding: 3px;
-      border-radius: 4px;
-      background: #f8f9fa;
-      border: 1px solid transparent;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
+      border-radius: var(--bn-radius-md);
+      background: transparent;
       cursor: pointer;
       transition: all var(--bn-transition-fast);
       position: relative;
-      min-height: 50px;
-      overflow: hidden;
     }
 
     .calendar-day:hover {
       background: var(--bn-gray-100);
-      border-color: var(--bn-primary);
-      z-index: 2;
     }
 
     .calendar-day.other-month {
-      opacity: 0.35;
-      background: #f0f0f0;
+      opacity: 0.3;
     }
 
     .calendar-day.today {
-      background: rgba(34, 197, 94, 0.08);
-      border-color: var(--bn-primary);
+      background: var(--bn-gradient-accent);
+      color: var(--bn-dark);
+      font-weight: 700;
+    }
+
+    .calendar-day.active {
+      background: var(--bn-gradient-accent);
+      color: var(--bn-dark);
+      font-weight: 700;
+    }
+
+    .calendar-day.payout {
+      background: var(--bn-success-light);
+      color: var(--bn-success);
       font-weight: 600;
+    }
+
+    .calendar-day.has-event {
+      position: relative;
+    }
+
+    .calendar-day.has-event::after {
+      content: '';
+      position: absolute;
+      bottom: 2px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: currentColor;
     }
 
     .calendar-day-number {
-      font-size: 11px;
+      font-size: var(--bn-text-sm);
       font-weight: 600;
-      color: var(--bn-dark);
-      margin-bottom: 2px;
-      align-self: flex-start;
-      line-height: 1;
+      color: inherit;
     }
 
+    /* Event dots - rendered by JS as simple colored dots */
     .calendar-day-events {
       display: flex;
-      flex-direction: column;
+      flex-wrap: wrap;
       gap: 2px;
-      width: 100%;
-      margin-top: 2px;
-      flex: 1;
-      overflow: hidden;
+      justify-content: center;
+      position: absolute;
+      bottom: 2px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: auto;
     }
 
     .calendar-event-note {
-      font-size: 9px;
-      line-height: 1.2;
-      padding: 2px 3px;
-      border-radius: 3px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      width: 100%;
-      cursor: pointer;
-      transition: all var(--bn-transition-fast);
-      border-left: 2px solid;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      padding: 0;
+      margin: 0;
+      display: block;
     }
 
-    .calendar-event-note:hover {
-      opacity: 0.9;
-      transform: scale(1.02);
-    }
-
+    /* Color classes for dots */
     .calendar-event-note.monthly {
-      background: rgba(34, 197, 94, 0.12);
-      color: #15803d;
-      border-left-color: var(--bn-primary);
+      background: #10b981;
     }
 
     .calendar-event-note.seed {
-      background: rgba(201, 162, 39, 0.12);
-      color: #a16207;
-      border-left-color: var(--bn-accent);
+      background: #f59e0b;
     }
 
     .calendar-event-note.loan {
-      background: rgba(249, 115, 22, 0.12);
-      color: #c2410c;
-      border-left-color: var(--bn-warning);
+      background: #3b82f6;
+    }
+
+    .calendar-event-note.servicefee {
+      background: #8b5cf6;
     }
 
     .calendar-event-note.overdue {
-      background: rgba(239, 68, 68, 0.15);
-      color: #dc2626;
-      border-left-color: var(--bn-danger);
-      font-weight: 600;
-    }
-
-    .calendar-day.has-events {
-      background: var(--bn-white);
-      border-color: var(--bn-gray-lighter);
-    }
-
-    .calendar-day.has-events.today {
-      background: rgba(34, 197, 94, 0.12);
+      background: #ef4444;
     }
 
     @media (max-width: 640px) {
+      /* Calendar - Feature-visual style on mobile */
       .calendar {
-        gap: 2px;
+        gap: var(--bn-space-1) !important;
+        padding: var(--bn-space-2) !important;
       }
       
-      .calendar-day {
-        min-height: 45px;
-        padding: 2px;
-      }
-      
-      .calendar-day-number {
-        font-size: 10px;
-      }
-      
-      .calendar-event-note {
-        font-size: 8px;
-        padding: 1px 2px;
+      .calendar-header {
+        gap: var(--bn-space-1) !important;
+        margin-bottom: var(--bn-space-2) !important;
       }
       
       .calendar-day-name {
-        font-size: 9px;
-        padding: 3px 1px;
+        font-size: var(--bn-text-xs) !important;
+        padding: var(--bn-space-1) !important;
+        font-weight: 600 !important;
+      }
+      
+      /* Calendar Days - simple, clean design */
+      .calendar-day {
+        aspect-ratio: 1 !important;
+        min-height: auto !important;
+        padding: 0 !important;
+        background: transparent !important;
+        border: none !important;
+        border-radius: var(--bn-radius-md) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        position: relative !important;
+      }
+      
+      .calendar-day.other-month {
+        opacity: 0.3 !important;
+        background: transparent !important;
+      }
+      
+      .calendar-day.today {
+        background: var(--bn-gradient-accent) !important;
+        color: var(--bn-dark) !important;
+        font-weight: 700 !important;
+      }
+      
+      .calendar-day.active {
+        background: var(--bn-gradient-accent) !important;
+        color: var(--bn-dark) !important;
+        font-weight: 700 !important;
+      }
+      
+      .calendar-day.payout {
+        background: var(--bn-success-light) !important;
+        color: var(--bn-success) !important;
+        font-weight: 600 !important;
+      }
+      
+      .calendar-day.has-event::after {
+        content: '';
+        position: absolute;
+        bottom: 2px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      
+      .calendar-day-number {
+        font-size: var(--bn-text-sm) !important;
+        font-weight: 600 !important;
+        color: inherit !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        min-width: auto !important;
+        text-align: center !important;
+      }
+      
+      /* Calendar event dots (rendered by JS) - simple feature-visual style */
+      .calendar-day-events {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 2px !important;
+        justify-content: center !important;
+        position: absolute !important;
+        bottom: 2px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: auto !important;
+      }
+      
+      .calendar-event-note {
+        width: 6px !important;
+        height: 6px !important;
+        border-radius: 50% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        min-height: 6px !important;
+        display: block !important;
+      }
+      
+      /* Touch targets */
+      .calendar-day {
+        cursor: pointer !important;
+        -webkit-tap-highlight-color: rgba(4, 120, 87, 0.2) !important;
+        touch-action: manipulation !important;
+      }
+      
+      /* Calendar Legend Mobile */
+      .calendar-legend {
+        font-size: 10px !important;
+        padding: var(--bn-space-2) !important;
+        gap: var(--bn-space-2) !important;
+        flex-wrap: wrap !important;
+        margin-bottom: var(--bn-space-3) !important;
+      }
+      
+      .calendar-legend > div {
+        gap: 4px !important;
+        font-size: 10px !important;
+      }
+      
+      .calendar-legend > div > div {
+        width: 14px !important;
+        height: 14px !important;
+        min-height: 14px !important;
+      }
+      
+      .calendar-legend span {
+        font-size: 10px !important;
+        font-weight: 600;
+      }
+      
+      /* Calendar Card Header Mobile */
+      .content-card-header {
+        padding: var(--bn-space-3) var(--bn-space-3) !important;
+        flex-wrap: wrap;
+        gap: var(--bn-space-2);
+      }
+      
+      .content-card-title {
+        font-size: var(--bn-text-sm) !important;
+      }
+      
+      /* Calendar Navigation Buttons Mobile */
+      #calendarPrevMonth,
+      #calendarNextMonth {
+        min-width: 36px !important;
+        min-height: 36px !important;
+        padding: 8px !important;
+        font-size: 16px !important;
+        font-weight: 700 !important;
+        border-radius: var(--bn-radius-md) !important;
+        touch-action: manipulation;
+      }
+      
+      #calendarMonthYear {
+        font-size: var(--bn-text-sm) !important;
+        font-weight: 700 !important;
+        min-width: 140px !important;
+      }
+      
+      /* Very small screens */
+      @media (max-width: 360px) {
+        .calendar {
+          gap: 1px !important;
+          padding: 4px !important;
+        }
+        
+        .calendar-day {
+          min-height: 65px !important;
+          padding: 2px 1px !important;
+        }
+        
+        .calendar-day-number {
+          font-size: 11px !important;
+        }
+        
+        .calendar-event-note {
+          font-size: 8px !important;
+          padding: 3px 4px !important;
+          min-height: 18px !important;
+        }
+        
+        .calendar-event-note::before {
+          width: 8px !important;
+          height: 8px !important;
+        }
+        
+        .calendar-event-note.approved::before,
+        .calendar-event-note.overdue::before {
+          width: 12px !important;
+          height: 12px !important;
+          font-size: 8px !important;
+        }
+        
+        .calendar-day-name {
+          font-size: 8px !important;
+          padding: 4px 1px !important;
+        }
+        
+        .calendar-legend {
+          font-size: 9px !important;
+          padding: var(--bn-space-2) !important;
+        }
+        
+        .calendar-legend > div {
+          gap: 3px !important;
+        }
+        
+        .calendar-legend span {
+          font-size: 9px !important;
+        }
+      }
+    }
+    
+    @media (max-width: 480px) {
+      /* Calendar card header on small screens */
+      .content-card-header {
+        padding: var(--bn-space-3) var(--bn-space-3) !important;
+        flex-direction: column;
+        align-items: flex-start !important;
+      }
+      
+      .content-card-title {
+        font-size: var(--bn-text-sm) !important;
+        margin-bottom: var(--bn-space-2);
+      }
+      
+      /* Calendar navigation buttons */
+      #calendarPrevMonth,
+      #calendarNextMonth {
+        min-width: 32px !important;
+        min-height: 32px !important;
+        padding: 6px !important;
+        font-size: 14px !important;
+      }
+      
+      #calendarMonthYear {
+        font-size: var(--bn-text-xs) !important;
+        min-width: 110px !important;
+      }
+      
+      /* Calendar legend on small screens */
+      .calendar-legend {
+        font-size: 9px !important;
+        padding: var(--bn-space-2) !important;
+        gap: var(--bn-space-1) !important;
+      }
+      
+      .calendar-legend > div {
+        gap: 3px !important;
+      }
+      
+      .calendar-legend span {
+        font-size: 9px !important;
+      }
+      
+      /* Calendar container wrapper */
+      #paymentCalendar {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+        max-width: 100%;
+      }
+      
+      /* Ensure calendar fits within viewport */
+      .content-card-body {
+        padding: var(--bn-space-3) !important;
+        overflow-x: hidden;
       }
     }
 
@@ -786,12 +1280,17 @@
 
     .modal-overlay.active,
     .modal-overlay:not(.hidden) {
-      opacity: 1;
-      pointer-events: all;
+      display: flex !important;
+      opacity: 1 !important;
+      pointer-events: all !important;
+      visibility: visible !important;
     }
 
     .modal-overlay.hidden {
-      display: none;
+      display: none !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      visibility: hidden !important;
     }
 
     .modal-content {
@@ -810,19 +1309,123 @@
       transform: translateY(0);
     }
 
-    @media (min-width: 768px) {
+    @media (max-width: 767px) {
+      .modal-overlay {
+        align-items: flex-end !important;
+        padding: 0 !important;
+        display: flex !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: all !important;
+      }
+
+      .modal-overlay.hidden {
+        display: none !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
+
+      .modal-content {
+        border-radius: var(--bn-radius-2xl) var(--bn-radius-2xl) 0 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: 85vh !important;
+        transform: translateY(100%) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        box-sizing: border-box !important;
+      }
+
+      .modal-overlay.active .modal-content,
+      .modal-overlay:not(.hidden) .modal-content {
+        transform: translateY(0) !important;
+      }
+
+      .modal-header {
+        padding: var(--bn-space-4);
+        position: sticky;
+        top: 0;
+        background: var(--bn-white);
+        z-index: 1;
+      }
+
+      .modal-body {
+        padding: var(--bn-space-4);
+        max-height: calc(85vh - 80px);
+        overflow-y: auto;
+      }
+
+    .modal-title {
+      font-size: var(--bn-text-lg);
+    }
+  }
+
+  /* Payment Details Modal Specific Styles */
+  .payment-details-modal {
+    max-width: 1200px;
+    max-height: 90vh;
+  }
+
+  .payment-details-table-container {
+    padding: var(--bn-space-4);
+    overflow-x: auto;
+  }
+
+  .payment-details-table-container table {
+    min-width: 100%;
+    font-size: var(--bn-text-xs);
+  }
+
+  .payment-details-table-container table th,
+  .payment-details-table-container table td {
+    padding: var(--bn-space-2) var(--bn-space-3);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 767px) {
+    .payment-details-modal {
+      max-width: 100% !important;
+      max-height: 85vh !important;
+    }
+
+    .payment-details-table-container {
+      padding: var(--bn-space-2);
+    }
+
+    .payment-details-table-container table {
+      font-size: 10px;
+    }
+
+    .payment-details-table-container table th,
+    .payment-details-table-container table td {
+      padding: var(--bn-space-1) var(--bn-space-2);
+      font-size: 10px;
+    }
+  }
+
+  @media (min-width: 768px) {
       .modal-overlay {
         align-items: center;
+        padding: var(--bn-space-6);
       }
 
       .modal-content {
         border-radius: var(--bn-radius-2xl);
+        max-width: 560px;
+        width: 100%;
         transform: scale(0.95) translateY(20px);
       }
 
       .modal-overlay.active .modal-content,
       .modal-overlay:not(.hidden) .modal-content {
         transform: scale(1) translateY(0);
+      }
+
+      /* Payment Details Modal - Wider on desktop */
+      .payment-details-modal {
+        max-width: 1200px !important;
+        width: calc(100% - 2 * var(--bn-space-6));
       }
     }
 
@@ -864,70 +1467,7 @@
       padding: var(--bn-space-6);
     }
 
-    /* ============================================
-       MOBILE BOTTOM NAV
-       ============================================ */
-    .mobile-nav {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: var(--bn-white);
-      border-top: 1px solid var(--bn-gray-lighter);
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
-      padding: var(--bn-space-2) 0;
-      z-index: var(--z-fixed);
-      box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
-    }
-
-    .mobile-nav-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: var(--bn-space-1);
-      padding: var(--bn-space-2) var(--bn-space-3);
-      text-decoration: none;
-      color: var(--bn-gray);
-      font-size: var(--bn-text-xs);
-      font-weight: 500;
-      transition: color var(--bn-transition-fast);
-      min-width: 60px;
-      flex: 1;
-    }
-
-    .mobile-nav-item.active {
-      color: var(--bn-accent);
-    }
-
-    .mobile-nav-item-admin {
-      color: var(--bn-gray) !important;
-      background: none !important;
-      border: none !important;
-      cursor: pointer;
-      font-family: inherit;
-      display: flex !important;
-    }
-
-    .mobile-nav-item-admin:active,
-    .mobile-nav-item-admin:focus {
-      color: var(--bn-primary) !important;
-      outline: none;
-    }
-
-    .mobile-nav-item-admin.hidden {
-      display: none !important;
-    }
-
-    .mobile-nav-icon {
-      font-size: 1.25rem;
-    }
-
-    /* Adjust spacing when admin button is visible */
-    .mobile-nav.has-admin .mobile-nav-item {
-      padding: var(--bn-space-2) var(--bn-space-2);
-    }
+    /* Mobile nav styles are now in unified-mobile-nav.css */
 
     /* ============================================
        RESPONSIVE
@@ -952,6 +1492,9 @@
       .hero-stat {
         min-width: auto;
         padding: var(--bn-space-3);
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
       }
 
       .hero-stat-value {
@@ -960,18 +1503,42 @@
 
       .main-content {
         padding: 0 var(--bn-space-4);
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
       }
 
-      .quick-actions {
-        grid-template-columns: repeat(2, 1fr);
+      .content-grid {
+        grid-template-columns: 1fr !important; /* Stack cards vertically on mobile */
+        gap: var(--bn-space-4);
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
       }
 
-      .groups-grid {
-        grid-template-columns: 1fr;
+      .content-card {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
       }
 
       .content-card-body {
         padding: var(--bn-space-4);
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+        box-sizing: border-box;
+      }
+
+      .quick-actions {
+        grid-template-columns: repeat(2, 1fr);
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+
+      .groups-grid {
+        grid-template-columns: 1fr;
       }
     }
 
@@ -983,6 +1550,7 @@
 
       .hero-stat {
         padding: var(--bn-space-2);
+        min-width: 100px;
       }
 
       .hero-stat-value {
@@ -991,6 +1559,10 @@
 
       .hero-stat-label {
         font-size: 9px;
+      }
+
+      .hero-stat-status {
+        font-size: 8px;
       }
 
       .quick-actions {
@@ -1041,6 +1613,56 @@
       .btn {
         min-height: 44px;
         padding: var(--bn-space-3) var(--bn-space-4);
+      }
+
+      /* Hero stats mobile improvements */
+      .hero-stat {
+        min-width: 120px;
+        padding: var(--bn-space-4);
+      }
+
+      .hero-stat-value {
+        font-size: var(--bn-text-lg) !important;
+        line-height: 1.2 !important;
+      }
+
+      .hero-stat-label {
+        font-size: var(--bn-text-xs) !important;
+        margin-top: var(--bn-space-1) !important;
+        line-height: 1.3 !important;
+      }
+
+      .hero-stat-status {
+        font-size: 10px !important;
+        margin-top: var(--bn-space-1) !important;
+        padding: 2px 6px !important;
+      }
+
+
+      /* Members stat mobile styling */
+      #membersStat .hero-stat-value {
+        font-size: var(--bn-text-lg) !important;
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+      }
+
+      #membersStat .badge {
+        font-size: 9px !important;
+        padding: 2px 5px !important;
+      }
+
+      /* Content section overflow fixes */
+      .content-section,
+      .content-card,
+      .rules-container,
+      .info-card,
+      .member-card {
+        overflow: visible !important;
+      }
+
+      .content-section-body,
+      .content-card-body {
+        overflow: visible !important;
       }
 
       /* List items touch-friendly */
@@ -1132,9 +1754,7 @@
         padding-bottom: calc(var(--bn-space-2) + env(safe-area-inset-bottom));
       }
       
-      body {
-        padding-bottom: calc(80px + env(safe-area-inset-bottom));
-      }
+      /* Body padding handled by unified-mobile-nav.css */
     }
 
     /* ============================================
@@ -1148,6 +1768,7 @@
     .hero-stat:nth-child(2) { animation-delay: 0.2s; }
     .hero-stat:nth-child(3) { animation-delay: 0.3s; }
     .hero-stat:nth-child(4) { animation-delay: 0.4s; }
+    .hero-stat:nth-child(5) { animation-delay: 0.5s; }
 
     .content-card {
       animation: fadeInUp 0.6s var(--bn-ease-out) 0.3s backwards;
@@ -1175,6 +1796,7 @@
           <button class="view-toggle-btn" onclick="handleSwitchToAdmin()" title="Switch to Admin Dashboard">Admin</button>
           <button class="view-toggle-btn active" title="User Dashboard (Current)">User</button>
         </div>
+        <!-- Desktop: Select Group button -->
         <button class="top-nav-btn" onclick="window.location.href='select_group.html'" title="Select Group">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
@@ -1189,6 +1811,7 @@
           </svg>
           <span id="notificationBadge" class="notification-badge"></span>
         </button>
+        <!-- Desktop: Logout button -->
         <button class="top-nav-btn" id="logoutBtn" title="Logout">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -1201,8 +1824,54 @@
           <span id="userInitials">U</span>
         </a>
       </div>
+      
+      <!-- Mobile: Burger menu button (positioned after top-nav-actions) -->
+      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
     </div>
   </nav>
+
+  <!-- Mobile Menu Overlay -->
+  <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
+  
+  <!-- Mobile Menu Sidebar -->
+  <div class="mobile-menu" id="mobileMenu">
+    <div class="mobile-menu-header">
+      <h2 class="mobile-menu-title">Menu</h2>
+      <button class="mobile-menu-close" id="mobileMenuClose" aria-label="Close menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <a href="select_group.html" class="mobile-menu-item" onclick="closeMobileMenu()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+        <line x1="12" y1="8" x2="12" y2="16"/>
+        <line x1="8" y1="12" x2="16" y2="12"/>
+      </svg>
+      <span>Select Group</span>
+    </a>
+    <a href="settings.html" class="mobile-menu-item" onclick="closeMobileMenu()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 1v6m0 6v6m9-9h-6m-6 0H3m15.364 6.364l-4.243-4.243m-4.242 0L5.636 17.364M18.364 6.636l-4.243 4.243m-4.242 0L5.636 6.636"/>
+      </svg>
+      <span>Settings</span>
+    </a>
+    <button class="mobile-menu-item danger" id="mobileLogoutBtn" onclick="handleMobileLogout()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+        <polyline points="16 17 21 12 16 7"/>
+        <line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+      <span>Sign Out</span>
+    </button>
+  </div>
 
   <!-- Hero Section -->
   <section class="hero-section">
@@ -1213,13 +1882,23 @@
       </div>
 
         <div class="hero-stats">
-        <div class="hero-stat">
-          <div class="hero-stat-value" id="totalContributed">MWK 0</div>
-          <div class="hero-stat-label">Contributed</div>
+        <div class="hero-stat" id="nextPaymentStat" style="position: relative;">
+          <div class="hero-stat-value" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <span style="font-size: 14px; line-height: 1;" title="Monthly Payment">📅</span>
+            <span style="font-size: 10px; line-height: 1; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.05em;">Monthly</span>
+          </div>
+          <div class="hero-stat-label">Next Payment</div>
+          <div class="hero-stat-details" id="nextPaymentDetails"></div>
+          <div class="hero-stat-badge" id="nextPaymentBadge" style="position: absolute; top: var(--bn-space-1); right: var(--bn-space-1); background: var(--bn-danger); color: var(--bn-white); font-size: 8px; padding: 2px 6px; border-radius: 10px; font-weight: 700; cursor: pointer; display: none; z-index: 10;" onclick="dismissNextPaymentBadge(event)">Due</div>
         </div>
-        <div class="hero-stat">
-          <div class="hero-stat-value" id="activeLoans">0</div>
+        <div class="hero-stat" id="activeLoansStat" onclick="window.location.href='loan_payments.html'" style="cursor: pointer; position: relative;">
+          <div class="hero-stat-value" id="activeLoans" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <span>0</span>
+            <span style="font-size: 14px; line-height: 1;" title="Active Loans">💰</span>
+          </div>
           <div class="hero-stat-label">Loans</div>
+          <div class="hero-stat-details" id="activeLoansDetails"></div>
+          <div class="hero-stat-badge" id="activeLoansBadge" style="position: absolute; top: var(--bn-space-1); right: var(--bn-space-1); background: var(--bn-danger); color: var(--bn-white); font-size: 8px; padding: 2px 6px; border-radius: 10px; font-weight: 700; cursor: pointer; display: none; z-index: 10;" onclick="dismissActiveLoansBadge(event)">Due</div>
         </div>
         <div class="hero-stat">
           <div class="hero-stat-value" id="pendingPayments">0</div>
@@ -1236,6 +1915,10 @@
           </div>
           <div class="hero-stat-label">Group Members</div>
         </a>
+        <div class="hero-stat" id="totalContributedStat" style="cursor: pointer;" onclick="showAllPaymentsModal()">
+          <div class="hero-stat-value" id="totalContributed">MWK 0</div>
+          <div class="hero-stat-label">Contributed</div>
+        </div>
       </div>
     </div>
   </section>
@@ -1258,6 +1941,9 @@
             </button>
             <button class="action-btn" id="upcomingPaymentsBtn">
               <span class="action-label">Upcoming Payments</span>
+            </button>
+            <button class="action-btn" id="viewPaymentDetailsBtn">
+              <span class="action-label">Payment Details</span>
             </button>
             <a href="contacts.html" class="action-btn" id="viewMembersBtn">
               <span class="action-label">Members</span>
@@ -1300,34 +1986,44 @@
 
     <!-- Payment Calendar -->
     <div class="content-card" style="margin-bottom: var(--bn-space-6);">
-      <div class="content-card-header" style="padding: var(--bn-space-3) var(--bn-space-4);">
+      <div class="content-card-header" style="padding: var(--bn-space-3) var(--bn-space-4); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--bn-space-2);">
         <h2 class="content-card-title" style="font-size: var(--bn-text-base); margin: 0;">Payment Calendar</h2>
         <div style="display: flex; gap: var(--bn-space-1); align-items: center;">
-          <button class="btn btn-ghost btn-sm" id="calendarPrevMonth" style="padding: 4px 8px; font-size: 12px;">&lt;</button>
+          <button class="btn btn-ghost btn-sm" id="calendarPrevMonth" style="padding: 4px 8px; font-size: 12px; min-width: 36px; min-height: 36px;">&lt;</button>
           <span id="calendarMonthYear" style="font-weight: 600; min-width: 120px; text-align: center; font-size: var(--bn-text-sm);"></span>
-          <button class="btn btn-ghost btn-sm" id="calendarNextMonth" style="padding: 4px 8px; font-size: 12px;">&gt;</button>
+          <button class="btn btn-ghost btn-sm" id="calendarNextMonth" style="padding: 4px 8px; font-size: 12px; min-width: 36px; min-height: 36px;">&gt;</button>
         </div>
       </div>
-      <div class="content-card-body" style="padding: var(--bn-space-3) var(--bn-space-4);">
-        <div id="paymentCalendar"></div>
-        <div style="margin-top: var(--bn-space-3); padding-top: var(--bn-space-3); border-top: 1px solid var(--bn-gray-lighter); display: flex; gap: var(--bn-space-3); flex-wrap: wrap; font-size: 9px;">
+      <div class="content-card-body" style="padding: var(--bn-space-4);">
+        <!-- Calendar Legend -->
+        <div class="calendar-legend" style="display: flex; flex-wrap: wrap; gap: var(--bn-space-2); margin-bottom: var(--bn-space-3); padding: var(--bn-space-2); background: var(--bn-gray-50); border-radius: var(--bn-radius-md); font-size: var(--bn-text-xs);">
           <div style="display: flex; align-items: center; gap: 4px;">
-            <div style="width: 8px; height: 8px; border-radius: 2px; background: var(--bn-primary);"></div>
+            <div class="calendar-event-note monthly" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px;"></div>
             <span>Monthly</span>
           </div>
           <div style="display: flex; align-items: center; gap: 4px;">
-            <div style="width: 8px; height: 8px; border-radius: 2px; background: var(--bn-accent);"></div>
+            <div class="calendar-event-note seed" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px;"></div>
             <span>Seed Money</span>
           </div>
           <div style="display: flex; align-items: center; gap: 4px;">
-            <div style="width: 8px; height: 8px; border-radius: 2px; background: var(--bn-warning);"></div>
+            <div class="calendar-event-note servicefee" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px;"></div>
+            <span>Service Fee</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <div class="calendar-event-note loan" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px;"></div>
             <span>Loan</span>
           </div>
           <div style="display: flex; align-items: center; gap: 4px;">
-            <div style="width: 8px; height: 8px; border-radius: 2px; background: var(--bn-danger);"></div>
+            <div class="calendar-event-note overdue" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px;"></div>
             <span>Overdue</span>
           </div>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <div class="calendar-event-note approved monthly" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px; opacity: 0.75;"></div>
+            <span>Paid</span>
+          </div>
         </div>
+        <div id="paymentCalendar" style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;"></div>
+        <div id="paymentLegend" style="margin-top: var(--bn-space-4);"></div>
       </div>
     </div>
 
@@ -1344,20 +2040,6 @@
       </div>
     </div>
 
-    <!-- Your Groups -->
-    <div class="content-card">
-      <div class="content-card-header">
-        <h2 class="content-card-title">Your Groups</h2>
-      </div>
-      <div class="content-card-body">
-        <div class="groups-grid" id="groupList">
-          <div class="empty-state" style="grid-column: span 2;">
-            <div class="empty-state-icon">📁</div>
-            <p class="empty-state-text">Loading your groups...</p>
-          </div>
-        </div>
-      </div>
-    </div>
   </main>
 
   <!-- Request Loan Modal -->
@@ -1482,6 +2164,15 @@
             <input type="date" id="paymentDate" class="form-input" required>
           </div>
           <div class="form-group">
+            <label style="display: flex; align-items: center; gap: var(--bn-space-2); cursor: pointer;">
+              <input type="checkbox" id="isAdvancedPayment" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-weight: 600;">This is an Advanced Payment</span>
+            </label>
+            <small style="color: var(--bn-gray); font-size: var(--bn-text-xs); display: block; margin-top: 4px; margin-left: 26px;">
+              Advanced payments allow paying for future months/cycles. These require admin approval before calculations are updated.
+            </small>
+          </div>
+          <div class="form-group">
             <label class="form-label">Proof of Payment</label>
             <input type="file" id="paymentProof" class="form-input" accept="image/*,.pdf" required>
           </div>
@@ -1497,22 +2188,22 @@
       <span class="mobile-nav-icon">🏠</span>
       <span>Home</span>
     </a>
-    <a href="group_page.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">👥</span>
-      <span>Groups</span>
+    <a href="manage_payments.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">💳</span>
+      <span>Payments</span>
     </a>
-    <button class="mobile-nav-item mobile-nav-item-admin hidden" id="mobileSwitchToAdmin" onclick="handleSwitchToAdmin()" style="background: none; border: none; cursor: pointer; padding: var(--bn-space-2) var(--bn-space-4); display: flex; flex-direction: column; align-items: center; gap: var(--bn-space-1); color: var(--bn-gray); font-size: var(--bn-text-xs); font-weight: 500; transition: color var(--bn-transition-fast);">
+    <a href="loan_payments.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">💰</span>
+      <span>Loans</span>
+    </a>
+    <button class="mobile-nav-item mobile-nav-item-admin hidden" id="mobileSwitchToAdmin" onclick="handleSwitchToAdmin()">
       <span class="mobile-nav-icon">👑</span>
       <span>Admin</span>
     </button>
-    <a href="user_analytics.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">📊</span>
-      <span>Analytics</span>
-    </a>
-    <a href="settings.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">⚙️</span>
-      <span>Settings</span>
-    </a>
+    <button class="mobile-nav-item" id="mobileNavSignOut" onclick="handleMobileNavLogout()">
+      <span class="mobile-nav-icon">🚪</span>
+      <span>Sign Out</span>
+    </button>
   </nav>
 
   <!-- Upcoming Payments Modal -->
@@ -1533,6 +2224,7 @@
           <button class="btn btn-ghost btn-sm active" data-payment-filter="all">All</button>
           <button class="btn btn-ghost btn-sm" data-payment-filter="seed">Seed Money</button>
           <button class="btn btn-ghost btn-sm" data-payment-filter="monthly">Monthly</button>
+          <button class="btn btn-ghost btn-sm" data-payment-filter="servicefee">Service Fee</button>
           <button class="btn btn-ghost btn-sm" data-payment-filter="loan">Loans</button>
           <button class="btn btn-ghost btn-sm" data-payment-filter="penalty">Penalties</button>
         </div>
@@ -1801,10 +2493,60 @@
     }
   </style>
 
+  <!-- All Payments Modal -->
+  <div class="modal-overlay hidden" id="allPaymentsModal">
+    <div class="modal-content" style="max-width: 600px; max-height: 80vh;">
+      <div class="modal-header">
+        <h2 class="modal-title">All Approved Payments</h2>
+        <button class="modal-close" onclick="document.getElementById('allPaymentsModal').classList.add('hidden')">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: var(--bn-space-4);">
+        <div style="overflow-x: auto;">
+          <table class="data-table" style="width: 100%;">
+            <thead>
+              <tr>
+                <th style="text-align: left;">Type</th>
+                <th style="text-align: left;">Date</th>
+                <th style="text-align: right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody id="allPaymentsTableBody">
+              <tr>
+                <td colspan="3" style="text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);">Loading payments...</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr style="font-weight: 700; background: var(--bn-gray-100); border-top: 2px solid var(--bn-gray-lighter);">
+                <td colspan="2" style="text-align: right; padding: var(--bn-space-3);">Total:</td>
+                <td style="text-align: right; padding: var(--bn-space-3);" id="allPaymentsTotal">MWK 0.00</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment Details Modal -->
+  <div class="modal-overlay hidden" id="paymentDetailsModal">
+    <div class="modal-content payment-details-modal">
+      <div class="modal-header">
+        <h2 class="modal-title">Payment Details</h2>
+        <button class="modal-close" id="closePaymentDetailsModal">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 0;">
+        <div id="paymentDetailsTableContainer" class="payment-details-table-container">
+          <!-- Payment details table will be loaded here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module" src="../scripts/user_dashboard.js"></script>
+  <script src="../scripts/mobile-nav-active.js"></script>
 </body>
 </html>

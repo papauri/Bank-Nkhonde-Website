@@ -663,29 +663,6 @@
             </div>
           </div>
 
-          <h3 class="section-title" style="margin-top: var(--bn-space-6);">Additional Administrators (Optional)</h3>
-          <p class="section-subtitle">Add co-admins who can help manage the group.</p>
-
-          <div class="admin-list" id="additionalAdminsList">
-            <!-- Additional admins will be listed here -->
-          </div>
-
-          <div class="add-admin-row">
-            <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label">Admin Name</label>
-              <input type="text" id="newAdminName" class="form-input" placeholder="Co-admin name">
-            </div>
-            <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label">Admin Email</label>
-              <input type="email" id="newAdminEmail" class="form-input" placeholder="coadmin@example.com">
-            </div>
-            <button type="button" class="btn btn-secondary" id="addAdminBtn" style="height: 48px;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              Add
-            </button>
-          </div>
         </div>
 
         <!-- Step 2: Group Details -->
@@ -750,12 +727,12 @@
           
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Monthly Contribution (MWK) *</label>
+              <label class="form-label">Monthly Contribution (MWK)</label>
               <div class="currency-input-wrapper">
                 <span class="currency-prefix">MWK</span>
-                <input type="text" id="monthlyContribution" class="form-input currency-input" placeholder="50,000" required data-type="currency">
+                <input type="text" id="monthlyContribution" class="form-input currency-input" placeholder="0 (optional)" data-type="currency" value="0">
               </div>
-              <span class="help-text">Amount each member contributes monthly</span>
+              <span class="help-text">Amount each member contributes monthly. Enter 0 or leave empty if group only uses seed money.</span>
             </div>
             <div class="form-group">
               <label class="form-label">Seed Money (MWK) *</label>
@@ -777,6 +754,22 @@
               <label class="form-label">Late Payment Grace Period (Days)</label>
               <input type="number" id="gracePeriod" class="form-input" value="5" min="0" max="30">
               <span class="help-text">Days before penalties apply</span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Service Fee (MWK) <span style="color: var(--bn-gray); font-weight: 400;">(Optional)</span></label>
+              <div class="currency-input-wrapper">
+                <span class="currency-prefix">MWK</span>
+                <input type="text" id="serviceFee" class="form-input currency-input" placeholder="0" data-type="currency" value="0">
+              </div>
+              <span class="help-text">One-time fee per cycle for operational costs (e.g., bank charges). All members pay this separately from contributions.</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Service Fee Due Date</label>
+              <input type="date" id="serviceFeeDueDate" class="form-input">
+              <span class="help-text">Deadline for service fee payment (once per cycle)</span>
             </div>
           </div>
 
@@ -1021,10 +1014,6 @@
                 <div class="summary-label">Email</div>
                 <div class="summary-value" id="summaryAdminEmail">-</div>
               </div>
-              <div class="summary-item">
-                <div class="summary-label">Additional Admins</div>
-                <div class="summary-value" id="summaryAdditionalAdmins">None</div>
-              </div>
             </div>
           </div>
 
@@ -1192,8 +1181,6 @@
       // File upload handlers
       initFileUpload();
       
-      // Add admin button
-      document.getElementById('addAdminBtn').addEventListener('click', addAdmin);
       
       // Dynamic interest rate inputs based on max repayment period
       initDynamicInterestRates();
@@ -1495,70 +1482,6 @@
       document.getElementById('rulesUploadArea').style.display = 'none';
     }
 
-    // Add admin
-    function addAdmin() {
-      const nameInput = document.getElementById('newAdminName');
-      const emailInput = document.getElementById('newAdminEmail');
-      
-      const name = nameInput.value.trim();
-      const email = emailInput.value.trim();
-
-      if (!name || !email) {
-        alert('Please enter both name and email for the admin');
-        return;
-      }
-
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        alert('Please enter a valid email address');
-        return;
-      }
-
-      if (email === document.getElementById('email').value.trim()) {
-        alert('This email is already used for the primary admin');
-        return;
-      }
-
-      if (additionalAdmins.find(a => a.email === email)) {
-        alert('This admin has already been added');
-        return;
-      }
-
-      additionalAdmins.push({ name, email });
-      renderAdminList();
-      
-      nameInput.value = '';
-      emailInput.value = '';
-    }
-
-    function removeAdmin(email) {
-      const index = additionalAdmins.findIndex(a => a.email === email);
-      if (index > -1) {
-        additionalAdmins.splice(index, 1);
-        renderAdminList();
-      }
-    }
-
-    function renderAdminList() {
-      const list = document.getElementById('additionalAdminsList');
-      if (additionalAdmins.length === 0) {
-        list.innerHTML = '';
-        return;
-      }
-
-      list.innerHTML = additionalAdmins.map(admin => `
-        <div class="admin-item">
-          <div class="admin-item-info">
-            <div class="admin-item-name">${admin.name}</div>
-            <div class="admin-item-email">${admin.email}</div>
-          </div>
-          <span class="admin-item-badge">Co-Admin</span>
-          <button type="button" class="admin-remove-btn" onclick="removeAdmin('${admin.email}')">✕</button>
-        </div>
-      `).join('');
-    }
-
-    // Make removeAdmin available globally
-    window.removeAdmin = removeAdmin;
 
     // Navigation
     function updateStepIndicator() {
@@ -1642,8 +1565,6 @@
       // Admin info
       document.getElementById('summaryAdminName').textContent = document.getElementById('fullName').value;
       document.getElementById('summaryAdminEmail').textContent = document.getElementById('email').value;
-      document.getElementById('summaryAdditionalAdmins').textContent = 
-        additionalAdmins.length > 0 ? additionalAdmins.map(a => a.name).join(', ') : 'None';
 
       // Group details
       document.getElementById('summaryGroupName').textContent = document.getElementById('groupName').value;
@@ -1669,8 +1590,6 @@
       document.getElementById('summaryInterestRates').textContent = rates.join(' / ');
       document.getElementById('summaryPenalty').textContent = document.getElementById('dailyPenaltyRate').value + '% per day';
       
-      // Store additional admins for form submission
-      window.additionalAdmins = additionalAdmins;
     }
 
     prevBtn.addEventListener('click', () => {

@@ -423,7 +423,8 @@ function createMessageElement(message) {
 async function openMessage(message) {
   try {
     // Mark as read if unread - update both read flag and readBy array
-    if (!message.read && !message.readBy?.includes(currentUser.uid)) {
+    const isAlreadyRead = message.read === true || message.readBy?.includes(currentUser.uid);
+    if (!isAlreadyRead) {
       try {
         const notificationRef = doc(db, `groups/${message.groupId}/notifications`, message.id);
         await updateDoc(notificationRef, {
@@ -431,6 +432,10 @@ async function openMessage(message) {
           readAt: Timestamp.now(),
           readBy: arrayUnion(currentUser.uid)
         });
+        
+        // Wait for Firestore to propagate changes
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
         message.read = true;
         if (!message.readBy) message.readBy = [];
         message.readBy.push(currentUser.uid);
@@ -441,7 +446,17 @@ async function openMessage(message) {
           // Trigger badge update via notification handler if available
           const badgeElement = document.getElementById('notificationBadge');
           if (badgeElement && window.loadNotificationCount) {
-            window.loadNotificationCount(currentUser.uid, selectedGroupId, badgeElement);
+            await window.loadNotificationCount(currentUser.uid, selectedGroupId, badgeElement);
+          }
+          
+          // Reload notifications in dashboard if on user dashboard
+          if (window.loadDashboardNotifications) {
+            await window.loadDashboardNotifications(currentUser.uid, selectedGroupId);
+          }
+          
+          // Reload notifications in notification handler dropdown
+          if (window.loadNotifications) {
+            await window.loadNotifications(currentUser.uid, selectedGroupId);
           }
         }
       } catch (error) {
@@ -1109,38 +1124,68 @@ async function markAllAsRead() {
     showSpinner(true);
     
     const selectedGroupId = groupSelector?.value || '';
-    let messagesToMark = allMessages.filter(msg => !msg.read && !msg.readBy?.includes(currentUser.uid));
+    let messagesToMark = allMessages.filter(msg => {
+      const isRead = msg.read === true || msg.readBy?.includes(currentUser.uid);
+      return !isRead;
+    });
     
     if (selectedGroupId) {
       messagesToMark = messagesToMark.filter(msg => msg.groupId === selectedGroupId);
     }
 
+    // Use batch writes for better performance
+    const batch = writeBatch(db);
+    let updateCount = 0;
+
     for (const message of messagesToMark) {
       try {
         const notificationRef = doc(db, `groups/${message.groupId}/notifications`, message.id);
-        await updateDoc(notificationRef, {
-          read: true,
-          readAt: Timestamp.now(),
-          readBy: arrayUnion(currentUser.uid)
-        });
-        message.read = true;
-        if (!message.readBy) message.readBy = [];
-        message.readBy.push(currentUser.uid);
+        
+        // Check if already read before updating
+        const isAlreadyRead = message.read === true || message.readBy?.includes(currentUser.uid);
+        if (!isAlreadyRead) {
+          batch.update(notificationRef, {
+            read: true,
+            readAt: Timestamp.now(),
+            readBy: arrayUnion(currentUser.uid)
+          });
+          message.read = true;
+          if (!message.readBy) message.readBy = [];
+          message.readBy.push(currentUser.uid);
+          updateCount++;
+        }
       } catch (error) {
         console.error(`Error marking message ${message.id} as read:`, error);
       }
     }
 
-    // Update badge count
+    // Commit batch
+    if (updateCount > 0) {
+      await batch.commit();
+      // Wait for Firestore to propagate changes
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    // Update badge count and reload notifications
     if (selectedGroupId) {
       const badgeElement = document.getElementById('notificationBadge');
       if (badgeElement && window.loadNotificationCount) {
         await window.loadNotificationCount(currentUser.uid, selectedGroupId, badgeElement);
       }
+      
+      // Reload notifications in dashboard if on user dashboard
+      if (window.loadDashboardNotifications) {
+        await window.loadDashboardNotifications(currentUser.uid, selectedGroupId);
+      }
+      
+      // Reload notifications in notification handler dropdown
+      if (window.loadNotifications) {
+        await window.loadNotifications(currentUser.uid, selectedGroupId);
+      }
     }
 
     filterMessages();
-    showToast(`Marked ${messagesToMark.length} message(s) as read`, 'success');
+    showToast(`Marked ${updateCount} message(s) as read`, 'success');
   } catch (error) {
     console.error('Error marking all as read:', error);
     showToast('Error marking messages as read', 'error');

@@ -9,10 +9,9 @@
 
 import { functions, httpsCallable } from './firebaseConfig.js';
 
-// Email service enabled flag (can be toggled)
-// Set to false to disable email sending (useful when Cloud Functions not deployed)
-const EMAIL_SERVICE_ENABLED = false; // DISABLED - Enable after deploying Cloud Functions
-const EMAIL_NON_BLOCKING = true; // Don't fail operations if email fails
+// Email service enabled flag
+const EMAIL_SERVICE_ENABLED = true;
+const EMAIL_NON_BLOCKING = true;
 
 /**
  * Send Password Reset Email

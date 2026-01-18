@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Manage Group Rules - Bank Nkhonde">
+  <meta name="theme-color" content="#0A1628">
+  <title>Manage Rules - Bank Nkhonde</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/pages.css">
+  <link rel="icon" type="image/png" href="../assets/favicon.png">
+  <style>
+    .rules-section {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-xl);
+      box-shadow: var(--bn-shadow-lg);
+      border: 1px solid var(--bn-gray-lighter);
+      overflow: hidden;
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .rules-section-header {
+      padding: var(--bn-space-5) var(--bn-space-6);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .rules-section-title {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin: 0;
+    }
+
+    .rules-section-body {
+      padding: var(--bn-space-6);
+    }
+
+    .upload-area {
+      border: 2px dashed var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-space-8);
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--bn-transition-fast);
+      background: var(--bn-gray-100);
+    }
+
+    .upload-area:hover {
+      border-color: var(--bn-primary);
+      background: rgba(34, 197, 94, 0.05);
+    }
+
+    .upload-area.dragover {
+      border-color: var(--bn-primary);
+      background: rgba(34, 197, 94, 0.1);
+    }
+
+    .upload-icon {
+      font-size: 3rem;
+      margin-bottom: var(--bn-space-4);
+      opacity: 0.5;
+    }
+
+    .upload-text {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
+      margin-bottom: var(--bn-space-2);
+    }
+
+    .upload-hint {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    .file-info {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+      padding: var(--bn-space-4);
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-lg);
+      margin-top: var(--bn-space-4);
+    }
+
+    .file-icon {
+      font-size: 2rem;
+    }
+
+    .file-details {
+      flex: 1;
+    }
+
+    .file-name {
+      font-weight: 600;
+      color: var(--bn-dark);
+      margin-bottom: 4px;
+    }
+
+    .file-size {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+
+    .btn-remove-file {
+      padding: var(--bn-space-2);
+      color: var(--bn-error);
+    }
+
+    .text-rules-editor {
+      width: 100%;
+      min-height: 300px;
+      padding: var(--bn-space-4);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      font-family: inherit;
+      font-size: var(--bn-text-sm);
+      line-height: 1.6;
+      resize: vertical;
+    }
+
+    .text-rules-editor:focus {
+      outline: none;
+      border-color: var(--bn-primary);
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+    }
+
+    .current-rules-view {
+      background: var(--bn-gray-100);
+      padding: var(--bn-space-4);
+      border-radius: var(--bn-radius-lg);
+      white-space: pre-wrap;
+      line-height: 1.8;
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray-800);
+      max-height: 400px;
+      overflow-y: auto;
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .pdf-preview {
+      width: 100%;
+      height: 500px;
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .btn-group {
+      display: flex;
+      gap: var(--bn-space-3);
+      margin-top: var(--bn-space-4);
+    }
+
+    .rules-tabs {
+      display: flex;
+      gap: var(--bn-space-3);
+      padding: var(--bn-space-2);
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-xl);
+      margin-bottom: var(--bn-space-6);
+      overflow-x: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .rules-tabs::-webkit-scrollbar {
+      display: none;
+    }
+
+    .rules-tab {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--bn-space-2);
+      padding: var(--bn-space-4) var(--bn-space-5);
+      background: transparent;
+      border: none;
+      border-radius: var(--bn-radius-lg);
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-gray);
+      cursor: pointer;
+      transition: all var(--bn-transition-base);
+      position: relative;
+      white-space: nowrap;
+      min-height: 48px;
+      touch-action: manipulation;
+    }
+
+    .rules-tab:hover {
+      color: var(--bn-dark);
+      background: rgba(10, 22, 40, 0.05);
+    }
+
+    .rules-tab.active {
+      color: var(--bn-white);
+      background: var(--bn-gradient-primary);
+      box-shadow: var(--bn-shadow-md);
+      transform: translateY(-1px);
+    }
+
+    .rules-tab.active:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--bn-shadow-lg);
+    }
+
+    .rules-tab-icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .rules-tab-icon svg {
+      width: 100%;
+      height: 100%;
+      stroke-width: 2.5;
+    }
+
+    .rules-tab.active .rules-tab-icon {
+      color: var(--bn-white);
+    }
+
+    .rules-tab-text {
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .rules-tab-content {
+      display: none;
+    }
+
+    .rules-tab-content.active {
+      display: block;
+    }
+
+    @media (max-width: 768px) {
+      .rules-tabs {
+        gap: var(--bn-space-2);
+        padding: var(--bn-space-2);
+      }
+
+      .rules-tab {
+        padding: var(--bn-space-3) var(--bn-space-4);
+        min-height: 44px;
+        font-size: var(--bn-text-xs);
+      }
+
+      .rules-tab-icon {
+        width: 18px;
+        height: 18px;
+      }
+
+      .rules-section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--bn-space-3);
+      }
+
+      .btn-group {
+        flex-direction: column;
+      }
+
+      .pdf-preview {
+        height: 400px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .rules-tab {
+        flex-direction: column;
+        gap: var(--bn-space-1);
+        padding: var(--bn-space-3);
+      }
+
+      .rules-tab-text {
+        font-size: 11px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Page Header -->
+  <header class="page-header">
+    <div class="page-header-container">
+      <div class="page-header-top">
+        <div class="page-header-nav">
+          <button class="page-back-btn" onclick="history.back()" aria-label="Go back">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+          </button>
+          <div>
+            <h1 class="page-title">Manage Rules</h1>
+            <p class="page-subtitle" id="groupName">Loading...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Page Content -->
+  <main class="page-content">
+    <!-- Tabs -->
+    <div class="rules-tabs">
+      <button class="rules-tab active" data-tab="text">
+        <span class="rules-tab-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+        </span>
+        <span class="rules-tab-text">Text Rules</span>
+      </button>
+      <button class="rules-tab" data-tab="document">
+        <span class="rules-tab-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+        </span>
+        <span class="rules-tab-text">Rules Document</span>
+      </button>
+    </div>
+
+    <!-- Text Rules Tab -->
+    <div class="rules-tab-content active" id="textTab">
+      <div class="rules-section">
+        <div class="rules-section-header">
+          <h2 class="rules-section-title">📋 Text Rules</h2>
+        </div>
+        <div class="rules-section-body">
+          <!-- Current Text Rules View -->
+          <div id="currentTextRulesView" style="display: none;">
+            <h3 style="font-size: var(--bn-text-base); font-weight: 600; margin-bottom: var(--bn-space-3);">Current Rules:</h3>
+            <div class="current-rules-view" id="currentTextRulesContent"></div>
+            <button class="btn btn-ghost" id="editTextRulesBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+              Edit Rules
+            </button>
+          </div>
+
+          <!-- Text Rules Editor -->
+          <div id="textRulesEditor" style="display: none;">
+            <label for="textRulesInput" style="display: block; font-weight: 600; margin-bottom: var(--bn-space-3);">
+              Rules Content
+            </label>
+            <textarea 
+              id="textRulesInput" 
+              class="text-rules-editor" 
+              placeholder="Enter your group rules and governance guidelines here..."
+            ></textarea>
+            <div class="btn-group">
+              <button class="btn btn-primary" id="saveTextRulesBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                  <polyline points="17 21 17 13 7 13 7 21"/>
+                  <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                Save Rules
+              </button>
+              <button class="btn btn-ghost" id="cancelTextRulesBtn">Cancel</button>
+            </div>
+          </div>
+
+          <!-- No Text Rules State -->
+          <div id="noTextRulesState">
+            <div class="upload-area" id="createTextRulesArea">
+              <div class="upload-icon">📝</div>
+              <div class="upload-text" style="font-weight: 600; font-size: var(--bn-text-base); margin-bottom: var(--bn-space-2);">
+                No Text Rules Yet
+              </div>
+              <div class="upload-hint">
+                Create text rules and governance guidelines for your group members
+              </div>
+              <button class="btn btn-primary" style="margin-top: var(--bn-space-4);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                Create Text Rules
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rules Document Tab -->
+    <div class="rules-tab-content" id="documentTab">
+      <div class="rules-section">
+        <div class="rules-section-header">
+          <h2 class="rules-section-title">📄 Rules Document (PDF)</h2>
+        </div>
+        <div class="rules-section-body">
+          <!-- Current PDF View -->
+          <div id="currentPdfView" style="display: none;">
+            <h3 style="font-size: var(--bn-text-base); font-weight: 600; margin-bottom: var(--bn-space-3);">Current Document:</h3>
+            <iframe class="pdf-preview" id="pdfPreview" src=""></iframe>
+            <div class="file-info">
+              <div class="file-icon">📄</div>
+              <div class="file-details">
+                <div class="file-name" id="currentPdfFileName">Document.pdf</div>
+                <div class="file-size" id="currentPdfFileSize">-</div>
+              </div>
+              <a href="#" class="btn btn-accent" id="downloadCurrentPdfBtn" target="_blank">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Download
+              </a>
+              <button class="btn btn-ghost btn-remove-file" id="removePdfBtn" title="Remove Document">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+              </button>
+            </div>
+            <button class="btn btn-primary" style="margin-top: var(--bn-space-4);" id="uploadNewPdfBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              Upload New Document
+            </button>
+          </div>
+
+          <!-- PDF Upload Area -->
+          <div id="pdfUploadArea">
+            <div class="upload-area" id="dropZone">
+              <input type="file" id="fileInput" accept=".pdf,application/pdf">
+              <div class="upload-icon">📄</div>
+              <div class="upload-text" style="font-weight: 600; font-size: var(--bn-text-base); margin-bottom: var(--bn-space-2);">
+                Upload Rules Document
+              </div>
+              <div class="upload-hint">
+                Drag and drop a PDF file here, or click to browse
+              </div>
+              <button class="btn btn-primary" style="margin-top: var(--bn-space-4);" id="browseFilesBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                Browse Files
+              </button>
+            </div>
+
+            <!-- File Info (shown after selection) -->
+            <div id="selectedFileInfo" style="display: none;" class="file-info">
+              <div class="file-icon">📄</div>
+              <div class="file-details">
+                <div class="file-name" id="selectedFileName"></div>
+                <div class="file-size" id="selectedFileSize"></div>
+              </div>
+              <button class="btn btn-ghost btn-remove-file" id="removeSelectedFileBtn" title="Remove">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Upload Button -->
+            <button class="btn btn-primary" id="uploadPdfBtn" style="width: 100%; margin-top: var(--bn-space-4); display: none;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              Upload Document
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Mobile Navigation -->
+  <!-- Mobile Navigation -->
+  <nav class="mobile-nav">
+    <a href="admin_dashboard.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">🏠</span>
+      <span>Home</span>
+    </a>
+    <a href="manage_loans.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">💰</span>
+      <span>Loans</span>
+    </a>
+    <a href="manage_payments.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">💳</span>
+      <span>Payments</span>
+    </a>
+    <a href="analytics.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">📊</span>
+      <span>Analytics</span>
+    </a>
+    <a href="user_dashboard.html" class="mobile-nav-item" id="switchToUserViewMobile" style="display: none;">
+      <span class="mobile-nav-icon">👤</span>
+      <span>User View</span>
+    </a>
+  </nav>
+
+  <!-- Loading Overlay -->
+  <div class="spinner-overlay hidden" id="spinner">
+    <div class="spinner-content">
+      <div class="spinner"></div>
+      <p class="loading-text">Processing...</p>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-storage-compat.js"></script>
+  <script type="module" src="../scripts/manage_rules.js"></script>
+</body>
+</html>

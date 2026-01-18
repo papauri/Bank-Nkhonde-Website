@@ -35,6 +35,7 @@ import {
   ErrorSeverity,
 } from "./errorLogger.js";
 import { initializeNotifications } from "./notifications-handler.js";
+import { loadPaymentDetailsTable } from "./payment_details_table.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const groupList = document.getElementById("groupList");
@@ -60,7 +61,42 @@ document.addEventListener("DOMContentLoaded", () => {
   const requestLoanBtn = document.getElementById("requestLoanBtn");
   const uploadPaymentBtn = document.getElementById("uploadPaymentBtn");
   const upcomingPaymentsBtn = document.getElementById("upcomingPaymentsBtn");
+  const viewPaymentDetailsBtn = document.getElementById("viewPaymentDetailsBtn");
+  const paymentDetailsModal = document.getElementById("paymentDetailsModal");
+  const closePaymentDetailsModal = document.getElementById("closePaymentDetailsModal");
+  const paymentDetailsTableContainer = document.getElementById("paymentDetailsTableContainer");
   const upcomingPaymentsModal = document.getElementById("upcomingPaymentsModal");
+  
+  // Payment Details button handler
+  if (viewPaymentDetailsBtn) {
+    viewPaymentDetailsBtn.addEventListener("click", async () => {
+      const groupId = getSelectedGroupId();
+      if (!groupId) {
+        alert("Please select a group first from the group selection page.");
+        window.location.href = "select_group.html";
+        return;
+      }
+      
+      if (paymentDetailsModal && paymentDetailsTableContainer) {
+        paymentDetailsModal.classList.remove("hidden");
+        await loadPaymentDetailsTable(groupId, currentUser.uid, paymentDetailsTableContainer, false);
+      }
+    });
+  }
+
+  if (closePaymentDetailsModal) {
+    closePaymentDetailsModal.addEventListener("click", () => {
+      if (paymentDetailsModal) paymentDetailsModal.classList.add("hidden");
+    });
+  }
+
+  if (paymentDetailsModal) {
+    paymentDetailsModal.addEventListener("click", (e) => {
+      if (e.target === paymentDetailsModal) {
+        paymentDetailsModal.classList.add("hidden");
+      }
+    });
+  }
   const upcomingPaymentsModalList = document.getElementById("upcomingPaymentsModalList");
 
   let currentUser = null;
@@ -76,6 +112,430 @@ document.addEventListener("DOMContentLoaded", () => {
       maximumFractionDigits: 0 
     })}`;
   }
+
+  // Calculate and update active loans details
+  async function updateActiveLoansDetails(groupId, userId) {
+    const activeLoans = document.getElementById('activeLoans');
+    const activeLoansDetails = document.getElementById('activeLoansDetails');
+    const activeLoansStat = document.getElementById('activeLoansStat');
+    const activeLoansBadge = document.getElementById('activeLoansBadge');
+    if (!activeLoans || !activeLoansDetails) return;
+
+    try {
+      // Check if badge is dismissed
+      const dismissedKey = `activeLoansBadgeDismissed_${groupId}_${userId}`;
+      const isDismissed = localStorage.getItem(dismissedKey) === 'true';
+
+      const loansRef = collection(db, "groups", groupId, "loans");
+      const activeLoansQuery = query(loansRef, where("borrowerId", "==", userId), where("status", "in", ["approved", "active", "disbursed"]));
+      const activeLoansSnapshot = await getDocs(activeLoansQuery);
+      const count = activeLoansSnapshot.size;
+      
+      let totalBalance = 0;
+      let totalReceived = 0;
+      let nextPaymentDue = null;
+      let nextPaymentAmount = 0;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Calculate aggregate loan details
+      activeLoansSnapshot.forEach(loanDoc => {
+        const loanData = loanDoc.data();
+        const amount = parseFloat(loanData.amount || loanData.loanAmount || 0);
+        const repaid = parseFloat(loanData.amountRepaid || 0);
+        const totalRepayable = parseFloat(loanData.totalRepayable || amount + parseFloat(loanData.totalInterest || 0));
+        
+        // Only count disbursed/active loans for received amount
+        if (loanData.status === "active" || loanData.status === "disbursed") {
+          totalReceived += amount;
+          const balance = Math.max(0, totalRepayable - repaid);
+          totalBalance += balance;
+          
+          // Find next payment due (including today or past due)
+          const repaymentSchedule = loanData.repaymentSchedule || {};
+          
+          for (const monthKey of Object.keys(repaymentSchedule)) {
+            const scheduleItem = repaymentSchedule[monthKey];
+            if (scheduleItem && !scheduleItem.paid && scheduleItem.dueDate) {
+              const dueDate = scheduleItem.dueDate.toDate ? scheduleItem.dueDate.toDate() : new Date(scheduleItem.dueDate);
+              dueDate.setHours(0, 0, 0, 0);
+              
+              // Check for due dates (today or past, or future)
+              if (dueDate >= today || (dueDate <= today && !scheduleItem.paid)) {
+                if (!nextPaymentDue || dueDate <= nextPaymentDue) {
+                  nextPaymentDue = dueDate;
+                  nextPaymentAmount = parseFloat(scheduleItem.amount || 0);
+                }
+              }
+            }
+          }
+        } else if (loanData.status === "approved") {
+          // For approved loans, show amount but no balance yet
+          totalReceived += amount;
+        }
+      });
+      
+      // Check if payment is due (today or past)
+      const isDue = nextPaymentDue && nextPaymentDue <= today;
+      
+      // Update count display
+      activeLoans.innerHTML = `<span>${count}</span><span style="font-size: 14px; line-height: 1;" title="Active Loans">💰</span>`;
+      
+      // Update details display
+      if (count > 0) {
+        const details = [];
+        
+        if (totalReceived > 0) {
+          details.push(`Received: ${formatCurrency(totalReceived)}`);
+        }
+        
+        if (totalBalance > 0) {
+          details.push(`Balance: ${formatCurrency(totalBalance)}`);
+        }
+        
+        if (nextPaymentDue) {
+          const dueDateStr = nextPaymentDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          if (nextPaymentAmount > 0) {
+            details.push(`Next: ${dueDateStr} - ${formatCurrency(nextPaymentAmount)}`);
+          } else {
+            details.push(`Next due: ${dueDateStr}`);
+          }
+        }
+        
+        if (details.length > 0) {
+          activeLoansDetails.innerHTML = details.join('<br>');
+          activeLoansDetails.style.display = 'block';
+        } else {
+          activeLoansDetails.style.display = 'none';
+        }
+      } else {
+        activeLoansDetails.style.display = 'none';
+      }
+
+      // Update badge and flash
+      if (activeLoansStat) {
+        if (isDue && !isDismissed) {
+          activeLoansStat.classList.add('flash');
+          if (activeLoansBadge) activeLoansBadge.style.display = 'block';
+        } else {
+          activeLoansStat.classList.remove('flash');
+          if (activeLoansBadge) activeLoansBadge.style.display = 'none';
+        }
+      }
+    } catch (error) {
+      console.error("Error updating active loans details:", error);
+      activeLoans.innerHTML = '<span>0</span><span style="font-size: 14px; line-height: 1;" title="Active Loans">💰</span>';
+      activeLoansDetails.style.display = 'none';
+      if (activeLoansStat) activeLoansStat.classList.remove('flash');
+      if (activeLoansBadge) activeLoansBadge.style.display = 'none';
+    }
+  }
+
+  // Show all payments modal when clicking on totalContributed
+  async function showAllPaymentsModal() {
+    if (!currentGroup || !currentUser) {
+      return;
+    }
+
+    const modal = document.getElementById('allPaymentsModal');
+    const tableBody = document.getElementById('allPaymentsTableBody');
+    const totalAmountEl = document.getElementById('allPaymentsTotal');
+    
+    if (!modal || !tableBody) return;
+
+    try {
+      // Show loading
+      tableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);">Loading payments...</td></tr>';
+      modal.classList.remove('hidden');
+
+      const groupId = currentGroup.groupId;
+      const userId = currentUser.uid;
+      const currentYear = new Date().getFullYear();
+      const allPayments = [];
+
+      // 1. Get Monthly Contributions (check current and previous year)
+      for (let yearOffset = 0; yearOffset <= 1; yearOffset++) {
+        const year = currentYear - yearOffset;
+        try {
+          const monthlyCollection = collection(db, `groups/${groupId}/payments/${year}_MonthlyContributions/${userId}`);
+          const monthlySnapshot = await getDocs(monthlyCollection);
+          
+          monthlySnapshot.forEach(monthDoc => {
+            const paymentData = monthDoc.data();
+            const isApproved = paymentData.approvalStatus === 'approved' || paymentData.paymentStatus === 'completed';
+            const amountPaid = parseFloat(paymentData.amountPaid || paymentData.totalAmount || 0);
+            
+            if (isApproved && amountPaid > 0) {
+              const paidAt = paymentData.paidAt;
+              const approvedAt = paymentData.approvedAt;
+              const updatedAt = paymentData.updatedAt;
+              const createdAt = paymentData.createdAt;
+              
+              const paymentDate = paidAt?.toDate ? paidAt.toDate() : 
+                                 (approvedAt?.toDate ? approvedAt.toDate() : 
+                                 (updatedAt?.toDate ? updatedAt.toDate() : 
+                                 (createdAt?.toDate ? createdAt.toDate() : new Date())));
+              
+              allPayments.push({
+                type: 'Monthly Contribution',
+                amount: amountPaid,
+                date: paymentDate
+              });
+            }
+          });
+        } catch (error) {
+          // Continue silently
+        }
+      }
+
+      // 2. Get Seed Money
+      for (let yearOffset = 0; yearOffset <= 1; yearOffset++) {
+        const year = currentYear - yearOffset;
+        try {
+          const seedMoneyRef = doc(db, `groups/${groupId}/payments/${year}_SeedMoney/${userId}/PaymentDetails`);
+          const seedMoneyDoc = await getDoc(seedMoneyRef);
+          
+          if (seedMoneyDoc.exists()) {
+            const seedMoneyData = seedMoneyDoc.data();
+            const isApproved = seedMoneyData.approvalStatus === 'approved' || seedMoneyData.paymentStatus === 'completed';
+            const amountPaid = parseFloat(seedMoneyData.amountPaid || seedMoneyData.totalAmount || 0);
+            
+            if (isApproved && amountPaid > 0) {
+              const paidAt = seedMoneyData.paidAt;
+              const approvedAt = seedMoneyData.approvedAt;
+              const updatedAt = seedMoneyData.updatedAt;
+              const createdAt = seedMoneyData.createdAt;
+              
+              const paymentDate = paidAt?.toDate ? paidAt.toDate() : 
+                                 (approvedAt?.toDate ? approvedAt.toDate() : 
+                                 (updatedAt?.toDate ? updatedAt.toDate() : 
+                                 (createdAt?.toDate ? createdAt.toDate() : new Date())));
+              
+              allPayments.push({
+                type: 'Seed Money',
+                amount: amountPaid,
+                date: paymentDate
+              });
+            }
+          }
+        } catch (error) {
+          // Continue silently
+        }
+      }
+
+      // 3. Get Service Fee
+      for (let yearOffset = 0; yearOffset <= 1; yearOffset++) {
+        const year = currentYear - yearOffset;
+        try {
+          const serviceFeeRef = doc(db, `groups/${groupId}/payments/${year}_ServiceFee/${userId}/PaymentDetails`);
+          const serviceFeeDoc = await getDoc(serviceFeeRef);
+          
+          if (serviceFeeDoc.exists()) {
+            const serviceFeeData = serviceFeeDoc.data();
+            const isApproved = serviceFeeData.approvalStatus === 'approved' || serviceFeeData.paymentStatus === 'completed';
+            const amountPaid = parseFloat(serviceFeeData.amountPaid || serviceFeeData.totalAmount || 0);
+            
+            if (isApproved && amountPaid > 0) {
+              const paidAt = serviceFeeData.paidAt;
+              const approvedAt = serviceFeeData.approvedAt;
+              const updatedAt = serviceFeeData.updatedAt;
+              const createdAt = serviceFeeData.createdAt;
+              
+              const paymentDate = paidAt?.toDate ? paidAt.toDate() : 
+                                 (approvedAt?.toDate ? approvedAt.toDate() : 
+                                 (updatedAt?.toDate ? updatedAt.toDate() : 
+                                 (createdAt?.toDate ? createdAt.toDate() : new Date())));
+              
+              allPayments.push({
+                type: 'Service Fee',
+                amount: amountPaid,
+                date: paymentDate
+              });
+            }
+          }
+        } catch (error) {
+          // Continue silently
+        }
+      }
+
+      // Sort by date (most recent first)
+      allPayments.sort((a, b) => b.date - a.date);
+
+      // Calculate total
+      const total = allPayments.reduce((sum, payment) => sum + payment.amount, 0);
+
+      // Render table
+      if (allPayments.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);">No approved payments found</td></tr>';
+      } else {
+        tableBody.innerHTML = allPayments.map(payment => {
+          const dateStr = payment.date.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+          });
+          return `
+            <tr>
+              <td>${payment.type}</td>
+              <td>${dateStr}</td>
+              <td style="text-align: right; font-weight: 600;">${formatCurrency(payment.amount)}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // Update total
+      if (totalAmountEl) {
+        totalAmountEl.textContent = formatCurrency(total);
+      }
+
+    } catch (error) {
+      console.error("Error loading all payments:", error);
+      tableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: var(--bn-space-4); color: var(--bn-danger);">Error loading payments</td></tr>';
+    }
+  }
+
+  // Expose to window for onclick
+  window.showAllPaymentsModal = showAllPaymentsModal;
+
+  // Update next monthly payment card
+  async function updateNextMonthlyPayment(groupId, userId) {
+    const nextPaymentDetailsEl = document.getElementById('nextPaymentDetails');
+    const nextPaymentBadgeEl = document.getElementById('nextPaymentBadge');
+    
+    if (!nextPaymentDetailsEl) return;
+
+    try {
+      // Check if badge is dismissed
+      const dismissedKey = `nextPaymentBadgeDismissed_${groupId}_${userId}`;
+      const isDismissed = localStorage.getItem(dismissedKey) === 'true';
+      
+      const currentYear = new Date().getFullYear();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Get group data for monthly contribution amount
+      const groupDoc = await getDoc(doc(db, "groups", groupId));
+      if (!groupDoc.exists()) {
+        nextPaymentDetailsEl.textContent = "";
+        nextPaymentDetailsEl.style.display = 'none';
+        if (nextPaymentBadgeEl) nextPaymentBadgeEl.style.display = 'none';
+        return;
+      }
+      
+      const groupData = groupDoc.data();
+      const monthlyAmount = parseFloat(groupData?.rules?.monthlyContribution?.amount || 0);
+      
+      // Find next unpaid/pending monthly payment
+      let nextPayment = null;
+      
+      try {
+        const monthlyCollection = collection(db, `groups/${groupId}/payments/${currentYear}_MonthlyContributions/${userId}`);
+        const monthlySnapshot = await getDocs(monthlyCollection);
+        
+        monthlySnapshot.forEach(monthDoc => {
+          const paymentData = monthDoc.data();
+          const isUnpaidOrPending = paymentData.approvalStatus === 'unpaid' || 
+                                   paymentData.approvalStatus === 'pending' ||
+                                   (paymentData.paymentStatus !== 'completed' && paymentData.approvalStatus !== 'approved');
+          
+          if (isUnpaidOrPending) {
+            const dueDate = paymentData.dueDate;
+            if (dueDate && dueDate.toDate) {
+              const dueDateObj = dueDate.toDate();
+              dueDateObj.setHours(0, 0, 0, 0);
+              
+              // If no nextPayment yet, or this one is earlier
+              if (!nextPayment || dueDateObj < nextPayment.dueDate) {
+                nextPayment = {
+                  dueDate: dueDateObj,
+                  amount: parseFloat(paymentData.totalAmount || paymentData.arrears || monthlyAmount),
+                  month: paymentData.month || monthDoc.id
+                };
+              }
+            }
+          }
+        });
+      } catch (error) {
+        // Collection might not exist, continue
+      }
+
+      if (nextPayment) {
+        // Format amount and date together
+        const amountText = formatCurrency(nextPayment.amount);
+        const dateStr = nextPayment.dueDate.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric',
+          year: 'numeric'
+        });
+        nextPaymentDetailsEl.textContent = `${amountText} on ${dateStr}`;
+        nextPaymentDetailsEl.style.display = 'block';
+        
+        // Show badge if due date has passed and not dismissed
+        const isDue = nextPayment.dueDate <= today;
+        if (nextPaymentBadgeEl) {
+          if (isDue && !isDismissed) {
+            nextPaymentBadgeEl.style.display = 'block';
+          } else {
+            nextPaymentBadgeEl.style.display = 'none';
+          }
+        }
+      } else {
+        nextPaymentDetailsEl.textContent = "No payment due";
+        nextPaymentDetailsEl.style.display = 'block';
+        if (nextPaymentBadgeEl) nextPaymentBadgeEl.style.display = 'none';
+      }
+    } catch (error) {
+      console.error("Error updating next monthly payment:", error);
+      if (nextPaymentDetailsEl) {
+        nextPaymentDetailsEl.textContent = "";
+        nextPaymentDetailsEl.style.display = 'none';
+      }
+      if (nextPaymentBadgeEl) nextPaymentBadgeEl.style.display = 'none';
+    }
+  }
+
+  // Dismiss next payment badge
+  function dismissNextPaymentBadge(event) {
+    event.stopPropagation();
+    const badge = event.target;
+    if (badge && badge.id === 'nextPaymentBadge') {
+      badge.style.display = 'none';
+      
+      // Remove flash animation
+      const nextPaymentStat = document.getElementById('nextPaymentStat');
+      if (nextPaymentStat) nextPaymentStat.classList.remove('flash');
+      
+      // Store dismissed state
+      if (currentGroup && currentUser) {
+        const dismissedKey = `nextPaymentBadgeDismissed_${currentGroup.groupId}_${currentUser.uid}`;
+        localStorage.setItem(dismissedKey, 'true');
+      }
+    }
+  }
+
+  // Dismiss active loans badge
+  function dismissActiveLoansBadge(event) {
+    event.stopPropagation();
+    const badge = event.target;
+    if (badge && badge.id === 'activeLoansBadge') {
+      badge.style.display = 'none';
+      
+      // Remove flash animation
+      const activeLoansStat = document.getElementById('activeLoansStat');
+      if (activeLoansStat) activeLoansStat.classList.remove('flash');
+      
+      // Store dismissed state
+      if (currentGroup && currentUser) {
+        const dismissedKey = `activeLoansBadgeDismissed_${currentGroup.groupId}_${currentUser.uid}`;
+        localStorage.setItem(dismissedKey, 'true');
+      }
+    }
+  }
+
+  // Expose to window for onclick
+  window.dismissNextPaymentBadge = dismissNextPaymentBadge;
+  window.dismissActiveLoansBadge = dismissActiveLoansBadge;
 
   // Get initials from name
   function getInitials(name) {
@@ -113,6 +573,56 @@ document.addEventListener("DOMContentLoaded", () => {
   if (logoutBtn) {
     logoutBtn.addEventListener("click", handleLogout);
   }
+  
+  // Mobile Menu Functionality
+  const mobileMenuBtn = document.getElementById("mobileMenuBtn");
+  const mobileMenu = document.getElementById("mobileMenu");
+  const mobileMenuOverlay = document.getElementById("mobileMenuOverlay");
+  const mobileMenuClose = document.getElementById("mobileMenuClose");
+  const mobileLogoutBtn = document.getElementById("mobileLogoutBtn");
+  
+  function openMobileMenu() {
+    if (mobileMenu && mobileMenuBtn && mobileMenuOverlay) {
+      mobileMenu.classList.add("active");
+      mobileMenuBtn.classList.add("active");
+      mobileMenuOverlay.classList.add("active");
+      document.body.style.overflow = "hidden";
+    }
+  }
+  
+  function closeMobileMenu() {
+    if (mobileMenu && mobileMenuBtn && mobileMenuOverlay) {
+      mobileMenu.classList.remove("active");
+      mobileMenuBtn.classList.remove("active");
+      mobileMenuOverlay.classList.remove("active");
+      document.body.style.overflow = "";
+    }
+  }
+  
+  function handleMobileLogout() {
+    closeMobileMenu();
+    handleLogout();
+  }
+  
+  if (mobileMenuBtn) {
+    mobileMenuBtn.addEventListener("click", openMobileMenu);
+  }
+  
+  if (mobileMenuClose) {
+    mobileMenuClose.addEventListener("click", closeMobileMenu);
+  }
+  
+  if (mobileMenuOverlay) {
+    mobileMenuOverlay.addEventListener("click", closeMobileMenu);
+  }
+  
+  if (mobileLogoutBtn) {
+    mobileLogoutBtn.addEventListener("click", handleMobileLogout);
+  }
+  
+  // Export to global scope for onclick handlers
+  window.closeMobileMenu = closeMobileMenu;
+  window.handleMobileLogout = handleMobileLogout;
 
   // Check if user is admin and show toggle
   async function checkAdminStatus(userData) {
@@ -445,20 +955,37 @@ document.addEventListener("DOMContentLoaded", () => {
         // Update stats
         if (totalContributed) totalContributed.textContent = formatCurrency(financialSummary.totalPaid || 0);
         if (activeLoans) {
-          // Count active loans
-          const loansRef = collection(db, "groups", groupId, "loans");
-          const activeLoansQuery = query(loansRef, where("borrowerId", "==", user.uid), where("status", "==", "active"));
-          const activeLoansSnapshot = await getDocs(activeLoansQuery);
-          activeLoans.textContent = activeLoansSnapshot.size;
+          // Count active loans and calculate loan details
+          await updateActiveLoansDetails(groupId, user.uid);
         }
         if (pendingPayments) pendingPayments.textContent = formatCurrency(financialSummary.totalPending || 0);
         if (totalArrears) totalArrears.textContent = formatCurrency((financialSummary.totalArrears || 0) + (financialSummary.totalPenalties || 0));
+        
+        // Load next monthly payment
+        await updateNextMonthlyPayment(groupId, user.uid);
       } else {
         // User might be admin, set defaults
         if (totalContributed) totalContributed.textContent = "MWK 0";
-        if (activeLoans) activeLoans.textContent = "0";
+        if (activeLoans) activeLoans.innerHTML = '<span>0</span><span style="font-size: 14px; line-height: 1;" title="Active Loans">💰</span>';
+        const activeLoansDetails = document.getElementById('activeLoansDetails');
+        const activeLoansStat = document.getElementById('activeLoansStat');
+        const activeLoansBadge = document.getElementById('activeLoansBadge');
+        if (activeLoansDetails) activeLoansDetails.style.display = 'none';
+        if (activeLoansStat) activeLoansStat.classList.remove('flash');
+        if (activeLoansBadge) activeLoansBadge.style.display = 'none';
         if (pendingPayments) pendingPayments.textContent = "MWK 0";
         if (totalArrears) totalArrears.textContent = "MWK 0";
+        
+        // Reset next payment
+        const nextPaymentDetailsEl = document.getElementById('nextPaymentDetails');
+        const nextPaymentBadgeEl = document.getElementById('nextPaymentBadge');
+        const nextPaymentStat = document.getElementById('nextPaymentStat');
+        if (nextPaymentDetailsEl) {
+          nextPaymentDetailsEl.textContent = "";
+          nextPaymentDetailsEl.style.display = 'none';
+        }
+        if (nextPaymentBadgeEl) nextPaymentBadgeEl.style.display = 'none';
+        if (nextPaymentStat) nextPaymentStat.classList.remove('flash');
       }
       
       // Load member count for the group
@@ -473,6 +1000,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch (error) {
         console.error("Error loading member count:", error);
       }
+
     } catch (error) {
       await logDatabaseError(error, "loadDashboardData", { groupId, userId: user?.uid });
     }
@@ -578,7 +1106,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // 3. Load Loan Repayments (if any active loans)
       try {
         const loansRef = collection(db, `groups/${groupId}/loans`);
-        const activeLoansQuery = query(loansRef, where("borrowerId", "==", user.uid), where("status", "==", "active"));
+        const activeLoansQuery = query(loansRef, where("borrowerId", "==", user.uid), where("status", "in", ["active", "disbursed"]));
         const activeLoansSnapshot = await getDocs(activeLoansQuery);
 
         activeLoansSnapshot.forEach(loanDoc => {
@@ -685,6 +1213,7 @@ document.addEventListener("DOMContentLoaded", () => {
       today.setHours(0, 0, 0, 0);
       const nextYear = new Date(today);
       nextYear.setFullYear(nextYear.getFullYear() + 1);
+      const currentYear = today.getFullYear();
       
       const upcomingPayments = [];
 
@@ -701,7 +1230,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // 1. Load Monthly Contributions for next year
       try {
-        const currentYear = new Date().getFullYear();
         const monthlyCollection = collection(db, `groups/${groupId}/payments/${currentYear}_MonthlyContributions/${user.uid}`);
         const monthlySnapshot = await getDocs(monthlyCollection);
 
@@ -779,7 +1307,6 @@ document.addEventListener("DOMContentLoaded", () => {
       // 2. Load Seed Money Payment
       try {
         if (!user || !user.uid) throw new Error("User not available");
-        const currentYear = new Date().getFullYear();
         const seedMoneyRef = doc(db, `groups/${groupId}/payments/${currentYear}_SeedMoney/${user.uid}/PaymentDetails`);
         const seedMoneyDoc = await getDoc(seedMoneyRef);
         
@@ -813,11 +1340,75 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error("Error loading seed money:", error);
       }
 
-      // 3. Load Loan Repayments - All unpaid installments for next year
+      // 3. Load Service Fee - Check if group has service fee enabled
+      try {
+        if (!user || !user.uid) throw new Error("User not available");
+        const groupDoc = await getDoc(doc(db, "groups", groupId));
+        if (groupDoc.exists()) {
+          const groupData = groupDoc.data();
+          const serviceFeeAmount = parseFloat(groupData?.rules?.serviceFee?.amount || groupData?.serviceFeeAmount || 0);
+          
+          if (serviceFeeAmount > 0) {
+            const serviceFeeRef = doc(db, `groups/${groupId}/payments/${currentYear}_ServiceFee/${user.uid}/PaymentDetails`);
+            const serviceFeeDoc = await getDoc(serviceFeeRef);
+            
+            if (serviceFeeDoc.exists()) {
+              const serviceFeeData = serviceFeeDoc.data();
+              const dueDate = serviceFeeData.dueDate;
+              
+              if (dueDate && dueDate.toDate) {
+                const dueDateObj = dueDate.toDate();
+                const isUnpaid = serviceFeeData.approvalStatus === "unpaid" || serviceFeeData.approvalStatus === "pending";
+                const amountDue = parseFloat(serviceFeeData.arrears || serviceFeeData.totalAmount || serviceFeeAmount);
+                
+                if (isUnpaid && dueDateObj <= nextYear && amountDue > 0) {
+                  const daysUntilDue = Math.ceil((dueDateObj - today) / (1000 * 60 * 60 * 24));
+                  upcomingPayments.push({
+                    type: "Service Fee",
+                    category: "servicefee",
+                    month: "Service Fee",
+                    year: currentYear,
+                    amount: amountDue,
+                    dueDate: dueDateObj,
+                    status: serviceFeeData.approvalStatus || "unpaid",
+                    daysUntilDue: daysUntilDue,
+                    isOverdue: daysUntilDue < 0,
+                    paymentId: serviceFeeDoc.id
+                  });
+                }
+              }
+            } else {
+              // Service fee not yet created, but group has it enabled - show as upcoming
+              const serviceFeeDueDate = groupData?.rules?.serviceFee?.dueDate || groupData?.seedMoneyDueDate;
+              if (serviceFeeDueDate) {
+                const dueDateObj = serviceFeeDueDate.toDate ? serviceFeeDueDate.toDate() : new Date(serviceFeeDueDate);
+                if (dueDateObj <= nextYear) {
+                  const daysUntilDue = Math.ceil((dueDateObj - today) / (1000 * 60 * 60 * 24));
+                  upcomingPayments.push({
+                    type: "Service Fee",
+                    category: "servicefee",
+                    month: "Service Fee",
+                    year: currentYear,
+                    amount: serviceFeeAmount,
+                    dueDate: dueDateObj,
+                    status: "unpaid",
+                    daysUntilDue: daysUntilDue,
+                    isOverdue: daysUntilDue < 0
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error loading service fee:", error);
+      }
+
+      // 4. Load Loan Repayments - All unpaid installments for next year
       try {
         if (!user || !user.uid) throw new Error("User not available");
         const loansRef = collection(db, `groups/${groupId}/loans`);
-        const activeLoansQuery = query(loansRef, where("borrowerId", "==", user.uid), where("status", "==", "active"));
+        const activeLoansQuery = query(loansRef, where("borrowerId", "==", user.uid), where("status", "in", ["active", "disbursed"]));
         const activeLoansSnapshot = await getDocs(activeLoansQuery);
 
         activeLoansSnapshot.forEach(loanDoc => {
@@ -965,8 +1556,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const typeIcon = payment.category === 'seed' ? '🌱' :
                      payment.category === 'monthly' ? '📅' :
+                     payment.category === 'servicefee' ? '💳' :
                      payment.category === 'loan' ? '💰' :
-                     payment.category === 'penalty' ? '⚠️' : '💳';
+                     payment.category === 'penalty' ? '⚠️' : '💵';
 
     let additionalInfo = '';
     if (payment.category === 'loan' && payment.principal && payment.interest) {
@@ -1523,7 +2115,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Listen for active loans changes
     try {
       const loansRef = collection(db, `groups/${groupId}/loans`);
-      const activeLoansQuery = query(loansRef, where("borrowerId", "==", user.uid), where("status", "==", "active"));
+      const activeLoansQuery = query(loansRef, where("borrowerId", "==", user.uid), where("status", "in", ["active", "disbursed"]));
       
       const unsubscribe = onSnapshot(activeLoansQuery, async (snapshot) => {
         // Only reload if modal is open
@@ -1712,7 +2304,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Get active loan repayment amount
         try {
           const loansRef = collection(db, `groups/${groupId}/loans`);
-          const activeLoansQuery = query(loansRef, where("borrowerId", "==", currentUser.uid), where("status", "==", "active"));
+          const activeLoansQuery = query(loansRef, where("borrowerId", "==", currentUser.uid), where("status", "in", ["active", "disbursed"]));
           const activeLoansSnapshot = await getDocs(activeLoansQuery);
           
           if (!activeLoansSnapshot.empty) {
@@ -1802,6 +2394,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const amountStr = document.getElementById("paymentAmount")?.value;
     const paymentDate = document.getElementById("paymentDate")?.value;
     const proofFile = document.getElementById("paymentProof")?.files[0];
+    const isAdvancedPayment = document.getElementById("isAdvancedPayment")?.checked || false;
 
     // Validate required fields
     if (!groupId) {
@@ -1895,22 +2488,22 @@ document.addEventListener("DOMContentLoaded", () => {
       const userData = userDoc.exists() ? userDoc.data() : {};
       const userName = userData.fullName || currentUser.email;
 
-      // Handle different payment types
+      // Handle different payment types (pass isAdvancedPayment flag)
       if (paymentType === "seed_money") {
-        await handleSeedMoneyPayment(groupId, amount, paymentDate, proofUrl, userName);
+        await handleSeedMoneyPayment(groupId, amount, paymentDate, proofUrl, userName, isAdvancedPayment);
       } else if (paymentType === "monthly_contribution") {
-        await handleMonthlyContributionPayment(groupId, amount, paymentDate, proofUrl, userName);
+        await handleMonthlyContributionPayment(groupId, amount, paymentDate, proofUrl, userName, isAdvancedPayment);
       } else if (paymentType === "loan_repayment") {
-        await handleLoanRepaymentPayment(groupId, amount, paymentDate, proofUrl, userName);
+        await handleLoanRepaymentPayment(groupId, amount, paymentDate, proofUrl, userName, isAdvancedPayment);
       } else if (paymentType === "penalty") {
-        await handlePenaltyPayment(groupId, amount, paymentDate, proofUrl, userName);
+        await handlePenaltyPayment(groupId, amount, paymentDate, proofUrl, userName, isAdvancedPayment);
       }
 
       // Get member ID based on payment type
       let memberIdForNotification = currentUser.uid;
       
       // Send notification to admins with payment details for approval
-      await sendPaymentNotificationToAdmins(groupId, paymentType, amount, userName, memberIdForNotification);
+      await sendPaymentNotificationToAdmins(groupId, paymentType, amount, userName, memberIdForNotification, null, isAdvancedPayment);
 
       alert("Payment uploaded successfully! It will be reviewed by an admin.");
       
@@ -1938,7 +2531,7 @@ document.addEventListener("DOMContentLoaded", () => {
   /**
    * Handle seed money payment
    */
-  async function handleSeedMoneyPayment(groupId, amount, paymentDate, proofUrl, userName) {
+  async function handleSeedMoneyPayment(groupId, amount, paymentDate, proofUrl, userName, isAdvancedPayment = false) {
     const currentYear = new Date().getFullYear();
     const seedMoneyRef = doc(db, `groups/${groupId}/payments/${currentYear}_SeedMoney/${currentUser.uid}/PaymentDetails`);
     const seedMoneyDoc = await getDoc(seedMoneyRef);
@@ -1953,10 +2546,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const newAmountPaid = currentPaid + amount;
     const newArrears = Math.max(totalAmount - newAmountPaid, 0);
 
+    // For advanced payments, keep status as pending until admin approval
+    // For regular payments, also pending until admin approval
+    const approvalStatus = "pending";
+
     await updateDoc(seedMoneyRef, {
       amountPaid: newAmountPaid,
       arrears: newArrears,
-      approvalStatus: "pending",
+      approvalStatus: approvalStatus,
       paymentStatus: newArrears === 0 ? "Completed" : "Pending",
       proofOfPayment: {
         imageUrl: proofUrl,
@@ -1964,6 +2561,7 @@ document.addEventListener("DOMContentLoaded", () => {
         verifiedBy: ""
       },
       paidAt: Timestamp.fromDate(new Date(paymentDate)),
+      isAdvancedPayment: isAdvancedPayment,
       updatedAt: Timestamp.now()
     });
   }
@@ -1971,7 +2569,7 @@ document.addEventListener("DOMContentLoaded", () => {
   /**
    * Handle monthly contribution payment
    */
-  async function handleMonthlyContributionPayment(groupId, amount, paymentDate, proofUrl, userName) {
+  async function handleMonthlyContributionPayment(groupId, amount, paymentDate, proofUrl, userName, isAdvancedPayment = false) {
     const currentYear = new Date().getFullYear();
     const paymentDateObj = new Date(paymentDate);
     const monthName = paymentDateObj.toLocaleString("default", { month: "long" });
@@ -1992,26 +2590,37 @@ document.addEventListener("DOMContentLoaded", () => {
       amount: amount,
       paymentDate: Timestamp.fromDate(new Date(paymentDate)),
       proofURL: proofUrl,
-      approvalStatus: "pending",
+      approvalStatus: "pending", // Always pending until admin approval
       approvedAt: null,
       approvedBy: null,
-      uploadedAt: Timestamp.now()
+      uploadedAt: Timestamp.now(),
+      isAdvancedPayment: isAdvancedPayment
     };
 
     paidArray.push(newPayment);
 
-    // Calculate new totals
-    const totalPaid = paidArray.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+    // Calculate new totals - but don't update approval status automatically
+    // Only count approved payments for totals when not advanced
+    const approvedPayments = isAdvancedPayment ? [] : paidArray.filter(p => p.approvalStatus === "approved");
+    const totalPaidApproved = approvedPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+    const totalPaidAll = paidArray.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
     const totalAmount = parseFloat(monthlyData.totalAmount || 0);
-    const newArrears = Math.max(totalAmount - totalPaid, 0);
-    const newApprovalStatus = newArrears === 0 ? "approved" : "pending";
+    
+    // For advanced payments, don't update arrears until approved
+    // For regular payments, still pending approval
+    const newArrears = isAdvancedPayment ? 
+      Math.max(totalAmount - totalPaidApproved, 0) : 
+      Math.max(totalAmount - totalPaidApproved, 0);
+    
+    const newApprovalStatus = "pending"; // Always pending until admin approves
 
     await updateDoc(monthlyRef, {
       paid: paidArray,
-      amountPaid: totalPaid,
+      amountPaid: isAdvancedPayment ? totalPaidApproved : totalPaidAll, // Only count approved for advanced
       arrears: newArrears,
       approvalStatus: newApprovalStatus,
       paymentStatus: newArrears === 0 ? "Completed" : "Pending",
+      isAdvancedPayment: isAdvancedPayment || monthlyData.isAdvancedPayment || false,
       updatedAt: Timestamp.now()
     });
   }
@@ -2019,10 +2628,10 @@ document.addEventListener("DOMContentLoaded", () => {
   /**
    * Handle loan repayment payment
    */
-  async function handleLoanRepaymentPayment(groupId, amount, paymentDate, proofUrl, userName) {
-    // Get active loans for user
+  async function handleLoanRepaymentPayment(groupId, amount, paymentDate, proofUrl, userName, isAdvancedPayment = false) {
+    // Get active loans for user (including disbursed)
     const loansRef = collection(db, `groups/${groupId}/loans`);
-    const activeLoansQuery = query(loansRef, where("borrowerId", "==", currentUser.uid), where("status", "==", "active"));
+    const activeLoansQuery = query(loansRef, where("borrowerId", "==", currentUser.uid), where("status", "in", ["active", "disbursed"]));
     const activeLoansSnapshot = await getDocs(activeLoansQuery);
 
     if (activeLoansSnapshot.empty) {
@@ -2049,6 +2658,7 @@ document.addEventListener("DOMContentLoaded", () => {
       approvedBy: null,
       penaltyAmount: 0,
       notes: "",
+      isAdvancedPayment: isAdvancedPayment,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now()
     });
@@ -2057,7 +2667,7 @@ document.addEventListener("DOMContentLoaded", () => {
   /**
    * Handle penalty payment
    */
-  async function handlePenaltyPayment(groupId, amount, paymentDate, proofUrl, userName) {
+  async function handlePenaltyPayment(groupId, amount, paymentDate, proofUrl, userName, isAdvancedPayment = false) {
     // Penalty payments can be handled similarly to seed money
     // For now, we'll store it in a separate collection or as a note
     // This depends on how penalties are tracked in your system
@@ -2067,7 +2677,7 @@ document.addEventListener("DOMContentLoaded", () => {
   /**
    * Send payment notification to admins
    */
-  async function sendPaymentNotificationToAdmins(groupId, paymentType, amount, userName, memberId = null, paymentId = null) {
+  async function sendPaymentNotificationToAdmins(groupId, paymentType, amount, userName, memberId = null, paymentId = null, isAdvancedPayment = false) {
     try {
       // Get group data
       const groupDoc = await getDoc(doc(db, "groups", groupId));
@@ -2109,6 +2719,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const paymentTypeName = paymentTypeNames[paymentType] || paymentType;
       const memberIdToUse = memberId || currentUser.uid;
+      const advancedPaymentLabel = isAdvancedPayment ? " (Advanced Payment)" : "";
 
       // Create notification for each admin with all details needed for approval
       const batch = writeBatch(db);
@@ -2124,13 +2735,14 @@ document.addEventListener("DOMContentLoaded", () => {
           senderId: currentUser.uid,
           senderName: userName,
           senderEmail: currentUser.email,
-          title: `New Payment Uploaded: ${paymentTypeName}`,
-          message: `${userName} has uploaded a payment proof for ${paymentTypeName} (${formatCurrency(amount)}). Please review and approve from Messages.`,
+          title: `New Payment Uploaded: ${paymentTypeName}${advancedPaymentLabel}`,
+          message: `${userName} has uploaded a payment proof for ${paymentTypeName}${advancedPaymentLabel} (${formatCurrency(amount)}).${isAdvancedPayment ? ' This is an advanced payment and requires approval before updating calculations.' : ''} Please review and approve from Messages.`,
           type: "payment_upload", // Specific type for filtering
           paymentType: paymentType,
           paymentId: paymentId || notificationRef.id,
           memberId: memberIdToUse,
           amount: amount,
+          isAdvancedPayment: isAdvancedPayment,
           allowReplies: false,
           read: false,
           createdAt: Timestamp.now(),
@@ -2219,32 +2831,34 @@ document.addEventListener("DOMContentLoaded", () => {
           
           if (hasEvents) {
             calendarHTML += '<div class="calendar-day-events">';
-            events.slice(0, 3).forEach(event => {
+            events.forEach(event => {
               let noteClass = 'calendar-event-note';
-              let eventLabel = '';
-              const amountShort = formatCurrency(event.amount).replace(/MWK\s*/, '').replace(/,/g, 'K').replace('.00', '');
               
+              // Add approved class if payment is approved
+              if (event.isApproved) {
+                noteClass += ' approved';
+              }
+              
+              // Add type class
               if (event.type === 'Monthly Contribution') {
                 noteClass += ' monthly';
-                eventLabel = `💵 ${amountShort}`;
               } else if (event.type === 'Seed Money') {
                 noteClass += ' seed';
-                eventLabel = `🌱 ${amountShort}`;
+              } else if (event.type === 'Service Fee') {
+                noteClass += ' servicefee';
               } else if (event.type === 'Loan Repayment') {
                 noteClass += ' loan';
-                eventLabel = `💰 ${amountShort}`;
+              } else if (event.type === 'Loan Disbursed') {
+                noteClass += ' loan';
               }
               
               if (event.isOverdue) {
                 noteClass += ' overdue';
-                eventLabel = `⚠️ ${eventLabel}`;
               }
               
-              calendarHTML += `<div class="${noteClass}" title="${event.type}: ${formatCurrency(event.amount)}${event.isOverdue ? ' (Overdue)' : ''}">${eventLabel}</div>`;
+              // Show only colored dot indicator (no text)
+              calendarHTML += `<div class="${noteClass}" style="width: 8px; height: 8px; padding: 0; margin: 1px; border-radius: 50%; min-height: 8px; font-size: 0;" title="${event.type}: ${formatCurrency(event.amount)}${event.isApproved ? ' (Paid)' : ''}"></div>`;
             });
-            if (events.length > 3) {
-              calendarHTML += `<div class="calendar-event-note" style="background: rgba(0,0,0,0.05); color: var(--bn-gray); font-size: 8px; padding: 1px 2px;">+${events.length - 3} more</div>`;
-            }
             calendarHTML += '</div>';
           }
           
@@ -2260,6 +2874,52 @@ document.addEventListener("DOMContentLoaded", () => {
 
         calendarHTML += '</div>';
         calendarContainer.innerHTML = calendarHTML;
+
+        // Build payment legend with all approved payments
+        const paymentLegendContainer = document.getElementById("paymentLegend");
+        if (paymentLegendContainer) {
+          const allApprovedPayments = [];
+          Object.keys(paymentDates).forEach(dateKey => {
+            const events = paymentDates[dateKey];
+            events.forEach(event => {
+              // Include approved payments and loan disbursed dates
+              if (event.isApproved || event.type === 'Loan Disbursed') {
+                const paidDate = event.disbursedAt?.toDate ? event.disbursedAt.toDate() :
+                               (event.paidAt?.toDate ? event.paidAt.toDate() : 
+                               (event.approvedAt?.toDate ? event.approvedAt.toDate() : 
+                               new Date(dateKey)));
+                const displayType = event.type === 'Loan Disbursed' ? 'Loan Disbursed' : event.type;
+                allApprovedPayments.push({
+                  type: displayType,
+                  amount: event.amount,
+                  date: paidDate,
+                  dateKey: dateKey
+                });
+              }
+            });
+          });
+
+          // Sort by date (most recent first)
+          allApprovedPayments.sort((a, b) => b.date - a.date);
+
+          if (allApprovedPayments.length > 0) {
+            let legendHTML = '<div style="margin-top: var(--bn-space-4); padding: var(--bn-space-3); background: var(--bn-gray-50); border-radius: var(--bn-radius-md);">';
+            legendHTML += '<div style="font-size: var(--bn-text-xs); font-weight: 700; color: var(--bn-dark); margin-bottom: var(--bn-space-2); text-transform: uppercase; letter-spacing: 0.05em;">Payment History</div>';
+            legendHTML += '<div style="display: flex; flex-direction: column; gap: var(--bn-space-1); font-size: var(--bn-text-xs); line-height: 1.5;">';
+            
+            allApprovedPayments.forEach(payment => {
+              const dateStr = payment.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+              const amountStr = formatCurrency(payment.amount);
+              const prefix = payment.type === 'Loan Disbursed' ? 'Disbursed' : 'Paid';
+              legendHTML += `<div style="color: var(--bn-gray-700);">${prefix} <strong style="color: var(--bn-dark);">${amountStr}</strong> on <strong style="color: var(--bn-dark);">${dateStr}</strong> - ${payment.type}</div>`;
+            });
+            
+            legendHTML += '</div></div>';
+            paymentLegendContainer.innerHTML = legendHTML;
+          } else {
+            paymentLegendContainer.innerHTML = '';
+          }
+        }
 
         // Add click handlers
         calendarContainer.querySelectorAll('.calendar-day[data-date]').forEach(dayEl => {
@@ -2384,16 +3044,72 @@ document.addEventListener("DOMContentLoaded", () => {
         await logDatabaseError(error, "loadPaymentDatesForCalendar - Seed Money", { groupId, userId: user?.uid }, { severity: ErrorSeverity.LOW });
       }
 
-      // 3. Loan Repayments
+      // 3. Service Fee
+      try {
+        const serviceFeeRef = doc(db, `groups/${groupId}/payments/${currentYear}_ServiceFee/${user.uid}/PaymentDetails`);
+        const serviceFeeDoc = await getDoc(serviceFeeRef);
+        
+        if (serviceFeeDoc.exists()) {
+          const serviceFeeData = serviceFeeDoc.data();
+          const dueDate = serviceFeeData.dueDate;
+          
+          if (dueDate && dueDate.toDate) {
+            const dueDateObj = dueDate.toDate();
+            const isUnpaid = serviceFeeData.approvalStatus === "unpaid" || serviceFeeData.approvalStatus === "pending";
+            const isApproved = serviceFeeData.approvalStatus === "approved" || serviceFeeData.paymentStatus === "completed";
+            
+            if ((isUnpaid || isApproved) && dueDateObj.getMonth() === month && dueDateObj.getFullYear() === year) {
+              const dateKey = `${dueDateObj.getFullYear()}-${String(dueDateObj.getMonth() + 1).padStart(2, '0')}-${String(dueDateObj.getDate()).padStart(2, '0')}`;
+              const isOverdue = isUnpaid && dueDateObj < today;
+              
+              if (!paymentDates[dateKey]) paymentDates[dateKey] = [];
+              paymentDates[dateKey].push({
+                type: 'Service Fee',
+                amount: isApproved ? parseFloat(serviceFeeData.amountPaid || 0) : parseFloat(serviceFeeData.arrears || serviceFeeData.totalAmount || 0),
+                dueDate: dueDateObj,
+                isOverdue: isOverdue,
+                isApproved: isApproved,
+                paidAt: serviceFeeData.paidAt,
+                approvedAt: serviceFeeData.approvedAt
+              });
+            }
+          }
+        }
+      } catch (error) {
+        await logDatabaseError(error, "loadPaymentDatesForCalendar - Service Fee", { groupId, userId: user?.uid }, { severity: ErrorSeverity.LOW });
+      }
+
+      // 4. Loan Disbursed Dates & Loan Repayments
       try {
         const loansRef = collection(db, `groups/${groupId}/loans`);
-        const activeLoansQuery = query(loansRef, where("borrowerId", "==", user.uid), where("status", "==", "active"));
+        const activeLoansQuery = query(loansRef, where("borrowerId", "==", user.uid), where("status", "in", ["active", "disbursed"]));
         const activeLoansSnapshot = await getDocs(activeLoansQuery);
 
         activeLoansSnapshot.forEach(loanDoc => {
           const loanData = loanDoc.data();
+          
+          // Track loan disbursed date
+          const disbursedAt = loanData.disbursedAt;
+          if (disbursedAt && disbursedAt.toDate) {
+            const disbursedDate = disbursedAt.toDate();
+            if (disbursedDate.getMonth() === month && disbursedDate.getFullYear() === year) {
+              const dateKey = `${disbursedDate.getFullYear()}-${String(disbursedDate.getMonth() + 1).padStart(2, '0')}-${String(disbursedDate.getDate()).padStart(2, '0')}`;
+              
+              if (!paymentDates[dateKey]) paymentDates[dateKey] = [];
+              paymentDates[dateKey].push({
+                type: 'Loan Disbursed',
+                amount: parseFloat(loanData.amount || loanData.loanAmount || 0),
+                dueDate: disbursedDate,
+                isOverdue: false,
+                isApproved: true,
+                loanId: loanDoc.id,
+                disbursedAt: disbursedAt
+              });
+            }
+          }
+          
+          // Track loan repayment dates
           const repaymentSchedule = loanData.repaymentSchedule || {};
-
           Object.keys(repaymentSchedule).forEach(monthKey => {
             const scheduleItem = repaymentSchedule[monthKey];
             if (scheduleItem && !scheduleItem.paid && scheduleItem.dueDate) {
@@ -2417,6 +3133,76 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       } catch (error) {
         await logDatabaseError(error, "loadPaymentDatesForCalendar - Loan Repayments", { groupId, userId: user?.uid }, { severity: ErrorSeverity.LOW });
+      }
+      
+      // 5. Also show approved/completed payments (not just unpaid)
+      // Monthly Contributions - Approved
+      try {
+        const monthlyCollection = collection(db, `groups/${groupId}/payments/${currentYear}_MonthlyContributions/${user.uid}`);
+        const monthlySnapshot = await getDocs(monthlyCollection);
+
+        monthlySnapshot.forEach(monthDoc => {
+          const paymentData = monthDoc.data();
+          const paidAt = paymentData.paidAt;
+          const approvedAt = paymentData.approvedAt;
+          const isApproved = paymentData.approvalStatus === "approved" || paymentData.paymentStatus === "completed";
+          
+          if (isApproved && (paidAt || approvedAt)) {
+            const paymentDate = paidAt?.toDate ? paidAt.toDate() : (approvedAt?.toDate ? approvedAt.toDate() : null);
+            
+            if (paymentDate && paymentDate.getMonth() === month && paymentDate.getFullYear() === year) {
+              const dateKey = `${paymentDate.getFullYear()}-${String(paymentDate.getMonth() + 1).padStart(2, '0')}-${String(paymentDate.getDate()).padStart(2, '0')}`;
+              
+              if (!paymentDates[dateKey]) paymentDates[dateKey] = [];
+              paymentDates[dateKey].push({
+                type: 'Monthly Contribution',
+                amount: parseFloat(paymentData.amountPaid || 0),
+                dueDate: paymentDate,
+                isOverdue: false,
+                isApproved: true,
+                paidAt: paidAt,
+                approvedAt: approvedAt,
+                month: paymentData.month || monthDoc.id.split('_')[1]
+              });
+            }
+          }
+        });
+      } catch (error) {
+        console.log("Error loading approved monthly contributions for calendar:", error);
+      }
+      
+      // Seed Money - Approved
+      try {
+        const seedMoneyRef = doc(db, `groups/${groupId}/payments/${currentYear}_SeedMoney/${user.uid}/PaymentDetails`);
+        const seedMoneyDoc = await getDoc(seedMoneyRef);
+        
+        if (seedMoneyDoc.exists()) {
+          const seedMoneyData = seedMoneyDoc.data();
+          const isApproved = seedMoneyData.approvalStatus === "approved" || seedMoneyData.paymentStatus === "completed";
+          const paidAt = seedMoneyData.paidAt;
+          const approvedAt = seedMoneyData.approvedAt;
+          
+          if (isApproved && (paidAt || approvedAt)) {
+            const paymentDate = paidAt?.toDate ? paidAt.toDate() : (approvedAt?.toDate ? approvedAt.toDate() : null);
+            
+            if (paymentDate && paymentDate.getMonth() === month && paymentDate.getFullYear() === year) {
+              const dateKey = `${paymentDate.getFullYear()}-${String(paymentDate.getMonth() + 1).padStart(2, '0')}-${String(paymentDate.getDate()).padStart(2, '0')}`;
+              
+              if (!paymentDates[dateKey]) paymentDates[dateKey] = [];
+              paymentDates[dateKey].push({
+                type: 'Seed Money',
+                amount: parseFloat(seedMoneyData.amountPaid || 0),
+                dueDate: paymentDate,
+                isOverdue: false,
+                isApproved: true,
+                paidAt: paidAt,
+                approvedAt: approvedAt
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.log("Error loading approved seed money for calendar:", error);
       }
 
     } catch (error) {
@@ -2597,6 +3383,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   }
+  
+  // Export to window for access from other scripts
+  window.loadDashboardNotifications = loadDashboardNotifications;
 
   /**
    * Get notification icon for dashboard
@@ -2692,4 +3481,14 @@ document.addEventListener("DOMContentLoaded", () => {
   ["click", "keypress", "mousemove", "scroll"].forEach((event) =>
     window.addEventListener(event, resetSessionTimer)
   );
+
+  // Close modal on overlay click
+  const allPaymentsModal = document.getElementById('allPaymentsModal');
+  if (allPaymentsModal) {
+    allPaymentsModal.addEventListener('click', (e) => {
+      if (e.target === allPaymentsModal) {
+        allPaymentsModal.classList.add('hidden');
+      }
+    });
+  }
 });

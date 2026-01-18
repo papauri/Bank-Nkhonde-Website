@@ -206,6 +206,23 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+      // Validate Date of Birth if provided
+      const dateOfBirth = getValue('dateOfBirth');
+      if (dateOfBirth && window.DOBValidation) {
+        const validation = window.DOBValidation.validateAge(dateOfBirth);
+        if (!validation.isValid) {
+          showSpinner(false);
+          showError(validation.error);
+          const dobInput = document.getElementById('dateOfBirth');
+          if (dobInput) {
+            dobInput.focus();
+            dobInput.reportValidity();
+          }
+          if (submitProfileBtn) submitProfileBtn.disabled = false;
+          return;
+        }
+      }
+
       if (!guarantorName || !guarantorPhone || !guarantorRelationship) {
         showSpinner(false);
         showError('Please fill in all required guarantor information');
@@ -219,7 +236,22 @@ document.addEventListener('DOMContentLoaded', () => {
         phone: phone,
         whatsappNumber: getValue('whatsappNumber') || phone,
         address: address,
-        dateOfBirth: getValue('dateOfBirth') || null,
+        dateOfBirth: (() => {
+          const dob = getValue('dateOfBirth');
+          if (dob && window.DOBValidation) {
+            const validation = window.DOBValidation.validateAge(dob);
+            if (!validation.isValid) {
+              showToast(validation.error, 'error');
+              const dobInput = document.getElementById('dateOfBirth');
+              if (dobInput) {
+                dobInput.focus();
+                dobInput.reportValidity();
+              }
+              throw new Error(validation.error);
+            }
+          }
+          return dob || null;
+        })(),
         gender: getValue('gender') || null,
         career: career,
         jobTitle: getValue('jobTitle') || null,

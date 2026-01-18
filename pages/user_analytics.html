@@ -11,8 +11,125 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
   <link rel="stylesheet" href="../styles/pages.css">
+  <link rel="stylesheet" href="../styles/unified-navigation.css">
+  <link rel="stylesheet" href="../styles/unified-mobile-nav.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
+    /* Professional Stats Grid Cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: var(--bn-space-4);
+    }
+
+    .stat-card {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--bn-radius-xl);
+      padding: var(--bn-space-5);
+      text-align: center;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+      min-height: 120px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--bn-gradient-accent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .stat-card:hover::before {
+      opacity: 1;
+    }
+
+    .stat-card:nth-child(1) .stat-value { color: #10b981; }
+    .stat-card:nth-child(1)::before { background: linear-gradient(90deg, #10b981, #059669); }
+    .stat-card:nth-child(2) .stat-value { color: var(--bn-primary); }
+    .stat-card:nth-child(2)::before { background: var(--bn-gradient-primary); }
+    .stat-card:nth-child(3) .stat-value { color: #f59e0b; }
+    .stat-card:nth-child(3)::before { background: linear-gradient(90deg, #f59e0b, #d97706); }
+    .stat-card:nth-child(4) .stat-value { color: #ef4444; }
+    .stat-card:nth-child(4)::before { background: linear-gradient(90deg, #ef4444, #dc2626); }
+    .stat-card:nth-child(5) .stat-value { color: #3b82f6; }
+    .stat-card:nth-child(5)::before { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+    .stat-card:nth-child(6) .stat-value { color: var(--bn-accent); }
+    .stat-card:nth-child(6)::before { background: var(--bn-gradient-accent); }
+
+    .stat-value {
+      font-size: 1.75rem;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: var(--bn-space-2);
+      font-feature-settings: 'tnum' 1;
+      letter-spacing: -0.02em;
+    }
+
+    .stat-label {
+      font-size: var(--bn-text-xs);
+      color: rgba(255, 255, 255, 0.65);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 768px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--bn-space-3);
+      }
+
+      .stat-card {
+        padding: var(--bn-space-4);
+        min-height: 100px;
+      }
+
+      .stat-value {
+        font-size: 1.5rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--bn-space-2);
+      }
+
+      .stat-card {
+        padding: var(--bn-space-3);
+        min-height: 90px;
+      }
+
+      .stat-value {
+        font-size: 1.25rem;
+      }
+
+      .stat-label {
+        font-size: 10px;
+      }
+    }
+
+    /* Chart Styles */
     .chart-container {
       height: 200px;
       display: flex;
@@ -62,7 +179,106 @@
     }
   </style>
 </head>
-<body>
+<body class="user-page">
+  <!-- Top Navigation -->
+  <nav class="top-nav">
+    <div class="top-nav-container">
+      <a href="user_dashboard.html" class="top-nav-logo">
+        <div class="top-nav-logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <span class="top-nav-logo-text">Bank Nkhonde</span>
+      </a>
+
+      <div class="top-nav-actions">
+        <button class="top-nav-btn" onclick="window.location.href='select_group.html'" title="Select Group">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <line x1="12" y1="8" x2="12" y2="16"/>
+            <line x1="8" y1="12" x2="16" y2="12"/>
+          </svg>
+        </button>
+        <button class="top-nav-btn" id="notificationsBtn" aria-label="Notifications" style="position: relative;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span id="notificationBadge" class="notification-badge"></span>
+        </button>
+        <button class="top-nav-btn" id="logoutBtn" title="Logout">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+        <a href="settings.html" class="top-nav-avatar" id="userAvatar" title="Settings & Profile">
+          <img id="userProfilePic" src="" alt="Profile" style="display: none;">
+          <span id="userInitials">U</span>
+        </a>
+      </div>
+      
+      <!-- Mobile: Burger menu button -->
+      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Mobile Menu Overlay -->
+  <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
+  
+  <!-- Mobile Menu Sidebar -->
+  <div class="mobile-menu" id="mobileMenu">
+    <div class="mobile-menu-header">
+      <h2 class="mobile-menu-title">Menu</h2>
+      <button class="mobile-menu-close" id="mobileMenuClose" aria-label="Close menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="mobile-menu-items">
+      <a href="user_dashboard.html" class="mobile-menu-item" onclick="closeMobileMenu()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="select_group.html" class="mobile-menu-item" onclick="closeMobileMenu()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <line x1="12" y1="8" x2="12" y2="16"/>
+          <line x1="8" y1="12" x2="16" y2="12"/>
+        </svg>
+        <span>Select Group</span>
+      </a>
+      <a href="settings.html" class="mobile-menu-item" onclick="closeMobileMenu()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M12 1v6m0 6v6m9-9h-6m-6 0H3m15.364 6.364l-4.243-4.243m-4.242 0L5.636 17.364M18.364 6.636l-4.243 4.243m-4.242 0L5.636 6.636"/>
+        </svg>
+        <span>Settings</span>
+      </a>
+      <button class="mobile-menu-item danger" id="mobileLogoutBtn" onclick="handleMobileLogout()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        <span>Sign Out</span>
+      </button>
+    </div>
+  </div>
+
   <!-- Page Header -->
   <header class="page-header">
     <div class="page-header-container">
@@ -78,24 +294,29 @@
             <p class="page-subtitle">Track your contribution history</p>
           </div>
         </div>
+        <div style="margin-top: var(--bn-space-4);">
+          <select id="groupSelector" class="form-select" style="width: 100%; max-width: 300px;">
+            <option value="">Select a group...</option>
+          </select>
+        </div>
       </div>
 
       <div class="page-stats">
         <div class="page-stat">
           <div class="page-stat-value success" id="totalContributed">MWK 0</div>
-          <div class="page-stat-label">Contributed</div>
+          <div class="page-stat-label">Total Contributed</div>
         </div>
         <div class="page-stat">
           <div class="page-stat-value info" id="totalBorrowed">MWK 0</div>
-          <div class="page-stat-label">Borrowed</div>
+          <div class="page-stat-label">Total Borrowed</div>
         </div>
         <div class="page-stat">
           <div class="page-stat-value warning" id="outstanding">MWK 0</div>
-          <div class="page-stat-label">Outstanding</div>
+          <div class="page-stat-label">Loan Outstanding</div>
         </div>
         <div class="page-stat">
-          <div class="page-stat-value" id="groupsJoined">0</div>
-          <div class="page-stat-label">Groups</div>
+          <div class="page-stat-value danger" id="totalArrears">MWK 0</div>
+          <div class="page-stat-label">Arrears</div>
         </div>
       </div>
     </div>
@@ -103,36 +324,81 @@
 
   <!-- Page Content -->
   <main class="page-content">
+    <!-- User Overview Stats -->
+    <section class="content-section">
+      <div class="content-section-header">
+        <h2 class="content-section-title">Your Overview</h2>
+        <p class="content-section-subtitle">Summary across all your groups</p>
+      </div>
+      <div class="content-section-body">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="userTotalContributed">MWK 0</div>
+            <div class="stat-label">Total Contributed</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="userTotalLoans">MWK 0</div>
+            <div class="stat-label">Total Loans</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="userLoanOutstanding">MWK 0</div>
+            <div class="stat-label">Loan Outstanding</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="userTotalArrears">MWK 0</div>
+            <div class="stat-label">Total Arrears</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="userActiveLoans">0</div>
+            <div class="stat-label">Active Loans</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="userGroupsCount">0</div>
+            <div class="stat-label">Groups</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Group Stats (when group selected) -->
+    <section class="content-section" id="groupStatsSection" style="display: none;">
+      <div class="content-section-header">
+        <h2 class="content-section-title">Group Statistics</h2>
+        <p class="content-section-subtitle" id="groupStatsSubtitle">Statistics for selected group</p>
+      </div>
+      <div class="content-section-body">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="groupTotalContributed">MWK 0</div>
+            <div class="stat-label">You Contributed</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="groupTotalMembers">0</div>
+            <div class="stat-label">Total Members</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="groupTotalCollections">MWK 0</div>
+            <div class="stat-label">Group Collections</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="groupActiveLoans">0</div>
+            <div class="stat-label">Group Active Loans</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Contribution Trend -->
     <section class="content-section">
       <div class="content-section-header">
         <h2 class="content-section-title">Contribution Trend</h2>
+        <p class="content-section-subtitle">Your contributions over the last 6 months</p>
       </div>
       <div class="content-section-body">
         <div class="chart-container" id="chartContainer">
-          <div class="chart-bar-wrapper">
-            <div class="chart-bar" style="height: 160px; --bar-height: 40%;"></div>
-            <span class="chart-label">Jul</span>
-          </div>
-          <div class="chart-bar-wrapper">
-            <div class="chart-bar" style="height: 160px; --bar-height: 65%;"></div>
-            <span class="chart-label">Aug</span>
-          </div>
-          <div class="chart-bar-wrapper">
-            <div class="chart-bar" style="height: 160px; --bar-height: 55%;"></div>
-            <span class="chart-label">Sep</span>
-          </div>
-          <div class="chart-bar-wrapper">
-            <div class="chart-bar" style="height: 160px; --bar-height: 80%;"></div>
-            <span class="chart-label">Oct</span>
-          </div>
-          <div class="chart-bar-wrapper">
-            <div class="chart-bar" style="height: 160px; --bar-height: 70%;"></div>
-            <span class="chart-label">Nov</span>
-          </div>
-          <div class="chart-bar-wrapper">
-            <div class="chart-bar" style="height: 160px; --bar-height: 90%;"></div>
-            <span class="chart-label">Dec</span>
+          <div class="empty-state" style="width: 100%;">
+            <div class="empty-state-icon">📊</div>
+            <p class="empty-state-text">Select a group to view contribution trends</p>
           </div>
         </div>
       </div>
@@ -142,6 +408,7 @@
     <section class="content-section">
       <div class="content-section-header">
         <h2 class="content-section-title">Recent Activity</h2>
+        <p class="content-section-subtitle">Your latest payments and transactions</p>
       </div>
       <div class="content-section-body" id="recentActivity">
         <div class="empty-state">
@@ -152,24 +419,28 @@
     </section>
   </main>
 
-  <!-- Mobile Navigation -->
+  <!-- Mobile Bottom Navigation -->
   <nav class="mobile-nav">
     <a href="user_dashboard.html" class="mobile-nav-item">
       <span class="mobile-nav-icon">🏠</span>
       <span>Home</span>
     </a>
-    <a href="group_page.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">👥</span>
-      <span>Groups</span>
+    <a href="manage_payments.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">💳</span>
+      <span>Payments</span>
     </a>
-    <a href="user_analytics.html" class="mobile-nav-item active">
-      <span class="mobile-nav-icon">📊</span>
-      <span>Analytics</span>
+    <a href="loan_payments.html" class="mobile-nav-item">
+      <span class="mobile-nav-icon">💰</span>
+      <span>Loans</span>
     </a>
-    <a href="settings.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">⚙️</span>
-      <span>Settings</span>
-    </a>
+    <button class="mobile-nav-item mobile-nav-item-admin hidden" id="mobileSwitchToAdmin" onclick="handleSwitchToAdmin()">
+      <span class="mobile-nav-icon">👑</span>
+      <span>Admin</span>
+    </button>
+    <button class="mobile-nav-item" id="mobileNavSignOut" onclick="handleMobileNavLogout()">
+      <span class="mobile-nav-icon">🚪</span>
+      <span>Sign Out</span>
+    </button>
   </nav>
 
   <!-- Toast Container -->
@@ -195,5 +466,7 @@
     }, 500);
   </script>
   <script type="module" src="../scripts/user_analytics.js"></script>
+  <script type="module" src="../scripts/unified-navigation.js"></script>
+  <script src="../scripts/mobile-nav-active.js"></script>
 </body>
 </html>
