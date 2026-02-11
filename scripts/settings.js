@@ -729,7 +729,14 @@ async function handlePasswordChange(e) {
 async function handleLogout() {
   try {
     await signOut(auth);
-    sessionStorage.clear();
+    // Clear session data selectively to preserve user preferences
+    sessionStorage.removeItem('selectedGroupId');
+    sessionStorage.removeItem('isAdmin');
+    sessionStorage.removeItem('viewMode');
+    sessionStorage.removeItem('userRole');
+    localStorage.removeItem('selectedGroupId');
+    localStorage.removeItem('userEmail');
+    // Preserve selectedCurrency preference
     window.location.href = "../login.html";
   } catch (error) {
     console.error("Error logging out:", error);

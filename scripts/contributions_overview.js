@@ -216,6 +216,12 @@ document.addEventListener("DOMContentLoaded", () => {
               status = "completed";
               collectedAmount += amountPaid;
               paidCount++;
+            } else if (approvalStatus === "approved" && amountPaid > 0) {
+              // Partially paid but approved — count what's collected
+              status = "partial";
+              collectedAmount += amountPaid;
+              unpaidAmount += Math.max(0, contributionAmount - amountPaid);
+              paidCount++;
             } else if (approvalStatus === "pending") {
               status = "pending";
               pendingAmountValue += amountPaid;
@@ -231,7 +237,7 @@ document.addEventListener("DOMContentLoaded", () => {
               memberName: member.fullName || "Unknown",
               expected: contributionAmount,
               paid: amountPaid,
-              arrears: arrears || (contributionAmount - amountPaid),
+              arrears: arrears !== undefined && arrears !== null ? arrears : (contributionAmount - amountPaid),
               status: status,
               approvalStatus: approvalStatus,
               dueDate: memberContribution.dueDate 
@@ -389,41 +395,44 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     contributionsList.innerHTML = `
-      <table>
-        <thead>
-          <tr>
-            <th>Member Name</th>
-            <th>Expected (MWK)</th>
-            <th>Paid (MWK)</th>
-            <th>Arrears (MWK)</th>
-            <th>Status</th>
-            <th>Due Date</th>
-            <th>Payment Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${data.map(item => {
-            const statusClass = item.status === 'completed' ? 'completed' : 
-                               item.status === 'pending' ? 'pending' : 
-                               item.paid > 0 ? 'partial' : 'unpaid';
-            const statusText = item.status === 'completed' ? 'Completed' : 
-                             item.status === 'pending' ? 'Pending' : 
-                             item.paid > 0 ? 'Partial' : 'Unpaid';
-            
-            return `
-              <tr>
-                <td class="member-name-cell">${escapeHtml(item.memberName)}</td>
-                <td class="amount-cell">${parseFloat(item.expected).toLocaleString()}</td>
-                <td class="amount-cell">${parseFloat(item.paid).toLocaleString()}</td>
-                <td class="amount-cell" style="color: ${item.arrears > 0 ? '#ef4444' : '#22c55e'};">${parseFloat(item.arrears).toLocaleString()}</td>
-                <td><span class="status-badge ${statusClass}">${statusText}</span></td>
-                <td>${item.dueDate}</td>
-                <td>${item.paidDate}</td>
-              </tr>
-            `;
-          }).join('')}
-        </tbody>
-      </table>
+      <div class="table-container">
+        <table class="table table-responsive">
+          <thead>
+            <tr>
+              <th>Member Name</th>
+              <th>Expected (MWK)</th>
+              <th>Paid (MWK)</th>
+              <th>Arrears (MWK)</th>
+              <th>Status</th>
+              <th>Due Date</th>
+              <th>Payment Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(item => {
+              const statusClass = item.status === 'completed' ? 'completed' : 
+                                 item.status === 'pending' ? 'pending' : 
+                                 item.paid > 0 ? 'partial' : 'unpaid';
+              const statusText = item.status === 'completed' ? 'Completed' : 
+                               item.status === 'pending' ? 'Pending' : 
+                               item.paid > 0 ? 'Partial' : 'Unpaid';
+              const arrearsClass = item.arrears > 0 ? 'cell-danger' : 'cell-success';
+              
+              return `
+                <tr>
+                  <td data-label="Member" class="cell-name">${escapeHtml(item.memberName)}</td>
+                  <td data-label="Expected" class="cell-right cell-nowrap">${parseFloat(item.expected).toLocaleString()}</td>
+                  <td data-label="Paid" class="cell-right cell-nowrap">${parseFloat(item.paid).toLocaleString()}</td>
+                  <td data-label="Arrears" class="cell-right ${arrearsClass} cell-nowrap">${parseFloat(item.arrears).toLocaleString()}</td>
+                  <td data-label="Status"><span class="status-badge ${statusClass}">${statusText}</span></td>
+                  <td data-label="Due Date" class="cell-muted">${item.dueDate}</td>
+                  <td data-label="Paid Date" class="cell-muted">${item.paidDate}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
     `;
   }
 

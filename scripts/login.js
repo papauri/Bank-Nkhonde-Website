@@ -305,8 +305,8 @@ document.addEventListener("DOMContentLoaded", () => {
           handleCodeInApp: false,
         };
         
-        // Use Firebase Auth to generate reset link
-        await auth.sendPasswordResetEmail(email, actionCodeSettings);
+        // Use Firebase Auth to send password reset email
+        await sendPasswordResetEmail(auth, email, actionCodeSettings);
         
         // Also send custom email through our SMTP service
         try {

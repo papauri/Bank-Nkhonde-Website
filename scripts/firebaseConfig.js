@@ -29,6 +29,7 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   sendEmailVerification,
+  sendPasswordResetEmail,
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import {
   getStorage,
@@ -61,6 +62,7 @@ const functions = getFunctions(app);
 
 // Export Firebase services and commonly used functions
 export {
+  firebaseConfig,
   app,
   db,
   auth,
@@ -85,6 +87,7 @@ export {
   EmailAuthProvider,
   reauthenticateWithCredential,
   sendEmailVerification,
+  sendPasswordResetEmail,
   ref,
   uploadBytes,
   getDownloadURL,

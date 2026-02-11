@@ -628,7 +628,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function showToast(message, type = 'info') {
     const toastContainer = document.getElementById('toastContainer');
     if (!toastContainer) {
-      alert(message);
+      console.warn('Toast container not found:', message);
       return;
     }
 

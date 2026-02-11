@@ -55,6 +55,10 @@ document.addEventListener("DOMContentLoaded", () => {
     groupSelector.addEventListener("change", async (e) => {
       currentGroupId = e.target.value;
       if (currentGroupId) {
+        // Save to storage for persistence across pages
+        localStorage.setItem('selectedGroupId', currentGroupId);
+        sessionStorage.setItem('selectedGroupId', currentGroupId);
+        
         // Recheck admin status after group selection
         try {
           const userDoc = await getDoc(doc(db, "users", currentUser.uid));
@@ -217,10 +221,20 @@ document.addEventListener("DOMContentLoaded", () => {
           groupSelector.appendChild(option);
         });
 
-        // Auto-select first group
+        // Auto-select from storage or first group
         if (userGroups.length > 0) {
-          groupSelector.value = userGroups[0].id;
-          currentGroupId = userGroups[0].id;
+          const savedGroupId = localStorage.getItem('selectedGroupId') || sessionStorage.getItem('selectedGroupId');
+          
+          // Check if saved group is in user's groups
+          if (savedGroupId && userGroups.find(g => g.id === savedGroupId)) {
+            currentGroupId = savedGroupId;
+            groupSelector.value = savedGroupId;
+          } else {
+            // Fallback to first group
+            currentGroupId = userGroups[0].id;
+            groupSelector.value = userGroups[0].id;
+          }
+          
           // Recheck admin status after group selection
           const userDoc = await getDoc(doc(db, "users", currentUser.uid));
           if (userDoc.exists()) {
@@ -242,47 +256,28 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!currentGroupId) return;
 
     try {
-      // Load all loans (all statuses)
+      // Load all loans - filter by borrowerId only (no orderBy to avoid index requirements)
+      // We'll sort in memory after loading
       const loansRef = collection(db, `groups/${currentGroupId}/loans`);
-      
-      // Try query with requestedAt first, fallback to without orderBy if field doesn't exist
-      let loansSnapshot;
-      try {
-        const q = query(
-          loansRef,
-          where("borrowerId", "==", currentUser.uid),
-          orderBy("requestedAt", "desc")
-        );
-        loansSnapshot = await getDocs(q);
-      } catch (error) {
-        // If requestedAt doesn't exist, try with createdAt
-        try {
-          const q = query(
-            loansRef,
-            where("borrowerId", "==", currentUser.uid),
-            orderBy("createdAt", "desc")
-          );
-          loansSnapshot = await getDocs(q);
-        } catch (error2) {
-          // If neither field exists, just filter by borrowerId
-          const q = query(
-            loansRef,
-            where("borrowerId", "==", currentUser.uid)
-          );
-          loansSnapshot = await getDocs(q);
-        }
-      }
+      const q = query(
+        loansRef,
+        where("borrowerId", "==", currentUser.uid)
+      );
+      const loansSnapshot = await getDocs(q);
 
       allLoans = [];
       activeLoans = [];
 
       for (const loanDoc of loansSnapshot.docs) {
         const loanData = loanDoc.data();
+        const rawStatus = loanData.status ?? "pending";
+        const normalizedStatus = typeof rawStatus === "string" ? rawStatus.toLowerCase() : "pending";
         const loan = { 
           id: loanDoc.id, 
           ...loanData,
-          // Ensure status exists
-          status: loanData.status || "pending",
+          // Ensure status exists and is consistent for filtering
+          status: normalizedStatus,
+          statusRaw: rawStatus,
           // Ensure dates are properly handled
           createdAt: loanData.createdAt || loanData.requestedAt,
           requestedAt: loanData.requestedAt || loanData.createdAt
@@ -304,6 +299,11 @@ document.addEventListener("DOMContentLoaded", () => {
                      b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
         return dateB - dateA;
       });
+
+      // Debug: Log loaded loans
+      console.log(`[Loan Payments] Loaded ${allLoans.length} loans for user ${currentUser.uid} in group ${currentGroupId}`);
+      console.log('[Loan Payments] Loan statuses:', allLoans.map(l => ({ id: l.id.substring(0, 8), status: l.status, statusRaw: l.statusRaw })));
+      console.log(`[Loan Payments] Active loans count: ${activeLoans.length}`);
 
       // Load pending payments
       await loadPendingPayments();
@@ -330,6 +330,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Use filter dropdown value if provided, otherwise use current tab
     const activeFilter = filterValue || currentLoanTab;
+    
+    console.log(`[Loan Payments] Displaying loans with filter: ${activeFilter}, total available: ${allLoans.length}`);
     
     let filteredLoans = [];
     
@@ -360,6 +362,8 @@ document.addEventListener("DOMContentLoaded", () => {
       };
       loansSectionTitle.textContent = titles[activeFilter] || "My Loans";
     }
+
+    console.log(`[Loan Payments] Filtered ${filteredLoans.length} loans for display`);
 
     if (filteredLoans.length === 0) {
       loansList.innerHTML = `
@@ -576,10 +580,10 @@ document.addEventListener("DOMContentLoaded", () => {
     
     for (const loan of activeLoans) {
       const paymentsRef = collection(db, `groups/${currentGroupId}/loans/${loan.id}/payments`);
+      // Remove orderBy to avoid index requirement - sort in memory instead
       const q = query(
         paymentsRef,
-        where("status", "==", "pending"),
-        orderBy("submittedAt", "desc")
+        where("status", "==", "pending")
       );
       const paymentsSnapshot = await getDocs(q);
 
@@ -592,6 +596,13 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       });
     }
+    
+    // Sort in memory by submittedAt (most recent first)
+    pendingPayments.sort((a, b) => {
+      const dateA = a.submittedAt?.toDate ? a.submittedAt.toDate() : new Date(0);
+      const dateB = b.submittedAt?.toDate ? b.submittedAt.toDate() : new Date(0);
+      return dateB - dateA;
+    });
   }
 
   /**
@@ -602,10 +613,10 @@ document.addEventListener("DOMContentLoaded", () => {
     
     for (const loan of activeLoans) {
       const paymentsRef = collection(db, `groups/${currentGroupId}/loans/${loan.id}/payments`);
+      // Remove orderBy to avoid index requirement - sort in memory instead
       const q = query(
         paymentsRef,
-        where("status", "==", "approved"),
-        orderBy("approvedAt", "desc")
+        where("status", "==", "approved")
       );
       const paymentsSnapshot = await getDocs(q);
 
@@ -767,10 +778,84 @@ document.addEventListener("DOMContentLoaded", () => {
     const amountPaid = parseFloat(loan.amountRepaid || loan.amountPaid || 0);
     const remaining = Math.max(0, totalRepayable - amountPaid);
     
-    if (outstandingBalance) outstandingBalance.value = formatCurrency(remaining);
+    // Update outstanding balance and total paid
+    if (outstandingBalance) outstandingBalance.textContent = formatCurrency(remaining);
+    const totalPaidEl = document.getElementById("totalPaidAmount");
+    if (totalPaidEl) totalPaidEl.textContent = formatCurrency(amountPaid);
+    const totalLoanEl = document.getElementById("totalLoanAmount");
+    if (totalLoanEl) totalLoanEl.textContent = formatCurrency(totalRepayable);
+    
+    // Calculate next payment and remaining payments info
+    const repaymentSchedule = loan.repaymentSchedule || {};
+    const scheduleArray = Object.values(repaymentSchedule).sort((a, b) => a.month - b.month);
+    
+    // Find next unpaid payment
+    let nextPayment = null;
+    let paidPaymentsCount = 0;
+    let minimumPayment = 0;
+    
+    for (const payment of scheduleArray) {
+      if (!payment.paid && !nextPayment) {
+        nextPayment = payment;
+      }
+      if (payment.paid) {
+        paidPaymentsCount++;
+      }
+    }
+    
+    const totalPayments = scheduleArray.length;
+    const remainingPayments = totalPayments - paidPaymentsCount;
+    
+    // Update next payment breakdown
+    if (nextPayment) {
+      const nextPrincipalEl = document.getElementById("nextPaymentPrincipal");
+      const nextInterestEl = document.getElementById("nextPaymentInterest");
+      const nextTotalEl = document.getElementById("nextPaymentTotal");
+      const nextDueDateEl = document.getElementById("nextPaymentDueDate");
+      const nextNumberEl = document.getElementById("nextPaymentNumber");
+      
+      if (nextPrincipalEl) nextPrincipalEl.textContent = formatCurrency(nextPayment.principal || 0);
+      if (nextInterestEl) nextInterestEl.textContent = formatCurrency(nextPayment.interest || 0);
+      if (nextTotalEl) nextTotalEl.textContent = formatCurrency(nextPayment.amount || 0);
+      if (nextDueDateEl) {
+        const dueDate = nextPayment.dueDate?.toDate ? nextPayment.dueDate.toDate() : new Date(nextPayment.dueDate);
+        nextDueDateEl.textContent = dueDate.toLocaleDateString();
+      }
+      if (nextNumberEl) nextNumberEl.textContent = `${nextPayment.month} of ${totalPayments}`;
+      
+      minimumPayment = nextPayment.amount || 0;
+      
+      // Show the breakdown
+      const breakdownEl = document.getElementById("nextPaymentBreakdown");
+      if (breakdownEl) breakdownEl.style.display = "block";
+    } else {
+      // Hide if no next payment (loan fully paid)
+      const breakdownEl = document.getElementById("nextPaymentBreakdown");
+      if (breakdownEl) breakdownEl.style.display = "none";
+      minimumPayment = remaining; // Use remaining balance if no schedule available
+    }
+    
+    // Update remaining payments count
+    const remainingCountEl = document.getElementById("remainingPaymentsCount");
+    if (remainingCountEl) {
+      remainingCountEl.textContent = `${remainingPayments} payment${remainingPayments !== 1 ? 's' : ''} left`;
+    }
+    
+    // Autofill payment amount with minimum (next payment amount)
     if (paymentAmount) {
-      paymentAmount.max = remaining;
-      paymentAmount.placeholder = `Max: ${formatCurrency(remaining)}`;
+      // Round to whole number to avoid validation issues
+      const roundedMinimum = Math.round(minimumPayment);
+      const roundedRemaining = Math.round(remaining);
+      
+      paymentAmount.value = roundedMinimum > 0 ? roundedMinimum : '';
+      paymentAmount.max = roundedRemaining;
+      paymentAmount.placeholder = `Max: ${formatCurrency(roundedRemaining)}`;
+      
+      // Update hint
+      const hintEl = document.getElementById("paymentAmountHint");
+      if (hintEl) {
+        hintEl.textContent = `Minimum payment: ${formatCurrency(roundedMinimum)} • Maximum: ${formatCurrency(roundedRemaining)}`;
+      }
     }
 
     openModal(paymentModal);

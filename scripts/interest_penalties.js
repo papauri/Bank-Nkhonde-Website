@@ -261,7 +261,7 @@ document.addEventListener("DOMContentLoaded", () => {
         pendingPenaltiesList.innerHTML = `
           <div class="empty-state">
             <div class="empty-state-icon">⚖️</div>
-            <p class="empty-state-text">No pending penalties</p>
+            <p class="empty-state-text">No outstanding arrears</p>
           </div>
         `;
       } else {

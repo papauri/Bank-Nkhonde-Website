@@ -52,7 +52,7 @@ export async function updatePaymentsForNewMember(groupId, memberId, memberName, 
       paymentType: "Seed Money",
       totalAmount: parseFloat(seedMoney) || 0,
       amountPaid: 0,
-      arrears: parseFloat(seedMoney) || 0,
+      arrears: 0,
       approvalStatus: "unpaid",
       paymentStatus: "unpaid",
       dueDate: seedMoneyDueDate,
@@ -105,7 +105,7 @@ export async function updatePaymentsForNewMember(groupId, memberId, memberName, 
           year: year,
           totalAmount: parseFloat(monthlyContribution) || 0,
           amountPaid: 0,
-          arrears: parseFloat(monthlyContribution) || 0,
+          arrears: 0,
           approvalStatus: "unpaid",
           paymentStatus: "unpaid",
           dueDate: Timestamp.fromDate(date),
@@ -151,7 +151,7 @@ export async function updatePaymentsForNewMember(groupId, memberId, memberName, 
         paymentType: "Service Fee",
         totalAmount: parseFloat(serviceFeeAmount) || 0,
         amountPaid: 0,
-        arrears: parseFloat(serviceFeeAmount) || 0,
+        arrears: 0,
         approvalStatus: "unpaid",
         paymentStatus: "unpaid",
         dueDate: serviceFeeDueDate.toDate ? serviceFeeDueDate : Timestamp.fromDate(new Date(serviceFeeDueDate)),
@@ -179,7 +179,7 @@ export async function updatePaymentsForNewMember(groupId, memberId, memberName, 
         ...memberDoc.data(),
         financialSummary: {
           totalPaid: 0,
-          totalArrears: parseFloat(seedMoney) || 0,
+          totalArrears: 0,
           totalPending: parseFloat(seedMoney) || 0,
           totalLoans: 0,
           totalLoansPaid: 0,
@@ -189,10 +189,9 @@ export async function updatePaymentsForNewMember(groupId, memberId, memberName, 
       }, { merge: true });
     }
 
-    console.log(`✅ Payments initialized for member ${memberName}`);
     return true;
   } catch (error) {
-    console.error("❌ Error initializing payments:", error);
+    console.error("Error initializing payments:", error);
     throw error;
   }
 }

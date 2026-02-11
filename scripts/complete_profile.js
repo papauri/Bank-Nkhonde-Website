@@ -323,18 +323,23 @@ document.addEventListener('DOMContentLoaded', () => {
       showSpinner(false);
       
       // Show success and redirect
-      alert('Profile completed successfully! Welcome to Bank Nkhonde.');
+      showToast('Profile completed successfully! Welcome to Bank Nkhonde.', 'success');
       
-      // Check if user is admin or member and redirect accordingly
-      const userDoc = await getDoc(userRef);
-      const memberships = userDoc.data()?.groupMemberships || [];
-      const isAdmin = memberships.some(m => m.role === 'senior_admin' || m.role === 'admin');
-      
-      if (isAdmin) {
-        window.location.href = 'admin_dashboard.html';
-      } else {
-        window.location.href = 'user_dashboard.html';
-      }
+      setTimeout(() => {
+        // Check if user is admin or member and redirect accordingly
+        const redirect = async () => {
+          const userDoc = await getDoc(userRef);
+          const memberships = userDoc.data()?.groupMemberships || [];
+          const isAdmin = memberships.some(m => m.role === 'senior_admin' || m.role === 'admin');
+          
+          if (isAdmin) {
+            window.location.href = 'admin_dashboard.html';
+          } else {
+            window.location.href = 'user_dashboard.html';
+          }
+        };
+        redirect();
+      }, 1500);
 
     } catch (error) {
       console.error('Error saving profile:', error);

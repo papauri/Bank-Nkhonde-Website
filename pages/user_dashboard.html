@@ -76,6 +76,16 @@
       gap: var(--bn-space-3);
     }
 
+    .current-group-display:hover {
+      background: rgba(255, 255, 255, 0.15) !important;
+    }
+
+    @media (max-width: 768px) {
+      .current-group-display {
+        display: none !important;
+      }
+    }
+
     .top-nav-btn {
       width: 40px;
       height: 40px;
@@ -1374,13 +1384,6 @@
 
   .payment-details-table-container table {
     min-width: 100%;
-    font-size: var(--bn-text-xs);
-  }
-
-  .payment-details-table-container table th,
-  .payment-details-table-container table td {
-    padding: var(--bn-space-2) var(--bn-space-3);
-    white-space: nowrap;
   }
 
   @media (max-width: 767px) {
@@ -1391,16 +1394,7 @@
 
     .payment-details-table-container {
       padding: var(--bn-space-2);
-    }
-
-    .payment-details-table-container table {
-      font-size: 10px;
-    }
-
-    .payment-details-table-container table th,
-    .payment-details-table-container table td {
-      padding: var(--bn-space-1) var(--bn-space-2);
-      font-size: 10px;
+      overflow: visible;
     }
   }
 
@@ -1408,18 +1402,6 @@
       .modal-overlay {
         align-items: center;
         padding: var(--bn-space-6);
-      }
-
-      .modal-content {
-        border-radius: var(--bn-radius-2xl);
-        max-width: 560px;
-        width: 100%;
-        transform: scale(0.95) translateY(20px);
-      }
-
-      .modal-overlay.active .modal-content,
-      .modal-overlay:not(.hidden) .modal-content {
-        transform: scale(1) translateY(0);
       }
 
       /* Payment Details Modal - Wider on desktop */
@@ -1776,103 +1758,6 @@
   </style>
 </head>
 <body>
-  <!-- Top Navigation -->
-  <nav class="top-nav">
-    <div class="top-nav-container">
-      <a href="../index.html" class="top-nav-logo">
-        <div class="top-nav-logo-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-            <path d="M2 17l10 5 10-5"/>
-            <path d="M2 12l10 5 10-5"/>
-          </svg>
-        </div>
-        <span class="top-nav-logo-text">Bank Nkhonde</span>
-      </a>
-
-      <div class="top-nav-actions">
-        <!-- View Toggle (only shows if user is admin) -->
-        <div class="view-toggle hidden" id="viewToggle">
-          <button class="view-toggle-btn" onclick="handleSwitchToAdmin()" title="Switch to Admin Dashboard">Admin</button>
-          <button class="view-toggle-btn active" title="User Dashboard (Current)">User</button>
-        </div>
-        <!-- Desktop: Select Group button -->
-        <button class="top-nav-btn" onclick="window.location.href='select_group.html'" title="Select Group">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-            <line x1="12" y1="8" x2="12" y2="16"/>
-            <line x1="8" y1="12" x2="16" y2="12"/>
-          </svg>
-        </button>
-        <button class="top-nav-btn" id="notificationsBtn" aria-label="Notifications" style="position: relative;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-          </svg>
-          <span id="notificationBadge" class="notification-badge"></span>
-        </button>
-        <!-- Desktop: Logout button -->
-        <button class="top-nav-btn" id="logoutBtn" title="Logout">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-            <polyline points="16 17 21 12 16 7"/>
-            <line x1="21" y1="12" x2="9" y2="12"/>
-          </svg>
-        </button>
-        <a href="settings.html" class="top-nav-avatar" id="userAvatar" title="Settings & Profile">
-          <img id="userProfilePic" src="" alt="Profile" style="display: none;">
-          <span id="userInitials">U</span>
-        </a>
-      </div>
-      
-      <!-- Mobile: Burger menu button (positioned after top-nav-actions) -->
-      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Menu">
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
-    </div>
-  </nav>
-
-  <!-- Mobile Menu Overlay -->
-  <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
-  
-  <!-- Mobile Menu Sidebar -->
-  <div class="mobile-menu" id="mobileMenu">
-    <div class="mobile-menu-header">
-      <h2 class="mobile-menu-title">Menu</h2>
-      <button class="mobile-menu-close" id="mobileMenuClose" aria-label="Close menu">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="18" y1="6" x2="6" y2="18"/>
-          <line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-      </button>
-    </div>
-    <a href="select_group.html" class="mobile-menu-item" onclick="closeMobileMenu()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-        <line x1="12" y1="8" x2="12" y2="16"/>
-        <line x1="8" y1="12" x2="16" y2="12"/>
-      </svg>
-      <span>Select Group</span>
-    </a>
-    <a href="settings.html" class="mobile-menu-item" onclick="closeMobileMenu()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M12 1v6m0 6v6m9-9h-6m-6 0H3m15.364 6.364l-4.243-4.243m-4.242 0L5.636 17.364M18.364 6.636l-4.243 4.243m-4.242 0L5.636 6.636"/>
-      </svg>
-      <span>Settings</span>
-    </a>
-    <button class="mobile-menu-item danger" id="mobileLogoutBtn" onclick="handleMobileLogout()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-        <polyline points="16 17 21 12 16 7"/>
-        <line x1="21" y1="12" x2="9" y2="12"/>
-      </svg>
-      <span>Sign Out</span>
-    </button>
-  </div>
-
   <!-- Hero Section -->
   <section class="hero-section">
     <div class="hero-container">
@@ -2501,13 +2386,13 @@
         <button class="modal-close" onclick="document.getElementById('allPaymentsModal').classList.add('hidden')">&times;</button>
       </div>
       <div class="modal-body" style="padding: var(--bn-space-4);">
-        <div style="overflow-x: auto;">
-          <table class="data-table" style="width: 100%;">
+        <div class="table-container">
+          <table class="table table-responsive">
             <thead>
               <tr>
-                <th style="text-align: left;">Type</th>
-                <th style="text-align: left;">Date</th>
-                <th style="text-align: right;">Amount</th>
+                <th>Type</th>
+                <th>Date</th>
+                <th class="cell-right">Amount</th>
               </tr>
             </thead>
             <tbody id="allPaymentsTableBody">
@@ -2515,10 +2400,10 @@
                 <td colspan="3" style="text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);">Loading payments...</td>
               </tr>
             </tbody>
-            <tfoot>
-              <tr style="font-weight: 700; background: var(--bn-gray-100); border-top: 2px solid var(--bn-gray-lighter);">
-                <td colspan="2" style="text-align: right; padding: var(--bn-space-3);">Total:</td>
-                <td style="text-align: right; padding: var(--bn-space-3);" id="allPaymentsTotal">MWK 0.00</td>
+            <tfoot class="totals-gray">
+              <tr>
+                <td colspan="2" data-label="" style="text-align: right;">Total:</td>
+                <td class="cell-right" data-label="Total" id="allPaymentsTotal">MWK 0.00</td>
               </tr>
             </tfoot>
           </table>
@@ -2542,10 +2427,96 @@
     </div>
   </div>
 
+  <!-- Arrears Dashboard Modal -->
+  <div class="modal-overlay hidden" id="arrearsModal">
+    <div class="modal-content" style="max-width: 900px; max-height: 90vh;">
+      <div class="modal-header">
+        <h2 class="modal-title">💰 Arrears Dashboard</h2>
+        <button class="modal-close" id="closeArrearsModal">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 0;">
+        <!-- Summary Section -->
+        <div style="background: linear-gradient(135deg, #fef2f2 0%, #fef5e7 100%); border-left: 4px solid #ef4444; padding: var(--bn-space-5); border-bottom: 1px solid var(--bn-gray-lighter);">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--bn-space-4);">
+            <div>
+              <div style="font-size: var(--bn-text-xs); font-weight: 600; color: var(--bn-gray); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--bn-space-1);">Total Arrears</div>
+              <div id="arrearsTotal" style="font-size: var(--bn-text-2xl); font-weight: 800; color: #ef4444;">MWK 0</div>
+            </div>
+            <div style="display: flex; gap: var(--bn-space-6); flex-wrap: wrap;">
+              <div>
+                <div style="font-size: var(--bn-text-xs); font-weight: 600; color: var(--bn-gray); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--bn-space-1);">Overdue Items</div>
+                <div id="arrearsCount" style="font-size: var(--bn-text-xl); font-weight: 700; color: var(--bn-dark);">0</div>
+              </div>
+              <div>
+                <div style="font-size: var(--bn-text-xs); font-weight: 600; color: var(--bn-gray); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--bn-space-1);">Next Payment Due</div>
+                <div id="arrearsNextDue" style="font-size: var(--bn-text-lg); font-weight: 600; color: var(--bn-dark);">-</div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top: var(--bn-space-3); padding-top: var(--bn-space-3); border-top: 1px solid rgba(239, 68, 68, 0.2);">
+            <p style="font-size: var(--bn-text-sm); color: var(--bn-gray); margin: 0; display: flex; align-items: center; gap: var(--bn-space-2);">
+              <span style="font-size: 18px;">⚠️</span>
+              <span>These payments are overdue. Please pay them as soon as possible to avoid penalties.</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Arrears Table Section -->
+        <div style="padding: var(--bn-space-4); border-bottom: 1px solid var(--bn-gray-lighter);">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--bn-space-3);">
+            <h3 style="font-size: var(--bn-text-base); font-weight: 700; color: var(--bn-dark); margin: 0;">Outstanding Arrears</h3>
+            <span style="font-size: var(--bn-text-xs); color: var(--bn-gray);">
+              Only payments with arrears are shown
+            </span>
+          </div>
+          <div id="arrearsTableContainer" style="overflow-x: auto;">
+            <div style="padding: var(--bn-space-4); text-align: center; color: var(--bn-gray);">
+              <div class="spinner"></div>
+              <p style="margin-top: var(--bn-space-2); font-size: var(--bn-text-sm);">Loading arrears details...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment Action Section -->
+        <div style="padding: var(--bn-space-5); background: var(--bn-gray-50); border-top: 1px solid var(--bn-gray-lighter);">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--bn-space-3);">
+            <div>
+              <h4 style="font-size: var(--bn-text-sm); font-weight: 700; color: var(--bn-dark); margin: 0 0 var(--bn-space-2) 0;">Pay Your Arrears</h4>
+              <p style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin: 0; max-width: 400px;">
+                Select any arrear item from the table above or use the button below to upload a payment proof. 
+                <strong style="color: var(--bn-danger);">Proof of payment is mandatory</strong> for all user-initiated payments.
+              </p>
+            </div>
+            <div style="display: flex; gap: var(--bn-space-2); flex-wrap: wrap;">
+              <button id="arrearsUploadPaymentBtn" class="btn btn-danger" style="display: flex; align-items: center; gap: var(--bn-space-2);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <span>Upload Payment Proof</span>
+              </button>
+              <button id="closeArrearsModalFooter" class="btn btn-ghost">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+  <script src="../scripts/shared-top-nav.js"></script>
+  <script>
+    // Initialize shared top navigation
+    initTopNav({
+      showGroupDisplay: true,      // Show current group display
+      showViewToggle: true,         // Show admin/user toggle for admins
+      logoLink: '../index.html'     // Link to home page
+    });
+  </script>
   <script type="module" src="../scripts/user_dashboard.js"></script>
   <script src="../scripts/mobile-nav-active.js"></script>
 </body>

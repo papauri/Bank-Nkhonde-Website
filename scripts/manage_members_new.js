@@ -2,6 +2,7 @@ import {
   db,
   auth,
   storage,
+  firebaseConfig,
   onAuthStateChanged,
   collection,
   doc,
@@ -13,13 +14,19 @@ import {
   query,
   where,
   Timestamp,
-  createUserWithEmailAndPassword,
   sendEmailVerification,
   ref,
   uploadBytes,
   getDownloadURL,
   writeBatch,
 } from "./firebaseConfig.js";
+
+// Import Firebase app/auth directly for secondary app (to avoid signing out admin when creating members)
+import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+import {
+  getAuth as getAuthInstance,
+  createUserWithEmailAndPassword,
+} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 
 import { updatePaymentsForNewMember, validatePaymentAmount } from "./updatePayments.js";
 
@@ -152,21 +159,49 @@ function openAddMemberModal() {
   const modal = document.getElementById("addMemberModal");
   if (modal) {
     modal.classList.add("active");
+    modal.style.display = "flex"; // Override inline display:none from modal-utils.js
+    modal.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+    
     document.getElementById("addMemberForm")?.reset();
-    document.getElementById("memberProfilePreview").innerHTML = "👤";
+    const preview = document.getElementById("memberProfilePreview");
+    if (preview) preview.innerHTML = "👤";
+  } else {
+    console.error("Add member modal not found!");
   }
 }
 
 function closeAddMemberModal() {
   const modal = document.getElementById("addMemberModal");
-  if (modal) modal.classList.remove("active");
+  if (modal) {
+    modal.classList.remove("active");
+    modal.classList.add("hidden");
+    modal.style.display = "none";
+    document.body.style.overflow = "";
+  }
 }
 
 function openEditMemberModal(member) {
   const modal = document.getElementById("editMemberModal");
-  if (!modal) return;
+  
+  if (!modal) {
+    console.error("Edit member modal not found in DOM!");
+    showToast("Edit modal not found", "error");
+    return;
+  }
+  
+  if (!member || !member.id) {
+    console.error("Invalid member data:", member);
+    showToast("Invalid member data", "error");
+    return;
+  }
 
-  document.getElementById("editMemberId").value = member.id;
+  const editMemberIdInput = document.getElementById("editMemberId");
+  if (editMemberIdInput) {
+    editMemberIdInput.value = member.id;
+  } else {
+    console.error("editMemberId input not found!");
+  }
   
   // Set profile preview
   const previewEl = document.getElementById("editMemberProfilePreview");
@@ -283,6 +318,7 @@ function openEditMemberModal(member) {
           <select class="form-select" id="editMemberRole">
             <option value="member" ${member.role === "member" ? "selected" : ""}>Member</option>
             <option value="admin" ${member.role === "admin" ? "selected" : ""}>Admin</option>
+            <option value="senior_admin" ${member.role === "senior_admin" ? "selected" : ""}>Senior Admin</option>
           </select>
         </div>
         <div class="form-group">
@@ -313,6 +349,16 @@ function openEditMemberModal(member) {
         <label class="form-label">Collateral Description</label>
         <textarea class="form-textarea" id="editMemberCollateral" rows="2">${member.collateral || ""}</textarea>
       </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Emergency Contact</label>
+          <input type="text" class="form-input" id="editMemberEmergencyContact" value="${member.emergencyContact || ""}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Emergency Phone</label>
+          <input type="tel" class="form-input" id="editMemberEmergencyPhone" value="${member.emergencyContactPhone || ""}">
+        </div>
+      </div>
       <div class="form-group">
         <label class="form-label">Notes</label>
         <textarea class="form-textarea" id="editMemberNotes" rows="2">${member.notes || ""}</textarea>
@@ -320,26 +366,50 @@ function openEditMemberModal(member) {
     </div>
   `;
 
+  // Add active class and reset display (modal-utils.js sets display:none on page load)
   modal.classList.add("active");
+  modal.style.display = "flex"; // Override inline display:none from modal-utils.js
+  modal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
 }
 
 function closeEditMemberModal() {
   const modal = document.getElementById("editMemberModal");
-  if (modal) modal.classList.remove("active");
+  if (modal) {
+    modal.classList.remove("active");
+    modal.classList.add("hidden");
+    modal.style.display = "none";
+    document.body.style.overflow = "";
+  }
 }
 
 function openDeleteMemberModal(member) {
   const modal = document.getElementById("deleteMemberModal");
   if (!modal) return;
 
+  // Prevent deleting yourself
+  if (member.id === currentUser?.uid) {
+    showToast("You cannot remove yourself from the group. Ask another admin to remove you.", "warning");
+    return;
+  }
+
   document.getElementById("deleteMemberName").textContent = member.fullName;
   document.getElementById("deleteMemberId").value = member.id;
+  
   modal.classList.add("active");
+  modal.style.display = "flex"; // Override inline display:none from modal-utils.js
+  modal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
 }
 
 function closeDeleteMemberModal() {
   const modal = document.getElementById("deleteMemberModal");
-  if (modal) modal.classList.remove("active");
+  if (modal) {
+    modal.classList.remove("active");
+    modal.classList.add("hidden");
+    modal.style.display = "none";
+    document.body.style.overflow = "";
+  }
 }
 
 // Load User's Admin Groups
@@ -413,7 +483,9 @@ async function loadUserGroups() {
 
 // Load Members
 async function loadMembers() {
-  if (!selectedGroupId) return;
+  if (!selectedGroupId) {
+    return;
+  }
 
   showLoading(true);
 
@@ -450,7 +522,9 @@ function filterMembers() {
   if (currentFilter === "admin") {
     filteredMembers = filteredMembers.filter((m) => m.role === "admin" || m.role === "senior_admin");
   } else if (currentFilter === "member") {
-    filteredMembers = filteredMembers.filter((m) => m.role === "member" || m.role === "user");
+    // Include all roles in Members tab (admins are members too)
+    // Only exclude if we want admin-only filter
+    filteredMembers = filteredMembers.filter((m) => m.role !== "suspended");
   }
 
   // Apply search filter
@@ -484,11 +558,26 @@ function displayMembers(members) {
   const membersList = document.getElementById("membersList");
 
   if (members.length === 0) {
+    // Provide context-specific empty state messages
+    let emptyTitle = "No Members Found";
+    let emptyText = "Add your first member to get started";
+
+    if (allMembers.length > 0 && currentFilter === "member") {
+      emptyTitle = "No Regular Members";
+      emptyText = "All current members have admin roles. Switch to 'All' or 'Admins' tab to see them.";
+    } else if (allMembers.length > 0 && currentFilter === "admin") {
+      emptyTitle = "No Admin Members";
+      emptyText = "No members with admin role found. Switch to 'All' tab to see all members.";
+    } else if (!selectedGroupId) {
+      emptyTitle = "Select a Group";
+      emptyText = "Choose a group from the dropdown above to view its members.";
+    }
+
     membersList.innerHTML = `
       <div class="empty-state" style="grid-column: 1 / -1;">
         <div class="empty-state-icon">👥</div>
-        <h3>No Members Found</h3>
-        <p class="empty-state-text">Add your first member to get started</p>
+        <h3>${emptyTitle}</h3>
+        <p class="empty-state-text">${emptyText}</p>
       </div>
     `;
     return;
@@ -499,9 +588,19 @@ function displayMembers(members) {
   // Add event listeners to action buttons
   membersList.querySelectorAll(".btn[data-action]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
-      const action = e.target.closest("button").dataset.action;
-      const memberId = e.target.closest("button").dataset.memberId;
+      e.preventDefault();
+      const button = e.target.closest("button");
+      const action = button.dataset.action;
+      const memberId = button.dataset.memberId;
+      
       const member = allMembers.find((m) => m.id === memberId);
+      
+      if (!member) {
+        console.error("Member not found for ID:", memberId);
+        showToast("Member not found", "error");
+        return;
+      }
+      
       handleMemberAction(action, memberId, member);
     });
   });
@@ -527,12 +626,19 @@ function createMemberCard(member) {
     ? `<img src="${member.profileImageUrl}" alt="${member.fullName}">`
     : initials;
 
+  // Check if this is the current user's card
+  const isCurrentUser = member.id === currentUser?.uid;
+  const youBadge = isCurrentUser ? '<span style="background: var(--bn-accent); color: var(--bn-dark); padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; margin-left: 8px;">YOU</span>' : '';
+  const removeButtonHtml = isCurrentUser 
+    ? '<button class="btn btn-ghost btn-sm" style="color: var(--bn-gray); cursor: not-allowed; opacity: 0.5;" disabled title="You cannot remove yourself">Remove</button>'
+    : `<button class="btn btn-ghost btn-sm" style="color: var(--bn-danger);" data-action="remove" data-member-id="${member.id}">Remove</button>`;
+
   return `
     <div class="member-card">
       <div class="member-card-header">
         <div class="member-avatar">${profilePicture}</div>
         <div class="member-info">
-          <div class="member-name">${member.fullName || "Unknown"}</div>
+          <div class="member-name">${member.fullName || "Unknown"}${youBadge}</div>
           <span class="member-role ${roleClass}">${roleName}</span>
         </div>
       </div>
@@ -570,7 +676,7 @@ function createMemberCard(member) {
 
         <div class="member-actions">
           <button class="btn btn-ghost btn-sm" data-action="edit" data-member-id="${member.id}">Edit</button>
-          <button class="btn btn-ghost btn-sm" style="color: var(--bn-danger);" data-action="remove" data-member-id="${member.id}">Remove</button>
+          ${removeButtonHtml}
         </div>
       </div>
     </div>
@@ -579,12 +685,20 @@ function createMemberCard(member) {
 
 // Handle Member Actions
 async function handleMemberAction(action, memberId, member) {
+  if (!member) {
+    console.error("No member provided to handleMemberAction");
+    showToast("Invalid member data", "error");
+    return;
+  }
+  
   switch (action) {
     case "edit":
       openEditMemberModal(member);
       break;
     case "remove":
       openDeleteMemberModal(member);
+      break;
+    default:
       break;
   }
 }
@@ -593,6 +707,14 @@ async function handleMemberAction(action, memberId, member) {
 async function confirmDeleteMember() {
   const memberId = document.getElementById("deleteMemberId").value;
   if (!memberId || !selectedGroupId) return;
+
+  // Double-check: Prevent deleting yourself (safety net)
+  if (memberId === currentUser?.uid) {
+    console.error("Attempted self-deletion blocked");
+    showToast("You cannot remove yourself from the group", "error");
+    closeDeleteMemberModal();
+    return;
+  }
 
   showLoading(true);
   closeDeleteMemberModal();
@@ -668,6 +790,8 @@ async function handleEditMember(e) {
       status: document.getElementById("editMemberStatus")?.value,
       idType: document.getElementById("editMemberIdType")?.value,
       idNumber: document.getElementById("editMemberIdNumber")?.value.trim(),
+      emergencyContact: document.getElementById("editMemberEmergencyContact")?.value.trim(),
+      emergencyContactPhone: document.getElementById("editMemberEmergencyPhone")?.value.trim(),
       collateral: document.getElementById("editMemberCollateral")?.value.trim(),
       notes: document.getElementById("editMemberNotes")?.value.trim(),
       updatedAt: Timestamp.now(),
@@ -824,13 +948,31 @@ async function handleAddMember(e) {
       profileImageUrl = await getDownloadURL(storageRef);
     }
 
-    // Create Firebase Auth user with default password
+    // Create Firebase Auth user using a SECONDARY app instance
+    // This prevents the admin from being signed out (createUserWithEmailAndPassword
+    // automatically signs in as the new user on the primary auth instance)
     const defaultPassword = "BankNkhonde@2024";
-    const userCredential = await createUserWithEmailAndPassword(auth, formData.email, defaultPassword);
-    const newUser = userCredential.user;
+    let secondaryApp;
+    let newUser;
+    try {
+      secondaryApp = initializeApp(firebaseConfig, `SecondaryApp_${Date.now()}`);
+      const secondaryAuth = getAuthInstance(secondaryApp);
+      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, formData.email, defaultPassword);
+      newUser = userCredential.user;
+    } finally {
+      // Always clean up the secondary app
+      if (secondaryApp) {
+        try { await deleteApp(secondaryApp); } catch (e) { /* ignore cleanup errors */ }
+      }
+    }
 
-    // Send email verification
-    await sendEmailVerification(newUser);
+    // Send email verification via the main auth (user doc is shared)
+    // Note: verification email is best sent from server-side; skip if it fails
+    try {
+      await sendEmailVerification(newUser);
+    } catch (verifyErr) {
+      console.warn("Could not send verification email:", verifyErr.message);
+    }
 
     // Get group details for payment initialization
     const groupDoc = await getDoc(doc(db, "groups", selectedGroupId));

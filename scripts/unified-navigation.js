@@ -115,14 +115,65 @@ async function handleMobileNavLogout() {
 
 // Expose to window for onclick handlers
 window.handleMobileNavLogout = handleMobileNavLogout;
+// Also expose as handleMobileLogout (alias used on some pages)
+window.handleMobileLogout = handleMobileNavLogout;
+
+/**
+ * Handle "Switch to Admin" navigation
+ * Redirects to the admin dashboard page
+ */
+function handleSwitchToAdmin() {
+  window.location.href = 'admin_dashboard.html';
+}
+window.handleSwitchToAdmin = handleSwitchToAdmin;
+
+/**
+ * Setup shared desktop nav buttons (logoutBtn, notificationsBtn)
+ * These exist across multiple user-facing pages but were previously
+ * only handled in user_dashboard.js
+ */
+function setupSharedNavButtons() {
+  // Desktop logout button
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn && !logoutBtn._hasLogoutHandler) {
+    logoutBtn._hasLogoutHandler = true;
+    logoutBtn.addEventListener('click', async () => {
+      try {
+        const { auth, signOut } = await import('./firebaseConfig.js');
+        await signOut(auth);
+        window.location.href = '../login.html';
+      } catch (error) {
+        console.error('Error signing out:', error);
+        window.location.href = '../login.html';
+      }
+    });
+  }
+
+  // Notifications button - open notification panel or show dropdown
+  const notificationsBtn = document.getElementById('notificationsBtn');
+  if (notificationsBtn && !notificationsBtn._hasNotifHandler) {
+    notificationsBtn._hasNotifHandler = true;
+    notificationsBtn.addEventListener('click', () => {
+      // Check if notifications-handler is loaded (on dashboard pages)
+      if (window.toggleNotifications) {
+        window.toggleNotifications();
+      } else {
+        // Fallback: show a simple alert for pages without full notification support
+        alert('Notifications: No new notifications');
+      }
+    });
+  }
+}
 
 // Auto-initialize on DOMContentLoaded
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     initializeUnifiedNavigation();
     handleModalScrollLock();
+    setupSharedNavButtons();
   });
 } else {
   initializeUnifiedNavigation();
   handleModalScrollLock();
+  setupSharedNavButtons();
 }

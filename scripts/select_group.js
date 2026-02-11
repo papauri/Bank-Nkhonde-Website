@@ -126,6 +126,9 @@ async function loadUserGroups() {
       }
     }
     
+    // Calculate contributions for each group
+    await calculateUserContributions();
+    
     renderGroups();
   } catch (error) {
     console.error("Error loading groups:", error);
@@ -134,6 +137,46 @@ async function loadUserGroups() {
         <div class="empty-state-icon">❌</div>
         <p class="empty-state-text">Error loading groups. Please try again.</p>
       `;
+    }
+  }
+}
+
+async function calculateUserContributions() {
+  const currentYear = new Date().getFullYear();
+  
+  for (const group of userGroups) {
+    let totalContributed = 0;
+    
+    try {
+      // Calculate Seed Money
+      const seedMoneyRef = doc(db, `groups/${group.groupId}/payments/${currentYear}_SeedMoney/${currentUser.uid}/PaymentDetails`);
+      const seedMoneyDoc = await getDoc(seedMoneyRef);
+      if (seedMoneyDoc.exists()) {
+        totalContributed += parseFloat(seedMoneyDoc.data().amountPaid || 0);
+      }
+      
+      // Calculate Monthly Contributions
+      const monthlyRef = collection(db, `groups/${group.groupId}/payments/${currentYear}_MonthlyContributions/${currentUser.uid}`);
+      const monthlySnapshot = await getDocs(monthlyRef);
+      monthlySnapshot.forEach(doc => {
+        if (doc.data().approvalStatus === "approved") {
+          totalContributed += parseFloat(doc.data().amountPaid || 0);
+        }
+      });
+      
+      // Calculate Service Fee
+      const serviceFeeRef = doc(db, `groups/${group.groupId}/payments/${currentYear}_ServiceFee/${currentUser.uid}/PaymentDetails`);
+      const serviceFeeDoc = await getDoc(serviceFeeRef);
+      if (serviceFeeDoc.exists()) {
+        totalContributed += parseFloat(serviceFeeDoc.data().amountPaid || 0);
+      }
+      
+      // Store in group object
+      group.userContributions = totalContributed;
+      
+    } catch (error) {
+      console.error(`Error calculating contributions for group ${group.groupId}:`, error);
+      group.userContributions = 0;
     }
   }
 }
@@ -175,6 +218,31 @@ async function loadNotificationCounts() {
             }
           });
         } catch (e) {}
+        
+        // Check Service Fee payments
+        try {
+          const serviceFeeRef = doc(db, `groups/${group.groupId}/payments/${currentYear}_ServiceFee/${userId}/PaymentDetails`);
+          const serviceFeeDoc = await getDoc(serviceFeeRef);
+          if (serviceFeeDoc.exists() && serviceFeeDoc.data().approvalStatus === "pending") {
+            pendingPayments++;
+          }
+        } catch (e) {}
+      }
+      
+      // Count pending loan payments
+      try {
+        const loansRef = collection(db, "groups", group.groupId, "loans");
+        const loansSnapshot = await getDocs(loansRef);
+        
+        for (const loanDoc of loansSnapshot.docs) {
+          const loanId = loanDoc.id;
+          const paymentsRef = collection(db, `groups/${group.groupId}/loans/${loanId}/payments`);
+          const paymentsQuery = query(paymentsRef, where("status", "==", "pending"));
+          const pendingPaymentsSnapshot = await getDocs(paymentsQuery);
+          pendingPayments += pendingPaymentsSnapshot.size;
+        }
+      } catch (e) {
+        console.error("Error counting pending loan payments:", e);
       }
       
       // Count pending loans
@@ -182,12 +250,42 @@ async function loadNotificationCounts() {
       const pendingLoansQuery = query(loansRef, where("status", "==", "pending"));
       const loansSnapshot = await getDocs(pendingLoansQuery);
       pendingLoans += loansSnapshot.size;
+      
+      // Count unread broadcasts
+      try {
+        const broadcastsRef = collection(db, "groups", group.groupId, "broadcasts");
+        const broadcastsSnapshot = await getDocs(broadcastsRef);
+        unreadBroadcasts += broadcastsSnapshot.size;
+      } catch (e) {}
     }
     
-    // Update badges
-    if (pendingPaymentsBadge) pendingPaymentsBadge.textContent = pendingPayments;
-    if (loanRequestsBadge) loanRequestsBadge.textContent = pendingLoans;
-    if (broadcastsBadge) broadcastsBadge.textContent = unreadBroadcasts;
+    // Update badges and show/hide
+    if (pendingPaymentsBadge) {
+      pendingPaymentsBadge.textContent = pendingPayments;
+      if (pendingPayments > 0) {
+        pendingPaymentsBadge.style.display = 'flex';
+      } else {
+        pendingPaymentsBadge.style.display = 'none';
+      }
+    }
+    
+    if (loanRequestsBadge) {
+      loanRequestsBadge.textContent = pendingLoans;
+      if (pendingLoans > 0) {
+        loanRequestsBadge.style.display = 'flex';
+      } else {
+        loanRequestsBadge.style.display = 'none';
+      }
+    }
+    
+    if (broadcastsBadge) {
+      broadcastsBadge.textContent = unreadBroadcasts;
+      if (unreadBroadcasts > 0) {
+        broadcastsBadge.style.display = 'flex';
+      } else {
+        broadcastsBadge.style.display = 'none';
+      }
+    }
     
   } catch (error) {
     console.error("Error loading notification counts:", error);
@@ -211,6 +309,7 @@ function renderGroups() {
   groupsGrid.innerHTML = userGroups.map(group => {
     const stats = group.statistics || {};
     const isAdmin = group.role === "admin";
+    const userContributed = group.userContributions || 0;
     
     return `
       <div class="group-card" onclick="selectGroup('${group.groupId}', '${isAdmin ? 'admin' : 'user'}')">
@@ -224,8 +323,8 @@ function renderGroups() {
             <div class="group-stat-label">Members</div>
           </div>
           <div class="group-stat">
-            <div class="group-stat-value">${formatCurrency(stats.totalFunds || 0)}</div>
-            <div class="group-stat-label">Total Funds</div>
+            <div class="group-stat-value">${formatCurrency(userContributed)}</div>
+            <div class="group-stat-label">My Contributions</div>
           </div>
         </div>
       </div>

@@ -413,7 +413,7 @@ document.addEventListener("DOMContentLoaded", () => {
           // Monthly Contribution: Same amount for all members, due same day each month
           monthlyContribution: {
             amount: monthlyContribution,
-            required: true,
+            required: monthlyContribution > 0,
             dayOfMonth: groupData.contributionDueDay || 15,
             allowPartialPayment: true
           },
@@ -698,45 +698,47 @@ document.addEventListener("DOMContentLoaded", () => {
         currency: "MWK"
       });
 
-      // ✅ Create Monthly Contributions Payment Year Document
-      const monthlyContributionDocRef = doc(db, `groups/${groupId}/payments`, `${currentYear}_MonthlyContributions`);
-      batch.set(monthlyContributionDocRef, { 
-        year: currentYear,
-        paymentType: "MonthlyContributions",
-        createdAt: Timestamp.now(),
-        totalExpected: monthlyContribution * 12, // For 12 months
-        totalReceived: 0,
-        totalPending: 0
-      });
-
-      // ✅ Create Monthly Contribution Payments for Each Month with improved structure
-      const userMonthlyCollection = collection(monthlyContributionDocRef, userId);
-      cycleDates.forEach((date) => {
-        const monthlyPaymentDoc = doc(userMonthlyCollection, `${date.year}_${date.month}`);
-        batch.set(monthlyPaymentDoc, {
-          userId,
-          fullName: name,
-          paymentType: "Monthly Contribution",
-          month: date.month,
-          year: date.year,
-          totalAmount: monthlyContribution,
-          amountPaid: 0,
-          arrears: monthlyContribution,
-          approvalStatus: "unpaid",
-          paymentStatus: "unpaid",
-          dueDate: date.timestamp,
-          paidAt: null,
-          approvedAt: null,
+      // ✅ Create Monthly Contributions Payment Year Document (only if monthly contribution > 0)
+      if (monthlyContribution > 0) {
+        const monthlyContributionDocRef = doc(db, `groups/${groupId}/payments`, `${currentYear}_MonthlyContributions`);
+        batch.set(monthlyContributionDocRef, { 
+          year: currentYear,
+          paymentType: "MonthlyContributions",
           createdAt: Timestamp.now(),
-          updatedAt: null,
-          proofOfPayment: {
-            imageUrl: "",
-            uploadedAt: null,
-            verifiedBy: ""
-          },
-          currency: "MWK"
+          totalExpected: monthlyContribution * 12, // For 12 months
+          totalReceived: 0,
+          totalPending: 0
         });
-      });
+
+        // ✅ Create Monthly Contribution Payments for Each Month with improved structure
+        const userMonthlyCollection = collection(monthlyContributionDocRef, userId);
+        cycleDates.forEach((date) => {
+          const monthlyPaymentDoc = doc(userMonthlyCollection, `${date.year}_${date.month}`);
+          batch.set(monthlyPaymentDoc, {
+            userId,
+            fullName: name,
+            paymentType: "Monthly Contribution",
+            month: date.month,
+            year: date.year,
+            totalAmount: monthlyContribution,
+            amountPaid: 0,
+            arrears: monthlyContribution,
+            approvalStatus: "unpaid",
+            paymentStatus: "unpaid",
+            dueDate: date.timestamp,
+            paidAt: null,
+            approvedAt: null,
+            createdAt: Timestamp.now(),
+            updatedAt: null,
+            proofOfPayment: {
+              imageUrl: "",
+              uploadedAt: null,
+              verifiedBy: ""
+            },
+            currency: "MWK"
+          });
+        });
+      }
 
       // ✅ Create Service Fee Payment Document (if service fee is set)
       if (serviceFee > 0) {

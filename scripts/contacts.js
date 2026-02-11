@@ -314,7 +314,16 @@ ID Number: ${member.idNumber || "N/A"}
 Role: ${member.role || "Member"}
 Status: ${member.status || "Active"}
     `;
-    alert(details);
+    
+    // Show member details in a more user-friendly way
+    const detailsModal = {
+      title: `Contact: ${member.fullName}`,
+      message: details
+    };
+    
+    // For now, use console.log since we don't have a details modal
+    console.log(details);
+    showToast(`Details for ${member.fullName} - check console`, 'info');
   }
 
   /**

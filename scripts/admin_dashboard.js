@@ -183,7 +183,13 @@ function toggleUserMenu() {
 async function handleLogout() {
   try {
     await signOut(auth);
-    sessionStorage.clear();
+    // Clear session data selectively
+    sessionStorage.removeItem('selectedGroupId');
+    sessionStorage.removeItem('isAdmin');
+    sessionStorage.removeItem('viewMode');
+    sessionStorage.removeItem('userRole');
+    localStorage.removeItem('selectedGroupId');
+    localStorage.removeItem('userEmail');
     window.location.href = "../login.html";
   } catch (error) {
     console.error("Error signing out:", error);
@@ -457,11 +463,12 @@ async function loadDashboardStats() {
             const approvalStatus = data.approvalStatus || "unpaid";
             
             seedMoneyAmount += amountPaid;
-            totalCollectionsAmount += amountPaid;
             totalArrearsAmount += parseFloat(data.arrears || 0);
             
+            // Only count approved payments in total collections
             if (approvalStatus === "approved") {
               approvedAmount += amountPaid;
+              totalCollectionsAmount += amountPaid;
             } else if (approvalStatus === "pending") {
               pendingAmount += amountPaid;
               pendingApprovalsCount++;
@@ -487,16 +494,12 @@ async function loadDashboardStats() {
             // Only count approved payments in total collections
             if (approvalStatus === "approved") {
               approvedAmount += amountPaid;
-            totalCollectionsAmount += amountPaid;
+              totalCollectionsAmount += amountPaid;
+            } else if (approvalStatus === "pending") {
+              pendingAmount += amountPaid;
+              pendingApprovalsCount++;
             } else {
-              // Count pending and unpaid towards arrears
-              if (approvalStatus === "pending") {
-                pendingAmount += amountPaid;
-                pendingApprovalsCount++;
-              } else {
-                unpaidAmount += amountPaid;
-              }
-              totalCollectionsAmount += amountPaid; // Still count as collected but may need approval
+              unpaidAmount += amountPaid;
             }
             
             totalArrearsAmount += parseFloat(data.arrears || 0);
@@ -513,6 +516,29 @@ async function loadDashboardStats() {
           });
         } catch (e) {}
         
+        // Service Fee collections
+        try {
+          const serviceFeeRef = doc(db, `groups/${groupId}/payments/${currentYear}_ServiceFee/${userId}/PaymentDetails`);
+          const serviceFeeDoc = await getDoc(serviceFeeRef);
+          if (serviceFeeDoc.exists()) {
+            const data = serviceFeeDoc.data();
+            const amountPaid = parseFloat(data.amountPaid || 0);
+            const approvalStatus = data.approvalStatus || "unpaid";
+            
+            // Only count approved service fees in total collections
+            if (approvalStatus === "approved") {
+              totalCollectionsAmount += amountPaid;
+              approvedAmount += amountPaid;
+            } else if (approvalStatus === "pending") {
+              pendingAmount += amountPaid;
+              pendingApprovalsCount++;
+            }
+            totalArrearsAmount += parseFloat(data.arrears || 0);
+            
+            if (amountPaid > 0) memberHasPayment = true;
+          }
+        } catch (e) {}
+        
         if (memberHasPayment) membersWithPayments++;
       }
       
@@ -523,12 +549,24 @@ async function loadDashboardStats() {
         const activeLoansSnapshot = await getDocs(activeLoansQuery);
         activeLoansCount += activeLoansSnapshot.size;
         
-        // Add loan interest to collections
+        // Count loan interest earned from repaid loans only (actually collected)
+        const repaidLoansQuery = query(loansRef, where("status", "==", "repaid"));
+        const repaidLoansSnapshot = await getDocs(repaidLoansQuery);
+        repaidLoansSnapshot.forEach(loanDoc => {
+          const loan = loanDoc.data();
+          const interest = parseFloat(loan.interestEarned || loan.totalInterest || 0);
+          loanInterestEarned += interest;
+          totalCollectionsAmount += interest;
+        });
+        
+        // Also count partial interest from active loans (already collected repayments)
         activeLoansSnapshot.forEach(loanDoc => {
           const loan = loanDoc.data();
           const interest = parseFloat(loan.interestEarned || 0);
-          loanInterestEarned += interest;
-          totalCollectionsAmount += interest;
+          if (interest > 0) {
+            loanInterestEarned += interest;
+            totalCollectionsAmount += interest;
+          }
         });
         
         // Pending loans

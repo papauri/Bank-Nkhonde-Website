@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/admin-layout.css">
   <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
@@ -216,25 +217,9 @@
   </style>
 </head>
 <body>
-  <!-- Page Header -->
-  <header class="page-header">
-    <div class="page-header-container">
-      <div class="page-header-top">
-        <div class="page-header-nav">
-          <button class="page-back-btn" onclick="history.back()" aria-label="Go back">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
-          </button>
-          <div>
-            <h1 class="page-title">Manage Loans</h1>
-            <p class="page-subtitle">Full loan lifecycle management</p>
-          </div>
-        </div>
-        <div class="page-header-actions">
-          <button class="page-header-btn" id="refreshBtn" aria-label="Refresh">🔄</button>
-        </div>
-      </div>
+  <!-- Sidebar, topbar, and mobile nav injected by admin-layout.js -->
+  <main class="main-content" id="mainContent">
+    <div class="dashboard-content">
 
       <div class="page-group-selector">
         <select id="groupSelector">
@@ -260,11 +245,7 @@
           <div class="page-stat-label">Outstanding</div>
         </div>
       </div>
-    </div>
-  </header>
 
-  <!-- Page Content -->
-  <main class="page-content">
     <!-- Quick Actions -->
     <div class="quick-action-grid">
       <div class="quick-action-card" id="newLoanBtn">
@@ -317,12 +298,113 @@
       </select>
     </div>
 
+    <!-- Pending Loan Payments Section -->
+    <div id="pendingLoanPaymentsSection" style="margin-bottom: var(--bn-space-6); padding: var(--bn-space-5); background: rgba(251, 191, 36, 0.1); border: 2px solid var(--bn-warning); border-radius: var(--bn-radius-xl);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--bn-space-4);">
+        <div>
+          <h3 style="font-size: var(--bn-text-lg); font-weight: 700; color: var(--bn-dark); margin-bottom: var(--bn-space-1);">⏳ Pending Loan Payments</h3>
+          <p style="font-size: var(--bn-text-sm); color: var(--bn-gray);">Review and approve member loan payment submissions</p>
+        </div>
+        <span class="badge badge-warning" id="pendingPaymentsCountBadge" style="font-size: var(--bn-text-sm); padding: var(--bn-space-2) var(--bn-space-3);">0</span>
+      </div>
+      <div id="pendingLoanPaymentsList">
+        <div class="empty-state">
+          <div class="empty-state-icon">✅</div>
+          <p class="empty-state-text">No pending payments to review</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Forced Loans Management Section -->
+    <div id="forcedLoansSection" style="margin-bottom: var(--bn-space-6); padding: var(--bn-space-5); background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(239, 68, 68, 0.02) 100%); border: 2px solid rgba(239, 68, 68, 0.3); border-radius: var(--bn-radius-xl);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--bn-space-4);">
+        <div>
+          <h3 style="font-size: var(--bn-text-lg); font-weight: 700; color: var(--bn-dark); margin-bottom: var(--bn-space-1);">⚡ Forced Loans Management</h3>
+          <p style="font-size: var(--bn-text-sm); color: var(--bn-gray); margin: 0;">Configure and manage automatic loans for members with interest payment deficits</p>
+        </div>
+        <div style="display: flex; gap: var(--bn-space-2); align-items: center;">
+          <div style="display: flex; align-items: center; gap: var(--bn-space-2); padding: var(--bn-space-2) var(--bn-space-3); background: rgba(255, 255, 255, 0.6); border-radius: var(--bn-radius-lg);">
+            <span style="font-size: var(--bn-text-sm); color: var(--bn-gray);" id="forcedLoansStatus">Disabled</span>
+            <label class="switch" style="position: relative; display: inline-block; width: 48px; height: 24px;">
+              <input type="checkbox" id="forcedLoansToggle" style="opacity: 0; width: 0; height: 0;">
+              <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px;"></span>
+            </label>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="configForcedLoansBtn" style="display: none;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 1v6m0 6v6m9-9h-6m-6 0H3m15.364 6.364l-4.243-4.243m-4.242 0L5.636 17.364M18.364 6.636l-4.243 4.243m-4.242 0L5.636 6.636"/>
+            </svg>
+            Settings
+          </button>
+          <button class="btn btn-primary btn-sm" id="calculateForcedLoansBtn" style="display: none;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+            </svg>
+            Calculate
+          </button>
+        </div>
+      </div>
+      
+      <!-- Configuration Display -->
+      <div id="forcedLoansConfig" style="display: none; margin-bottom: var(--bn-space-4); padding: var(--bn-space-4); background: rgba(255, 255, 255, 0.6); border-radius: var(--bn-radius-lg); border: 1px solid rgba(239, 68, 68, 0.15);">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--bn-space-4);">
+          <div>
+            <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: 4px;">Method</div>
+            <div style="font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-dark);" id="configMethod">Match Highest Payer</div>
+          </div>
+          <div>
+            <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: 4px;">Period</div>
+            <div style="font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-dark);" id="configPeriod">Monthly</div>
+          </div>
+          <div>
+            <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: 4px;">Min. Deficit</div>
+            <div style="font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-dark);" id="configMinDeficit">MWK 1,000</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Results -->
+      <div id="forcedLoansResults" style="display: none;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--bn-space-3); margin-bottom: var(--bn-space-4);">
+          <div style="text-align: center; padding: var(--bn-space-3); background: rgba(255, 255, 255, 0.6); border-radius: var(--bn-radius-lg);">
+            <div style="font-size: var(--bn-text-2xl); font-weight: 800; color: var(--bn-danger);" id="totalForcedLoans">0</div>
+            <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: 4px;">Forced Loans</div>
+          </div>
+          <div style="text-align: center; padding: var(--bn-space-3); background: rgba(255, 255, 255, 0.6); border-radius: var(--bn-radius-lg);">
+            <div style="font-size: var(--bn-text-2xl); font-weight: 800; color: var(--bn-warning);" id="totalDeficitAmount">MWK 0</div>
+            <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: 4px;">Total Deficit</div>
+          </div>
+          <div style="text-align: center; padding: var(--bn-space-3); background: rgba(255, 255, 255, 0.6); border-radius: var(--bn-radius-lg);">
+            <div style="font-size: var(--bn-text-2xl); font-weight: 800; color: var(--bn-primary);" id="highestInterestPaid">MWK 0</div>
+            <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: 4px;">Highest Interest</div>
+          </div>
+          <div style="text-align: center; padding: var(--bn-space-3); background: rgba(255, 255, 255, 0.6); border-radius: var(--bn-radius-lg);">
+            <div style="font-size: var(--bn-text-2xl); font-weight: 800; color: var(--bn-gray);" id="membersAffected">0</div>
+            <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: 4px;">Members</div>
+          </div>
+        </div>
+        
+        <div id="forcedLoansList"></div>
+      </div>
+      
+      <!-- Empty State -->
+      <div id="forcedLoansEmptyState">
+        <div class="empty-state">
+          <div class="empty-state-icon">⚙️</div>
+          <p class="empty-state-text">Enable forced loans to manage interest payment deficits</p>
+          <p style="font-size: var(--bn-text-sm); color: var(--bn-gray); max-width: 480px; margin: var(--bn-space-2) auto 0;">The system will create loans for members who haven't paid enough interest compared to the highest payer</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Loans List -->
     <div id="loansContainer">
       <div class="empty-state">
         <div class="empty-state-icon">💰</div>
         <p class="empty-state-text">Select a group to manage loans</p>
       </div>
+    </div>
     </div>
   </main>
 
@@ -541,33 +623,80 @@
     </div>
   </div>
 
-  <!-- Mobile Navigation -->
-  <!-- Mobile Navigation -->
-  <nav class="mobile-nav">
-    <a href="admin_dashboard.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">🏠</span>
-      <span>Home</span>
-    </a>
-    <a href="manage_loans.html" class="mobile-nav-item active">
-      <span class="mobile-nav-icon">💰</span>
-      <span>Loans</span>
-    </a>
-    <a href="manage_payments.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">💳</span>
-      <span>Payments</span>
-    </a>
-    <a href="analytics.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">📊</span>
-      <span>Analytics</span>
-    </a>
-    <a href="user_dashboard.html" class="mobile-nav-item" id="switchToUserViewMobile" style="display: none;">
-      <span class="mobile-nav-icon">👤</span>
-      <span>User View</span>
-    </a>
-  </nav>
+  <!-- Forced Loans Configuration Modal -->
+  <div class="modal-overlay hidden" id="forcedLoansConfigModal">
+    <div class="modal-content" style="max-width: 560px;">
+      <div class="modal-header">
+        <h2 class="modal-title">⚡ Forced Loans Configuration</h2>
+        <button class="modal-close" id="closeForcedLoansConfigModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="forcedLoansConfigForm">
+          <div class="form-group">
+            <label class="form-label">Calculation Method *</label>
+            <select class="form-select" id="forcedLoansMethod" required>
+              <option value="match_highest">Match Highest Interest Payer</option>
+              <option value="match_average">Match Average Interest</option>
+              <option value="percentage_of_highest">Percentage of Highest (e.g., 80%)</option>
+            </select>
+            <small style="color: var(--bn-gray); font-size: var(--bn-text-xs); margin-top: 4px; display: block;">
+              Determines how the deficit is calculated for each member
+            </small>
+          </div>
 
-  <!-- Toast Container -->
-  <div class="toast-container" id="toastContainer"></div>
+          <div class="form-group" id="percentageThresholdGroup" style="display: none;">
+            <label class="form-label">Percentage Threshold (%) *</label>
+            <input type="number" class="form-input" id="percentageThreshold" min="1" max="100" value="80" placeholder="80">
+            <small style="color: var(--bn-gray); font-size: var(--bn-text-xs); margin-top: 4px; display: block;">
+              Members must pay at least this percentage of the highest interest
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Calculation Period *</label>
+            <select class="form-select" id="forcedLoansPeriod" required>
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="annual">Annual</option>
+              <option value="ytd">Year-to-Date</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Minimum Deficit Amount (MWK) *</label>
+            <input type="number" class="form-input" id="minDeficitAmount" required min="0" step="100" value="1000" placeholder="1000">
+            <small style="color: var(--bn-gray); font-size: var(--bn-text-xs); margin-top: 4px; display: block;">
+              Only create loans if deficit is above this amount
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">
+              <input type="checkbox" id="autoGenerateLoans" style="margin-right: 8px;">
+              Auto-generate loans at period end
+            </label>
+            <small style="color: var(--bn-gray); font-size: var(--bn-text-xs); margin-top: 4px; display: block;">
+              Automatically create forced loans when the period ends
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">
+              <input type="checkbox" id="notifyMembers" checked style="margin-right: 8px;">
+              Notify members when forced loan is created
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn btn-ghost" id="cancelForcedLoansConfig">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Configuration</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+
 
   <!-- Loading Overlay -->
   <div class="spinner-overlay hidden" id="spinner">
@@ -578,6 +707,10 @@
   </div>
 
   <script src="../scripts/modal-utils.js"></script>
+  <script type="module">
+    import { initAdminLayout } from '../scripts/admin-layout.js';
+    initAdminLayout({ pageTitle: 'Manage Loans', activeNav: 'loans' });
+  </script>
   <script type="module" src="../scripts/manage_loans.js"></script>
 </body>
 </html>

@@ -99,6 +99,7 @@ function setupEventListeners() {
   document.getElementById("applyPenaltyBtn")?.addEventListener("click", openApplyPenaltyModal);
   document.getElementById("paymentSettingsBtn")?.addEventListener("click", openPaymentSettingsModal);
   document.getElementById("viewAllPaymentDetailsBtn")?.addEventListener("click", openAllPaymentDetailsModal);
+  document.getElementById("sendRemindersBtn")?.addEventListener("click", openSendRemindersModal);
   
   // Payment Details Modal handlers
   setupModalCloseHandlers("allPaymentDetailsModal", "closeAllPaymentDetailsModal", "closeAllPaymentDetailsModal");
@@ -108,12 +109,54 @@ function setupEventListeners() {
   setupModalCloseHandlers("applyPenaltyModal", "closeApplyPenaltyModal", "cancelApplyPenalty");
   setupModalCloseHandlers("paymentSettingsModal", "closePaymentSettingsModal", "cancelPaymentSettings");
   setupModalCloseHandlers("approvePaymentModal", "closeApprovePaymentModal", "cancelApprovePayment");
+  setupModalCloseHandlers("sendRemindersModal", "closeSendRemindersModal", "cancelSendReminders");
 
   // Form submissions
   document.getElementById("recordPaymentForm")?.addEventListener("submit", handleRecordPayment);
   document.getElementById("paymentSettingsForm")?.addEventListener("submit", handleSaveSettings);
   document.getElementById("confirmApplyPenalty")?.addEventListener("click", handleApplyPenalties);
   document.getElementById("approvePaymentForm")?.addEventListener("submit", handleApprovePaymentSubmit);
+  document.getElementById("sendRemindersForm")?.addEventListener("submit", handleSendReminders);
+
+  // Reminder form changes
+  document.getElementById("reminderRecipient")?.addEventListener("change", (e) => {
+    const specificGroup = document.getElementById("specificMemberGroup");
+    specificGroup.style.display = e.target.value === "specific" ? "block" : "none";
+    updateReminderPreview();
+  });
+  
+  document.getElementById("specificMemberSelect")?.addEventListener("change", updateReminderPreview);
+  document.getElementById("reminderPaymentType")?.addEventListener("change", updateReminderPreview);
+  
+  document.getElementById("reminderMessageTemplate")?.addEventListener("change", (e) => {
+    const messageTextarea = document.getElementById("reminderMessage");
+    const templates = {
+      gentle: `Hello,
+
+This is a friendly reminder about your outstanding payments in [Group Name].
+
+Amount Due: [Amount]
+Payment Type: [Type]
+
+Please settle your arrears at your earliest convenience.
+
+Thank you for your cooperation.`,
+      urgent: `IMPORTANT REMINDER
+
+Dear [Member Name],
+
+You have outstanding payments in [Group Name]:
+
+Amount Overdue: [Amount]
+Payment Type: [Type]
+
+Please make payment immediately to avoid additional penalties.
+
+Contact the group administrator if you need assistance.`,
+      custom: ""
+    };
+    messageTextarea.value = templates[e.target.value] || "";
+  });
 
   // Payment type change
   document.getElementById("paymentType")?.addEventListener("change", (e) => {
@@ -580,8 +623,15 @@ function updateStats() {
   let totalArrears = 0;
 
   [...payments.seedMoney, ...payments.monthly, ...payments.serviceFee].forEach((payment) => {
-    totalCollected += payment.amountPaid;
-    totalArrears += payment.arrears;
+    const status = (payment.status || "").toLowerCase();
+    // Only count approved/completed payments as collected
+    if (status === "approved" || status === "completed") {
+      totalCollected += payment.amountPaid;
+    }
+    // Only count arrears for non-rejected payments
+    if (status !== "rejected") {
+      totalArrears += payment.arrears;
+    }
   });
 
   if (pendingCountEl) pendingCountEl.textContent = pendingCount;
@@ -1040,9 +1090,14 @@ async function rejectPayment(payment) {
 
     if (payment.type === "Seed Money") {
       paymentRef = doc(db, `groups/${selectedGroupId}/payments/${currentYear}_SeedMoney/${payment.memberId}/PaymentDetails`);
+    } else if (payment.type === "Service Fee") {
+      paymentRef = doc(db, `groups/${selectedGroupId}/payments/${currentYear}_ServiceFee/${payment.memberId}/PaymentDetails`);
     } else {
       paymentRef = doc(db, `groups/${selectedGroupId}/payments/${currentYear}_MonthlyContributions/${payment.memberId}/${payment.docId}`);
     }
+
+    // Store the amount that was previously paid (before rejection resets it to 0)
+    const previousAmountPaid = parseFloat(payment.amountPaid || 0);
 
     await updateDoc(paymentRef, {
       approvalStatus: "rejected",
@@ -1059,6 +1114,25 @@ async function rejectPayment(payment) {
       },
     });
 
+    // Reverse the financialSummary if payment was previously approved
+    if (previousAmountPaid > 0 && payment.status === "approved") {
+      const memberRef = doc(db, `groups/${selectedGroupId}/members`, payment.memberId);
+      const memberDoc = await getDoc(memberRef);
+      if (memberDoc.exists()) {
+        const memberData = memberDoc.data();
+        const financialSummary = memberData.financialSummary || {};
+        const newTotalPaid = Math.max(0, (parseFloat(financialSummary.totalPaid || 0)) - previousAmountPaid);
+        const newTotalArrears = (parseFloat(financialSummary.totalArrears || 0)) + previousAmountPaid;
+        
+        await updateDoc(memberRef, {
+          "financialSummary.totalPaid": newTotalPaid,
+          "financialSummary.totalArrears": newTotalArrears,
+          "financialSummary.lastUpdated": Timestamp.now(),
+          updatedAt: Timestamp.now()
+        });
+      }
+    }
+
     // Immediately remove from pending array for faster UI update
     const pendingIndex = payments.pending.findIndex(p => p.id === payment.id);
     if (pendingIndex !== -1) {
@@ -1070,13 +1144,20 @@ async function rejectPayment(payment) {
     payment.amountPaid = 0;
     payment.arrears = payment.totalAmount;
     
-    // Update in seedMoney or monthly arrays
+    // Update in seedMoney, monthly, or serviceFee arrays
     if (payment.type === "Seed Money") {
       const seedIndex = payments.seedMoney.findIndex(p => p.id === payment.id);
       if (seedIndex !== -1) {
         payments.seedMoney[seedIndex].status = "rejected";
         payments.seedMoney[seedIndex].amountPaid = 0;
         payments.seedMoney[seedIndex].arrears = payment.totalAmount;
+      }
+    } else if (payment.type === "Service Fee") {
+      const serviceFeeIndex = payments.serviceFee.findIndex(p => p.id === payment.id);
+      if (serviceFeeIndex !== -1) {
+        payments.serviceFee[serviceFeeIndex].status = "rejected";
+        payments.serviceFee[serviceFeeIndex].amountPaid = 0;
+        payments.serviceFee[serviceFeeIndex].arrears = payment.totalAmount;
       }
     } else {
       const monthlyIndex = payments.monthly.findIndex(p => p.id === payment.id);
@@ -2275,6 +2356,258 @@ async function openApplyPenaltyModal() {
   }
 }
 
+// Open Send Reminders Modal
+async function openSendRemindersModal() {
+  if (!selectedGroupId) {
+    showToast("Please select a group first", "warning");
+    return;
+  }
+  
+  const modal = document.getElementById("sendRemindersModal");
+  const specificMemberSelect = document.getElementById("specificMemberSelect");
+  
+  // Populate member dropdown with members who have arrears
+  if (specificMemberSelect) {
+    specificMemberSelect.innerHTML = '<option value="">Choose a member...</option>';
+    
+    // Get members with arrears
+    const membersWithArrears = members.filter(member => {
+      const seedRecord = payments.seedMoney.find(p => p.memberId === member.id);
+      const monthlyRecords = payments.monthly.filter(p => p.memberId === member.id);
+      const serviceFeeRecords = payments.serviceFee.filter(p => p.memberId === member.id);
+      
+      const seedArrears = seedRecord?.arrears || 0;
+      const monthlyArrears = monthlyRecords.reduce((sum, p) => sum + (p.arrears || 0), 0);
+      const serviceFeeArrears = serviceFeeRecords.reduce((sum, p) => sum + (p.arrears || 0), 0);
+      
+      return (seedArrears + monthlyArrears + serviceFeeArrears) > 0;
+    });
+    
+    membersWithArrears.forEach(member => {
+      const option = document.createElement("option");
+      option.value = member.id;
+      option.textContent = member.fullName || member.name || member.email || "Unknown";
+      specificMemberSelect.appendChild(option);
+    });
+  }
+  
+  // Reset form
+  document.getElementById("sendRemindersForm")?.reset();
+  document.getElementById("specificMemberGroup").style.display = "none";
+  document.getElementById("reminderMessage").value = `Hello,
+
+This is a friendly reminder about your outstanding payments in [Group Name].
+
+Amount Due: [Amount]
+Payment Type: [Type]
+
+Please settle your arrears at your earliest convenience.
+
+Thank you for your cooperation.`;
+  
+  // Update preview
+  updateReminderPreview();
+  
+  if (window.openModal) {
+    window.openModal("sendRemindersModal");
+  } else {
+    modal?.classList.add("active");
+    modal?.classList.remove("hidden");
+    modal.style.display = "flex";
+  }
+}
+
+// Update reminder preview
+function updateReminderPreview() {
+  const preview = document.getElementById("reminderPreview");
+  const previewCount = document.getElementById("reminderPreviewCount");
+  const previewMembers = document.getElementById("reminderPreviewMembers");
+  const recipientType = document.getElementById("reminderRecipient")?.value;
+  const paymentType = document.getElementById("reminderPaymentType")?.value;
+  const specificMember = document.getElementById("specificMemberSelect")?.value;
+  
+  if (!preview || !previewCount || !previewMembers) return;
+  
+  let targetMembers = [];
+  
+  if (recipientType === "specific" && specificMember) {
+    const member = members.find(m => m.id === specificMember);
+    if (member) {
+      const arrears = getMemberArrears(member.id, paymentType);
+      if (arrears > 0) {
+        targetMembers.push({
+          name: member.fullName || member.name || member.email || "Unknown",
+          arrears: arrears
+        });
+      }
+    }
+  } else {
+    // All members with arrears
+    members.forEach(member => {
+      const arrears = getMemberArrears(member.id, paymentType);
+      if (arrears > 0) {
+        targetMembers.push({
+          name: member.fullName || member.name || member.email || "Unknown",
+          arrears: arrears
+        });
+      }
+    });
+  }
+  
+  if (targetMembers.length === 0) {
+    preview.style.display = "none";
+  } else {
+    preview.style.display = "block";
+    previewCount.textContent = `Will send reminders to ${targetMembers.length} member(s)`;
+    
+    const totalArrears = targetMembers.reduce((sum, m) => sum + m.arrears, 0);
+    previewMembers.innerHTML = targetMembers.map(m => 
+      `<div style="padding: var(--bn-space-2); background: white; border-radius: var(--bn-radius-md); margin-bottom: var(--bn-space-2);">
+        <strong>${m.name}</strong> - ${formatCurrency(m.arrears)}
+      </div>`
+    ).join("") + `<div style="margin-top: var(--bn-space-3); padding-top: var(--bn-space-3); border-top: 1px solid var(--bn-gray-light); font-weight: 600;">
+      Total Arrears: ${formatCurrency(totalArrears)}
+    </div>`;
+  }
+}
+
+// Get member arrears for specific payment type
+function getMemberArrears(memberId, paymentType) {
+  let totalArrears = 0;
+  
+  if (paymentType === "all" || paymentType === "seed_money") {
+    const seedRecord = payments.seedMoney.find(p => p.memberId === memberId);
+    totalArrears += seedRecord?.arrears || 0;
+  }
+  
+  if (paymentType === "all" || paymentType === "monthly_contribution") {
+    const monthlyRecords = payments.monthly.filter(p => p.memberId === memberId);
+    totalArrears += monthlyRecords.reduce((sum, p) => sum + (p.arrears || 0), 0);
+  }
+  
+  if (paymentType === "all" || paymentType === "service_fee") {
+    const serviceFeeRecords = payments.serviceFee.filter(p => p.memberId === memberId);
+    totalArrears += serviceFeeRecords.reduce((sum, p) => sum + (p.arrears || 0), 0);
+  }
+  
+  return totalArrears;
+}
+
+// Handle send reminders
+async function handleSendReminders(e) {
+  e.preventDefault();
+  
+  if (!selectedGroupId) {
+    showToast("Please select a group first", "warning");
+    return;
+  }
+  
+  showSpinner(true);
+  
+  try {
+    const recipientType = document.getElementById("reminderRecipient").value;
+    const paymentType = document.getElementById("reminderPaymentType").value;
+    const specificMember = document.getElementById("specificMemberSelect")?.value;
+    const messageTemplate = document.getElementById("reminderMessage").value;
+    
+    // Get target members
+    let targetMembers = [];
+    
+    if (recipientType === "specific" && specificMember) {
+      const member = members.find(m => m.id === specificMember);
+      if (member) {
+        const arrears = getMemberArrears(member.id, paymentType);
+        if (arrears > 0) {
+          targetMembers.push({
+            id: member.id,
+            name: member.fullName || member.name || member.email || "Unknown",
+            arrears: arrears
+          });
+        }
+      }
+    } else {
+      // All members with arrears
+      members.forEach(member => {
+        const arrears = getMemberArrears(member.id, paymentType);
+        if (arrears > 0) {
+          targetMembers.push({
+            id: member.id,
+            name: member.fullName || member.name || member.email || "Unknown",
+            arrears: arrears
+          });
+        }
+      });
+    }
+    
+    if (targetMembers.length === 0) {
+      showToast("No members with arrears found", "warning");
+      showSpinner(false);
+      return;
+    }
+    
+    // Send notifications to each member
+    const groupName = groupData?.groupName || "Your Group";
+    const paymentTypeLabel = paymentType === "all" ? "All Payment Types" :
+                            paymentType === "seed_money" ? "Seed Money" :
+                            paymentType === "monthly_contribution" ? "Monthly Contributions" :
+                            "Service Fee";
+    
+    let successCount = 0;
+    
+    for (const member of targetMembers) {
+      try {
+        // Replace placeholders in message
+        const personalizedMessage = messageTemplate
+          .replace(/\[Group Name\]/g, groupName)
+          .replace(/\[Member Name\]/g, member.name)
+          .replace(/\[Amount\]/g, formatCurrency(member.arrears))
+          .replace(/\[Type\]/g, paymentTypeLabel);
+        
+        await addDoc(collection(db, `groups/${selectedGroupId}/notifications`), {
+          userId: member.id,
+          recipientId: member.id,
+          type: "payment_reminder",
+          title: "Payment Reminder",
+          message: personalizedMessage,
+          groupId: selectedGroupId,
+          groupName: groupName,
+          senderId: currentUser.uid,
+          senderName: currentUser.displayName || currentUser.email,
+          createdAt: Timestamp.now(),
+          read: false,
+          readBy: [],
+          metadata: {
+            paymentType: paymentType,
+            arrearsAmount: member.arrears
+          }
+        });
+        
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to send reminder to ${member.name}:`, error);
+      }
+    }
+    
+    showToast(`Successfully sent ${successCount} reminder(s)`, "success");
+    
+    // Close modal
+    const modal = document.getElementById("sendRemindersModal");
+    if (window.closeModal) {
+      window.closeModal("sendRemindersModal");
+    } else {
+      modal?.classList.remove("active");
+      modal?.classList.add("hidden");
+      modal.style.display = "none";
+    }
+    
+  } catch (error) {
+    console.error("Error sending reminders:", error);
+    showToast("Failed to send reminders: " + error.message, "error");
+  } finally {
+    showSpinner(false);
+  }
+}
+
 // Open Payment Settings Modal
 async function openPaymentSettingsModal() {
   if (!selectedGroupId) {
@@ -2457,15 +2790,15 @@ async function handleRecordPayment(e) {
       const seedDoc = await getDoc(seedRef);
       
       const existingData = seedDoc.exists() ? seedDoc.data() : {
-        totalAmount: groupData?.seedMoneyAmount || 0,
+        totalAmount: groupData?.rules?.seedMoney?.amount || groupData?.seedMoneyAmount || 0,
         amountPaid: 0,
-        arrears: groupData?.seedMoneyAmount || 0
+        arrears: groupData?.rules?.seedMoney?.amount || groupData?.seedMoneyAmount || 0
       };
       
       const newAmountPaid = (existingData.amountPaid || 0) + amount;
       const newArrears = Math.max(0, (existingData.totalAmount || 0) - newAmountPaid);
-      // If fully paid, set status to "completed"
-      const paymentStatus = newArrears <= 0 ? "completed" : "approved";
+      // If fully paid, set status to "Completed"
+      const paymentStatus = newArrears <= 0 ? "Completed" : "approved";
       
       const paidAtTimestamp = Timestamp.fromDate(new Date(paymentDate));
       const nowTimestamp = Timestamp.now();
@@ -2475,7 +2808,7 @@ async function handleRecordPayment(e) {
       const updateData = {
         amountPaid: newAmountPaid,
         arrears: newArrears,
-        approvalStatus: paymentStatus,
+        approvalStatus: paymentStatus === "Completed" ? "approved" : paymentStatus,
         paymentStatus: paymentStatus,
         approvedBy: currentUser.uid,
         approvedAt: nowTimestamp,
@@ -2521,13 +2854,13 @@ async function handleRecordPayment(e) {
         const existingData = monthlyDoc.data();
         const newAmountPaid = (existingData.amountPaid || 0) + amount;
         const newArrears = Math.max(0, (existingData.totalAmount || 0) - newAmountPaid);
-        // If fully paid, set status to "completed"
-        const paymentStatus = newArrears <= 0 ? "completed" : "approved";
+        // If fully paid, set status to "Completed"
+        const paymentStatus = newArrears <= 0 ? "Completed" : "approved";
         
         const updateData = {
           amountPaid: newAmountPaid,
           arrears: newArrears,
-          approvalStatus: paymentStatus,
+          approvalStatus: paymentStatus === "Completed" ? "approved" : paymentStatus,
           paymentStatus: paymentStatus,
           approvedBy: currentUser.uid,
           approvedAt: nowTimestamp,
@@ -2547,10 +2880,10 @@ async function handleRecordPayment(e) {
         await updateDoc(monthlyRef, updateData);
       } else {
         // Create new record using setDoc
-        const totalAmount = groupData?.monthlyContribution || 0;
+        const totalAmount = groupData?.rules?.monthlyContribution?.amount || groupData?.monthlyContribution || 0;
         
         const initialArrears = Math.max(0, totalAmount - amount);
-        const paymentStatus = initialArrears <= 0 ? "completed" : "approved";
+        const paymentStatus = initialArrears <= 0 ? "Completed" : "approved";
         
         const newData = {
           memberId,
@@ -2561,7 +2894,7 @@ async function handleRecordPayment(e) {
           totalAmount: totalAmount,
           amountPaid: amount,
           arrears: initialArrears,
-          approvalStatus: paymentStatus,
+          approvalStatus: paymentStatus === "Completed" ? "approved" : paymentStatus,
           paymentStatus: paymentStatus,
           approvedBy: currentUser.uid,
           approvedAt: nowTimestamp,
@@ -2594,8 +2927,8 @@ async function handleRecordPayment(e) {
       
       const newAmountPaid = (existingData.amountPaid || 0) + amount;
       const newArrears = Math.max(0, (existingData.totalAmount || 0) - newAmountPaid);
-      // If fully paid, set status to "completed"
-      const paymentStatus = newArrears <= 0 ? "completed" : "approved";
+      // If fully paid, set status to "Completed"
+      const paymentStatus = newArrears <= 0 ? "Completed" : "approved";
       
       const paidAtTimestamp = Timestamp.fromDate(new Date(paymentDate));
       const nowTimestamp = Timestamp.now();
@@ -2605,7 +2938,7 @@ async function handleRecordPayment(e) {
       const updateData = {
         amountPaid: newAmountPaid,
         arrears: newArrears,
-        approvalStatus: paymentStatus,
+        approvalStatus: paymentStatus === "Completed" ? "approved" : paymentStatus,
         paymentStatus: paymentStatus,
         approvedBy: currentUser.uid,
         approvedAt: nowTimestamp,
@@ -4367,18 +4700,22 @@ async function openAllPaymentDetailsModal() {
   };
   
   // Clone to remove old listeners
-  const newFilter = memberFilter.cloneNode(true);
-  memberFilter.parentNode.replaceChild(newFilter, memberFilter);
-  document.getElementById("paymentDetailsMemberFilter").addEventListener("change", filterHandler);
+  if (memberFilter && memberFilter.parentNode) {
+    const newFilter = memberFilter.cloneNode(true);
+    memberFilter.parentNode.replaceChild(newFilter, memberFilter);
+    document.getElementById("paymentDetailsMemberFilter")?.addEventListener("change", filterHandler);
+  }
   
   if (clearFilterBtn) {
     const newClearBtn = clearFilterBtn.cloneNode(true);
-    clearFilterBtn.parentNode.replaceChild(newClearBtn, clearFilterBtn);
-    document.getElementById("paymentDetailsClearFilterBtn").addEventListener("click", () => {
-      const filterEl = document.getElementById("paymentDetailsMemberFilter");
-      if (filterEl) filterEl.value = "";
-      loadPaymentDetailsTable(selectedGroupId, null, container, true);
-    });
+    if (clearFilterBtn.parentNode) {
+      clearFilterBtn.parentNode.replaceChild(newClearBtn, clearFilterBtn);
+      document.getElementById("paymentDetailsClearFilterBtn")?.addEventListener("click", () => {
+        const filterEl = document.getElementById("paymentDetailsMemberFilter");
+        if (filterEl) filterEl.value = "";
+        loadPaymentDetailsTable(selectedGroupId, null, container, true);
+      });
+    }
   }
   
   if (window.openModal) {

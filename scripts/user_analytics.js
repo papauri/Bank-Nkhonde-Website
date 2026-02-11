@@ -190,29 +190,105 @@ document.addEventListener("DOMContentLoaded", () => {
       let totalArrears = 0;
       let activeLoansCount = 0;
       const currentYear = new Date().getFullYear();
+      const previousYear = currentYear - 1;
+      const years = [previousYear, currentYear]; // Check both current and previous year
 
       // Calculate stats across all groups
       for (const group of userGroups) {
         const groupId = group.id;
 
         try {
-          // Get user's financial summary from member document
-          const memberRef = doc(db, `groups/${groupId}/members`, currentUser.uid);
-          const memberDoc = await getDoc(memberRef);
-          
-          if (memberDoc.exists()) {
-            const memberData = memberDoc.data();
-            const financialSummary = memberData.financialSummary || {};
+          // Calculate contributions and arrears from actual payment records
+          for (const year of years) {
+            // Get monthly contributions
+            for (let month = 1; month <= 12; month++) {
+              const monthNames = ["January", "February", "March", "April", "May", "June", 
+                                "July", "August", "September", "October", "November", "December"];
+              const monthName = monthNames[month - 1];
+              
+              try {
+                const monthlyRef = doc(db, `groups/${groupId}/payments/${year}_MonthlyContributions/${currentUser.uid}/${year}_${monthName}`);
+                const monthlyDoc = await getDoc(monthlyRef);
+                
+                if (monthlyDoc.exists()) {
+                  const monthlyData = monthlyDoc.data();
+                  const amountPaid = parseFloat(monthlyData.amountPaid || 0);
+                  const arrears = parseFloat(monthlyData.arrears || 0);
+                  
+                  // Only count approved or completed payments
+                  if (monthlyData.approvalStatus === "approved" || monthlyData.paymentStatus === "Paid" || monthlyData.paymentStatus === "Completed") {
+                    totalContributed += amountPaid;
+                  }
+                  
+                  // Only count arrears if payment is overdue (check dueDate)
+                  if (arrears > 0 && monthlyData.dueDate) {
+                    const dueDate = monthlyData.dueDate.toDate ? monthlyData.dueDate.toDate() : new Date(monthlyData.dueDate);
+                    if (dueDate < new Date()) {
+                      totalArrears += arrears;
+                    }
+                  }
+                }
+              } catch (error) {
+                // Skip if document doesn't exist
+              }
+            }
             
-            // Add contributions (paid amounts)
-            totalContributed += parseFloat(financialSummary.totalPaid || 0);
+            // Get seed money contributions
+            try {
+              const seedMoneyRef = doc(db, `groups/${groupId}/payments/${year}_SeedMoney/${currentUser.uid}/PaymentDetails`);
+              const seedMoneyDoc = await getDoc(seedMoneyRef);
+              
+              if (seedMoneyDoc.exists()) {
+                const seedData = seedMoneyDoc.data();
+                const amountPaid = parseFloat(seedData.amountPaid || 0);
+                const arrears = parseFloat(seedData.arrears || 0);
+                
+                // Only count approved payments
+                if (seedData.approvalStatus === "approved" || seedData.paymentStatus === "Paid") {
+                  totalContributed += amountPaid;
+                }
+                
+                // Only count arrears if payment is overdue
+                if (arrears > 0 && seedData.dueDate) {
+                  const dueDate = seedData.dueDate.toDate ? seedData.dueDate.toDate() : new Date(seedData.dueDate);
+                  if (dueDate < new Date()) {
+                    totalArrears += arrears;
+                  }
+                }
+              }
+            } catch (error) {
+              // Skip if document doesn't exist
+            }
             
-            // Add arrears and penalties
-            totalArrears += parseFloat(financialSummary.totalArrears || 0);
-            totalArrears += parseFloat(financialSummary.totalPenalties || 0);
+            // Get service fee contributions
+            try {
+              const serviceFeeRef = doc(db, `groups/${groupId}/payments/${year}_ServiceFee/${currentUser.uid}/PaymentDetails`);
+              const serviceFeeDoc = await getDoc(serviceFeeRef);
+              
+              if (serviceFeeDoc.exists()) {
+                const feeData = serviceFeeDoc.data();
+                const amountPaid = parseFloat(feeData.amountPaid || 0);
+                const arrears = parseFloat(feeData.arrears || 0);
+                
+                // Only count approved payments
+                if (feeData.approvalStatus === "approved" || feeData.paymentStatus === "Paid") {
+                  totalContributed += amountPaid;
+                }
+                
+                // Only count arrears if payment is overdue
+                if (arrears > 0 && feeData.dueDate) {
+                  const dueDate = feeData.dueDate.toDate ? feeData.dueDate.toDate() : new Date(feeData.dueDate);
+                  if (dueDate < new Date()) {
+                    totalArrears += arrears;
+                  }
+                }
+              }
+            } catch (error) {
+              // Skip if document doesn't exist
+            }
           }
 
-          // Get user's loans
+          // Get user's loans (all time, not just current year)
           const loansRef = collection(db, `groups/${groupId}/loans`);
           const userLoansQuery = query(loansRef, where("borrowerId", "==", currentUser.uid));
           const loansSnapshot = await getDocs(userLoansQuery);
@@ -223,7 +299,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const repaid = parseFloat(loan.amountRepaid || 0);
             const totalRepayable = parseFloat(loan.totalRepayable || (amount + parseFloat(loan.totalInterest || 0)));
             
-            if (loan.status === "active" || loan.status === "approved" || loan.status === "disbursed") {
+            // Only count active/disbursed loans
+            if (loan.status === "active") {
               totalBorrowed += amount;
               const outstanding = Math.max(0, totalRepayable - repaid);
               totalLoanOutstanding += outstanding;
@@ -248,6 +325,15 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("userTotalArrears").textContent = formatCurrency(totalArrears);
       document.getElementById("userActiveLoans").textContent = activeLoansCount;
       document.getElementById("userGroupsCount").textContent = userGroups.length;
+      
+      console.log("User Overall Stats Loaded:", {
+        totalContributed,
+        totalBorrowed,
+        totalLoanOutstanding,
+        totalArrears,
+        activeLoansCount,
+        groupsCount: userGroups.length
+      });
     } catch (error) {
       console.error("Error loading user overall stats:", error);
     }

@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/admin-layout.css">
   <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
@@ -25,33 +26,16 @@
   </style>
 </head>
 <body>
-  <!-- Page Header -->
-  <header class="page-header">
-    <div class="page-header-container">
-      <div class="page-header-top">
-        <div class="page-header-nav">
-          <button class="page-back-btn" onclick="history.back()" aria-label="Go back">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
-          </button>
-          <div>
-            <h1 class="page-title">Broadcast</h1>
-            <p class="page-subtitle">Send notifications to members</p>
-          </div>
-        </div>
-      </div>
+  <!-- Sidebar, topbar, and mobile nav injected by admin-layout.js -->
+  <main class="main-content" id="mainContent">
+    <div class="dashboard-content">
 
       <div class="page-group-selector">
         <select id="groupSelector">
           <option value="">Select a group...</option>
         </select>
       </div>
-    </div>
-  </header>
 
-  <!-- Page Content -->
-  <main class="page-content">
     <!-- Compose Message -->
     <section class="content-section">
       <div class="content-section-header">
@@ -149,35 +133,10 @@
         </div>
       </div>
     </section>
+    </div>
   </main>
 
-  <!-- Mobile Navigation -->
-  <!-- Mobile Navigation -->
-  <nav class="mobile-nav">
-    <a href="admin_dashboard.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">🏠</span>
-      <span>Home</span>
-    </a>
-    <a href="manage_loans.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">💰</span>
-      <span>Loans</span>
-    </a>
-    <a href="manage_payments.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">💳</span>
-      <span>Payments</span>
-    </a>
-    <a href="analytics.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">📊</span>
-      <span>Analytics</span>
-    </a>
-    <a href="user_dashboard.html" class="mobile-nav-item" id="switchToUserViewMobile" style="display: none;">
-      <span class="mobile-nav-icon">👤</span>
-      <span>User View</span>
-    </a>
-  </nav>
 
-  <!-- Toast Container -->
-  <div class="toast-container" id="toastContainer"></div>
 
   <!-- Loading Overlay -->
   <div class="spinner-overlay hidden" id="spinner">
@@ -190,6 +149,10 @@
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+  <script type="module">
+    import { initAdminLayout } from '../scripts/admin-layout.js';
+    initAdminLayout({ pageTitle: 'Broadcast Notifications', activeNav: 'broadcast' });
+  </script>
   <script type="module" src="../scripts/broadcast_notifications.js"></script>
 </body>
 </html>

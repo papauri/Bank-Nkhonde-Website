@@ -67,13 +67,44 @@ function setupEventListeners() {
   document.getElementById("settingsBtn")?.addEventListener("click", () => {
     window.location.href = "settings.html";
   });
+
+  document.getElementById("profileBtn")?.addEventListener("click", () => {
+    window.location.href = "settings.html";
+  });
+
+  // Logout button (desktop nav)
+  document.getElementById("logoutBtn")?.addEventListener("click", async () => {
+    try {
+      await signOut(auth);
+      window.location.href = "../login.html";
+    } catch (error) {
+      console.error("Error signing out:", error);
+      window.location.href = "../login.html";
+    }
+  });
+
+  // handleSwitchToAdmin for this page
+  window.handleSwitchToAdmin = () => {
+    window.location.href = "admin_dashboard.html";
+  };
+
+  // handleMobileLogout for this page
+  window.handleMobileLogout = async () => {
+    try {
+      await signOut(auth);
+      window.location.href = "../login.html";
+    } catch (error) {
+      console.error("Error signing out:", error);
+      window.location.href = "../login.html";
+    }
+  };
   
   document.getElementById("notificationBtn")?.addEventListener("click", () => {
     window.location.href = "messages.html";
   });
   
   // Quick actions
-  document.getElementById("makePaymentBtn")?.addEventListener("click", (e) => {
+  document.getElementById("uploadPaymentBtn")?.addEventListener("click", (e) => {
     e.preventDefault();
     window.location.href = "manage_payments.html";
   });
@@ -132,6 +163,26 @@ function setupEventListeners() {
       currentGroup = userGroups.find(g => g.groupId === selectedGroupId);
       await loadDashboardData();
     }
+  });
+
+  // Modal close buttons
+  document.getElementById("closeLoanModal")?.addEventListener("click", () => {
+    const modal = document.getElementById("loanModal");
+    if (modal) { modal.classList.remove("active"); modal.classList.add("hidden"); }
+  });
+  document.getElementById("closePaymentModal")?.addEventListener("click", () => {
+    const modal = document.getElementById("paymentModal");
+    if (modal) { modal.classList.remove("active"); modal.classList.add("hidden"); }
+  });
+
+  // Form submit handlers (redirect to appropriate pages)
+  document.getElementById("loanForm")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    window.location.href = "manage_loans.html";
+  });
+  document.getElementById("paymentForm")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    window.location.href = "manage_payments.html";
   });
 }
 

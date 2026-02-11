@@ -66,6 +66,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const closePaymentDetailsModal = document.getElementById("closePaymentDetailsModal");
   const paymentDetailsTableContainer = document.getElementById("paymentDetailsTableContainer");
   const upcomingPaymentsModal = document.getElementById("upcomingPaymentsModal");
+  const arrearsModal = document.getElementById("arrearsModal");
+  const closeArrearsModal = document.getElementById("closeArrearsModal");
+  const closeArrearsModalFooter = document.getElementById("closeArrearsModalFooter");
+  const arrearsUploadPaymentBtn = document.getElementById("arrearsUploadPaymentBtn");
+  const arrearsTableContainer = document.getElementById("arrearsTableContainer");
+  const arrearsTotalEl = document.getElementById("arrearsTotal");
+  const arrearsCountEl = document.getElementById("arrearsCount");
+  const arrearsNextDueEl = document.getElementById("arrearsNextDue");
   
   // Payment Details button handler
   if (viewPaymentDetailsBtn) {
@@ -97,6 +105,70 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  // Arrears modal handlers
+  if (totalArrears) {
+    totalArrears.style.cursor = "pointer";
+    totalArrears.addEventListener("click", async () => {
+      const groupId = getSelectedGroupId();
+      if (!groupId) {
+        alert("Please select a group first from the group selection page.");
+        window.location.href = "select_group.html";
+        return;
+      }
+      await openArrearsModal(groupId);
+    });
+  }
+
+  if (closeArrearsModal) closeArrearsModal.addEventListener("click", () => hideArrearsModal());
+  if (closeArrearsModalFooter) closeArrearsModalFooter.addEventListener("click", () => hideArrearsModal());
+  if (arrearsModal) {
+    arrearsModal.addEventListener("click", (e) => {
+      if (e.target === arrearsModal) hideArrearsModal();
+    });
+  }
+
+  if (arrearsUploadPaymentBtn) {
+    arrearsUploadPaymentBtn.addEventListener("click", async () => {
+      const groupId = getSelectedGroupId();
+      if (!groupId) {
+        alert("Please select a group first from the group selection page.");
+        window.location.href = "select_group.html";
+        return;
+      }
+      
+      // Close arrears modal first
+      hideArrearsModal();
+      
+      // Reuse existing upload payment flow
+      if (paymentModal) {
+        paymentModal.classList.remove("hidden");
+        // Force proof of payment required
+        const proofInput = document.getElementById("paymentProof");
+        if (proofInput) proofInput.required = true;
+        
+        // Auto-select the current group
+        const paymentGroupSelect = document.getElementById("paymentGroup");
+        if (paymentGroupSelect) {
+          // Populate groups if empty
+          if (paymentGroupSelect.options.length <= 1) {
+            await populatePaymentGroupSelector(groupId);
+          }
+          // Select current group
+          paymentGroupSelect.value = groupId;
+        }
+        
+        // Set default payment date to today
+        const paymentDateInput = document.getElementById("paymentDate");
+        if (paymentDateInput) {
+          paymentDateInput.value = new Date().toISOString().split("T")[0];
+        }
+        
+        // Setup payment type auto-populate
+        await setupPaymentTypeAutoPopulate(groupId);
+      }
+    });
+  }
   const upcomingPaymentsModalList = document.getElementById("upcomingPaymentsModalList");
 
   let currentUser = null;
@@ -111,6 +183,121 @@ document.addEventListener("DOMContentLoaded", () => {
       minimumFractionDigits: 0, 
       maximumFractionDigits: 0 
     })}`;
+  }
+
+  // Show arrears modal with detailed table - ONLY shows past-due payments (true arrears)
+  async function openArrearsModal(groupId) {
+    if (!arrearsModal || !arrearsTableContainer) return;
+
+    arrearsModal.classList.remove("hidden");
+    arrearsModal.style.display = "flex";
+    arrearsTableContainer.innerHTML = '<div class="loading">Loading arrears...</div>';
+
+    try {
+      // Get today's date - only show payments where due date is BEFORE today (true arrears)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Row click callback - opens payment modal with pre-filled data
+      const handleRowClick = async (payment) => {
+        if (!paymentModal) return;
+        
+        // Close arrears modal first
+        hideArrearsModal();
+        
+        // Open payment modal
+        paymentModal.classList.remove("hidden");
+        
+        // Force proof of payment required
+        const proofInput = document.getElementById("paymentProof");
+        if (proofInput) proofInput.required = true;
+        
+        // Auto-select the current group
+        const paymentGroupSelect = document.getElementById("paymentGroup");
+        if (paymentGroupSelect) {
+          if (paymentGroupSelect.options.length <= 1) {
+            await populatePaymentGroupSelector(groupId);
+          }
+          paymentGroupSelect.value = groupId;
+        }
+        
+        // Pre-fill payment type based on arrears type
+        const paymentTypeSelect = document.getElementById("paymentType");
+        if (paymentTypeSelect && payment.paymentTypeKey) {
+          paymentTypeSelect.value = payment.paymentTypeKey;
+          
+          // Trigger change event to activate auto-populate handler and show helper
+          paymentTypeSelect.dispatchEvent(new Event("change"));
+        }
+        
+        // Pre-fill the arrears amount (after triggering change event so auto-populate doesn't overwrite)
+        const paymentAmountInput = document.getElementById("paymentAmount");
+        if (paymentAmountInput && payment.arrears > 0) {
+          paymentAmountInput.value = payment.arrears;
+        }
+        
+        // Set default payment date to today
+        const paymentDateInput = document.getElementById("paymentDate");
+        if (paymentDateInput) {
+          paymentDateInput.value = new Date().toISOString().split("T")[0];
+        }
+        
+        // Override helper text with arrear-specific message
+        let helperText = document.getElementById("paymentAmountHelper");
+        if (!helperText) {
+          helperText = document.createElement("p");
+          helperText.id = "paymentAmountHelper";
+          helperText.style.cssText = "font-size: 12px; color: var(--bn-gray); margin-top: 4px;";
+          paymentAmountInput.parentElement.appendChild(helperText);
+        }
+        helperText.innerHTML = `<span style="color: var(--bn-danger);">⚠️ Paying arrear for ${payment.type} (${payment.month ? payment.month + ' ' : ''}${payment.year}) - ${formatCurrency(payment.arrears)} overdue</span>`;
+      };
+
+      // Load payment details table with date filter - ONLY TRUE ARREARS (past due)
+      await loadPaymentDetailsTable(groupId, currentUser.uid, arrearsTableContainer, false, {
+        filterArrearsBeforeDate: today,
+        onRowClick: handleRowClick
+      });
+
+      // Calculate summary from filtered data
+      const rows = arrearsTableContainer.querySelectorAll("tbody tr");
+      let totalArrearsVal = 0;
+      let overdueCount = 0;
+      let oldestDueDate = null;
+
+      rows.forEach((row) => {
+        const arrearsCell = row.querySelector('td[data-label="Arrears"]');
+        const arrearsValue = arrearsCell?.textContent?.replace(/[^0-9.-]/g, "");
+        const arrearsNum = parseFloat(arrearsValue || "0");
+        if (arrearsNum > 0) {
+          totalArrearsVal += arrearsNum;
+          overdueCount += 1;
+        }
+      });
+
+      if (overdueCount === 0) {
+        arrearsTableContainer.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✅</div><p class="empty-state-text">You have no arrears. Great job!</p><p class="empty-state-text" style="font-size: 12px; margin-top: 8px;">All your payments are up to date.</p></div>';
+      }
+
+      if (arrearsTotalEl) arrearsTotalEl.textContent = formatCurrency(totalArrearsVal);
+      if (arrearsCountEl) arrearsCountEl.textContent = overdueCount.toString();
+      if (arrearsNextDueEl) {
+        arrearsNextDueEl.textContent = overdueCount > 0 ? "Overdue" : "-";
+      }
+
+      // Enforce proof-of-payment required when paying from arrears
+      const proofInput = document.getElementById("paymentProof");
+      if (proofInput) proofInput.required = true;
+    } catch (error) {
+      console.error("Error loading arrears details:", error);
+      arrearsTableContainer.innerHTML = '<div class="empty-state"><div class="empty-state-icon">❌</div><p class="empty-state-text">Failed to load arrears</p></div>';
+    }
+  }
+
+  function hideArrearsModal() {
+    if (!arrearsModal) return;
+    arrearsModal.classList.add("hidden");
+    arrearsModal.style.display = "none";
   }
 
   // Calculate and update active loans details
@@ -376,9 +563,9 @@ document.addEventListener("DOMContentLoaded", () => {
           });
           return `
             <tr>
-              <td>${payment.type}</td>
-              <td>${dateStr}</td>
-              <td style="text-align: right; font-weight: 600;">${formatCurrency(payment.amount)}</td>
+              <td data-label="Type" class="cell-bold">${payment.type}</td>
+              <td data-label="Date" class="cell-muted">${dateStr}</td>
+              <td data-label="Amount" class="cell-right cell-bold cell-nowrap">${formatCurrency(payment.amount)}</td>
             </tr>
           `;
         }).join('');
@@ -560,7 +747,13 @@ document.addEventListener("DOMContentLoaded", () => {
   async function handleLogout() {
     try {
       await signOut(auth);
-      sessionStorage.clear();
+      // Clear session data selectively to preserve user preferences
+      sessionStorage.removeItem('selectedGroupId');
+      sessionStorage.removeItem('isAdmin');
+      sessionStorage.removeItem('viewMode');
+      sessionStorage.removeItem('userRole');
+      localStorage.removeItem('selectedGroupId');
+      localStorage.removeItem('userEmail');
       window.location.href = "../login.html";
     } catch (error) {
       await logAuthError(error, "Logout", { action: "signOut" });
@@ -693,6 +886,23 @@ document.addEventListener("DOMContentLoaded", () => {
       return userGroups[0].groupId;
     }
     return selectedGroupId;
+  }
+
+  // Update current group display in top nav
+  function updateCurrentGroupDisplay() {
+    const displayEl = document.getElementById('currentGroupDisplay');
+    const nameEl = document.getElementById('currentGroupName');
+    const iconEl = document.getElementById('currentGroupIcon');
+    
+    if (!displayEl || !nameEl || !iconEl) return;
+    
+    if (currentGroup && currentGroup.groupName) {
+      displayEl.style.display = 'flex';
+      nameEl.textContent = currentGroup.groupName;
+      iconEl.textContent = currentGroup.groupName.charAt(0).toUpperCase();
+    } else {
+      displayEl.style.display = 'none';
+    }
   }
 
   // Fetch user's profile data
@@ -862,6 +1072,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // Load dashboard after group selection
   async function loadDashboardAfterGroupSelection(user) {
     if (!currentGroup || !user) return;
+    
+    // Update current group display in top nav
+    updateCurrentGroupDisplay();
     
     await loadDashboardData(currentGroup.groupId, user);
     await loadPaymentCalendar(currentGroup.groupId, user);
@@ -1422,7 +1635,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (scheduleItem && !scheduleItem.paid && scheduleItem.dueDate) {
               const dueDate = scheduleItem.dueDate.toDate ? scheduleItem.dueDate.toDate() : new Date(scheduleItem.dueDate);
               
-              // Include if within next year
+              // Only include if within next year and not past-due
               if (dueDate >= today && dueDate <= nextYear) {
                 const daysUntilDue = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
                 const amountDue = parseFloat(scheduleItem.amount || 0);
@@ -2189,6 +2402,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (paymentModal) {
         paymentModal.classList.remove("hidden");
+        const proofInput = document.getElementById("paymentProof");
+        if (proofInput) proofInput.required = true;
         // Populate group select in modal if exists
         const paymentGroupSelect = document.getElementById("paymentGroup");
         if (paymentGroupSelect) {
@@ -2255,7 +2470,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let amountsDue = {
       seed_money: 0,
       monthly_contribution: 0,
-      loan_repayment: 0
+      loan_repayment: 0,
+      service_fee: 0
     };
 
     try {
@@ -2325,6 +2541,25 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         } catch (e) {
           console.log("No active loans found");
+        }
+
+        // Get service fee arrears
+        try {
+          const serviceFeeAmount = parseFloat(groupData?.rules?.serviceFee?.amount || groupData?.serviceFeeAmount || 0);
+          if (serviceFeeAmount > 0) {
+            const serviceFeeRef = doc(db, `groups/${groupId}/payments/${currentYear}_ServiceFee/${currentUser.uid}/PaymentDetails`);
+            const serviceFeeDoc = await getDoc(serviceFeeRef);
+            if (serviceFeeDoc.exists()) {
+              const data = serviceFeeDoc.data();
+              // Use Math.max to prevent negative values
+              amountsDue.service_fee = Math.max(0, parseFloat(data.arrears || (serviceFeeAmount - parseFloat(data.amountPaid || 0))));
+            } else {
+              // No record exists, full amount is due
+              amountsDue.service_fee = serviceFeeAmount;
+            }
+          }
+        } catch (e) {
+          console.log("No service fee found");
         }
       }
     } catch (e) {

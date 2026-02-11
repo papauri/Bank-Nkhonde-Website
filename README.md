@@ -4,8 +4,8 @@ A comprehensive digital platform for managing ROSCAs (Rotating Savings and Credi
 
 ## 📚 Documentation
 
-- **[ABOUT_BANK_NKHONDE.md](ABOUT_BANK_NKHONDE.md)** - Complete overview of what Bank Nkhonde is and how it works (for users and stakeholders)
-- **[TECHNICAL_DOCUMENTATION.md](TECHNICAL_DOCUMENTATION.md)** - Full technical documentation for developers
+- **[APP_DOCUMENTATION.md](APP_DOCUMENTATION.md)** - Comprehensive application guide covering all features, workflows, architecture, and UI/UX
+- **[DATABASE_DOCUMENTATION.md](DATABASE_DOCUMENTATION.md)** - Complete database schema, relationships, security rules, and design patterns
 
 ## Features
 

@@ -751,45 +751,241 @@ p {
    ============================================ */
 .table-container {
   overflow-x: auto;
-  border-radius: var(--bn-radius-xl);
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--bn-radius-lg);
   border: 1px solid var(--bn-gray-lighter);
   background: var(--bn-white);
 }
 
-.table {
+.table,
+.data-table table,
+table.data-table {
   width: 100%;
   border-collapse: collapse;
+  background: var(--bn-white);
 }
 
-.table th {
-  padding: var(--bn-space-4) var(--bn-space-5);
+.table th,
+.data-table table th,
+table.data-table th {
+  padding: var(--bn-space-3) var(--bn-space-4);
   text-align: left;
   font-size: var(--bn-text-xs);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--bn-gray);
   text-transform: uppercase;
   letter-spacing: var(--bn-tracking-wider);
   background: var(--bn-gray-100);
-  border-bottom: 1px solid var(--bn-gray-lighter);
+  border-bottom: 2px solid var(--bn-gray-lighter);
+  white-space: nowrap;
 }
 
-.table td {
-  padding: var(--bn-space-4) var(--bn-space-5);
+.table td,
+.data-table table td,
+table.data-table td {
+  padding: var(--bn-space-3) var(--bn-space-4);
   border-bottom: 1px solid var(--bn-gray-lighter);
   color: var(--bn-dark);
   font-size: var(--bn-text-sm);
+  vertical-align: middle;
 }
 
-.table tbody tr {
+.table tbody tr,
+.data-table table tbody tr,
+table.data-table tbody tr {
   transition: background var(--bn-transition-fast);
 }
 
-.table tbody tr:hover {
+.table tbody tr:hover,
+.data-table table tbody tr:hover,
+table.data-table tbody tr:hover {
+  background: var(--bn-gray-50, #f9fafb);
+}
+
+.table tbody tr:nth-child(even),
+.data-table table tbody tr:nth-child(even),
+table.data-table tbody tr:nth-child(even) {
+  background: var(--bn-gray-50, #f9fafb);
+}
+
+.table tbody tr:nth-child(even):hover,
+.data-table table tbody tr:nth-child(even):hover,
+table.data-table tbody tr:nth-child(even):hover {
   background: var(--bn-gray-100);
 }
 
-.table tbody tr:last-child td {
+.table tbody tr:last-child td,
+.data-table table tbody tr:last-child td,
+table.data-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+/* Table cell utility classes */
+.table .cell-right  { text-align: right; }
+.table .cell-center { text-align: center; }
+.table .cell-bold   { font-weight: 600; }
+.table .cell-muted  { color: var(--bn-gray); }
+.table .cell-nowrap { white-space: nowrap; }
+.table .cell-name   { font-weight: 600; color: var(--bn-dark); }
+.table .cell-success { color: var(--bn-success); font-weight: 600; }
+.table .cell-danger  { color: var(--bn-danger); font-weight: 600; }
+.table .cell-warning { color: var(--bn-warning); font-weight: 600; }
+
+/* Totals footer row */
+.table tfoot td,
+.table tr.table-totals td {
+  font-weight: 700;
+  background: var(--bn-primary);
+  color: var(--bn-white);
+  padding: var(--bn-space-3) var(--bn-space-4);
+  border-bottom: none;
+  font-size: var(--bn-text-sm);
+}
+
+.table tfoot tr:first-child td,
+.table tr.table-totals td {
+  border-top: 2px solid var(--bn-primary-dark, var(--bn-primary));
+}
+
+/* Alternate totals style (gray) */
+.table tfoot.totals-gray td,
+.table tr.table-totals-gray td {
+  background: var(--bn-gray-100);
+  color: var(--bn-dark);
+  font-weight: 700;
+}
+
+/* ============================================
+   RESPONSIVE TABLES — card layout on mobile
+   ============================================ */
+@media (max-width: 768px) {
+  .table-container {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    overflow: visible;
+  }
+
+  .table-responsive thead,
+  .table-responsive th {
+    display: none;
+  }
+
+  .table-responsive,
+  .table-responsive tbody,
+  .table-responsive tr,
+  .table-responsive td {
+    display: block;
+    width: 100%;
+  }
+
+  .table-responsive tbody tr {
+    background: var(--bn-white);
+    border: 1px solid var(--bn-gray-lighter);
+    border-radius: var(--bn-radius-md);
+    margin-bottom: var(--bn-space-3);
+    padding: var(--bn-space-3) var(--bn-space-4);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  .table-responsive tbody tr:nth-child(even) {
+    background: var(--bn-white);
+  }
+
+  .table-responsive tbody tr:hover {
+    background: var(--bn-gray-50, #f9fafb);
+  }
+
+  .table-responsive td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--bn-gray-100);
+    font-size: var(--bn-text-sm);
+    text-align: right;
+    white-space: normal;
+    word-break: break-word;
+    gap: 8px;
+  }
+
+  .table-responsive td:last-child {
+    border-bottom: none;
+  }
+
+  /* Hide empty colspan cells on mobile (e.g. tfoot spacers) */
+  .table-responsive td[data-label=""],
+  .table-responsive td:empty {
+    display: none;
+  }
+
+  /* Show the column label from data-label attr */
+  .table-responsive td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--bn-gray);
+    font-size: var(--bn-text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    text-align: left;
+    flex-shrink: 0;
+    min-width: 80px;
+    max-width: 35%;
+  }
+
+  /* Reset alignment helpers on mobile */
+  .table-responsive .cell-right,
+  .table-responsive .cell-center {
+    text-align: right;
+  }
+
+  /* Ensure cell-nowrap does NOT apply on mobile */
+  .table-responsive .cell-nowrap {
+    white-space: normal;
+  }
+
+  /* Totals card on mobile */
+  .table-responsive tfoot tr,
+  .table-responsive tr.table-totals {
+    background: var(--bn-primary) !important;
+    border-color: var(--bn-primary);
+    color: var(--bn-white);
+    border-radius: var(--bn-radius-md);
+  }
+
+  .table-responsive tfoot td,
+  .table-responsive tr.table-totals td {
+    color: var(--bn-white);
+    border-bottom-color: rgba(255,255,255,0.15);
+    padding: 6px 0;
+  }
+
+  .table-responsive tfoot td::before,
+  .table-responsive tr.table-totals td::before {
+    color: rgba(255,255,255,0.7);
+  }
+
+  .table-responsive .cell-success,
+  .table-responsive .cell-danger {
+    font-weight: 700;
+  }
+}
+
+/* Keep scroll approach for tables that are NOT .table-responsive */
+@media (max-width: 768px) {
+  .table-container:has(.table:not(.table-responsive)) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--bn-gray-lighter);
+    border-radius: var(--bn-radius-md);
+    background: var(--bn-white);
+  }
+
+  .table:not(.table-responsive) th,
+  .table:not(.table-responsive) td {
+    padding: var(--bn-space-2) var(--bn-space-3);
+    font-size: var(--bn-text-xs);
+  }
 }
 
 /* ============================================
@@ -979,6 +1175,25 @@ p {
   box-shadow: var(--bn-shadow-xl);
   transform: scale(0.95) translateY(20px);
   transition: transform var(--bn-transition-base);
+}
+
+/* Wider modal when it contains a table */
+.modal-content:has(.table-container),
+.modal-content:has(.table),
+.modal-content.modal-wide {
+  max-width: 900px;
+}
+
+@media (max-width: 768px) {
+  .modal-content:has(.table-container),
+  .modal-content:has(.table),
+  .modal-content.modal-wide {
+    max-width: 100%;
+  }
+  .modal-content {
+    max-width: 100%;
+    border-radius: var(--bn-radius-lg);
+  }
 }
 
 .modal-overlay.active .modal-content,

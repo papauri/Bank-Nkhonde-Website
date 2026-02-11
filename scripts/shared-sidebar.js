@@ -515,13 +515,21 @@ function setupSidebarListeners(isAdmin) {
       if (confirm('Are you sure you want to logout?')) {
         try {
           await signOut(auth);
-          // Only clear session-related data, not all sessionStorage
-          const groupId = sessionStorage.getItem('selectedGroupId');
-          sessionStorage.clear();
-          localStorage.clear();
+          // Clear session data selectively to avoid breaking functionality
+          // Clear authentication-related data
+          sessionStorage.removeItem('selectedGroupId');
+          sessionStorage.removeItem('isAdmin');
+          sessionStorage.removeItem('viewMode');
+          sessionStorage.removeItem('userRole');
+          // Clear localStorage authentication data
+          localStorage.removeItem('selectedGroupId');
+          localStorage.removeItem('userEmail');
+          // Redirect to login
           window.location.href = "../login.html";
         } catch (error) {
           console.error("Error signing out:", error);
+          // Show user-friendly error
+          alert('Failed to logout. Please try again.');
         }
       }
     });

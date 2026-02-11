@@ -136,6 +136,7 @@ function setupEventListeners() {
   setupModalCloseHandlers("recordPaymentModal", "closeRecordPaymentModal", "cancelRecordPayment");
   setupModalCloseHandlers("loanSettingsModal", "closeLoanSettingsModal", "cancelLoanSettings");
   setupModalCloseHandlers("communicationsModal", "closeCommunicationsModal", "cancelCommunications");
+  setupModalCloseHandlers("forcedLoansConfigModal", "closeForcedLoansConfigModal", "cancelForcedLoansConfig");
 
   // Form submissions
   document.getElementById("newLoanForm")?.addEventListener("submit", handleNewLoan);
@@ -156,6 +157,18 @@ function setupEventListeners() {
 
   // Message type change
   document.getElementById("messageType")?.addEventListener("change", updateMessageTemplate);
+  
+  // Forced Loans
+  document.getElementById("forcedLoansToggle")?.addEventListener("change", handleForcedLoansToggle);
+  document.getElementById("configForcedLoansBtn")?.addEventListener("click", openForcedLoansConfigModal);
+  document.getElementById("calculateForcedLoansBtn")?.addEventListener("click", calculateForcedLoans);
+  document.getElementById("forcedLoansConfigForm")?.addEventListener("submit", handleSaveForcedLoansConfig);
+  
+  // Show/hide percentage threshold field based on method selection
+  document.getElementById("forcedLoansMethod")?.addEventListener("change", (e) => {
+    const percentageGroup = document.getElementById("percentageThresholdGroup");
+    percentageGroup.style.display = e.target.value === "percentage_of_highest" ? "block" : "none";
+  });
 }
 
 function setupModalCloseHandlers(modalId, closeBtn1, closeBtn2) {
@@ -256,6 +269,12 @@ async function loadGroupData() {
     // Load loans
     await loadLoans();
 
+    // Load pending loan payments
+    await loadPendingLoanPayments();
+
+    // Initialize forced loans section
+    await initializeForcedLoansSection();
+
     // Update stats
     updateStats();
 
@@ -355,6 +374,274 @@ async function loadLoans() {
   }
 }
 
+// Load pending loan payments
+let pendingLoanPayments = [];
+
+async function loadPendingLoanPayments() {
+  pendingLoanPayments = [];
+  
+  try {
+    if (!selectedGroupId) return;
+    
+    // Get all active and disbursed loans
+    const activeLoans = loans.filter(l => l.status === "active" || l.status === "disbursed");
+    
+    // Load pending payments for each active loan
+    for (const loan of activeLoans) {
+      const paymentsRef = collection(db, `groups/${selectedGroupId}/loans/${loan.id}/payments`);
+      const q = query(paymentsRef, where("status", "==", "pending"));
+      const paymentsSnapshot = await getDocs(q);
+      
+      paymentsSnapshot.forEach(paymentDoc => {
+        pendingLoanPayments.push({
+          id: paymentDoc.id,
+          ...paymentDoc.data(),
+          loanId: loan.id,
+          loanReference: `#${loan.id.substring(0, 8).toUpperCase()}`,
+          borrowerName: members.find(m => m.id === loan.borrowerId)?.fullName || "Unknown"
+        });
+      });
+    }
+    
+    // Sort by submission date (most recent first)
+    pendingLoanPayments.sort((a, b) => {
+      const dateA = a.submittedAt?.toDate ? a.submittedAt.toDate() : new Date(0);
+      const dateB = b.submittedAt?.toDate ? b.submittedAt.toDate() : new Date(0);
+      return dateB - dateA;
+    });
+    
+    console.log(`Loaded ${pendingLoanPayments.length} pending loan payments`);
+    
+    // Display pending payments
+    displayPendingLoanPayments();
+    
+  } catch (error) {
+    console.error("Error loading pending loan payments:", error);
+  }
+}
+
+// Display pending loan payments
+function displayPendingLoanPayments() {
+  const container = document.getElementById("pendingLoanPaymentsList");
+  const badge = document.getElementById("pendingPaymentsCountBadge");
+  const section = document.getElementById("pendingLoanPaymentsSection");
+  
+  if (!container) return;
+  
+  // Update badge
+  if (badge) {
+    badge.textContent = pendingLoanPayments.length;
+  }
+  
+  // Hide section if no pending payments
+  if (section) {
+    section.style.display = pendingLoanPayments.length > 0 ? "block" : "none";
+  }
+  
+  if (pendingLoanPayments.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✅</div><p class="empty-state-text">No pending payments to review</p></div>';
+    return;
+  }
+  
+  container.innerHTML = '';
+  
+  pendingLoanPayments.forEach(payment => {
+    const paymentCard = createPendingPaymentCard(payment);
+    container.appendChild(paymentCard);
+  });
+}
+
+// Create pending payment card
+function createPendingPaymentCard(payment) {
+  const div = document.createElement("div");
+  div.className = "list-item";
+  div.style.cssText = "background: var(--bn-white); border: 1px solid var(--bn-gray-lighter); border-radius: var(--bn-radius-lg); padding: var(--bn-space-4); margin-bottom: var(--bn-space-3);";
+  
+  const amount = parseFloat(payment.amount || 0);
+  const submittedDate = payment.submittedAt?.toDate ? payment.submittedAt.toDate().toLocaleDateString() : "N/A";
+  const paymentDate = payment.paymentDate?.toDate ? payment.paymentDate.toDate().toLocaleDateString() : "N/A";
+  
+  div.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--bn-space-4);">
+      <div style="flex: 1;">
+        <div style="display: flex; align-items: center; gap: var(--bn-space-2); margin-bottom: var(--bn-space-2);">
+          <span style="font-size: 1.25rem;">💳</span>
+          <div>
+            <div style="font-weight: 700; font-size: var(--bn-text-md);">${formatCurrency(amount)}</div>
+            <div style="font-size: var(--bn-text-sm); color: var(--bn-gray);">${payment.borrowerName} • Loan ${payment.loanReference}</div>
+          </div>
+        </div>
+        <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: var(--bn-space-2);">
+          <div>Payment Date: ${paymentDate} • Submitted: ${submittedDate}</div>
+          ${payment.notes ? `<div style="margin-top: 4px;">📝 ${payment.notes}</div>` : ''}
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: var(--bn-space-2); align-items: flex-end;">
+        ${payment.proofUrl ? `<a href="${payment.proofUrl}" target="_blank" class="btn btn-ghost btn-sm" style="white-space: nowrap;">View Proof</a>` : ''}
+        <div style="display: flex; gap: var(--bn-space-2);">
+          <button class="btn btn-success btn-sm" onclick="approveLoanPayment('${payment.loanId}', '${payment.id}')" style="white-space: nowrap;">✓ Approve</button>
+          <button class="btn btn-danger btn-sm" onclick="rejectLoanPayment('${payment.loanId}', '${payment.id}')" style="white-space: nowrap;">✗ Reject</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  return div;
+}
+
+// Approve loan payment
+window.approveLoanPayment = async function(loanId, paymentId) {
+  if (!confirm("Approve this loan payment?")) return;
+  
+  showSpinner(true);
+  
+  try {
+    // Get payment data
+    const paymentDoc = await getDoc(doc(db, `groups/${selectedGroupId}/loans/${loanId}/payments`, paymentId));
+    if (!paymentDoc.exists()) {
+      showToast("Payment not found", "error");
+      return;
+    }
+    
+    const payment = paymentDoc.data();
+    const amount = parseFloat(payment.amount || 0);
+    
+    // Get loan data
+    const loanDoc = await getDoc(doc(db, `groups/${selectedGroupId}/loans`, loanId));
+    if (!loanDoc.exists()) {
+      showToast("Loan not found", "error");
+      return;
+    }
+    
+    const loan = loanDoc.data();
+    const loanAmount = parseFloat(loan.amount || loan.loanAmount || 0);
+    const totalRepayable = parseFloat(loan.totalRepayable || loanAmount);
+    const currentRepaid = parseFloat(loan.amountRepaid || 0);
+    const newRepaid = currentRepaid + amount;
+    const remaining = Math.max(0, totalRepayable - newRepaid);
+    const newStatus = remaining <= 0 ? "repaid" : "active";
+    
+    // Update payment status
+    await updateDoc(doc(db, `groups/${selectedGroupId}/loans/${loanId}/payments`, paymentId), {
+      status: "approved",
+      approvedBy: currentUser.uid,
+      approvedAt: Timestamp.now(),
+      updatedAt: Timestamp.now()
+    });
+    
+    // Update loan
+    await updateDoc(doc(db, `groups/${selectedGroupId}/loans`, loanId), {
+      amountRepaid: newRepaid,
+      status: newStatus,
+      lastPaymentDate: payment.paymentDate || Timestamp.now(),
+      lastPaymentAmount: amount,
+      updatedAt: Timestamp.now(),
+      ...(newStatus === "repaid" && { 
+        repaidAt: Timestamp.now(),
+        remainingBalance: 0
+      }),
+      ...(newStatus === "active" && {
+        remainingBalance: remaining
+      })
+    });
+    
+    // Update member financial summary
+    const memberRef = doc(db, `groups/${selectedGroupId}/members`, loan.borrowerId);
+    const memberDoc = await getDoc(memberRef);
+    if (memberDoc.exists()) {
+      const financialSummary = memberDoc.data().financialSummary || {};
+      await updateDoc(memberRef, {
+        "financialSummary.totalLoansPaid": Math.round(((parseFloat(financialSummary.totalLoansPaid || 0)) + amount) * 100) / 100,
+        ...(newStatus === "repaid" && {
+          "financialSummary.activeLoans": Math.max(0, (parseInt(financialSummary.activeLoans || 1)) - 1)
+        }),
+        "financialSummary.lastUpdated": Timestamp.now(),
+      });
+    }
+    
+    // Send notification to borrower
+    await addDoc(collection(db, `groups/${selectedGroupId}/notifications`), {
+      userId: loan.borrowerId,
+      recipientId: loan.borrowerId,
+      type: newStatus === "repaid" ? "loan_repaid" : "loan_payment_approved",
+      title: newStatus === "repaid" ? "🎉 Loan Fully Repaid!" : "Loan Payment Approved",
+      message: newStatus === "repaid" 
+        ? `Congratulations! Your loan has been fully repaid. Final payment of ${formatCurrency(amount)} approved.\n\nTotal Repaid: ${formatCurrency(newRepaid)}\nLoan Amount: ${formatCurrency(loanAmount)}\nTotal Interest: ${formatCurrency(parseFloat(loan.totalInterest || 0))}`
+        : `Your loan payment of ${formatCurrency(amount)} has been approved.\n\nRemaining balance: ${formatCurrency(remaining)}\nTotal repaid: ${formatCurrency(newRepaid)} of ${formatCurrency(totalRepayable)}`,
+      loanId: loanId,
+      groupId: selectedGroupId,
+      groupName: groupData?.groupName || "Unknown Group",
+      senderId: currentUser.uid,
+      createdAt: Timestamp.now(),
+      read: false,
+    });
+    
+    showToast(newStatus === "repaid" ? "Payment approved - Loan fully repaid!" : "Payment approved successfully", "success");
+    await loadGroupData();
+    
+  } catch (error) {
+    console.error("Error approving payment:", error);
+    showToast("Failed to approve payment: " + error.message, "error");
+  } finally {
+    showSpinner(false);
+  }
+};
+
+// Reject loan payment
+window.rejectLoanPayment = async function(loanId, paymentId) {
+  const reason = prompt("Please provide a reason for rejecting this payment:");
+  if (!reason) return;
+  
+  showSpinner(true);
+  
+  try {
+    // Get payment and loan data for notification
+    const paymentDoc = await getDoc(doc(db, `groups/${selectedGroupId}/loans/${loanId}/payments`, paymentId));
+    const loanDoc = await getDoc(doc(db, `groups/${selectedGroupId}/loans`, loanId));
+    
+    if (!paymentDoc.exists() || !loanDoc.exists()) {
+      showToast("Payment or loan not found", "error");
+      return;
+    }
+    
+    const payment = paymentDoc.data();
+    const loan = loanDoc.data();
+    
+    // Update payment status
+    await updateDoc(doc(db, `groups/${selectedGroupId}/loans/${loanId}/payments`, paymentId), {
+      status: "rejected",
+      rejectedBy: currentUser.uid,
+      rejectedAt: Timestamp.now(),
+      adminNotes: reason,
+      updatedAt: Timestamp.now()
+    });
+    
+    // Send notification to borrower
+    await addDoc(collection(db, `groups/${selectedGroupId}/notifications`), {
+      userId: loan.borrowerId,
+      recipientId: loan.borrowerId,
+      type: "loan_payment_rejected",
+      title: "Loan Payment Rejected",
+      message: `Your loan payment of ${formatCurrency(payment.amount)} has been rejected.\n\nReason: ${reason}\n\nPlease resubmit with correct information or contact admin for clarification.`,
+      loanId: loanId,
+      groupId: selectedGroupId,
+      groupName: groupData?.groupName || "Unknown Group",
+      senderId: currentUser.uid,
+      createdAt: Timestamp.now(),
+      read: false,
+    });
+    
+    showToast("Payment rejected", "success");
+    await loadGroupData();
+    
+  } catch (error) {
+    console.error("Error rejecting payment:", error);
+    showToast("Failed to reject payment: " + error.message, "error");
+  } finally {
+    showSpinner(false);
+  }
+};
+
 // Update stats
 function updateStats() {
   const pending = loans.filter((l) => l.status === "pending").length;
@@ -406,11 +693,11 @@ function renderLoans() {
       filteredLoans = loans.filter((l) => l.status === "approved");
       break;
     case "disbursed":
-      // Show only disbursed loans (fully disbursed and working)
-      filteredLoans = loans.filter((l) => l.status === "disbursed");
+      // Show disbursed loans (status is "active" with disbursedAt field)
+      filteredLoans = loans.filter((l) => l.status === "active" && l.disbursedAt);
       break;
     case "active":
-      // Show only active loans (not disbursed status, just active)
+      // Show all active loans (same as disbursed - all active loans are disbursed)
       filteredLoans = loans.filter((l) => l.status === "active");
       break;
     case "repaid":
@@ -421,7 +708,7 @@ function renderLoans() {
       break;
     case "overdue":
       filteredLoans = loans.filter((l) => {
-        if (l.status !== "active" && l.status !== "disbursed") return false;
+        if (l.status !== "active") return false;
         const dueDate = l.dueDate?.toDate ? l.dueDate.toDate() : new Date(l.dueDate);
         return dueDate < today;
       });
@@ -818,9 +1105,9 @@ async function disburseLoan(loanId) {
     }
 
     // Get member account information for notification
-    const memberRef = doc(db, `groups/${selectedGroupId}/members`, loan.borrowerId);
-    const memberDoc = await getDoc(memberRef);
-    const memberData = memberDoc.exists() ? memberDoc.data() : {};
+    const memberRefForNotif = doc(db, `groups/${selectedGroupId}/members`, loan.borrowerId);
+    const memberDocForNotif = await getDoc(memberRefForNotif);
+    const memberData = memberDocForNotif.exists() ? memberDocForNotif.data() : {};
     const accountNumber = memberData.accountNumber ? `****${memberData.accountNumber.slice(-4)}` : 'Not provided';
     const bankName = memberData.bankName || 'Not provided';
     const accountInfo = (memberData.accountNumber || memberData.bankName) 
@@ -1576,4 +1863,444 @@ function showToast(message, type = "info") {
     toast.classList.remove("show");
     setTimeout(() => toast.remove(), 300);
   }, 4000);
+}
+// ============================================
+// FORCED LOANS MANAGEMENT
+// ============================================
+
+async function handleForcedLoansToggle(e) {
+  const isEnabled = e.target.checked;
+  const statusEl = document.getElementById("forcedLoansStatus");
+  const configBtn = document.getElementById("configForcedLoansBtn");
+  const calculateBtn = document.getElementById("calculateForcedLoansBtn");
+  const configDiv = document.getElementById("forcedLoansConfig");
+  const emptyState = document.getElementById("forcedLoansEmptyState");
+  
+  if (!selectedGroupId) {
+    showToast("Please select a group first", "warning");
+    e.target.checked = false;
+    return;
+  }
+  
+  try {
+    // Update group settings
+    const groupRef = doc(db, "groups", selectedGroupId);
+    await updateDoc(groupRef, {
+      'settings.forcedLoans.enabled': isEnabled,
+      updatedAt: new Date()
+    });
+    
+    // Update UI
+    statusEl.textContent = isEnabled ? "Enabled" : "Disabled";
+    configBtn.style.display = isEnabled ? "block" : "none";
+    calculateBtn.style.display = isEnabled ? "block" : "none";
+    
+    if (isEnabled) {
+      // Load config if exists, otherwise show default
+      await loadForcedLoansConfig();
+      configDiv.style.display = "block";
+      emptyState.style.display = "none";
+    } else {
+      configDiv.style.display = "none";
+      emptyState.style.display = "block";
+      document.getElementById("forcedLoansResults").style.display = "none";
+    }
+    
+    showToast(`Forced loans ${isEnabled ? 'enabled' : 'disabled'}`, "success");
+  } catch (error) {
+    console.error("Error toggling forced loans:", error);
+    showToast("Error updating settings", "error");
+    e.target.checked = !isEnabled;
+  }
+}
+
+async function loadForcedLoansConfig() {
+  if (!groupData) return;
+  
+  const config = groupData.settings?.forcedLoans || {
+    enabled: false,
+    method: 'match_highest',
+    period: 'monthly',
+    minDeficit: 1000,
+    percentageThreshold: 80,
+    autoGenerate: false,
+    notifyMembers: true
+  };
+  
+  // Update UI with config
+  document.getElementById("configMethod").textContent = 
+    config.method === 'match_highest' ? 'Match Highest Interest Payer' :
+    config.method === 'match_average' ? 'Match Average Interest' :
+    `${config.percentageThreshold || 80}% of Highest`;
+    
+  document.getElementById("configPeriod").textContent = 
+    config.period.charAt(0).toUpperCase() + config.period.slice(1);
+    
+  document.getElementById("configMinDeficit").textContent = formatCurrency(config.minDeficit || 1000);
+}
+
+function openForcedLoansConfigModal() {
+  const config = groupData.settings?.forcedLoans || {};
+  
+  // Populate form with existing config
+  document.getElementById("forcedLoansMethod").value = config.method || 'match_highest';
+  document.getElementById("forcedLoansPeriod").value = config.period || 'monthly';
+  document.getElementById("minDeficitAmount").value = config.minDeficit || 1000;
+  document.getElementById("percentageThreshold").value = config.percentageThreshold || 80;
+  document.getElementById("autoGenerateLoans").checked = config.autoGenerate || false;
+  document.getElementById("notifyMembers").checked = config.notifyMembers !== false;
+  
+  // Show/hide percentage field
+  const percentageGroup = document.getElementById("percentageThresholdGroup");
+  percentageGroup.style.display = config.method === "percentage_of_highest" ? "block" : "none";
+  
+  const modal = document.getElementById("forcedLoansConfigModal");
+  if (window.openModal) {
+    window.openModal("forcedLoansConfigModal");
+  } else {
+    modal?.classList.add("active");
+    modal?.classList.remove("hidden");
+    if (modal) modal.style.display = "flex";
+  }
+}
+
+async function handleSaveForcedLoansConfig(e) {
+  e.preventDefault();
+  
+  if (!selectedGroupId) {
+    showToast("Please select a group first", "warning");
+    return;
+  }
+  
+  const config = {
+    enabled: true,
+    method: document.getElementById("forcedLoansMethod").value,
+    period: document.getElementById("forcedLoansPeriod").value,
+    minDeficit: parseFloat(document.getElementById("minDeficitAmount").value),
+    percentageThreshold: parseFloat(document.getElementById("percentageThreshold").value),
+    autoGenerate: document.getElementById("autoGenerateLoans").checked,
+    notifyMembers: document.getElementById("notifyMembers").checked,
+    updatedAt: new Date().toISOString(),
+    updatedBy: currentUser.uid
+  };
+  
+  try {
+    showSpinner(true);
+    const groupRef = doc(db, "groups", selectedGroupId);
+    await updateDoc(groupRef, {
+      'settings.forcedLoans': config,
+      updatedAt: new Date()
+    });
+    
+    groupData.settings = groupData.settings || {};
+    groupData.settings.forcedLoans = config;
+    
+    await loadForcedLoansConfig();
+    
+    // Close modal
+    const modal = document.getElementById("forcedLoansConfigModal");
+    if (window.closeModal) {
+      window.closeModal("forcedLoansConfigModal");
+    } else {
+      modal?.classList.remove("active");
+      modal?.classList.add("hidden");
+      if (modal) modal.style.display = "none";
+    }
+    
+    showToast("Configuration saved successfully!", "success");
+  } catch (error) {
+    console.error("Error saving forced loans config:", error);
+    showToast("Error saving configuration", "error");
+  } finally {
+    showSpinner(false);
+  }
+}
+
+async function calculateForcedLoans() {
+  if (!selectedGroupId) {
+    showToast("Please select a group first", "warning");
+    return;
+  }
+  
+  const config = groupData.settings?.forcedLoans;
+  if (!config || !config.enabled) {
+    showToast("Please enable and configure forced loans first", "warning");
+    return;
+  }
+  
+  if (!confirm("This will calculate and potentially create forced loans for members with interest deficits. Continue?")) {
+    return;
+  }
+  
+  try {
+    showSpinner(true);
+    
+    // Calculate interest paid by each member
+    const memberInterest = await calculateMemberInterest(config.period);
+    
+    if (memberInterest.length === 0) {
+      showToast("No interest payments found for the selected period", "info");
+      return;
+    }
+    
+    // Find highest interest payer
+    const highestInterest = Math.max(...memberInterest.map(m => m.totalInterest));
+    const avgInterest = memberInterest.reduce((sum, m) => sum + m.totalInterest, 0) / memberInterest.length;
+    
+    // Calculate target based on method
+    let targetInterest = 0;
+    if (config.method === 'match_highest') {
+      targetInterest = highestInterest;
+    } else if (config.method === 'match_average') {
+      targetInterest = avgInterest;
+    } else if (config.method === 'percentage_of_highest') {
+      targetInterest = highestInterest * (config.percentageThreshold / 100);
+    }
+    
+    // Identify members with deficits
+    const forcedLoansToCreate = [];
+    for (const member of memberInterest) {
+      const deficit = targetInterest - member.totalInterest;
+      if (deficit > config.minDeficit) {
+        forcedLoansToCreate.push({
+          userId: member.userId,
+          userName: member.userName,
+          interestPaid: member.totalInterest,
+          targetInterest: targetInterest,
+          deficit: deficit
+        });
+      }
+    }
+    
+    // Display results
+    displayForcedLoansResults(forcedLoansToCreate, highestInterest, targetInterest);
+    
+    if (forcedLoansToCreate.length > 0 && 
+        confirm(`Found ${forcedLoansToCreate.length} member(s) with deficits. Create forced loans now?`)) {
+      await createForcedLoansInBatch(forcedLoansToCreate, config);
+    }
+    
+  } catch (error) {
+    console.error("Error calculating forced loans:", error);
+    showToast("Error calculating forced loans", "error");
+  } finally {
+    showSpinner(false);
+  }
+}
+
+async function calculateMemberInterest(period) {
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
+  const membersRef = collection(db, "groups", selectedGroupId, "members");
+  const membersSnapshot = await getDocs(membersRef);
+  
+  const results = [];
+  
+  for (const memberDoc of membersSnapshot.docs) {
+    const userId = memberDoc.id;
+    const memberData = memberDoc.data();
+    let totalInterest = 0;
+    
+    // Get all active loans for this member
+    const loansRef = collection(db, "groups", selectedGroupId, "loans");
+    const loansQuery = query(loansRef, where("borrowerId", "==", userId));
+    const loansSnapshot = await getDocs(loansQuery);
+    
+    for (const loanDoc of loansSnapshot.docs) {
+      const loan = loanDoc.data();
+      
+      // Get payments for this loan
+      const paymentsRef = collection(db, `groups/${selectedGroupId}/loans/${loanDoc.id}/payments`);
+      const paymentsSnapshot = await getDocs(paymentsRef);
+      
+      paymentsSnapshot.forEach(paymentDoc => {
+        const payment = paymentDoc.data();
+        if (payment.status === "approved") {
+          const paymentDate = payment.paidAt?.toDate() || payment.createdAt?.toDate();
+          
+          // Filter by period
+          let includePayment = false;
+          if (period === 'monthly') {
+            includePayment = paymentDate && paymentDate.getFullYear() === currentYear && 
+                            paymentDate.getMonth() + 1 === currentMonth;
+          } else if (period === 'quarterly') {
+            const quarter = Math.floor((currentMonth - 1) / 3);
+            const paymentQuarter = paymentDate ? Math.floor((paymentDate.getMonth()) / 3) : -1;
+            includePayment = paymentDate && paymentDate.getFullYear() === currentYear && 
+                            paymentQuarter === quarter;
+          } else if (period === 'annual' || period === 'ytd') {
+            includePayment = paymentDate && paymentDate.getFullYear() === currentYear;
+          }
+          
+          if (includePayment) {
+            totalInterest += parseFloat(payment.interestAmount || 0);
+          }
+        }
+      });
+    }
+    
+    results.push({
+      userId: userId,
+      userName: memberData.fullName || memberData.email || "Unknown",
+      totalInterest: totalInterest
+    });
+  }
+  
+  return results;
+}
+
+function displayForcedLoansResults(forcedLoans, highestInterest, targetInterest) {
+  document.getElementById("forcedLoansEmptyState").style.display = "none";
+  document.getElementById("forcedLoansResults").style.display = "block";
+  
+  // Update statistics
+  document.getElementById("totalForcedLoans").textContent = forcedLoans.length;
+  const totalDeficit = forcedLoans.reduce((sum, fl) => sum + fl.deficit, 0);
+  document.getElementById("totalDeficitAmount").textContent = formatCurrency(totalDeficit);
+  document.getElementById("highestInterestPaid").textContent = formatCurrency(highestInterest);
+  document.getElementById("membersAffected").textContent = forcedLoans.length;
+  
+  // Display list
+  const listEl = document.getElementById("forcedLoansList");
+  if (forcedLoans.length === 0) {
+    listEl.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">✅</div>
+        <p class="empty-state-text">No members have interest deficits</p>
+      </div>
+    `;
+    return;
+  }
+  
+  listEl.innerHTML = forcedLoans.map(fl => `
+    <div style="padding: var(--bn-space-4); background: rgba(255, 255, 255, 0.6); border-radius: var(--bn-radius-lg); border: 1px solid rgba(239, 68, 68, 0.2);">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="flex: 1;">
+          <div style="font-weight: 600; color: var(--bn-dark); margin-bottom: 4px;">${fl.userName}</div>
+          <div style="font-size: var(--bn-text-sm); color: var(--bn-gray);">
+            Interest Paid: ${formatCurrency(fl.interestPaid)} | 
+            Target: ${formatCurrency(fl.targetInterest)} | 
+            <strong style="color: var(--bn-danger);">Deficit: ${formatCurrency(fl.deficit)}</strong>
+          </div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: var(--bn-text-lg); font-weight: 700; color: var(--bn-danger);">${formatCurrency(fl.deficit)}</div>
+          <div style="font-size: var(--bn-text-xs); color: var(--bn-gray);">Forced Loan</div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function createForcedLoansInBatch(forcedLoans, config) {
+  try {
+    showSpinner(true);
+    let created = 0;
+    
+    for (const fl of forcedLoans) {
+      await createForcedLoan(fl, config);
+      created++;
+    }
+    
+    showToast(`Successfully created ${created} forced loan(s)`, "success");
+    await loadGroupData(); // Refresh data
+  } catch (error) {
+    console.error("Error creating forced loans:", error);
+    showToast("Error creating some forced loans", "error");
+  } finally {
+    showSpinner(false);
+  }
+}
+
+async function createForcedLoan(memberDeficit, config) {
+  const loanData = {
+    borrowerId: memberDeficit.userId,
+    borrowerName: memberDeficit.userName,
+    loanAmount: Math.round(memberDeficit.deficit),
+    purpose: `Forced loan - Interest deficit of ${formatCurrency(memberDeficit.deficit)}`,
+    status: "active",
+    type: "forced",
+    repaymentPeriod: 1,
+    requestedAt: new Date(),
+    approvedAt: new Date(),
+    disbursedAt: new Date(),
+    approvedBy: currentUser.uid,
+    disbursedBy: currentUser.uid,
+    totalInterest: 0,
+    totalRepayable: Math.round(memberDeficit.deficit),
+    amountRepaid: 0,
+    balanceRemaining: Math.round(memberDeficit.deficit),
+    interestRates: groupData.rules?.loanInterest || {},
+    metadata: {
+      forcedLoan: true,
+      targetInterest: memberDeficit.targetInterest,
+      actualInterest: memberDeficit.interestPaid,
+      deficit: memberDeficit.deficit,
+      calculationPeriod: config.period,
+      calculationMethod: config.method,
+      createdAt: new Date().toISOString()
+    }
+  };
+  
+  // Create loan
+  await addDoc(collection(db, "groups", selectedGroupId, "loans"), loanData);
+  
+  // Notify member if enabled
+  if (config.notifyMembers) {
+    await sendForcedLoanNotification(memberDeficit, loanData);
+  }
+}
+
+async function sendForcedLoanNotification(memberDeficit, loanData) {
+  try {
+    const notificationData = {
+      userId: memberDeficit.userId,
+      type: "forced_loan_created",
+      title: "Forced Loan Created",
+      message: `A forced loan of ${formatCurrency(loanData.loanAmount)} has been created due to an interest payment deficit. Target was ${formatCurrency(memberDeficit.targetInterest)}, you paid ${formatCurrency(memberDeficit.interestPaid)}.`,
+      read: false,
+      createdAt: new Date(),
+      data: {
+        loanAmount: loanData.loanAmount,
+        deficit: memberDeficit.deficit,
+        groupId: selectedGroupId
+      }
+    };
+    
+    await addDoc(collection(db, "notifications"), notificationData);
+  } catch (error) {
+    console.error("Error sending notification:", error);
+  }
+}
+
+async function initializeForcedLoansSection() {
+  if (!groupData) return;
+  
+  const config = groupData.settings?.forcedLoans;
+  const isEnabled = config?.enabled || false;
+  
+  // Set toggle state
+  const toggle = document.getElementById("forcedLoansToggle");
+  const statusEl = document.getElementById("forcedLoansStatus");
+  const configBtn = document.getElementById("configForcedLoansBtn");
+  const calculateBtn = document.getElementById("calculateForcedLoansBtn");
+  const configDiv = document.getElementById("forcedLoansConfig");
+  const emptyState = document.getElementById("forcedLoansEmptyState");
+  const resultsDiv = document.getElementById("forcedLoansResults");
+  
+  if (toggle) toggle.checked = isEnabled;
+  if (statusEl) statusEl.textContent = isEnabled ? "Enabled" : "Disabled";
+  
+  if (configBtn) configBtn.style.display = isEnabled ? "block" : "none";
+  if (calculateBtn) calculateBtn.style.display = isEnabled ? "block" : "none";
+  
+  if (isEnabled && config) {
+    if (configDiv) configDiv.style.display = "block";
+    if (emptyState) emptyState.style.display = "none";
+    await loadForcedLoansConfig();
+  } else {
+    if (configDiv) configDiv.style.display = "none";
+    if (emptyState) emptyState.style.display = "block";
+    if (resultsDiv) resultsDiv.style.display = "none";
+  }
 }

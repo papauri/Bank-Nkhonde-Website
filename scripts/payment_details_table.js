@@ -21,8 +21,11 @@ import {
  * @param {string} userId - User/Member ID (null for all users in admin view)
  * @param {HTMLElement} container - Container element to render table
  * @param {boolean} isAdminView - Whether this is admin viewing or user viewing own payments
+ * @param {Object} options - Optional configuration
+ * @param {Date} options.filterArrearsBeforeDate - Only show payments with dueDate before this date (for arrears view)
+ * @param {Function} options.onRowClick - Callback when a row is clicked (for click-to-pay functionality)
  */
-export async function loadPaymentDetailsTable(groupId, userId, container, isAdminView = false) {
+export async function loadPaymentDetailsTable(groupId, userId, container, isAdminView = false, options = {}) {
   if (!container) {
     console.error("Container element not found");
     return;
@@ -81,6 +84,7 @@ export async function loadPaymentDetailsTable(groupId, userId, container, isAdmi
               allPayments.push({
                 date: paidAt || approvedAt || dueDate || new Date(),
                 type: "Seed Money",
+                paymentTypeKey: "seed_money",
                 month: null,
                 year: year,
                 memberName: member.fullName || member.name || "Unknown",
@@ -125,6 +129,7 @@ export async function loadPaymentDetailsTable(groupId, userId, container, isAdmi
               allPayments.push({
                 date: paidAt || approvedAt || dueDate || new Date(),
                 type: "Monthly Contribution",
+                paymentTypeKey: "monthly_contribution",
                 month: data.month || monthDoc.id,
                 year: data.year || year,
                 memberName: member.fullName || member.name || "Unknown",
@@ -167,6 +172,7 @@ export async function loadPaymentDetailsTable(groupId, userId, container, isAdmi
               allPayments.push({
                 date: paidAt || approvedAt || dueDate || new Date(),
                 type: "Service Fee",
+                paymentTypeKey: "service_fee",
                 month: null,
                 year: year,
                 memberName: member.fullName || member.name || "Unknown",
@@ -192,11 +198,20 @@ export async function loadPaymentDetailsTable(groupId, userId, container, isAdmi
       }
     }
 
-    // Sort by date (newest first)
-    allPayments.sort((a, b) => b.date - a.date);
+    // Sort by due date (oldest first for arrears view, so most overdue appears first)
+    if (options.filterArrearsBeforeDate) {
+      allPayments.sort((a, b) => {
+        const dateA = a.dueDate || a.date;
+        const dateB = b.dueDate || b.date;
+        return dateA - dateB; // Oldest first (most overdue)
+      });
+    } else {
+      // Default: sort by date (newest first)
+      allPayments.sort((a, b) => b.date - a.date);
+    }
 
     // Render table
-    renderPaymentDetailsTable(allPayments, container, isAdminView);
+    renderPaymentDetailsTable(allPayments, container, isAdminView, options);
 
   } catch (error) {
     console.error("Error loading payment details:", error);
@@ -207,51 +222,69 @@ export async function loadPaymentDetailsTable(groupId, userId, container, isAdmi
 /**
  * Render payment details table
  */
-function renderPaymentDetailsTable(payments, container, isAdminView) {
-  if (payments.length === 0) {
+function renderPaymentDetailsTable(payments, container, isAdminView, options = {}) {
+  // Filter by date if specified (for arrears view - only show overdue payments)
+  let filteredPayments = payments;
+  if (options.filterArrearsBeforeDate) {
+    const filterDate = new Date(options.filterArrearsBeforeDate);
+    filterDate.setHours(23, 59, 59, 999); // End of day
+    filteredPayments = payments.filter(p => {
+      // Only include if has arrears AND due date is before filter date (overdue)
+      const hasArrears = p.arrears > 0;
+      const isOverdue = p.dueDate && p.dueDate < filterDate;
+      return hasArrears && isOverdue;
+    });
+  }
+
+  if (filteredPayments.length === 0) {
     container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><p class="empty-state-text">No payment records found</p></div>';
     return;
   }
 
-  // Calculate totals
+  // Calculate totals based on filtered payments
   const totals = {
     totalAmount: 0,
     amountPaid: 0,
     arrears: 0
   };
 
-  payments.forEach(p => {
+  filteredPayments.forEach(p => {
     totals.totalAmount += p.totalAmount;
     totals.amountPaid += p.amountPaid;
     totals.arrears += p.arrears;
   });
 
-  const isMobile = window.innerWidth <= 767;
-  const tableCellPadding = isMobile ? 'var(--bn-space-1) var(--bn-space-2)' : 'var(--bn-space-3) var(--bn-space-4)';
-  const tableFontSize = isMobile ? '10px' : 'var(--bn-text-xs)';
+  const memberCol = isAdminView ? '<th>Member</th>' : '';
+  const memberTotalColspan = isAdminView ? 5 : 4;
+  const isArrearsView = !!options.filterArrearsBeforeDate;
 
   let html = `
-    <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-      <table style="width: 100%; ${isMobile ? 'min-width: 800px;' : ''} border-collapse: collapse; background: var(--bn-white); border-radius: var(--bn-radius-lg); overflow: hidden;">
+    <div class="table-container" style="width: 100%; overflow-x: auto;">
+      <table class="table table-responsive" style="min-width: ${isArrearsView ? '900px' : '1100px'}; table-layout: auto;">
         <thead>
-          <tr style="background: var(--bn-gray-100); border-bottom: 2px solid var(--bn-gray-lighter);">
-            ${isAdminView ? `<th style="padding: ${tableCellPadding}; text-align: left; font-weight: 600; color: var(--bn-dark); font-size: ${tableFontSize}; text-transform: uppercase; white-space: nowrap;">Member</th>` : ''}
-            <th style="padding: ${tableCellPadding}; text-align: left; font-weight: 600; color: var(--bn-dark); font-size: ${tableFontSize}; text-transform: uppercase; white-space: nowrap;">Date</th>
-            <th style="padding: ${tableCellPadding}; text-align: left; font-weight: 600; color: var(--bn-dark); font-size: ${tableFontSize}; text-transform: uppercase; white-space: nowrap;">Type</th>
-            <th style="padding: ${tableCellPadding}; text-align: left; font-weight: 600; color: var(--bn-dark); font-size: ${tableFontSize}; text-transform: uppercase; white-space: nowrap;">Period</th>
-            <th style="padding: ${tableCellPadding}; text-align: right; font-weight: 600; color: var(--bn-dark); font-size: ${tableFontSize}; text-transform: uppercase; white-space: nowrap;">Total</th>
-            <th style="padding: ${tableCellPadding}; text-align: right; font-weight: 600; color: var(--bn-dark); font-size: ${tableFontSize}; text-transform: uppercase; white-space: nowrap;">Paid</th>
-            <th style="padding: ${tableCellPadding}; text-align: right; font-weight: 600; color: var(--bn-dark); font-size: ${tableFontSize}; text-transform: uppercase; white-space: nowrap;">Arrears</th>
-            <th style="padding: ${tableCellPadding}; text-align: center; font-weight: 600; color: var(--bn-dark); font-size: ${tableFontSize}; text-transform: uppercase; white-space: nowrap;">Status</th>
-            <th style="padding: ${tableCellPadding}; text-align: left; font-weight: 600; color: var(--bn-dark); font-size: ${tableFontSize}; text-transform: uppercase; white-space: nowrap;">Method</th>
+          <tr>
+            ${memberCol}
+            <th>Due Date</th>
+            <th>Type</th>
+            <th>Period</th>
+            <th class="cell-right">Arrears</th>
+            <th class="cell-center">Status</th>
+            ${isArrearsView ? '<th class="cell-center">Action</th>' : ''}
           </tr>
         </thead>
         <tbody>
   `;
 
-  payments.forEach((payment, index) => {
-    const dateStr = payment.date ? payment.date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A';
+  filteredPayments.forEach((payment, index) => {
+    const dueDateStr = payment.dueDate ? payment.dueDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A';
     const periodStr = payment.month ? `${payment.month} ${payment.year}` : `Year ${payment.year}`;
+    
+    // Calculate days overdue
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = payment.dueDate ? new Date(payment.dueDate) : null;
+    const daysOverdue = dueDate ? Math.floor((today - dueDate) / (1000 * 60 * 60 * 24)) : 0;
+    
     const statusClass = payment.status === 'approved' || payment.status === 'completed' ? 'success' : 
                        payment.status === 'pending' ? 'warning' : 'danger';
     const statusText = payment.status === 'approved' ? 'Approved' : 
@@ -259,49 +292,61 @@ function renderPaymentDetailsTable(payments, container, isAdminView) {
                       payment.status === 'pending' ? 'Pending' : 
                       'Unpaid';
     
-    const rowBg = index % 2 === 0 ? 'var(--bn-white)' : 'var(--bn-gray-50)';
+    const arrearsClass = payment.arrears > 0 ? 'cell-danger' : 'cell-success';
+    const memberTd = isAdminView ? `<td data-label="Member" class="cell-name cell-nowrap">${payment.memberName}</td>` : '';
     
-    const cellFontSize = isMobile ? '10px' : 'var(--bn-text-sm)';
-    const badgeFontSize = isMobile ? '9px' : 'var(--bn-text-xs)';
-    const badgePadding = isMobile ? '2px 6px' : '4px 12px';
+    // Row click handler for arrears view
+    const rowClickAttr = isArrearsView && payment.arrears > 0 ? 
+      `onclick="window.arrearsRowClick && window.arrearsRowClick(${index})" style="cursor: pointer;"` : '';
     
+    // Action button for arrears view
+    const actionTd = isArrearsView ? 
+      `<td data-label="Action" class="cell-center">
+        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); window.arrearsRowClick && window.arrearsRowClick(${index})" title="Pay this arrear">
+          Pay
+        </button>
+      </td>` : '';
+
     html += `
-      <tr style="background: ${rowBg}; border-bottom: 1px solid var(--bn-gray-lighter); transition: background var(--bn-transition-fast);" onmouseover="this.style.background='var(--bn-gray-100)'" onmouseout="this.style.background='${rowBg}'">
-        ${isAdminView ? `<td style="padding: ${tableCellPadding}; font-weight: 600; color: var(--bn-dark); font-size: ${cellFontSize}; white-space: nowrap;">${payment.memberName}</td>` : ''}
-        <td style="padding: ${tableCellPadding}; color: var(--bn-gray); font-size: ${cellFontSize}; white-space: nowrap;">${dateStr}</td>
-        <td style="padding: ${tableCellPadding}; font-size: ${cellFontSize}; white-space: nowrap;">
-          <span style="font-weight: 600; color: var(--bn-dark);">${payment.type}</span>
-          ${payment.isAdvancedPayment ? `<span style="margin-left: ${isMobile ? '4px' : 'var(--bn-space-2)'}; font-size: ${badgeFontSize}; padding: ${badgePadding}; background: var(--bn-info-light); color: var(--bn-info); border-radius: var(--bn-radius-sm);">Advanced</span>` : ''}
+      <tr data-payment-index="${index}" ${rowClickAttr}>
+        ${memberTd}
+        <td data-label="Due Date" class="cell-muted cell-nowrap">
+          ${dueDateStr}
+          ${daysOverdue > 0 ? `<br><span style="color: var(--bn-danger); font-size: 11px;">${daysOverdue} days overdue</span>` : ''}
         </td>
-        <td style="padding: ${tableCellPadding}; color: var(--bn-gray); font-size: ${cellFontSize}; white-space: nowrap;">${periodStr}</td>
-        <td style="padding: ${tableCellPadding}; text-align: right; font-weight: 600; color: var(--bn-dark); font-size: ${cellFontSize}; white-space: nowrap;">MWK ${payment.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-        <td style="padding: ${tableCellPadding}; text-align: right; font-weight: 600; color: var(--bn-success); font-size: ${cellFontSize}; white-space: nowrap;">MWK ${payment.amountPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-        <td style="padding: ${tableCellPadding}; text-align: right; font-weight: 600; color: ${payment.arrears > 0 ? 'var(--bn-danger)' : 'var(--bn-success)'}; font-size: ${cellFontSize}; white-space: nowrap;">MWK ${payment.arrears.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-        <td style="padding: ${tableCellPadding}; text-align: center; font-size: ${cellFontSize}; white-space: nowrap;">
-          <span class="badge badge-${statusClass}" style="font-size: ${badgeFontSize}; padding: ${badgePadding};">${statusText}</span>
-        </td>
-        <td style="padding: ${tableCellPadding}; color: var(--bn-gray); font-size: ${cellFontSize}; text-transform: capitalize; white-space: nowrap;">${payment.paymentMethod.replace(/_/g, ' ')}</td>
+        <td data-label="Type" class="cell-bold">${payment.type}</td>
+        <td data-label="Period" class="cell-muted cell-nowrap">${periodStr}</td>
+        <td data-label="Arrears" class="cell-right ${arrearsClass} cell-bold cell-nowrap">MWK ${payment.arrears.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+        <td data-label="Status" class="cell-center"><span class="badge badge-${statusClass}">${statusText}</span></td>
+        ${actionTd}
       </tr>
     `;
   });
 
-  // Totals row
-  const totalsCellPadding = isMobile ? 'var(--bn-space-2)' : 'var(--bn-space-4)';
-  const totalsFontSize = isMobile ? '11px' : 'var(--bn-text-sm)';
-  const totalsAmountFontSize = isMobile ? '11px' : 'var(--bn-text-base)';
-  
   html += `
-          <tr style="background: var(--bn-primary); color: var(--bn-white); font-weight: 700;">
-            <td colspan="${isAdminView ? '5' : '4'}" style="padding: ${totalsCellPadding}; text-align: right; font-size: ${totalsFontSize}; text-transform: uppercase; white-space: nowrap;">TOTAL:</td>
-            <td style="padding: ${totalsCellPadding}; text-align: right; font-size: ${totalsAmountFontSize}; white-space: nowrap;">MWK ${totals.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td style="padding: ${totalsCellPadding}; text-align: right; font-size: ${totalsAmountFontSize}; white-space: nowrap;">MWK ${totals.amountPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td style="padding: ${totalsCellPadding}; text-align: right; font-size: ${totalsAmountFontSize}; white-space: nowrap;">MWK ${totals.arrears.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td colspan="2" style="padding: ${totalsCellPadding};"></td>
-          </tr>
         </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="${memberTotalColspan - 1}" data-label="" class="cell-right" style="text-transform:uppercase;">Total Arrears</td>
+            <td data-label="Total Arrears" class="cell-right cell-bold" style="color: var(--bn-danger);">MWK ${totals.arrears.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+            <td colspan="${isArrearsView ? 2 : 1}" data-label=""></td>
+          </tr>
+        </tfoot>
       </table>
     </div>
   `;
 
   container.innerHTML = html;
+
+  // Store payments data for row click callback
+  if (isArrearsView && options.onRowClick) {
+    // Store both the filtered payments and the callback for access from HTML onclick
+    window.arrearsPaymentsData = filteredPayments;
+    window.arrearsRowClick = (index) => {
+      const payments = window.arrearsPaymentsData || [];
+      if (payments[index]) {
+        options.onRowClick(payments[index]);
+      }
+    };
+  }
 }

@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/admin-layout.css">
   <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
@@ -259,13 +260,14 @@
       background: var(--bn-white);
       border-radius: var(--bn-radius-2xl);
       width: 100%;
-      max-width: 680px;
-      max-height: 90vh;
+      max-width: 800px; /* Increased from 680px for better spacing */
+      max-height: 92vh; /* Increased from 90vh */
       overflow: hidden;
       transform: scale(0.95) translateY(20px);
       transition: transform var(--bn-transition-base);
       display: flex;
       flex-direction: column;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
     }
 
     .modal-overlay.active .modal-content {
@@ -311,6 +313,26 @@
       padding: var(--bn-space-6);
       overflow-y: auto;
       flex: 1;
+      min-height: 0; /* Critical for proper flex scrolling */
+    }
+
+    /* Better form spacing inside modals */
+    .modal-body .form-section {
+      margin-bottom: var(--bn-space-5);
+      padding-bottom: var(--bn-space-5);
+    }
+
+    .modal-body .form-group {
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .modal-body .form-row {
+      gap: var(--bn-space-5);
+      margin-bottom: 0;
+    }
+
+    .modal-body .form-row .form-group:last-child {
+      margin-bottom: 0;
     }
 
     .modal-footer {
@@ -322,10 +344,10 @@
       flex-shrink: 0;
     }
 
-    /* Form Sections */
+    /* Form Sections - Better spacing */
     .form-section {
-      margin-bottom: var(--bn-space-6);
-      padding-bottom: var(--bn-space-6);
+      margin-bottom: var(--bn-space-5);
+      padding-bottom: var(--bn-space-5);
       border-bottom: 1px solid var(--bn-gray-lighter);
     }
 
@@ -338,21 +360,49 @@
     .form-section-title {
       font-size: var(--bn-text-sm);
       font-weight: 700;
-      color: var(--bn-gray);
+      color: var(--bn-dark);
       text-transform: uppercase;
       letter-spacing: 0.05em;
       margin-bottom: var(--bn-space-4);
+      padding-bottom: var(--bn-space-2);
+      border-bottom: 2px solid var(--bn-accent);
+      display: inline-block;
+    }
+
+    /* Add icon support for section titles */
+    .form-section-title::before {
+      margin-right: var(--bn-space-2);
+      font-size: var(--bn-text-base);
+    }
+
+    /* Help text styling */
+    .help-text {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      margin-top: var(--bn-space-1);
+      display: block;
+      line-height: 1.4;
     }
 
     .form-row {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: var(--bn-space-4);
+      gap: var(--bn-space-5); /* Increased from var(--bn-space-4) */
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .form-row .form-group {
+      margin-bottom: 0; /* Override default form-group margin in rows */
+    }
+
+    .form-group {
+      margin-bottom: var(--bn-space-4);
     }
 
     @media (max-width: 640px) {
       .form-row {
         grid-template-columns: 1fr;
+        gap: var(--bn-space-4);
       }
 
       .members-grid {
@@ -361,6 +411,30 @@
 
       .member-details-grid {
         grid-template-columns: 1fr;
+      }
+
+      .modal-content {
+        max-width: 100%;
+        max-height: 95vh;
+        margin: var(--bn-space-2);
+        border-radius: var(--bn-radius-xl);
+      }
+
+      .modal-body {
+        padding: var(--bn-space-4);
+      }
+
+      .modal-header {
+        padding: var(--bn-space-4);
+      }
+
+      .modal-footer {
+        padding: var(--bn-space-3) var(--bn-space-4);
+        flex-direction: column-reverse;
+      }
+
+      .modal-footer .btn {
+        width: 100%;
       }
     }
 
@@ -392,25 +466,40 @@
       height: 100%;
       object-fit: cover;
     }
+
+    /* Toast notifications */
+    .toast {
+      background: var(--bn-dark, #0A1628);
+      color: var(--bn-white, #fff);
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      transform: translateX(120%);
+      transition: transform 0.3s ease;
+      max-width: 400px;
+      min-width: 280px;
+    }
+    .toast.show { transform: translateX(0); }
+    .toast-success { border-left: 4px solid var(--bn-success, #22c55e); }
+    .toast-error { border-left: 4px solid var(--bn-danger, #ef4444); }
+    .toast-warning { border-left: 4px solid var(--bn-warning, #f59e0b); }
+    .toast-info { border-left: 4px solid var(--bn-accent, #C9A227); }
+    .toast span { flex: 1; }
+    .toast-close {
+      background: none; border: none; color: inherit; font-size: 18px;
+      cursor: pointer; padding: 0; line-height: 1; opacity: 0.7;
+    }
+    .toast-close:hover { opacity: 1; }
   </style>
 </head>
 <body>
-  <!-- Page Header -->
-  <header class="page-header">
-    <div class="page-header-container">
-      <div class="page-header-top">
-        <div class="page-header-nav">
-          <button class="page-back-btn" onclick="history.back()" aria-label="Go back">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
-          </button>
-          <div>
-            <h1 class="page-title">Manage Members</h1>
-            <p class="page-subtitle">Add and manage group members</p>
-          </div>
-        </div>
-      </div>
+  <!-- Sidebar, topbar, and mobile nav injected by admin-layout.js -->
+  <main class="main-content" id="mainContent">
+    <div class="dashboard-content">
 
       <div class="page-group-selector">
         <select id="groupSelect">
@@ -436,11 +525,7 @@
           <div class="page-stat-label">Pending</div>
         </div>
       </div>
-    </div>
-  </header>
 
-  <!-- Page Content -->
-  <main class="page-content">
     <button class="btn btn-accent btn-block add-member-btn" id="addMemberBtn">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <line x1="12" y1="5" x2="12" y2="19"/>
@@ -466,6 +551,7 @@
         <div class="empty-state-icon">👥</div>
         <p class="empty-state-text">Select a group to view members</p>
       </div>
+    </div>
     </div>
   </main>
 
@@ -626,6 +712,7 @@
                 <select class="form-select" id="memberRole">
                   <option value="member">Member</option>
                   <option value="admin">Admin</option>
+                  <option value="senior_admin">Senior Admin</option>
                 </select>
               </div>
               <div class="form-group">
@@ -708,33 +795,10 @@
     </div>
   </div>
 
-  <!-- Mobile Navigation -->
-  <!-- Mobile Navigation -->
-  <nav class="mobile-nav">
-    <a href="admin_dashboard.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">🏠</span>
-      <span>Home</span>
-    </a>
-    <a href="manage_loans.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">💰</span>
-      <span>Loans</span>
-    </a>
-    <a href="manage_payments.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">💳</span>
-      <span>Payments</span>
-    </a>
-    <a href="analytics.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">📊</span>
-      <span>Analytics</span>
-    </a>
-    <a href="user_dashboard.html" class="mobile-nav-item" id="switchToUserViewMobile" style="display: none;">
-      <span class="mobile-nav-icon">👤</span>
-      <span>User View</span>
-    </a>
-  </nav>
+
 
   <!-- Toast Container -->
-  <div class="toast-container" id="toastContainer"></div>
+  <div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 8px;"></div>
 
   <!-- Loading Overlay -->
   <div class="spinner-overlay hidden" id="loadingOverlay">
@@ -746,6 +810,10 @@
 
   <script src="../scripts/dob-validation.js"></script>
   <script src="../scripts/modal-utils.js"></script>
+  <script type="module">
+    import { initAdminLayout } from '../scripts/admin-layout.js';
+    initAdminLayout({ pageTitle: 'Manage Members', activeNav: 'members' });
+  </script>
   <script type="module" src="../scripts/manage_members_new.js"></script>
 </body>
 </html>

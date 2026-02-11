@@ -17,13 +17,12 @@ let currentFilter = "all";
 // Check authentication
 onAuthStateChanged(auth, (user) => {
   if (!user) {
-    alert("You must be signed in to access this page.");
     window.location.href = "../login.html";
   }
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  const registrationsList = document.getElementById("registrationsList");
+  const registrationsList = document.getElementById("pendingList");
   const filterTabs = document.querySelectorAll(".filter-tab");
 
   // Set up filter tabs
@@ -172,11 +171,10 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log(`✅ Registration code ${code} approved`);
         // Real-time listener will update the UI automatically
       } else {
-        alert("Registration code not found.");
+        console.error("Registration code not found.");
       }
     } catch (error) {
       console.error("Error approving registration:", error);
-      alert(`Failed to approve registration: ${error.message}`);
     }
   };
 
@@ -196,11 +194,10 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log(`✅ Registration code ${code} rejected and deleted`);
         // Real-time listener will update the UI automatically
       } else {
-        alert("Registration code not found.");
+        console.error("Registration code not found.");
       }
     } catch (error) {
       console.error("Error rejecting registration:", error);
-      alert(`Failed to reject registration: ${error.message}`);
     }
   };
 

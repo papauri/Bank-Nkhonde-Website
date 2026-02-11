@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/admin-layout.css">
   <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
@@ -231,25 +232,9 @@
   </style>
 </head>
 <body>
-  <!-- Page Header -->
-  <header class="page-header">
-    <div class="page-header-container">
-      <div class="page-header-top">
-        <div class="page-header-nav">
-          <button class="page-back-btn" onclick="history.back()" aria-label="Go back">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
-          </button>
-          <div>
-            <h1 class="page-title">Manage Payments</h1>
-            <p class="page-subtitle">Contributions, payments & penalties</p>
-          </div>
-        </div>
-        <div class="page-header-actions">
-          <button class="page-header-btn" id="refreshBtn" aria-label="Refresh">🔄</button>
-        </div>
-      </div>
+  <!-- Sidebar, topbar, and mobile nav injected by admin-layout.js -->
+  <main class="main-content" id="mainContent">
+    <div class="dashboard-content">
 
       <div class="page-group-selector">
         <select id="groupSelector">
@@ -275,11 +260,7 @@
           <div class="page-stat-label">Arrears</div>
         </div>
       </div>
-    </div>
-  </header>
 
-  <!-- Page Content -->
-  <main class="page-content">
     <!-- Quick Actions -->
     <div class="quick-action-grid">
       <div class="quick-action-card" id="recordPaymentBtn">
@@ -374,6 +355,7 @@
         </div>
       </div>
     </section>
+    </div>
   </main>
 
   <!-- Record Payment Modal -->
@@ -598,30 +580,6 @@
     </div>
   </div>
 
-  <!-- Mobile Navigation -->
-  <!-- Mobile Navigation -->
-  <nav class="mobile-nav">
-    <a href="admin_dashboard.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">🏠</span>
-      <span>Home</span>
-    </a>
-    <a href="manage_loans.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">💰</span>
-      <span>Loans</span>
-    </a>
-    <a href="manage_payments.html" class="mobile-nav-item active">
-      <span class="mobile-nav-icon">💳</span>
-      <span>Payments</span>
-    </a>
-    <a href="analytics.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">📊</span>
-      <span>Analytics</span>
-    </a>
-    <a href="user_dashboard.html" class="mobile-nav-item" id="switchToUserViewMobile" style="display: none;">
-      <span class="mobile-nav-icon">👤</span>
-      <span>User View</span>
-    </a>
-  </nav>
 
   <!-- Approve Payment with POP Modal -->
   <div class="modal-overlay hidden" id="approvePaymentModal" style="display: none;">
@@ -703,8 +661,80 @@
     </div>
   </div>
 
-  <!-- Toast Container -->
-  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Send Reminders Modal -->
+  <div class="modal-overlay hidden" id="sendRemindersModal" style="display: none;">
+    <div class="modal-content" style="max-width: 620px;">
+      <div class="modal-header">
+        <h2 class="modal-title">Send Payment Reminders</h2>
+        <button class="modal-close" id="closeSendRemindersModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="sendRemindersForm">
+          <div class="form-group">
+            <label class="form-label">Send To</label>
+            <select class="form-select" id="reminderRecipient" required>
+              <option value="all">All Members with Arrears</option>
+              <option value="specific">Specific Member</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="specificMemberGroup" style="display: none;">
+            <label class="form-label">Select Member</label>
+            <select class="form-select" id="specificMemberSelect">
+              <option value="">Choose a member...</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Payment Type</label>
+            <select class="form-select" id="reminderPaymentType" required>
+              <option value="all">All Payment Types</option>
+              <option value="seed_money">Seed Money Only</option>
+              <option value="monthly_contribution">Monthly Contributions Only</option>
+              <option value="service_fee">Service Fee Only</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Message Template</label>
+            <select class="form-select" id="reminderMessageTemplate">
+              <option value="gentle">Gentle Reminder</option>
+              <option value="urgent">Urgent Reminder</option>
+              <option value="custom">Custom Message</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Message</label>
+            <textarea class="form-textarea" id="reminderMessage" rows="6" required>Hello,
+
+This is a friendly reminder about your outstanding payments in [Group Name].
+
+Amount Due: [Amount]
+Payment Type: [Type]
+
+Please settle your arrears at your earliest convenience.
+
+Thank you for your cooperation.</textarea>
+            <small style="color: var(--bn-gray); font-size: var(--bn-text-xs); margin-top: 4px; display: block;">
+              Available placeholders: [Group Name], [Member Name], [Amount], [Type]
+            </small>
+          </div>
+
+          <div id="reminderPreview" style="background: var(--bn-accent-subtle); padding: var(--bn-space-4); border-radius: var(--bn-radius-md); margin-top: var(--bn-space-4); display: none;">
+            <div style="font-size: var(--bn-text-xs); font-weight: 600; color: var(--bn-accent-dark); margin-bottom: var(--bn-space-2); text-transform: uppercase; letter-spacing: 0.05em;">Preview</div>
+            <div id="reminderPreviewCount" style="font-size: var(--bn-text-sm); color: var(--bn-dark); margin-bottom: var(--bn-space-2);"></div>
+            <div id="reminderPreviewMembers" style="max-height: 120px; overflow-y: auto; font-size: var(--bn-text-sm); color: var(--bn-gray);"></div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="cancelSendReminders">Cancel</button>
+        <button type="submit" form="sendRemindersForm" class="btn btn-accent">Send Reminders</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Loading Overlay -->
   <div class="spinner-overlay hidden" id="spinner">
@@ -735,7 +765,7 @@
             </button>
           </div>
         </div>
-        <div id="allPaymentDetailsTableContainer" style="padding: var(--bn-space-4); max-height: calc(90vh - 180px); overflow-y: auto;">
+        <div id="allPaymentDetailsTableContainer" style="padding: var(--bn-space-4); max-height: calc(90vh - 180px); overflow-y: auto; overflow-x: auto;">
           <!-- Payment details table will be loaded here -->
         </div>
       </div>
@@ -743,6 +773,10 @@
   </div>
 
   <script src="../scripts/modal-utils.js"></script>
+  <script type="module">
+    import { initAdminLayout } from '../scripts/admin-layout.js';
+    initAdminLayout({ pageTitle: 'Manage Payments', activeNav: 'payments' });
+  </script>
   <script type="module" src="../scripts/manage_payments.js"></script>
 </body>
 </html>

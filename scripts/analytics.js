@@ -844,7 +844,7 @@ function showSpinner(show) {
 function showToast(message, type = "info") {
   const container = document.getElementById("toastContainer");
   if (!container) {
-    alert(message);
+    console.warn("Toast container not found:", message);
     return;
   }
 

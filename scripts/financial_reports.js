@@ -311,7 +311,7 @@ function renderDetailedReport() {
         Member Contributions
       </h4>
       <div class="table-container">
-        <table class="data-table">
+        <table class="table table-responsive">
           <thead>
             <tr>
               <th>Member</th>
@@ -324,21 +324,21 @@ function renderDetailedReport() {
           <tbody>
             ${reportData.contributions.map(c => `
               <tr>
-                <td><strong>${c.memberName}</strong></td>
-                <td>${formatCurrency(c.seedMoney.paid)} / ${formatCurrency(c.seedMoney.due)}</td>
-                <td>${formatCurrency(c.monthlyContributions.paid)} / ${formatCurrency(c.monthlyContributions.due)}</td>
-                <td style="color: var(--bn-success); font-weight: 600;">${formatCurrency(c.totalPaid)}</td>
-                <td style="color: var(--bn-danger);">${formatCurrency(c.totalDue - c.totalPaid)}</td>
+                <td data-label="Member" class="cell-name">${c.memberName}</td>
+                <td data-label="Seed Money" class="cell-right cell-nowrap">${formatCurrency(c.seedMoney.paid)} / ${formatCurrency(c.seedMoney.due)}</td>
+                <td data-label="Monthly" class="cell-right cell-nowrap">${formatCurrency(c.monthlyContributions.paid)} / ${formatCurrency(c.monthlyContributions.due)}</td>
+                <td data-label="Total Paid" class="cell-right cell-success cell-nowrap">${formatCurrency(c.totalPaid)}</td>
+                <td data-label="Outstanding" class="cell-right cell-danger cell-nowrap">${formatCurrency(c.totalDue - c.totalPaid)}</td>
               </tr>
             `).join("")}
           </tbody>
           <tfoot>
-            <tr style="font-weight: 700; background: var(--bn-gray-100);">
-              <td>TOTAL</td>
-              <td>${formatCurrency(reportData.contributions.reduce((sum, c) => sum + c.seedMoney.paid, 0))}</td>
-              <td>${formatCurrency(reportData.contributions.reduce((sum, c) => sum + c.monthlyContributions.paid, 0))}</td>
-              <td style="color: var(--bn-success);">${formatCurrency(reportData.summary.totalIncome)}</td>
-              <td style="color: var(--bn-danger);">${formatCurrency(reportData.contributions.reduce((sum, c) => sum + (c.totalDue - c.totalPaid), 0))}</td>
+            <tr>
+              <td data-label="">TOTAL</td>
+              <td data-label="Seed Money" class="cell-right cell-nowrap">${formatCurrency(reportData.contributions.reduce((sum, c) => sum + c.seedMoney.paid, 0))}</td>
+              <td data-label="Monthly" class="cell-right cell-nowrap">${formatCurrency(reportData.contributions.reduce((sum, c) => sum + c.monthlyContributions.paid, 0))}</td>
+              <td data-label="Total Paid" class="cell-right cell-nowrap">${formatCurrency(reportData.summary.totalIncome)}</td>
+              <td data-label="Outstanding" class="cell-right cell-nowrap">${formatCurrency(reportData.contributions.reduce((sum, c) => sum + (c.totalDue - c.totalPaid), 0))}</td>
             </tr>
           </tfoot>
         </table>
@@ -352,7 +352,7 @@ function renderDetailedReport() {
       </h4>
       ${reportData.loans.length > 0 ? `
         <div class="table-container">
-          <table class="data-table">
+          <table class="table table-responsive">
             <thead>
               <tr>
                 <th>Borrower</th>
@@ -371,11 +371,11 @@ function renderDetailedReport() {
                 const statusClass = loan.status === "repaid" ? "success" : loan.status === "active" ? "info" : "warning";
                 return `
                   <tr>
-                    <td><strong>${borrower}</strong></td>
-                    <td>${formatCurrency(amount)}</td>
-                    <td>${formatCurrency(interest)}</td>
-                    <td>${formatCurrency(repaid)}</td>
-                    <td><span class="badge badge-${statusClass}">${loan.status}</span></td>
+                    <td data-label="Borrower" class="cell-name">${borrower}</td>
+                    <td data-label="Amount" class="cell-right cell-nowrap">${formatCurrency(amount)}</td>
+                    <td data-label="Interest" class="cell-right cell-nowrap">${formatCurrency(interest)}</td>
+                    <td data-label="Repaid" class="cell-right cell-nowrap">${formatCurrency(repaid)}</td>
+                    <td data-label="Status"><span class="badge badge-${statusClass}">${loan.status}</span></td>
                   </tr>
                 `;
               }).join("")}

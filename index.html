@@ -2648,7 +2648,8 @@
           signOutBtn.onclick = async (e) => {
             e.preventDefault();
             try {
-              await signOut(auth);
+              const { auth: firebaseAuth, signOut: firebaseSignOut } = await import('./scripts/firebaseConfig.js');
+              await firebaseSignOut(firebaseAuth);
               sessionStorage.clear();
               localStorage.removeItem('selectedGroupId');
               localStorage.removeItem('isAdmin');
