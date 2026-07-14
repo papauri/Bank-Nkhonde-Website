@@ -622,7 +622,7 @@
             <div class="form-group">
               <label class="form-label">Password *</label>
               <div style="position: relative;">
-                <input type="password" id="password" class="form-input" placeholder="Min 6 characters" required minlength="6" style="padding-right: 45px;">
+                <input type="password" id="password" class="form-input" placeholder="Min 8 characters" required minlength="8" autocomplete="new-password" style="padding-right: 45px;">
                 <button type="button" class="password-toggle-btn" id="togglePassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 8px; color: var(--bn-gray);">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="eyeIcon">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -647,7 +647,7 @@
             <div class="form-group">
               <label class="form-label">Confirm Password *</label>
               <div style="position: relative;">
-                <input type="password" id="confirmPassword" class="form-input" placeholder="Confirm password" required style="padding-right: 45px;">
+                <input type="password" id="confirmPassword" class="form-input" placeholder="Confirm password" required autocomplete="new-password" style="padding-right: 45px;">
                 <button type="button" class="password-toggle-btn" id="toggleConfirmPassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 8px; color: var(--bn-gray);">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="eyeIcon2">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -1517,8 +1517,8 @@
             alert('Please fill in all required fields');
             return false;
           }
-          if (password.length < 6) {
-            alert('Password must be at least 6 characters');
+          if (password.length < 8) {
+            alert('Password must be at least 8 characters');
             return false;
           }
           if (password !== confirmPassword) {
@@ -1545,10 +1545,7 @@
           const monthly = getCurrencyValue('monthlyContribution');
           const seed = getCurrencyValue('seedMoney');
 
-          if (monthly < 1000) {
-            alert('Monthly contribution must be at least MWK 1,000');
-            return false;
-          }
+          // Monthly contribution is optional (can be 0 for seed-money-only groups)
           return true;
 
         default:

@@ -15,13 +15,25 @@ if (!function_exists('start_secure_session')) {
             return;
         }
 
+        // Auto-detect HTTPS: check server vars and common proxy headers
+        $isSecure = false;
+        if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== '' && $_SERVER['HTTPS'] !== 'off') {
+            $isSecure = true;
+        } elseif (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+            $isSecure = true;
+        } elseif (isset($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] === 'on') {
+            $isSecure = true;
+        } elseif (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443) {
+            $isSecure = true;
+        }
+
         session_name('BNKSESSID');
         session_set_cookie_params([
             'lifetime' => 0,
             'path' => '/',
             'httponly' => true,
             'samesite' => 'Lax',
-            'secure' => true,
+            'secure' => $isSecure,
         ]);
 
         session_start();

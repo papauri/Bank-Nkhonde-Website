@@ -1,0 +1,43 @@
+# Bank Nkhonde — Apache configuration
+# Required for PHP API routing on shared hosting
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # API requests — route to api/index.php
+    # This ensures /api/index.php?action=xxx works correctly
+    RewriteRule ^api/index\.php$ - [L]
+
+    # Prevent directory listing
+    Options -Indexes
+
+    # Protect sensitive files
+    <FilesMatch "^\.env">
+        Require all denied
+    </FilesMatch>
+
+    <FilesMatch "^\.git">
+        Require all denied
+    </FilesMatch>
+</IfModule>
+
+# PHP settings (if allowed by host)
+<IfModule mod_php.c>
+    php_flag display_errors Off
+    php_flag log_errors On
+</IfModule>
+
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# MIME types
+<IfModule mod_mime.c>
+    AddType application/json .json
+    AddType text/css .css
+    AddType application/javascript .js
+</IfModule>

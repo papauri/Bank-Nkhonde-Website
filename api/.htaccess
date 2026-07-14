@@ -1,0 +1,10 @@
+# API directory configuration
+# Prevent directory listing
+Options -Indexes
+
+# Deny direct access to library and handler files
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^lib/ - [F,L]
+    RewriteRule ^handlers/ - [F,L]
+</IfModule>

@@ -11,11 +11,21 @@
  * is never attached and every authenticated call silently 401s.
  */
 
-/** Single place to change if the API path moves. */
-const API_BASE = "/api/index.php";
+/**
+ * Auto-detect the base path for API and page links.
+ * Uses import.meta.url (standard for ES modules) to find where this script lives,
+ * then navigates up from /scripts/ to the project root.
+ * Works whether deployed at domain root or in a subdirectory.
+ */
+const _moduleUrl = new URL(import.meta.url);
+const _scriptsDir = _moduleUrl.pathname.substring(0, _moduleUrl.pathname.lastIndexOf('/scripts/'));
+const BASE_PATH = _scriptsDir + '/';
+
+/** API endpoint - auto-detected based on deployment location. */
+const API_BASE = BASE_PATH + "api/index.php";
 
 /** Where an unauthenticated caller gets sent. */
-const LOGIN_URL = "/login.html";
+const LOGIN_URL = BASE_PATH + "login.html";
 
 /**
  * An error carrying the HTTP status and the parsed JSON body, so callers can
