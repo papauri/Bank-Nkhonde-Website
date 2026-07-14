@@ -54,8 +54,8 @@ body {
 }
 
 .page-back-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--bn-radius-md);
   background: rgba(255, 255, 255, 0.1);
   border: none;
@@ -91,8 +91,8 @@ body {
 }
 
 .page-header-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--bn-radius-md);
   background: rgba(255, 255, 255, 0.1);
   border: none;
@@ -286,8 +286,8 @@ body {
 }
 
 .list-action-btn {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--bn-radius-md);
   border: none;
   cursor: pointer;
@@ -500,6 +500,84 @@ body {
 .progress-bar-fill.success { background: var(--bn-success); }
 .progress-bar-fill.warning { background: var(--bn-warning); }
 .progress-bar-fill.danger { background: var(--bn-danger); }
+
+/* ============================================
+   ADMIN EDIT-MEMBER FORM (JS-built modal content —
+   manage_members_new_sql.js buildEditFields/buildKycDetails)
+   ============================================ */
+.modal-body .form-section {
+  margin-bottom: var(--bn-space-6);
+  padding-bottom: var(--bn-space-6);
+  border-bottom: 1px solid var(--bn-gray-lighter);
+}
+
+.modal-body .form-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.modal-body .form-section-title {
+  font-size: var(--bn-text-lg);
+  font-weight: 700;
+  color: var(--bn-dark);
+  margin-bottom: var(--bn-space-4);
+}
+
+/* KYC details disclosure — native <details>/<summary>, no CSS existed for it. */
+.modal-body details.form-section {
+  border: 1px solid var(--bn-gray-lighter);
+  border-radius: var(--bn-radius-lg);
+  padding: var(--bn-space-4) var(--bn-space-5);
+  background: var(--bn-gray-100);
+}
+
+.modal-body details.form-section[open] {
+  background: var(--bn-white);
+}
+
+.modal-body details.form-section summary.form-section-title {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bn-space-3);
+  min-height: 44px;
+  margin-bottom: 0;
+  padding: var(--bn-space-2) 0;
+  color: var(--bn-dark);
+  user-select: none;
+}
+
+.modal-body details.form-section summary.form-section-title::-webkit-details-marker {
+  display: none;
+}
+
+.modal-body details.form-section summary.form-section-title::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-right: 2px solid var(--bn-gray-700);
+  border-bottom: 2px solid var(--bn-gray-700);
+  transform: rotate(-45deg);
+  transition: transform var(--bn-transition-fast);
+}
+
+.modal-body details.form-section[open] summary.form-section-title::after {
+  transform: rotate(45deg);
+}
+
+.modal-body details.form-section summary.form-section-title:focus-visible {
+  outline: 2px solid var(--bn-accent);
+  outline-offset: 2px;
+  border-radius: var(--bn-radius-sm);
+}
+
+.modal-body details.form-section[open] summary.form-section-title {
+  margin-bottom: var(--bn-space-2);
+}
 
 /* ============================================
    RESPONSIVE

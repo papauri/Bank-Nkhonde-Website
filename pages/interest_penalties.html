@@ -61,8 +61,8 @@
       color: var(--bn-gray);
       cursor: pointer;
       padding: 0;
-      width: 32px;
-      height: 32px;
+      width: 44px;
+      height: 44px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -185,7 +185,7 @@
   </style>
 </head>
 <body>
-  <!-- Sidebar, topbar, and mobile nav injected by admin-layout.js -->
+  <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
     <div class="dashboard-content">
 
@@ -292,13 +292,10 @@
   </div>
 
   <script src="../scripts/modal-utils.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module">
-    import { initAdminLayout } from '../scripts/admin-layout.js';
-    initAdminLayout({ pageTitle: 'Interest & Penalties', activeNav: 'penalties' });
+    import { initNav } from '../scripts/nav_sql.js';
+    initNav({ variant: 'admin', activePage: 'penalties', pageTitle: 'Interest & Penalties' });
   </script>
-  <script type="module" src="../scripts/interest_penalties.js"></script>
+  <script type="module" src="../scripts/interest_penalties_sql.js"></script>
 </body>
 </html>

@@ -290,8 +290,8 @@
     }
 
     .modal-close {
-      width: 36px;
-      height: 36px;
+      width: 44px;
+      height: 44px;
       border: none;
       background: var(--bn-gray-100);
       border-radius: var(--bn-radius-full);
@@ -497,7 +497,7 @@
   </style>
 </head>
 <body>
-  <!-- Sidebar, topbar, and mobile nav injected by admin-layout.js -->
+  <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
     <div class="dashboard-content">
 
@@ -811,9 +811,9 @@
   <script src="../scripts/dob-validation.js"></script>
   <script src="../scripts/modal-utils.js"></script>
   <script type="module">
-    import { initAdminLayout } from '../scripts/admin-layout.js';
-    initAdminLayout({ pageTitle: 'Manage Members', activeNav: 'members' });
+    import { initNav } from '../scripts/nav_sql.js';
+    initNav({ variant: 'admin', activePage: 'members', pageTitle: 'Manage Members' });
   </script>
-  <script type="module" src="../scripts/manage_members_new.js"></script>
+  <script type="module" src="../scripts/manage_members_new_sql.js"></script>
 </body>
 </html>

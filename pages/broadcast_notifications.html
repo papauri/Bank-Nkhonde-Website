@@ -26,7 +26,7 @@
   </style>
 </head>
 <body>
-  <!-- Sidebar, topbar, and mobile nav injected by admin-layout.js -->
+  <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
     <div class="dashboard-content">
 
@@ -146,13 +146,10 @@
     </div>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script type="module">
-    import { initAdminLayout } from '../scripts/admin-layout.js';
-    initAdminLayout({ pageTitle: 'Broadcast Notifications', activeNav: 'broadcast' });
+    import { initNav } from '../scripts/nav_sql.js';
+    initNav({ variant: 'admin', activePage: 'broadcast', pageTitle: 'Broadcast Notifications' });
   </script>
-  <script type="module" src="../scripts/broadcast_notifications.js"></script>
+  <script type="module" src="../scripts/broadcast_notifications_sql.js"></script>
 </body>
 </html>

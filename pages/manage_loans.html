@@ -217,7 +217,7 @@
   </style>
 </head>
 <body>
-  <!-- Sidebar, topbar, and mobile nav injected by admin-layout.js -->
+  <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
     <div class="dashboard-content">
 
@@ -708,9 +708,9 @@
 
   <script src="../scripts/modal-utils.js"></script>
   <script type="module">
-    import { initAdminLayout } from '../scripts/admin-layout.js';
-    initAdminLayout({ pageTitle: 'Manage Loans', activeNav: 'loans' });
+    import { initNav } from '../scripts/nav_sql.js';
+    initNav({ variant: 'admin', activePage: 'loans', pageTitle: 'Manage Loans' });
   </script>
-  <script type="module" src="../scripts/manage_loans.js"></script>
+  <script type="module" src="../scripts/manage_loans_sql.js"></script>
 </body>
 </html>

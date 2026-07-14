@@ -209,20 +209,11 @@
     </div>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
-  <script src="../scripts/shared-top-nav.js"></script>
-  <script>
-    // Initialize shared top navigation
-    initTopNav({
-      showGroupDisplay: true,
-      showViewToggle: true,
-      logoLink: 'user_dashboard.html'
-    });
+  <script type="module">
+    import { initNav } from '../scripts/nav_sql.js';
+    initNav({ variant: 'user', activePage: 'view_rules' });
   </script>
-  <script type="module" src="../scripts/view_rules.js"></script>
-  <script type="module" src="../scripts/unified-navigation.js"></script>
+  <script type="module" src="../scripts/view_rules_sql.js"></script>
   <script src="../scripts/mobile-nav-active.js"></script>
 </body>
 </html>

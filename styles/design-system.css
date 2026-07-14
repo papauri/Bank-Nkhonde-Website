@@ -55,10 +55,13 @@
   /* Semantic Colors - Muted & Professional */
   --bn-success: #059669;
   --bn-success-light: rgba(5, 150, 105, 0.12);
+  --bn-success-dark: #047857; /* AA-compliant text on success-light/white (E3 batch 2) */
   --bn-warning: #D97706;
   --bn-warning-light: rgba(217, 119, 6, 0.12);
+  --bn-warning-dark: #92400E; /* AA-compliant text on warning-light/white (E3 batch 2) */
   --bn-danger: #DC2626;
   --bn-danger-light: rgba(220, 38, 38, 0.12);
+  --bn-danger-dark: #B91C1C; /* AA-compliant text on danger-light (E3 batch 2) */
   --bn-info: #2563EB;
   --bn-info-light: rgba(37, 99, 235, 0.12);
   
@@ -513,15 +516,15 @@ p {
 }
 
 .btn-icon {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border-radius: var(--bn-radius-md);
 }
 
 .btn-icon.btn-sm {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
 }
 
 .btn-icon.btn-lg {
@@ -572,6 +575,9 @@ p {
 }
 
 .form-input::placeholder {
+  /* Intentional AA exception (E3 batch 2): placeholder text is not real
+     content per WCAG guidance; darkening to 4.5:1 would make it visually
+     indistinguishable from actual entered input text. Left as-is. */
   color: var(--bn-gray-400);
 }
 
@@ -653,17 +659,17 @@ p {
 
 .badge-success {
   background: var(--bn-success-light);
-  color: var(--bn-success);
+  color: var(--bn-success-dark);
 }
 
 .badge-warning {
   background: var(--bn-warning-light);
-  color: var(--bn-warning);
+  color: var(--bn-warning-dark);
 }
 
 .badge-danger {
   background: var(--bn-danger-light);
-  color: var(--bn-danger);
+  color: var(--bn-danger-dark);
 }
 
 .badge-info {
@@ -829,7 +835,7 @@ table.data-table tbody tr:last-child td {
 .table .cell-name   { font-weight: 600; color: var(--bn-dark); }
 .table .cell-success { color: var(--bn-success); font-weight: 600; }
 .table .cell-danger  { color: var(--bn-danger); font-weight: 600; }
-.table .cell-warning { color: var(--bn-warning); font-weight: 600; }
+.table .cell-warning { color: var(--bn-warning-dark); font-weight: 600; }
 
 /* Totals footer row */
 .table tfoot td,
@@ -1218,8 +1224,8 @@ table.data-table tbody tr:last-child td {
 .modal-close {
   background: none;
   border: none;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--bn-radius-md);
   color: var(--bn-gray);
   cursor: pointer;

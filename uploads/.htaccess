@@ -1,0 +1,2 @@
+# Never list the contents of the uploads tree.
+Options -Indexes -ExecCGI

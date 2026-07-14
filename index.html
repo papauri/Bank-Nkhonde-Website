@@ -2291,18 +2291,23 @@
   </a>
 
   <script type="module">
-    import { auth, onAuthStateChanged, signOut, db, collection, query, where, getDocs, getDoc, doc, orderBy, limit } from './scripts/firebaseConfig.js';
-    
-    let notificationUnsubscribe = null;
-    let currentAuthUser = null;
-    
+    import { getSession, listMyGroups, logout, apiGet } from './scripts/api.js';
+
+    const ADMIN_ROLES = ['admin', 'senior_admin', 'treasurer'];
+    const POLL_INTERVAL_MS = 60000;
+
+    let currentUser = null;
+    let notifPollTimer = null;
+    let notifVisibilityHandler = null;
+    let currentNotifGroupId = null;
+
     // Handle window resize to update mobile sign in button visibility
     function updateMobileSignButtons() {
       const navSignInMobile = document.getElementById('navSignInMobile');
       const navSignOutMobile = document.getElementById('navSignOutMobile');
       const isMobile = window.innerWidth <= 768;
-      
-      if (currentAuthUser) {
+
+      if (currentUser) {
         // User is signed in - sign out is in bottom nav, not here
         if (navSignInMobile) navSignInMobile.style.display = 'none';
         if (navSignOutMobile) navSignOutMobile.style.display = 'none';
@@ -2312,11 +2317,142 @@
         if (navSignOutMobile) navSignOutMobile.style.display = 'none';
       }
     }
-    
+
     window.addEventListener('resize', updateMobileSignButtons);
-    
-    onAuthStateChanged(auth, (user) => {
-      currentAuthUser = user;
+
+    async function handleSignOut(e) {
+      if (e) e.preventDefault();
+      try {
+        await logout();
+      } catch (error) {
+        console.error('Error signing out:', error);
+      } finally {
+        sessionStorage.clear();
+        localStorage.removeItem('selectedGroupId');
+        localStorage.removeItem('isAdmin');
+        window.location.reload();
+      }
+    }
+
+    function hideNotificationBadge() {
+      const badge = document.getElementById('indexNotificationBadge');
+      if (!badge) return;
+      badge.style.display = 'none';
+      if (badge.parentElement) badge.parentElement.classList.remove('has-notifications');
+    }
+
+    async function refreshIndexNotificationBadge() {
+      const badge = document.getElementById('indexNotificationBadge');
+      if (!badge || !currentNotifGroupId) return;
+      try {
+        const data = await apiGet('notifications.list', {groupId: currentNotifGroupId});
+        // Trust the server's unreadCount, not a client-side filter.
+        const unreadCount = Number(data && data.unreadCount) || 0;
+        if (unreadCount > 0) {
+          badge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+          badge.style.display = 'flex';
+          if (badge.parentElement) badge.parentElement.classList.add('has-notifications');
+        } else {
+          hideNotificationBadge();
+        }
+      } catch (error) {
+        // Background poll failure — never toast/spam, just keep the last-known badge state.
+      }
+    }
+
+    function stopNotificationPolling() {
+      if (notifPollTimer !== null) {
+        clearInterval(notifPollTimer);
+        notifPollTimer = null;
+      }
+      if (notifVisibilityHandler) {
+        document.removeEventListener('visibilitychange', notifVisibilityHandler);
+        notifVisibilityHandler = null;
+      }
+      currentNotifGroupId = null;
+    }
+
+    function startNotificationPolling(groupId) {
+      stopNotificationPolling();
+      currentNotifGroupId = groupId;
+
+      notifVisibilityHandler = () => {
+        if (document.hidden) {
+          if (notifPollTimer !== null) {
+            clearInterval(notifPollTimer);
+            notifPollTimer = null;
+          }
+        } else {
+          refreshIndexNotificationBadge();
+          if (notifPollTimer === null) {
+            notifPollTimer = setInterval(refreshIndexNotificationBadge, POLL_INTERVAL_MS);
+          }
+        }
+      };
+      document.addEventListener('visibilitychange', notifVisibilityHandler);
+
+      refreshIndexNotificationBadge();
+      if (!document.hidden) {
+        notifPollTimer = setInterval(refreshIndexNotificationBadge, POLL_INTERVAL_MS);
+      }
+    }
+
+    function loadUserPersonalization(user, isAdmin, groupsCount) {
+      const userName = user.fullName || user.email || 'Member';
+
+      const userDisplayName = document.getElementById('userDisplayName');
+      if (userDisplayName) userDisplayName.textContent = userName;
+
+      const userGreeting = document.getElementById('userGreeting');
+      const userSubGreeting = document.getElementById('userSubGreeting');
+      const userDescription = document.getElementById('userDescription');
+      const userQuickStats = document.getElementById('userQuickStats');
+
+      // Special experience for standard users (not admins)
+      if (!isAdmin) {
+        // Personalized greetings
+        const greetings = [
+          'Your financial journey continues',
+          'Building wealth, one contribution at a time',
+          'Your savings story continues',
+          'Growing together, saving together'
+        ];
+        const subGreetings = [
+          'Track, save, and grow together',
+          'Every contribution counts',
+          'Your financial future starts here',
+          'Empowering your savings journey'
+        ];
+
+        const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+        const randomSubGreeting = subGreetings[Math.floor(Math.random() * subGreetings.length)];
+
+        if (userGreeting) userGreeting.textContent = randomGreeting;
+        if (userSubGreeting) userSubGreeting.textContent = randomSubGreeting;
+
+        if (userDescription) {
+          userDescription.textContent = `Welcome back, ${userName}! Track your contributions, manage your loans, and stay connected with your savings groups. Your financial success is our priority.`;
+        }
+
+        // Display quick stats — group count only; no cross-group money aggregate endpoint exists.
+        if (userQuickStats) {
+          userQuickStats.classList.remove('hidden');
+          const groupsCountEl = document.getElementById('userGroupsCount');
+          const upcomingPaymentsEl = document.getElementById('userUpcomingPayments');
+          const totalSavingsEl = document.getElementById('userTotalSavings');
+
+          if (groupsCountEl) groupsCountEl.textContent = String(groupsCount || 0);
+          if (upcomingPaymentsEl) upcomingPaymentsEl.textContent = '—';
+          if (totalSavingsEl) totalSavingsEl.textContent = '—';
+        }
+      } else {
+        // Admin experience
+        if (userGreeting) userGreeting.textContent = 'Welcome back, Administrator!';
+        if (userSubGreeting) userSubGreeting.textContent = 'Manage your groups and members';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
       const navCtaGuest = document.querySelector('.nav-cta-guest');
       const navCtaUser = document.querySelector('.nav-cta-user');
       const heroContentGuest = document.querySelector('.hero-content-guest');
@@ -2325,13 +2461,31 @@
       const ctaContentUser = document.querySelector('.cta-content-user');
       const notificationBtn = document.getElementById('indexNotificationBtn');
       const logoutBtn = document.getElementById('logoutBtn');
-      const navSignInMobile = document.getElementById('navSignInMobile');
       const navSignOutMobile = document.getElementById('navSignOutMobile');
-      
+
+      let user = null;
+      try {
+        user = await getSession();
+      } catch (error) {
+        console.error('Error checking session:', error);
+      }
+      currentUser = user;
+
       if (user) {
-        const isAdmin = sessionStorage.getItem('isAdmin') === 'true' || localStorage.getItem('isAdmin') === 'true';
+        let groups = [];
+        try {
+          groups = await listMyGroups();
+        } catch (error) {
+          console.error('Error loading groups:', error);
+        }
+
+        const selectedGroupId = localStorage.getItem('selectedGroupId') || sessionStorage.getItem('selectedGroupId');
+        const selectedGroup = selectedGroupId
+          ? groups.find((g) => String(g.id) === String(selectedGroupId))
+          : null;
+        const isAdmin = selectedGroup ? ADMIN_ROLES.includes(selectedGroup.myRole) : false;
         const dashboardUrl = isAdmin ? 'pages/admin_dashboard.html' : 'pages/user_dashboard.html';
-        
+
         navCtaGuest.classList.add('hidden');
         navCtaUser.classList.remove('hidden');
         heroContentGuest.classList.add('hidden');
@@ -2339,60 +2493,46 @@
         ctaContentGuest.classList.add('hidden');
         ctaContentUser.classList.remove('hidden');
         if (notificationBtn) notificationBtn.classList.remove('hidden');
-        
+
         // Show Sign Out on mobile, hide Sign In
         updateMobileSignButtons();
-        
+
         // Update mobile bottom nav
-        updateMobileBottomNav(user);
-        
-        document.getElementById('navDashboardLink').href = dashboardUrl;
-        document.getElementById('navDashboardLink').textContent = isAdmin ? 'Admin Dashboard' : 'Dashboard';
-        document.getElementById('heroDashboardLink').href = dashboardUrl;
-        document.getElementById('ctaDashboardLink').href = dashboardUrl;
-        
+        if (typeof window.updateMobileBottomNav === 'function') {
+          window.updateMobileBottomNav(user);
+        }
+
+        const navDashboardLink = document.getElementById('navDashboardLink');
+        if (navDashboardLink) {
+          navDashboardLink.href = dashboardUrl;
+          navDashboardLink.textContent = isAdmin ? 'Admin Dashboard' : 'Dashboard';
+        }
+        const heroDashboardLink = document.getElementById('heroDashboardLink');
+        if (heroDashboardLink) heroDashboardLink.href = dashboardUrl;
+        const ctaDashboardLink = document.getElementById('ctaDashboardLink');
+        if (ctaDashboardLink) ctaDashboardLink.href = dashboardUrl;
+
         // Update mobile bottom nav dashboard link
         const mobileDashboardLink = document.getElementById('mobileDashboardLink');
         if (mobileDashboardLink) {
           mobileDashboardLink.href = dashboardUrl;
         }
-        
-        // Load user data and personalize experience
-        loadUserData(user, isAdmin);
-        
-        // Load notification count
-        loadNotificationCount(user.uid);
-        
+
+        // Personalize experience
+        loadUserPersonalization(user, isAdmin, groups.length);
+
+        // Notification badge polling
+        if (selectedGroupId) {
+          startNotificationPolling(selectedGroupId);
+        } else {
+          hideNotificationBadge();
+        }
+
         // Logout handler
-        if (logoutBtn) {
-          logoutBtn.onclick = async () => {
-            try {
-              await signOut(auth);
-              sessionStorage.clear();
-              localStorage.removeItem('selectedGroupId');
-              localStorage.removeItem('isAdmin');
-              window.location.reload();
-            } catch (error) {
-              console.error('Error signing out:', error);
-            }
-          };
-        }
-        
+        if (logoutBtn) logoutBtn.onclick = handleSignOut;
+
         // Mobile Sign Out handler
-        if (navSignOutMobile) {
-          navSignOutMobile.onclick = async (e) => {
-            e.preventDefault();
-            try {
-              await signOut(auth);
-              sessionStorage.clear();
-              localStorage.removeItem('selectedGroupId');
-              localStorage.removeItem('isAdmin');
-              window.location.reload();
-            } catch (error) {
-              console.error('Error signing out:', error);
-            }
-          };
-        }
+        if (navSignOutMobile) navSignOutMobile.onclick = handleSignOut;
       } else {
         navCtaGuest.classList.remove('hidden');
         navCtaUser.classList.add('hidden');
@@ -2401,185 +2541,20 @@
         ctaContentGuest.classList.remove('hidden');
         ctaContentUser.classList.add('hidden');
         if (notificationBtn) notificationBtn.classList.add('hidden');
-        
+
         // Show Sign In on mobile, hide Sign Out
         updateMobileSignButtons();
-        
+
         // Hide mobile bottom nav for guests
-        updateMobileBottomNav(null);
-        
-        // Clean up notification listener
-        if (notificationUnsubscribe) {
-          notificationUnsubscribe();
-          notificationUnsubscribe = null;
+        if (typeof window.updateMobileBottomNav === 'function') {
+          window.updateMobileBottomNav(null);
         }
+
+        // Stop any notification polling
+        stopNotificationPolling();
+        hideNotificationBadge();
       }
     });
-    
-    async function loadUserData(user, isAdmin) {
-      try {
-        // Get user's full name
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        const userData = userDoc.exists() ? userDoc.data() : null;
-        const userName = userData?.fullName || userData?.name || user.email?.split('@')[0] || 'Member';
-        
-        // Update display name
-        const userDisplayName = document.getElementById('userDisplayName');
-        if (userDisplayName) {
-          userDisplayName.textContent = userName;
-        }
-
-        // Special experience for standard users (not admins)
-        if (!isAdmin) {
-          const userGreeting = document.getElementById('userGreeting');
-          const userSubGreeting = document.getElementById('userSubGreeting');
-          const userDescription = document.getElementById('userDescription');
-          const userQuickStats = document.getElementById('userQuickStats');
-          
-          // Personalized greetings
-          const greetings = [
-            'Your financial journey continues',
-            'Building wealth, one contribution at a time',
-            'Your savings story continues',
-            'Growing together, saving together'
-          ];
-          const subGreetings = [
-            'Track, save, and grow together',
-            'Every contribution counts',
-            'Your financial future starts here',
-            'Empowering your savings journey'
-          ];
-          
-          const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
-          const randomSubGreeting = subGreetings[Math.floor(Math.random() * subGreetings.length)];
-          
-          if (userGreeting) userGreeting.textContent = randomGreeting;
-          if (userSubGreeting) userSubGreeting.textContent = randomSubGreeting;
-          
-          if (userDescription) {
-            userDescription.textContent = `Welcome back, ${userName}! Track your contributions, manage your loans, and stay connected with your savings groups. Your financial success is our priority.`;
-          }
-          
-          // Load and display quick stats
-          if (userQuickStats) {
-            userQuickStats.classList.remove('hidden');
-            await loadUserQuickStats(user.uid);
-          }
-        } else {
-          // Admin experience
-          const userGreeting = document.getElementById('userGreeting');
-          const userSubGreeting = document.getElementById('userSubGreeting');
-          if (userGreeting) userGreeting.textContent = 'Welcome back, Administrator!';
-          if (userSubGreeting) userSubGreeting.textContent = 'Manage your groups and members';
-        }
-      } catch (error) {
-        console.error('Error loading user data:', error);
-      }
-    }
-
-    async function loadUserQuickStats(userId) {
-      try {
-        const groupsRef = collection(db, 'groups');
-        const groupsSnapshot = await getDocs(groupsRef);
-        
-        let groupsCount = 0;
-        let upcomingPaymentsCount = 0;
-        let totalSavings = 0;
-        const currentDate = new Date();
-        const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
-        
-        for (const groupDoc of groupsSnapshot.docs) {
-          const groupData = groupDoc.data();
-          const groupId = groupDoc.id;
-          
-          // Check if user is a member
-          const isMember = groupData.members?.some(m => m.uid === userId) || 
-                          groupData.admins?.some(a => a.uid === userId) ||
-                          groupData.createdBy === userId;
-          
-          if (isMember) {
-            groupsCount++;
-            
-            // Get member's financial summary
-            try {
-              const memberRef = doc(db, `groups/${groupId}/members/${userId}`);
-              const memberDoc = await getDoc(memberRef);
-              
-              if (memberDoc.exists()) {
-                const memberData = memberDoc.data();
-                const financialSummary = memberData.financialSummary || {};
-                
-                // Calculate total savings
-                totalSavings += parseFloat(financialSummary.totalContributions || 0);
-                
-                // Count upcoming payments (simplified - check for next month)
-                const monthlyAmount = groupData.rules?.monthlyContribution?.amount || 0;
-                if (monthlyAmount > 0) {
-                  upcomingPaymentsCount++;
-                }
-              }
-            } catch (e) {
-              // Member might not have a document yet
-            }
-          }
-        }
-        
-        // Update stats display
-        const groupsCountEl = document.getElementById('userGroupsCount');
-        const upcomingPaymentsEl = document.getElementById('userUpcomingPayments');
-        const totalSavingsEl = document.getElementById('userTotalSavings');
-        
-        if (groupsCountEl) groupsCountEl.textContent = groupsCount || '0';
-        if (upcomingPaymentsEl) upcomingPaymentsEl.textContent = upcomingPaymentsCount || '0';
-        if (totalSavingsEl) {
-          if (totalSavings > 0) {
-            totalSavingsEl.textContent = `MWK ${Math.round(totalSavings).toLocaleString()}`;
-          } else {
-            totalSavingsEl.textContent = 'MWK 0';
-          }
-        }
-      } catch (error) {
-        console.error('Error loading user quick stats:', error);
-      }
-    }
-
-    async function loadNotificationCount(userId) {
-      const badge = document.getElementById('indexNotificationBadge');
-      if (!badge) return;
-      
-      try {
-        const selectedGroupId = localStorage.getItem('selectedGroupId') || sessionStorage.getItem('selectedGroupId');
-        
-        if (selectedGroupId) {
-          const notificationsRef = collection(db, `groups/${selectedGroupId}/notifications`);
-          const q = query(notificationsRef, orderBy('createdAt', 'desc'), limit(50));
-          const snapshot = await getDocs(q);
-          
-          let unreadCount = 0;
-          snapshot.forEach(doc => {
-            const data = doc.data();
-            const isForUser = (data.userId === userId) || (data.recipientId === userId);
-            if (isForUser && !data.read && !data.readBy?.includes(userId)) {
-              unreadCount++;
-            }
-          });
-          
-          if (unreadCount > 0) {
-            badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
-            badge.style.display = 'flex';
-            badge.parentElement.classList.add('has-notifications');
-          } else {
-            badge.style.display = 'none';
-            badge.parentElement.classList.remove('has-notifications');
-          }
-        } else {
-          badge.style.display = 'none';
-        }
-      } catch (error) {
-        console.error('Error loading notification count:', error);
-        badge.style.display = 'none';
-      }
-    }
   </script>
   <script>
     // Navigation scroll effect
@@ -2648,14 +2623,15 @@
           signOutBtn.onclick = async (e) => {
             e.preventDefault();
             try {
-              const { auth: firebaseAuth, signOut: firebaseSignOut } = await import('./scripts/firebaseConfig.js');
-              await firebaseSignOut(firebaseAuth);
+              const { logout: apiLogout } = await import('./scripts/api.js');
+              await apiLogout();
+            } catch (error) {
+              console.error('Error signing out:', error);
+            } finally {
               sessionStorage.clear();
               localStorage.removeItem('selectedGroupId');
               localStorage.removeItem('isAdmin');
               window.location.reload();
-            } catch (error) {
-              console.error('Error signing out:', error);
             }
           };
         }

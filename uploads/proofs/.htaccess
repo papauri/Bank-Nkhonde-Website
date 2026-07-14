@@ -1,0 +1,39 @@
+# Untrusted user uploads live here. NOTHING in this directory may ever execute.
+# If the web server runs one of these files as PHP/CGI, that is remote code
+# execution. Every mechanism below is deliberately redundant because host
+# configurations vary; belt-and-braces is the point.
+
+# --- No directory listing, no CGI ---
+Options -Indexes -ExecCGI
+
+# --- Kill mod_php execution ---
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php5.c>
+    php_flag engine off
+</IfModule>
+
+# --- Strip any handler/type that would treat a file as a script ---
+RemoveHandler .php .phtml .php3 .php4 .php5 .php6 .php7 .php8 .pht .phar .cgi .pl .py .pyc .asp .aspx .jsp .sh
+RemoveType .php .phtml .php3 .php4 .php5 .php6 .php7 .php8 .pht .phar .cgi .pl .py .pyc .asp .aspx .jsp .sh
+AddType text/plain .php .phtml .php3 .php4 .php5 .php6 .php7 .php8 .pht .phar .cgi .pl .py .sh
+
+# --- Force nothing to be handled as a program ---
+<FilesMatch "(?i)\.(php.*|phtml|pht|phar|cgi|pl|py|pyc|asp|aspx|jsp|sh)$">
+    SetHandler none
+    SetHandler default-handler
+
+    # Apache 2.4
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    # Apache 2.2
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

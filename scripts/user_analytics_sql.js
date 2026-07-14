@@ -1,0 +1,586 @@
+/**
+ * user_analytics_sql.js — SQL port of user_analytics.js (MEMBER-scoped
+ * analytics: my contributions over time, my loans, my repayment progress,
+ * my standing vs the group). Not wired into any page until cutover — see
+ * BUILD_PLAN.md.
+ *
+ * HARD RULE: no client-side money math beyond summing already-server-computed
+ * figures. Every arrears/penalty/obligation figure comes straight from the
+ * API and is never recomputed here.
+ *
+ * ENDPOINT CONTRACT (verified by reading api/handlers/payments.php,
+ * api/handlers/loans.php, api/handlers/repayments.php directly):
+ *   groups.mine            -> via listMyGroups(); every group the caller
+ *                             belongs to, any role (this is a member page).
+ *   payments.obligations    -> GET, {groupId[, year]}. NO uid passed — the
+ *                             server defaults to the CALLER's own obligations.
+ *                             Passing uid is admin-only server-side; never
+ *                             attempted here. Returns seedMoney, service fee
+ *                             (nullable), monthlyContributions.months[] (each
+ *                             with totalAmount/amountPaid/arrears/dueDate/
+ *                             approvalStatus), and standing{}.
+ *   loans.list               -> GET, {groupId}. The server restricts a plain
+ *                             member's rows to their OWN loans (borrowerId =
+ *                             caller) — no client-side filtering needed or
+ *                             attempted. Used for "my loans" + progress bars.
+ *   repayments.mine          -> GET, {groupId}. The CALLER's own loan_payments
+ *                             rows across all their loans, every status —
+ *                             used for the repayment history list.
+ *
+ * STATUS CONSTANTS (see loans.status enum: pending | approved | rejected |
+ * disbursed | completed | defaulted — there is NO 'active' status, and
+ * `loans.approve` sets 'approved', never 'disbursed'):
+ *   ISSUED_LOAN_STATUSES — money left the box: approved/disbursed/completed/
+ *   defaulted. loans.disbursedAt is never populated by the API, so any
+ *   time-keying falls back to approvedAt.
+ *
+ * DEFERRED (toast + reported, never invented):
+ *   - The "loans currently being disbursed" / "booking queue" panels the
+ *     Firebase original showed (other members' loans, account numbers) — a
+ *     plain member's loans.list call only ever returns THEIR OWN rows
+ *     server-side, so there is no endpoint that returns other members' loan
+ *     or account data to a member. Showing it would require an admin-only
+ *     endpoint this page must not call.
+ *   - The entire "Book a Loan" tab/modal (loanBookings collection) — no
+ *     booking endpoint exists anywhere in api/ (grepped, zero hits). Booking
+ *     a loan slot is not a feature of the SQL API yet.
+ *   - CSV/PDF export of any tab — no export endpoint exists.
+ *   - Group-wide participation comparison ("standing vs the group") beyond
+ *     the server's own `standing` block — cycle.equity carries that
+ *     comparison but is admin/senior_admin/treasurer-gated server-side
+ *     (require_role in cycle_equity()); a member page must not call it.
+ */
+
+import {apiGet, requireSession, listMyGroups, ApiError} from "./api.js";
+
+/**
+ * Loan statuses where the loan was actually ISSUED (money left the box).
+ * See file header — there is no 'active' status and 'disbursed' is never
+ * written by the API, so 'approved' must be included or issued loans read
+ * as zero.
+ */
+const ISSUED_LOAN_STATUSES = ["approved", "disbursed", "completed", "defaulted"];
+
+let currentUser = null;
+let currentGroupId = null;
+let userGroups = [];
+let obligations = null;
+let myLoans = [];
+let myRepayments = [];
+
+const groupSelectorEl = () => document.getElementById("groupSelector");
+const spinner = () => document.getElementById("spinner");
+const chartContainerEl = () => document.getElementById("chartContainer");
+const groupStatsSectionEl = () => document.getElementById("groupStatsSection");
+
+document.addEventListener("DOMContentLoaded", async () => {
+  setupEventListeners();
+
+  try {
+    currentUser = await requireSession(); // redirects to login on 401
+  } catch (error) {
+    handleApiError(error, "Could not verify your session.");
+    return;
+  }
+
+  await loadUserGroups();
+});
+
+function setupEventListeners() {
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tab = btn.dataset.tab;
+
+      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      document.querySelectorAll(".tab-content").forEach((content) => {
+        content.classList.remove("active");
+        content.style.display = "none";
+      });
+
+      const activeTab = document.getElementById(`${tab}Tab`);
+      if (activeTab) {
+        activeTab.classList.add("active");
+        activeTab.style.display = "block";
+      }
+
+      if (currentGroupId) {
+        if (tab === "contributions") loadContributions();
+        else if (tab === "loans") loadLoans();
+        else if (tab === "bookings") showBookingsDeferred();
+      }
+    });
+  });
+
+  groupSelectorEl()?.addEventListener("change", async (e) => {
+    currentGroupId = e.target.value;
+    if (currentGroupId) {
+      sessionStorage.setItem("selectedGroupId", currentGroupId);
+      const activeTab = document.querySelector(".tab-btn.active");
+      const tab = activeTab ? activeTab.dataset.tab : "contributions";
+      if (tab === "contributions") await loadContributions();
+      else if (tab === "loans") await loadLoans();
+      else if (tab === "bookings") showBookingsDeferred();
+    } else {
+      const section = groupStatsSectionEl();
+      if (section) section.style.display = "none";
+      const container = chartContainerEl();
+      if (container) {
+        container.textContent = "";
+        container.appendChild(emptyState("📊", "Select a group to view contribution trends"));
+      }
+    }
+  });
+
+  // "Book a loan" — the whole booking feature is deferred (see header).
+  document.getElementById("bookLoanBtn")?.addEventListener("click", () => {
+    showToast("Loan booking is not available yet on this page.", "info");
+  });
+}
+
+async function loadUserGroups() {
+  showSpinner(true);
+  try {
+    userGroups = await listMyGroups();
+
+    const selector = groupSelectorEl();
+    if (selector) {
+      selector.textContent = "";
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Select a group...";
+      selector.appendChild(placeholder);
+
+      userGroups.forEach((group) => {
+        const option = document.createElement("option");
+        option.value = group.groupId || group.id;
+        option.textContent = group.groupName || group.name || "Unnamed group";
+        selector.appendChild(option);
+      });
+    }
+
+    if (userGroups.length === 0) {
+      showToast("You are not a member of any groups yet.", "warning");
+      return;
+    }
+
+    const stored = sessionStorage.getItem("selectedGroupId") || localStorage.getItem("selectedGroupId");
+    const match = userGroups.find((g) => (g.groupId || g.id) === stored);
+    const chosen = match || userGroups[0];
+    currentGroupId = chosen.groupId || chosen.id;
+    if (selector) selector.value = currentGroupId;
+    sessionStorage.setItem("selectedGroupId", currentGroupId);
+
+    await loadContributions();
+  } catch (error) {
+    handleApiError(error, "Failed to load your groups");
+  } finally {
+    showSpinner(false);
+  }
+}
+
+// ── Contributions tab ───────────────────────────────────────────────────────
+async function loadContributions() {
+  if (!currentGroupId) return;
+  showSpinner(true);
+  try {
+    obligations = await apiGet("payments.obligations", {groupId: currentGroupId});
+
+    renderTopStats();
+    renderMonthlyBreakdown();
+    renderContributionTrendChart();
+  } catch (error) {
+    obligations = null;
+    handleApiError(error, "Failed to load your contributions");
+  } finally {
+    showSpinner(false);
+  }
+}
+
+function renderTopStats() {
+  const months = obligations?.monthlyContributions?.months || [];
+  const monthlyPaid = months.reduce((sum, m) => sum + numberOf(m.amountPaid), 0);
+  const seedPaid = numberOf(obligations?.seedMoney?.amountPaid);
+  const feePaid = numberOf(obligations?.serviceFee?.amountPaid);
+  const totalContributed = monthlyPaid + seedPaid + feePaid;
+
+  const monthlyArrears = months.reduce((sum, m) => sum + numberOf(m.arrears), 0);
+  const seedArrears = numberOf(obligations?.seedMoney?.arrears);
+  const feeArrears = numberOf(obligations?.serviceFee?.arrears);
+  const totalArrears = monthlyArrears + seedArrears + feeArrears;
+
+  const outstanding = myLoans
+    .filter((l) => ISSUED_LOAN_STATUSES.includes(l.status))
+    .reduce((sum, l) => sum + numberOf(l.remainingBalance), 0);
+  const totalBorrowed = myLoans
+    .filter((l) => ISSUED_LOAN_STATUSES.includes(l.status))
+    .reduce((sum, l) => sum + numberOf(l.principalAmount ?? l.approvedAmount), 0);
+
+  setText(document.getElementById("totalContributed"), formatCurrency(totalContributed));
+  setText(document.getElementById("totalBorrowed"), formatCurrency(totalBorrowed));
+  setText(document.getElementById("outstanding"), formatCurrency(outstanding));
+  setText(document.getElementById("totalArrears"), formatCurrency(totalArrears));
+
+  setText(document.getElementById("userTotalContributed"), formatCurrency(totalContributed));
+  setText(document.getElementById("userTotalLoans"), formatCurrency(totalBorrowed));
+  setText(document.getElementById("userLoanOutstanding"), formatCurrency(outstanding));
+  setText(document.getElementById("userTotalArrears"), formatCurrency(totalArrears));
+  setText(
+      document.getElementById("userActiveLoans"),
+      String(myLoans.filter((l) => ISSUED_LOAN_STATUSES.includes(l.status)).length),
+  );
+  setText(document.getElementById("userGroupsCount"), String(userGroups.length));
+
+  setText(
+      document.getElementById("monthlyContribution"),
+      formatCurrency(obligations?.monthlyContributions?.totalAmount),
+  );
+  setText(document.getElementById("yearlyTotal"), formatCurrency(totalContributed));
+  setText(document.getElementById("yourContributions"), formatCurrency(totalContributed));
+
+  const section = groupStatsSectionEl();
+  if (section) section.style.display = "";
+}
+
+function renderMonthlyBreakdown() {
+  const container = document.getElementById("monthlyBreakdown");
+  if (!container) return;
+  container.textContent = "";
+
+  const months = obligations?.monthlyContributions?.months || [];
+  if (months.length === 0) {
+    container.appendChild(emptyState("📊", "No breakdown available"));
+    return;
+  }
+
+  months.forEach((month) => {
+    const expected = numberOf(month.totalAmount);
+    const paid = numberOf(month.amountPaid);
+    const paidPercent = expected > 0 ? (paid / expected) * 100 : 0;
+
+    const div = el("div", "list-item");
+
+    const info = el("div");
+    info.style.flex = "1";
+
+    const title = el("div", "list-item-title");
+    title.textContent = month.month;
+    info.appendChild(title);
+
+    const row = el("div");
+    row.style.cssText = "display:flex; justify-content:space-between; margin-top:8px; margin-bottom:4px; font-size:0.875rem;";
+
+    const expectedSpan = document.createElement("span");
+    expectedSpan.textContent = `Expected: ${formatCurrency(expected)}`;
+    const paidSpan = document.createElement("span");
+    paidSpan.textContent = `Paid: ${formatCurrency(paid)}`;
+    row.append(expectedSpan, paidSpan);
+    info.appendChild(row);
+
+    const barTrack = el("div");
+    barTrack.style.cssText = "background: rgba(255,255,255,0.1); border-radius:4px; height:8px; overflow:hidden;";
+    const barFill = el("div");
+    barFill.style.cssText = `background: ${paidPercent >= 100 ? "var(--bn-success)" : "var(--bn-primary)"}; height:100%; width:${Math.min(100, paidPercent)}%;`;
+    barTrack.appendChild(barFill);
+    info.appendChild(barTrack);
+
+    const percentLabel = el("div");
+    percentLabel.style.cssText = "margin-top:4px; font-size:0.75rem; color: rgba(255,255,255,0.7);";
+    percentLabel.textContent = `${paidPercent.toFixed(1)}% complete`;
+    info.appendChild(percentLabel);
+
+    div.appendChild(info);
+    container.appendChild(div);
+  });
+}
+
+function renderContributionTrendChart() {
+  const container = chartContainerEl();
+  if (!container) return;
+  container.textContent = "";
+
+  const months = obligations?.monthlyContributions?.months || [];
+  if (months.length === 0) {
+    container.appendChild(emptyState("📊", "No contribution data available yet"));
+    return;
+  }
+
+  const monthsWithData = months.filter((m) => numberOf(m.amountPaid) > 0 || numberOf(m.totalAmount) > 0);
+  const monthsToShow = (monthsWithData.length > 0 ? monthsWithData : months).slice(-6);
+
+  const maxAmount = Math.max(
+      1,
+      ...monthsToShow.map((m) => Math.max(numberOf(m.amountPaid), numberOf(m.totalAmount))),
+  );
+
+  monthsToShow.forEach((month) => {
+    const paid = numberOf(month.amountPaid);
+    const expected = numberOf(month.totalAmount);
+    const barHeight = maxAmount > 0 ? (paid / maxAmount) * 100 : 0;
+
+    const wrapper = el("div", "chart-bar-wrapper");
+    const bar = el("div", "chart-bar animated");
+    bar.style.cssText = `height:160px; --bar-height: ${Math.max(barHeight, 2)}%;`;
+    bar.title = `${month.month}: ${formatCurrency(paid)} / ${formatCurrency(expected)}`;
+
+    const label = el("span", "chart-label");
+    label.textContent = month.month.slice(0, 3);
+
+    wrapper.append(bar, label);
+    container.appendChild(wrapper);
+  });
+}
+
+// ── Loans tab ───────────────────────────────────────────────────────────────
+async function loadLoans() {
+  if (!currentGroupId) return;
+  showSpinner(true);
+  try {
+    const data = await apiGet("loans.list", {groupId: currentGroupId});
+    // The server already restricts a plain member's rows to their own loans —
+    // no client-side filtering by borrowerId is performed or needed here.
+    myLoans = Array.isArray(data && data.loans) ? data.loans : [];
+
+    const repayData = await apiGet("repayments.mine", {groupId: currentGroupId});
+    myRepayments = Array.isArray(repayData && repayData.payments) ? repayData.payments : [];
+
+    renderLoanStats();
+    renderMyLoans();
+    renderRepaymentHistory();
+
+    // Re-derive the top stats now that loans are loaded.
+    renderTopStats();
+  } catch (error) {
+    myLoans = [];
+    myRepayments = [];
+    handleApiError(error, "Failed to load your loans");
+  } finally {
+    showSpinner(false);
+  }
+}
+
+function renderLoanStats() {
+  const outstanding = myLoans
+      .filter((l) => ISSUED_LOAN_STATUSES.includes(l.status))
+      .reduce((sum, l) => sum + numberOf(l.remainingBalance), 0);
+  const paid = myLoans.reduce((sum, l) => sum + numberOf(l.amountRepaid), 0);
+  const activeCount = myLoans.filter((l) => ISSUED_LOAN_STATUSES.includes(l.status)).length;
+
+  setText(document.getElementById("activeLoansCount"), String(activeCount));
+  setText(document.getElementById("outstandingLoans"), formatCurrency(outstanding));
+  setText(document.getElementById("totalLoansPaid"), formatCurrency(paid));
+
+  // "Next disbursement" (loans currently being disbursed to OTHER members) is
+  // not available to a member — see DEFERRED note in the file header. Report
+  // it, don't invent a figure.
+  const nextEl = document.getElementById("nextDisbursement");
+  if (nextEl) nextEl.textContent = "—";
+
+  const disbursedContainer = document.getElementById("disbursedLoans");
+  if (disbursedContainer) {
+    disbursedContainer.textContent = "";
+    disbursedContainer.appendChild(
+        emptyState("💰", "Other members' loan disbursement details are not available on this page."),
+    );
+  }
+}
+
+function renderMyLoans() {
+  const container = document.getElementById("yourLoans");
+  if (!container) return;
+  container.textContent = "";
+
+  if (myLoans.length === 0) {
+    container.appendChild(emptyState("📋", "No loans found"));
+    return;
+  }
+
+  myLoans.forEach((loan) => {
+    const div = el("div", "list-item");
+
+    const info = el("div");
+    info.style.flex = "1";
+
+    const title = el("div", "list-item-title");
+    title.textContent = `Loan ${loan.loanNumber || String(loan.loanId).slice(0, 8)}`;
+    info.appendChild(title);
+
+    const requestedDate = loan.requestedAt ? new Date(loan.requestedAt).toLocaleDateString() : "N/A";
+    const subtitle = el("div", "list-item-subtitle");
+    subtitle.textContent = `${loan.purpose || "Not specified"} • Requested ${requestedDate}`;
+    info.appendChild(subtitle);
+
+    const principal = numberOf(loan.principalAmount ?? loan.approvedAmount);
+    const totalRepayment = numberOf(loan.totalRepayment);
+    const repaid = numberOf(loan.amountRepaid);
+    const progress = totalRepayment > 0 ? (repaid / totalRepayment) * 100 : 0;
+
+    const progressWrap = el("div");
+    progressWrap.style.marginTop = "12px";
+
+    const amountsRow = el("div");
+    amountsRow.style.cssText = "display:flex; justify-content:space-between; margin-bottom:4px; font-size:0.875rem;";
+    const amountSpan = document.createElement("span");
+    amountSpan.textContent = `Amount: ${formatCurrency(principal)}`;
+    const paidSpan = document.createElement("span");
+    paidSpan.textContent = `Paid: ${formatCurrency(repaid)}`;
+    amountsRow.append(amountSpan, paidSpan);
+    progressWrap.appendChild(amountsRow);
+
+    const barTrack = el("div");
+    barTrack.style.cssText = "background: rgba(255,255,255,0.1); border-radius:4px; height:8px; overflow:hidden;";
+    const barFill = el("div");
+    barFill.style.cssText = `background: var(--bn-primary); height:100%; width:${Math.min(100, progress)}%;`;
+    barTrack.appendChild(barFill);
+    progressWrap.appendChild(barTrack);
+
+    const remainingLabel = el("div");
+    remainingLabel.style.cssText = "margin-top:4px; font-size:0.75rem; color: rgba(255,255,255,0.7);";
+    remainingLabel.textContent = `${progress.toFixed(1)}% complete • Remaining: ${formatCurrency(loan.remainingBalance)}`;
+    progressWrap.appendChild(remainingLabel);
+
+    info.appendChild(progressWrap);
+    div.appendChild(info);
+
+    const badgeWrap = el("div");
+    const badge = el("span", `badge badge-${ISSUED_LOAN_STATUSES.includes(loan.status) ? "success" : "warning"}`);
+    badge.textContent = loan.status;
+    badgeWrap.appendChild(badge);
+    div.appendChild(badgeWrap);
+
+    container.appendChild(div);
+  });
+}
+
+function renderRepaymentHistory() {
+  const container = document.getElementById("recentActivity");
+  if (!container) return;
+  container.textContent = "";
+
+  if (!currentGroupId) {
+    container.appendChild(emptyState("📊", "Select a group to view recent activity"));
+    return;
+  }
+
+  if (myRepayments.length === 0) {
+    container.appendChild(emptyState("📊", "No recent activity"));
+    return;
+  }
+
+  myRepayments.slice(0, 10).forEach((payment) => {
+    const div = el("div", "list-item");
+
+    const info = el("div");
+    info.style.flex = "1";
+    const title = el("div", "list-item-title");
+    title.textContent = `Loan Payment${payment.loanNumber ? ` — ${payment.loanNumber}` : ""}`;
+    info.appendChild(title);
+
+    const when = payment.paidAt || payment.createdAt;
+    const dateLabel = when ? new Date(when).toLocaleDateString() : "N/A";
+    const subtitle = el("div", "list-item-subtitle");
+    subtitle.textContent = `${dateLabel} • ${payment.status}`;
+    info.appendChild(subtitle);
+
+    div.appendChild(info);
+
+    const amountWrap = el("div");
+    const amountSpan = document.createElement("span");
+    amountSpan.style.cssText = "font-size:1.125rem; font-weight:700; color: var(--bn-accent);";
+    amountSpan.textContent = formatCurrency(payment.amount);
+    amountWrap.appendChild(amountSpan);
+    div.appendChild(amountWrap);
+
+    container.appendChild(div);
+  });
+}
+
+// ── Bookings tab (deferred entirely — see file header) ─────────────────────
+function showBookingsDeferred() {
+  const yourBookings = document.getElementById("yourBookings");
+  if (yourBookings) {
+    yourBookings.textContent = "";
+    yourBookings.appendChild(emptyState("📅", "Loan booking is not available yet."));
+  }
+  const queue = document.getElementById("bookingQueue");
+  if (queue) {
+    queue.textContent = "";
+    queue.appendChild(emptyState("📊", "Loan booking is not available yet."));
+  }
+  showToast("Loan booking is not available yet on this page.", "info");
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+function el(tag, className) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  return node;
+}
+
+function emptyState(icon, text) {
+  const wrap = el("div", "empty-state");
+  const i = el("div", "empty-state-icon");
+  i.textContent = icon;
+  const p = el("p", "empty-state-text");
+  p.textContent = text;
+  wrap.append(i, p);
+  return wrap;
+}
+
+function numberOf(value) {
+  const n = parseFloat(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function formatCurrency(amount) {
+  return `MWK ${numberOf(amount).toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+}
+
+function setText(node, value) {
+  if (node) node.textContent = value;
+}
+
+function showSpinner(show) {
+  const node = spinner();
+  if (node) node.classList.toggle("hidden", !show);
+}
+
+function handleApiError(error, fallback) {
+  if (error instanceof ApiError) {
+    if (error.status === 401) {
+      window.location.replace("/login.html");
+      return;
+    }
+    if (error.status === 403) {
+      showToast("You do not have permission to view this.", "error");
+      return;
+    }
+    showToast(error.message || fallback, "error");
+    return;
+  }
+  console.error(fallback, error);
+  showToast(fallback, "error");
+}
+
+function showToast(message, type = "info") {
+  const container = document.getElementById("toastContainer");
+  if (!container) {
+    console.log(`[${type}] ${message}`);
+    return;
+  }
+  const toast = el("div", `toast toast-${type}`);
+  const span = document.createElement("span");
+  span.textContent = message;
+  const close = el("button", "toast-close");
+  close.innerHTML = "&times;"; // static entity only, no user data
+  close.addEventListener("click", () => toast.remove());
+  toast.append(span, close);
+  container.appendChild(toast);
+
+  setTimeout(() => toast.classList.add("show"), 10);
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 300);
+  }, 5000);
+}

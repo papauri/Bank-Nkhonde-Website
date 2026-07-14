@@ -172,7 +172,7 @@
   </style>
 </head>
 <body>
-  <!-- Sidebar, topbar, and mobile nav injected by admin-layout.js -->
+  <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
     <div class="dashboard-content">
 
@@ -246,9 +246,6 @@
     </div>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script>
     // Animate chart bars on load
     setTimeout(() => {
@@ -266,9 +263,9 @@
     });
   </script>
   <script type="module">
-    import { initAdminLayout } from '../scripts/admin-layout.js';
-    initAdminLayout({ pageTitle: 'Analytics', activeNav: 'analytics' });
+    import { initNav } from '../scripts/nav_sql.js';
+    initNav({ variant: 'admin', activePage: 'analytics', pageTitle: 'Analytics' });
   </script>
-  <script type="module" src="../scripts/analytics.js"></script>
+  <script type="module" src="../scripts/analytics_sql.js"></script>
 </body>
 </html>

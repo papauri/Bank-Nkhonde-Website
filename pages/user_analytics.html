@@ -355,9 +355,6 @@
     </div>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script>
     // Animate chart bars on load
     setTimeout(() => {
@@ -366,17 +363,11 @@
       });
     }, 500);
   </script>
-  <script src="../scripts/shared-top-nav.js"></script>
-  <script>
-    // Initialize shared top navigation
-    initTopNav({
-      showGroupDisplay: true,
-      showViewToggle: true,
-      logoLink: 'user_dashboard.html'
-    });
+  <script type="module">
+    import { initNav } from '../scripts/nav_sql.js';
+    initNav({ variant: 'user', activePage: 'user_analytics' });
   </script>
-  <script type="module" src="../scripts/user_analytics.js"></script>
-  <script type="module" src="../scripts/unified-navigation.js"></script>
+  <script type="module" src="../scripts/user_analytics_sql.js"></script>
   <script src="../scripts/mobile-nav-active.js"></script>
 </body>
 </html>

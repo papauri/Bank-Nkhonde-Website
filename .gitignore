@@ -40,3 +40,9 @@ config/email.config.js.backup
 functions/node_modules/
 functions/.runtimeconfig.json
 functions/*.log
+
+# Uploaded proof-of-payment files are member data — never commit them.
+# Keep the directory guards (execution-disable .htaccess + anti-listing index).
+uploads/proofs/*
+!uploads/proofs/.htaccess
+!uploads/proofs/index.html

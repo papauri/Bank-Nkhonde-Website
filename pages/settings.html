@@ -53,8 +53,8 @@
       position: absolute;
       bottom: 0;
       right: 0;
-      width: 36px;
-      height: 36px;
+      width: 44px;
+      height: 44px;
       border-radius: var(--bn-radius-full);
       background: var(--bn-accent);
       border: 3px solid var(--bn-primary);
@@ -255,7 +255,7 @@
   </style>
 </head>
 <body>
-  <!-- Sidebar, topbar, and mobile nav injected by admin-layout.js -->
+  <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
     <div class="dashboard-content">
 
@@ -668,9 +668,9 @@
   <script src="../scripts/modal-utils.js"></script>
   <script src="../scripts/dob-validation.js"></script>
   <script type="module">
-    import { initAdminLayout } from '../scripts/admin-layout.js';
-    initAdminLayout({ pageTitle: 'Settings', activeNav: 'settings' });
+    import { initNav } from '../scripts/nav_sql.js';
+    initNav({ variant: 'admin', activePage: 'settings', pageTitle: 'Settings' });
   </script>
-  <script type="module" src="../scripts/settings.js"></script>
+  <script type="module" src="../scripts/settings_sql.js"></script>
 </body>
 </html>

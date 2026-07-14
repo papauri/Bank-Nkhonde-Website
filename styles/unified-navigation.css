@@ -58,8 +58,8 @@
 }
 
 .top-nav-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--bn-radius-md);
   background: rgba(255, 255, 255, 0.1);
   border: none;
@@ -77,8 +77,8 @@
 }
 
 .top-nav-avatar {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--bn-radius-full);
   background: var(--bn-gradient-accent);
   display: flex;
@@ -92,6 +92,31 @@
   text-decoration: none;
 }
 
+.current-group-display {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bn-space-2);
+  padding: var(--bn-space-2) var(--bn-space-3);
+  border-radius: var(--bn-radius-md);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--bn-white);
+  cursor: pointer;
+  transition: all var(--bn-transition-fast);
+}
+
+.current-group-display:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.current-group-name {
+  font-size: var(--bn-text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
 .top-nav-avatar img {
   width: 100%;
   height: 100%;
@@ -103,8 +128,8 @@
   display: none;
   flex-direction: column;
   gap: 4px;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   padding: 8px;
   background: rgba(255, 255, 255, 0.1);
   border: none;
@@ -193,8 +218,8 @@
 }
 
 .mobile-menu-close {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border: none;
   background: var(--bn-gray-100);
   border-radius: var(--bn-radius-full);
@@ -320,8 +345,8 @@
 
 .topbar-btn {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--bn-radius-md);
   background: var(--bn-gray-100);
   border: none;
@@ -339,8 +364,8 @@
 }
 
 .topbar-avatar {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--bn-radius-full);
   background: var(--bn-gradient-primary);
   display: flex;

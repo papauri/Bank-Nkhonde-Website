@@ -1426,8 +1426,8 @@
     }
 
     .modal-close {
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
       border-radius: var(--bn-radius-md);
       background: var(--bn-gray-100);
       border: none;
@@ -2505,19 +2505,11 @@
   </div>
 
   <!-- Scripts -->
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
-  <script src="../scripts/shared-top-nav.js"></script>
-  <script>
-    // Initialize shared top navigation
-    initTopNav({
-      showGroupDisplay: true,      // Show current group display
-      showViewToggle: true,         // Show admin/user toggle for admins
-      logoLink: '../index.html'     // Link to home page
-    });
+  <script type="module">
+    import { initNav } from '../scripts/nav_sql.js';
+    initNav({ variant: 'user', activePage: 'user_dashboard', showGroupDisplay: true, showViewToggle: true, logoLink: '../index.html' });
   </script>
-  <script type="module" src="../scripts/user_dashboard.js"></script>
+  <script type="module" src="../scripts/user_dashboard_sql.js"></script>
   <script src="../scripts/mobile-nav-active.js"></script>
 </body>
 </html>

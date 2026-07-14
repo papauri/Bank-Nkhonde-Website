@@ -347,8 +347,8 @@
 
     .topbar-btn {
       position: relative;
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
       border-radius: var(--bn-radius-md);
       background: var(--bn-gray-100);
       border: none;
@@ -811,8 +811,8 @@
     }
 
     .approval-btn {
-      width: 32px;
-      height: 32px;
+      width: 44px;
+      height: 44px;
       border-radius: var(--bn-radius-md);
       border: none;
       cursor: pointer;
@@ -1341,8 +1341,8 @@
     }
 
     .stat-modal-close {
-      width: 36px;
-      height: 36px;
+      width: 44px;
+      height: 44px;
       border-radius: var(--bn-radius-md);
       background: transparent;
       border: none;
@@ -1513,7 +1513,7 @@
   </style>
 </head>
 <body>
-  <!-- Sidebar, topbar, and mobile nav injected by admin-layout.js -->
+  <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
 
   <main class="main-content" id="mainContent">
 
@@ -1658,7 +1658,7 @@
     </div>
   </main>
 
-  <!-- Mobile nav injected by admin-layout.js -->
+  <!-- Mobile nav injected by nav_sql.js -->
 
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
@@ -1933,9 +1933,6 @@
   </style>
 
   <!-- Scripts -->
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script>
     // Animate chart bars on load
     setTimeout(() => {
@@ -1978,9 +1975,9 @@
     }
   </script>
   <script type="module">
-    import { initAdminLayout } from '../scripts/admin-layout.js';
-    initAdminLayout({ pageTitle: 'Dashboard', activeNav: 'dashboard' });
+    import { initNav } from '../scripts/nav_sql.js';
+    initNav({ variant: 'admin', activePage: 'dashboard', pageTitle: 'Dashboard' });
   </script>
-  <script type="module" src="../scripts/admin_dashboard.js"></script>
+  <script type="module" src="../scripts/admin_dashboard_sql.js"></script>
 </body>
 </html>

@@ -236,6 +236,7 @@
         <div class="form-section">
           <h3 class="form-section-title">Identification</h3>
           
+          <p class="required-note">Optional — you can add these later.</p>
           <div class="form-row-3">
             <div class="form-group">
               <label class="form-label">ID Type</label>
@@ -257,25 +258,26 @@
           </div>
         </div>
 
-        <!-- Guarantor Information -->
+        <!-- Guarantor & Next of Kin (optional) -->
         <div class="form-section">
-          <h3 class="form-section-title">Guarantor Information</h3>
-          
+          <h3 class="form-section-title">Guarantor &amp; Next of Kin (optional)</h3>
+          <p class="required-note">These details are optional — you can leave them blank and add them later.</p>
+
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Guarantor Name <span style="color: var(--bn-danger);">*</span></label>
-              <input type="text" id="guarantorName" class="form-input" required placeholder="Full name of guarantor">
+              <label class="form-label">Guarantor Name</label>
+              <input type="text" id="guarantorName" class="form-input" placeholder="Full name of guarantor">
             </div>
             <div class="form-group">
-              <label class="form-label">Guarantor Phone <span style="color: var(--bn-danger);">*</span></label>
-              <input type="tel" id="guarantorPhone" class="form-input" required placeholder="+265 991 234 567">
+              <label class="form-label">Guarantor Phone</label>
+              <input type="tel" id="guarantorPhone" class="form-input" placeholder="+265 991 234 567">
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Relationship <span style="color: var(--bn-danger);">*</span></label>
-              <select id="guarantorRelationship" class="form-select" required>
+              <label class="form-label">Guarantor Relationship</label>
+              <select id="guarantorRelationship" class="form-select">
                 <option value="">Select relationship</option>
                 <option value="spouse">Spouse</option>
                 <option value="parent">Parent</option>
@@ -291,12 +293,37 @@
               <input type="text" id="guarantorAddress" class="form-input" placeholder="Guarantor's address">
             </div>
           </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Next of Kin Name</label>
+              <input type="text" id="nextOfKinName" class="form-input" placeholder="Full name of next of kin">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Next of Kin Phone</label>
+              <input type="tel" id="nextOfKinPhone" class="form-input" placeholder="+265 991 234 567">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Next of Kin Relationship</label>
+            <select id="nextOfKinRelationship" class="form-select">
+              <option value="">Select relationship</option>
+              <option value="spouse">Spouse</option>
+              <option value="parent">Parent</option>
+              <option value="sibling">Sibling</option>
+              <option value="child">Child</option>
+              <option value="friend">Friend</option>
+              <option value="colleague">Colleague</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
         </div>
 
         <!-- Emergency Contact -->
         <div class="form-section">
           <h3 class="form-section-title">Emergency Contact</h3>
-          
+
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Contact Name</label>
@@ -312,10 +339,10 @@
         <!-- Additional Information -->
         <div class="form-section">
           <h3 class="form-section-title">Additional Information</h3>
-          
+
           <div class="form-group">
-            <label class="form-label">Collateral (if any)</label>
-            <textarea id="collateral" class="form-textarea" rows="2" placeholder="Describe any collateral you can offer for loans"></textarea>
+            <label class="form-label">Collateral Description (optional)</label>
+            <textarea id="collateralDescription" class="form-textarea" rows="2" placeholder="Describe any collateral you can offer for loans"></textarea>
           </div>
 
           <div class="form-group">
@@ -345,6 +372,6 @@
   </div>
 
   <script src="../scripts/dob-validation.js"></script>
-  <script type="module" src="../scripts/complete_profile.js"></script>
+  <script type="module" src="../scripts/complete_profile_sql.js"></script>
 </body>
 </html>

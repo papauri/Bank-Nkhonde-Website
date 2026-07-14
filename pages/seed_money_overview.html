@@ -15,7 +15,7 @@
   <link rel="icon" type="image/png" href="../assets/favicon.png">
 </head>
 <body>
-  <!-- Sidebar, topbar, and mobile nav injected by admin-layout.js -->
+  <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
     <div class="dashboard-content">
 
@@ -74,9 +74,6 @@
     </div>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
   <script>
     // Tab filtering
     document.querySelectorAll('.tab').forEach(tab => {
@@ -87,9 +84,9 @@
     });
   </script>
   <script type="module">
-    import { initAdminLayout } from '../scripts/admin-layout.js';
-    initAdminLayout({ pageTitle: 'Seed Money', activeNav: 'seed-money' });
+    import { initNav } from '../scripts/nav_sql.js';
+    initNav({ variant: 'admin', activePage: 'seed-money', pageTitle: 'Seed Money' });
   </script>
-  <script type="module" src="../scripts/seed_money_overview.js"></script>
+  <script type="module" src="../scripts/seed_money_overview_sql.js"></script>
 </body>
 </html>
