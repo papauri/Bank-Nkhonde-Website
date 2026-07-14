@@ -110,7 +110,7 @@ async function loadAdminGroups() {
   showSpinner(true);
   try {
     const groups = await listMyGroups();
-    const adminGroups = groups.filter((g) => RATES_ADMIN_ROLES.includes(g.role));
+    const adminGroups = groups.filter((g) => RATES_ADMIN_ROLES.includes(g.myRole));
 
     const selector = groupSelector();
     if (selector) {
@@ -140,7 +140,7 @@ async function loadAdminGroups() {
     const match = adminGroups.find((g) => (g.groupId || g.id) === stored);
     const chosen = match || adminGroups[0];
     currentGroupId = chosen.groupId || chosen.id;
-    currentUserRole = chosen.role;
+    currentUserRole = chosen.myRole;
     if (selector) selector.value = currentGroupId;
     sessionStorage.setItem("selectedGroupId", currentGroupId);
 

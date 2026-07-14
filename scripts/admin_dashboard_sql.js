@@ -167,7 +167,6 @@ async function loadDashboardAfterGroupSelection() {
     memberNameById.set(String(m.uid), m.fullName || "Unknown Member");
   }
 
-  applyOwnProfileImage();
   updateCurrentDate();
   renderDashboardStats();
   renderCollectionTrends();
@@ -221,33 +220,6 @@ function renderIdentity(user) {
   const initial = displayName.charAt(0).toUpperCase();
   setText("sidebarUserInitials", initial);
   setText("topbarUserInitials", initial);
-}
-
-/**
- * Show the admin's own profile image (from the group roster) if we have one.
- */
-function applyOwnProfileImage() {
-  const me = groupData.members.find(
-    (m) => String(m.uid) === String(currentUser.uid),
-  );
-  const url = me && typeof me.profileImageUrl === "string" ? me.profileImageUrl : "";
-  if (!url) return;
-
-  const sidebarPic = document.getElementById("sidebarProfilePic");
-  const topbarPic = document.getElementById("topbarProfilePic");
-  const sidebarInitials = document.getElementById("sidebarUserInitials");
-  const topbarInitials = document.getElementById("topbarUserInitials");
-
-  if (sidebarPic) {
-    sidebarPic.src = url;
-    sidebarPic.style.display = "block";
-    if (sidebarInitials) sidebarInitials.style.display = "none";
-  }
-  if (topbarPic) {
-    topbarPic.src = url;
-    topbarPic.style.display = "block";
-    if (topbarInitials) topbarInitials.style.display = "none";
-  }
 }
 
 /* ------------------------------------------------------------------ *

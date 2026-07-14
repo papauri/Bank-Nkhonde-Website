@@ -141,6 +141,17 @@ if (!function_exists('session_status_handler')) {
         if ($user === null) {
             json_error('No active session.', 401);
         }
+
+        $pdo = getDbConnection();
+        $stmt = $pdo->prepare(
+            'SELECT fullName, profileImageUrl FROM users WHERE uid = :uid LIMIT 1'
+        );
+        $stmt->execute([':uid' => $user['uid']]);
+        $profile = $stmt->fetch();
+
+        $user['fullName'] = $profile !== false ? $profile['fullName'] : null;
+        $user['profileImageUrl'] = $profile !== false ? $profile['profileImageUrl'] : null;
+
         json_response($user);
     }
 }

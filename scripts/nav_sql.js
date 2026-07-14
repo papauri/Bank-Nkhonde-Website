@@ -287,10 +287,17 @@ function renderUserNav(user, opts) {
   avatar.id = "userAvatar";
   avatar.title = "Settings & Profile";
   avatar.setAttribute("aria-label", "Settings & Profile");
-  const initialsEl = document.createElement("span");
-  initialsEl.id = "userInitials";
-  initialsEl.textContent = initialsFrom(user && user.fullName);
-  avatar.appendChild(initialsEl);
+  if (user && user.profileImageUrl) {
+    const avatarImg = document.createElement("img");
+    avatarImg.src = user.profileImageUrl;
+    avatarImg.alt = (user && user.fullName) || "";
+    avatar.appendChild(avatarImg);
+  } else {
+    const initialsEl = document.createElement("span");
+    initialsEl.id = "userInitials";
+    initialsEl.textContent = initialsFrom(user && user.fullName);
+    avatar.appendChild(initialsEl);
+  }
   actions.appendChild(avatar);
 
   container.appendChild(actions);
@@ -520,8 +527,15 @@ function renderAdminNav(user, opts) {
   sidebarAvatar.className = "sidebar-user-avatar";
   const sidebarInitials = document.createElement("span");
   sidebarInitials.id = "sidebarUserInitials";
-  sidebarInitials.textContent = initialsFrom(user && user.fullName);
-  sidebarAvatar.appendChild(sidebarInitials);
+  if (user && user.profileImageUrl) {
+    const sidebarImg = document.createElement("img");
+    sidebarImg.src = user.profileImageUrl;
+    sidebarImg.alt = (user && user.fullName) || "";
+    sidebarAvatar.appendChild(sidebarImg);
+  } else {
+    sidebarInitials.textContent = initialsFrom(user && user.fullName);
+    sidebarAvatar.appendChild(sidebarInitials);
+  }
   const sidebarInfo = document.createElement("div");
   sidebarInfo.className = "sidebar-user-info";
   const sidebarName = document.createElement("div");

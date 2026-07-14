@@ -131,7 +131,7 @@ async function loadAdminGroups() {
   showSpinner(true);
   try {
     const groups = await listMyGroups();
-    const adminGroups = groups.filter((g) => REPORT_ADMIN_ROLES.includes(g.role));
+    const adminGroups = groups.filter((g) => REPORT_ADMIN_ROLES.includes(g.myRole));
 
     const selector = groupSelector();
     if (selector) {

@@ -216,7 +216,7 @@ async function loadAdminGroups() {
   showSpinner(true);
   try {
     const groups = await listMyGroups();
-    adminGroups = groups.filter((g) => PAYMENT_ADMIN_ROLES.includes(g.role));
+    adminGroups = groups.filter((g) => PAYMENT_ADMIN_ROLES.includes(g.myRole));
 
     const selector = groupSelector();
     if (selector) {

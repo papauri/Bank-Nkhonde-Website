@@ -87,7 +87,7 @@ async function loadGroup() {
     if (!selectedGroupId) {
       const groups = await listMyGroups();
       const admin = groups.filter((g) =>
-        ["admin", "senior_admin", "treasurer"].includes(g.role));
+        ["admin", "senior_admin", "treasurer"].includes(g.myRole));
       if (admin.length === 0) {
         showToast("You are not an admin of any groups", "warning");
         return;

@@ -51,7 +51,7 @@ let currentFilter = "all";
 /** The caller's role in the currently selected group (drives which writes to offer). */
 function selectedGroupRole() {
   const g = adminGroups.find((x) => x.groupId === selectedGroupId || x.id === selectedGroupId);
-  return g ? (g.role || "member") : "member";
+  return g ? (g.myRole || "member") : "member";
 }
 
 // ── Init ────────────────────────────────────────────────────────────────────
@@ -120,7 +120,7 @@ async function loadAdminGroups() {
     const groups = await listMyGroups();
     // This page manages members, so only groups where the caller can manage them.
     adminGroups = groups.filter((g) =>
-      ["admin", "senior_admin", "treasurer"].includes(g.role));
+      ["admin", "senior_admin", "treasurer"].includes(g.myRole));
 
     if (adminGroups.length === 0) {
       showToast("You are not an admin of any groups", "warning");
