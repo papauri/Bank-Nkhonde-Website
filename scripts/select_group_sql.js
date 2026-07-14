@@ -111,9 +111,23 @@ function buildGroupCard(group) {
 
   const card = document.createElement("div");
   card.className = "group-card";
+  card.setAttribute("tabindex", "0");
+  card.setAttribute("role", "button");
+  card.setAttribute(
+    "aria-label",
+    `${group.groupName || "Unnamed Group"} — ${isAdmin ? "Admin" : "Member"}`,
+  );
   card.addEventListener("click", () =>
     selectGroup(group.groupId, isAdmin ? "admin" : "user"),
   );
+  card.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      if (event.key === " ") {
+        event.preventDefault();
+      }
+      selectGroup(group.groupId, isAdmin ? "admin" : "user");
+    }
+  });
 
   const header = document.createElement("div");
   header.className = "group-header";

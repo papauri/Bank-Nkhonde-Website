@@ -47,6 +47,17 @@
       align-items: center;
       gap: var(--bn-space-3);
       text-decoration: none;
+      border-radius: var(--bn-radius-md);
+    }
+
+    .header-brand:focus-visible,
+    .logout-btn:focus-visible,
+    .notification-card:focus-visible,
+    .group-card:focus-visible,
+    .empty-state .btn:focus-visible,
+    .section-header .btn:focus-visible {
+      outline: 2px solid var(--bn-accent-light);
+      outline-offset: 3px;
     }
 
     .brand-icon {
@@ -110,6 +121,7 @@
       border: 1px solid rgba(255, 255, 255, 0.2);
       color: var(--bn-white);
       padding: var(--bn-space-2) var(--bn-space-4);
+      min-height: 44px;
       border-radius: var(--bn-radius-lg);
       font-size: var(--bn-text-sm);
       font-weight: 500;
@@ -166,12 +178,17 @@
       display: flex;
       align-items: center;
       gap: var(--bn-space-4);
+      min-height: 44px;
       transition: all var(--bn-transition-base);
       cursor: pointer;
+      text-decoration: none;
+      color: inherit;
     }
 
-    .notification-card:hover {
+    .notification-card:hover,
+    .notification-card:focus-visible {
       background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
       transform: translateY(-2px);
     }
 
@@ -199,7 +216,7 @@
 
     .notification-content p {
       font-size: var(--bn-text-xs);
-      color: rgba(255, 255, 255, 0.6);
+      color: rgba(255, 255, 255, 0.72);
       margin: 0;
     }
 
@@ -237,24 +254,48 @@
 
     .group-card {
       background: var(--bn-white);
+      border: 1px solid transparent;
       border-radius: var(--bn-radius-xl);
       padding: var(--bn-space-6);
+      min-height: 44px;
       cursor: pointer;
       transition: all var(--bn-transition-base);
       text-decoration: none;
       display: block;
+      position: relative;
     }
 
     .group-card:hover {
       transform: translateY(-4px);
+      border-color: var(--bn-accent-subtle);
       box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .group-card::after {
+      content: "";
+      position: absolute;
+      right: var(--bn-space-6);
+      bottom: var(--bn-space-6);
+      width: 20px;
+      height: 20px;
+      opacity: 0.35;
+      background: var(--bn-gray-700);
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6l6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6l6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat;
+      transition: transform var(--bn-transition-base), opacity var(--bn-transition-base);
+    }
+
+    .group-card:hover::after {
+      opacity: 0.7;
+      transform: translateX(3px);
     }
 
     .group-header {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
-      margin-bottom: var(--bn-space-4);
+      gap: var(--bn-space-3);
+      margin-bottom: 0;
     }
 
     .group-name {
@@ -262,6 +303,7 @@
       font-weight: 700;
       color: var(--bn-dark);
       margin: 0 0 var(--bn-space-1);
+      word-break: break-word;
     }
 
     .group-role {
@@ -269,6 +311,8 @@
       font-weight: 600;
       padding: var(--bn-space-1) var(--bn-space-3);
       border-radius: var(--bn-radius-full);
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .group-role.admin {
@@ -281,59 +325,53 @@
       color: var(--bn-info);
     }
 
-    .group-stats {
-      display: flex;
-      gap: var(--bn-space-6);
-    }
-
-    .group-stat {
-      flex: 1;
-    }
-
-    .group-stat-value {
-      font-size: var(--bn-text-base);
-      font-weight: 700;
-      color: var(--bn-dark);
-    }
-
-    .group-stat-label {
-      font-size: var(--bn-text-xs);
-      color: var(--bn-gray);
-    }
-
-    .group-pending {
-      display: flex;
-      align-items: center;
-      gap: var(--bn-space-2);
-      margin-top: var(--bn-space-4);
-      padding-top: var(--bn-space-4);
-      border-top: 1px solid var(--bn-gray-100);
-      font-size: var(--bn-text-xs);
-      color: var(--bn-warning);
-    }
-
     /* Empty State */
     .empty-state {
+      grid-column: 1 / -1;
       text-align: center;
-      padding: var(--bn-space-16);
+      padding: var(--bn-space-16) var(--bn-space-6);
       background: rgba(255, 255, 255, 0.05);
       border-radius: var(--bn-radius-xl);
       border: 2px dashed rgba(255, 255, 255, 0.2);
     }
 
     .empty-state-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-size: 3rem;
-      margin-bottom: var(--bn-space-4);
-      opacity: 0.6;
+      line-height: 1;
+      margin: 0 auto var(--bn-space-4);
+      opacity: 0.7;
     }
 
     .empty-state-text {
       font-size: var(--bn-text-base);
-      color: rgba(255, 255, 255, 0.7);
-      margin-bottom: var(--bn-space-6);
+      color: rgba(255, 255, 255, 0.8);
+      max-width: 380px;
+      margin: 0 auto var(--bn-space-6);
     }
 
     /* Responsive */
+    @media (max-width: 1280px) {
+      .main-content,
+      .header-container {
+        max-width: 1100px;
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .main-content {
+        padding: var(--bn-space-6) var(--bn-space-5);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .notifications-summary {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+    }
+
     @media (max-width: 640px) {
       .header-user .user-info {
         display: none;
@@ -345,6 +383,29 @@
 
       .groups-grid {
         grid-template-columns: 1fr;
+      }
+
+      .empty-state {
+        padding: var(--bn-space-10) var(--bn-space-4);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .select-header {
+        padding: var(--bn-space-3) var(--bn-space-4);
+      }
+
+      .main-content {
+        padding: var(--bn-space-6) var(--bn-space-4);
+      }
+
+      .section-header {
+        flex-wrap: wrap;
+        gap: var(--bn-space-3);
+      }
+
+      .brand-text {
+        font-size: var(--bn-text-base);
       }
     }
   </style>
@@ -385,30 +446,30 @@
 
       <!-- Notifications Summary -->
       <div class="notifications-summary" id="notificationsSummary">
-        <div class="notification-card" onclick="window.location.href='manage_payments.html'">
-          <div class="notification-icon pending">⏳</div>
+        <a class="notification-card" href="manage_payments.html">
+          <div class="notification-icon pending" aria-hidden="true">⏳</div>
           <div class="notification-content">
             <h4>Pending Payments</h4>
             <p>Awaiting approval</p>
           </div>
           <span class="notification-badge" id="pendingPaymentsBadge">0</span>
-        </div>
-        <div class="notification-card" onclick="window.location.href='manage_loans.html'">
-          <div class="notification-icon loans">💰</div>
+        </a>
+        <a class="notification-card" href="manage_loans.html">
+          <div class="notification-icon loans" aria-hidden="true">💰</div>
           <div class="notification-content">
             <h4>Loan Requests</h4>
             <p>Need review</p>
           </div>
           <span class="notification-badge" id="loanRequestsBadge">0</span>
-        </div>
-        <div class="notification-card" onclick="window.location.href='broadcast_notifications.html'">
-          <div class="notification-icon broadcasts">📢</div>
+        </a>
+        <a class="notification-card" href="broadcast_notifications.html">
+          <div class="notification-icon broadcasts" aria-hidden="true">📢</div>
           <div class="notification-content">
             <h4>Broadcasts</h4>
             <p>Unread messages</p>
           </div>
           <span class="notification-badge" id="broadcastsBadge">0</span>
-        </div>
+        </a>
       </div>
 
       <!-- Groups -->
