@@ -1078,10 +1078,10 @@ table.data-table tbody tr:last-child td {
   border-left: 4px solid var(--bn-gray);
 }
 
-.toast.success { border-color: var(--bn-success); }
-.toast.warning { border-color: var(--bn-warning); }
-.toast.danger { border-color: var(--bn-danger); }
-.toast.info { border-color: var(--bn-info); }
+.toast.toast-success { border-color: var(--bn-success); }
+.toast.toast-warning { border-color: var(--bn-warning); }
+.toast.toast-danger { border-color: var(--bn-danger); }
+.toast.toast-info { border-color: var(--bn-info); }
 
 .toast-icon {
   flex-shrink: 0;

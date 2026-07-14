@@ -57,6 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
  * Entry point. Gates on the session, resolves the selected group, then loads it.
  */
 async function init() {
+  showSpinner(true);
   currentUser = await requireSession();
   renderIdentity(currentUser);
   resetSessionTimer();
@@ -80,6 +81,7 @@ async function init() {
 
   if (!currentGroup) {
     // The stored group is not one this member belongs to (any more). Re-pick.
+    showSpinner(false);
     window.location.href = "select_group.html";
     return;
   }
@@ -88,7 +90,22 @@ async function init() {
   updateCurrentGroupDisplay();
   applyRole();
 
-  await loadDashboard(groupId);
+  try {
+    await loadDashboard(groupId);
+  } finally {
+    showSpinner(false);
+  }
+}
+
+/**
+ * Toggle the full-page loading overlay, mirroring admin_dashboard_sql.js.
+ * @param {boolean} show
+ */
+function showSpinner(show) {
+  const spinner = document.getElementById("spinner");
+  if (!spinner) return;
+  if (show) spinner.classList.remove("hidden");
+  else spinner.classList.add("hidden");
 }
 
 /* ------------------------------------------------------------------ *
@@ -262,7 +279,12 @@ async function selectUserGroup(groupId) {
   renderGroupsList();
   updateCurrentGroupDisplay();
   applyRole();
-  await loadDashboard(groupId);
+  showSpinner(true);
+  try {
+    await loadDashboard(groupId);
+  } finally {
+    showSpinner(false);
+  }
 }
 window.selectUserGroup = selectUserGroup;
 
@@ -285,6 +307,9 @@ window.handleSwitchToAdmin = function handleSwitchToAdmin() {
  * @param {string} groupId
  */
 async function loadDashboard(groupId) {
+  // Reset per-load so switching groups can surface a fresh warning too.
+  fetchFailureWarned = false;
+
   const [obligations, payments, loans] = await Promise.all([
     safeGet("payments.obligations", { groupId }),
     safeGet("payments.list", { groupId }),
@@ -325,8 +350,27 @@ async function safeGet(action, params) {
   } catch (error) {
     handleSessionError(error);
     console.error(`Failed to load ${action}:`, error);
+    warnFetchFailure();
     return null;
   }
+}
+
+// Fires once per page load — a real fetch failure must never look identical
+// to a genuinely empty/zero account (see FIX 2).
+let fetchFailureWarned = false;
+
+/**
+ * Show a single, page-load-scoped toast the first time any dashboard
+ * section fails to load. Subsequent failures in the same load are silent
+ * (already covered by the one toast) but still console.error individually.
+ */
+function warnFetchFailure() {
+  if (fetchFailureWarned) return;
+  fetchFailureWarned = true;
+  showToast(
+    "Some information couldn't be loaded — try refreshing the page.",
+    "danger",
+  );
 }
 
 /**
@@ -892,17 +936,24 @@ function wireStaticHandlers() {
       }
     });
 
-  // Write flows are out of scope for this read port (see file header).
+  // No member-initiated "request a new loan" flow exists anywhere in the
+  // ported app yet (grepped loans.request across scripts/*_sql.js — the only
+  // caller is the admin-only manage_loans page). Be honest about that rather
+  // than dead-ending silently.
   document
     .getElementById("requestLoanBtn")
     ?.addEventListener("click", () =>
-      showToast("Loan requests are not available in this view yet.", "info"),
+      showToast(
+        "Requesting a new loan isn't available online yet — please contact your group admin.",
+        "info",
+      ),
     );
+  // Repayment / proof-of-payment upload IS live — on loan_payments.html.
   document
     .getElementById("uploadPaymentBtn")
-    ?.addEventListener("click", () =>
-      showToast("Payment upload is not available in this view yet.", "info"),
-    );
+    ?.addEventListener("click", () => {
+      window.location.href = "loan_payments.html";
+    });
 
   // Idle-timeout reset on interaction.
   ["click", "keypress", "mousemove", "scroll"].forEach((evt) =>
@@ -1155,10 +1206,12 @@ function showToast(message, type = "info") {
   toast.className = `toast toast-${type}`;
 
   const span = document.createElement("span");
+  span.className = "toast-content toast-message";
   span.textContent = message;
   const close = document.createElement("button");
   close.className = "toast-close";
   close.textContent = "×";
+  close.setAttribute("aria-label", "Dismiss notification");
   close.addEventListener("click", () => toast.remove());
 
   toast.appendChild(span);

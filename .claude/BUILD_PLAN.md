@@ -366,3 +366,46 @@ Nothing new gets built until these are closed.
 - **Cycle 1** — Mapped `functions/` + deploy config into `SYSTEM_MAP.md`. Found BLOCKER-0.
 - **Cycle 2** — Closed the open email relay + stripped all seven credential/config literals from `functions/index.js`. QA PASS (lint + security review).
 - **Cycle 3** — **PIVOT to PHP+MySQL.** Extracted the full 32-entity data model into `SYSTEM_MAP.md`, then scaffolded the SQL data layer: 3 numbered migration files (24 tables, InnoDB/utf8mb4, all money DECIMAL(15,2)), `config/database.php` (PDO), `config/env.php` (hand-rolled .env parser), `run_migrations.php`, `.env` (gitignored) + `.env.example` (tracked, placeholders). Consolidated 3 payment tables → 1 with a `paymentType` discriminator, merged 2 notification tables → 1, added `users.passwordHash`. Financial tables (payments/loans/loan_payments/loan_repayment_schedule/transactions/audit_logs) use ON DELETE RESTRICT — no ledger can be cascade-destroyed. QA PASS (mechanical + structural checks run inline: php -l clean, .env correctly ignored, no FLOAT columns, no leaked SMTP password, FK ordering sound, financial-integrity rule holds). **Nothing executed against a DB — no MySQL server exists yet.** Firebase untouched and still working.
+
+*(Detailed cycle-by-cycle history for cycles 4–47 predates this entry and was condensed/reset by a separate session — see git log for `19a2549 Migrate Bank Nkhonde from Firebase to PHP + MySQL` and `4470442 commit cline` for that work. The header above already records the project as PROJECT COMPLETE as of cycle 47.)*
+
+---
+
+## POST-COMPLETION MAINTENANCE — 2026-07-14/15 session
+
+The app was declared PROJECT COMPLETE (cycle 47) by a prior session, but had never been smoke-tested against the live database end-to-end. This session ran a full live smoke test (register → login → create group → set rules → upload profile pictures → create members → verify) and a dashboard UX audit, both requested by the owner. Found and fixed 3 real, previously-invisible production bugs, plus dashboard UX gaps. All fixes QA-reviewed and verified live against the production database before being recorded here.
+
+### Bugs found and fixed
+
+1. **`groups.create` never created a `group_rules` row — every group ever created was permanently unable to have its money rules configured.** `rules.update` only ever `UPDATE`s an existing row; nothing ever `INSERT`ed one. Confirmed live: the owner's own real "Test" group (created 2026-07-14) has 0 `group_rules` rows and is still broken — **needs a manual backfill** (an admin calling `rules.update` on it will 404 until someone runs one `INSERT INTO group_rules (groupId, cycleDurationStartDate, loanPenaltyType, contributionPenaltyType) VALUES ('<that groupId>', NOW(), 'fixed', 'fixed')` against it). Fixed in `api/handlers/groups.php`'s `create_group()`: inserts a `group_rules` row in the same transaction as the group/member insert, using only server-controlled values (schema defaults for everything except `cycleDurationStartDate` and, per bug 2 below, `loanPenaltyType`/`contributionPenaltyType`). QA PASS. Verified live: a freshly created group now has a working `group_rules` row immediately.
+
+2. **`loanPenaltyType`/`contributionPenaltyType` were not in `rules.update`'s whitelist at all, and the schema default (`'percentage'`) is a mode the penalty engine never implemented** (`api/lib/penalty.php` and the inline contribution-penalty logic in `api/handlers/payments.php` both throw/501 on `'percentage'`, only `'fixed'` is real). This meant every group's penalty computation was broken by default with no way to fix it via the app. Fixed: both columns added to `update_rules()`'s whitelist (validated against the real enum values), and `create_group()`'s new `group_rules` insert explicitly sets both to `'fixed'` so new groups are born in a working state. QA PASS. Verified live: a fresh group defaults to `'fixed'`/`'fixed'`, and `rules.update` can now set either value explicitly.
+
+3. **`profile.update` (self-service) never synced the denormalized `fullName`/`phone`/`whatsappNumber`/`profileImageUrl` copies in `members`.** A member changing their own profile picture/phone/name via Settings would update `users` correctly but every group roster (`members.list` — admin dashboards, manage_members, contacts, etc.) kept showing the stale old value forever. Fixed in `api/handlers/profile.php`'s `update_profile()`: now also updates every `members` row for that uid (all group memberships, `email` deliberately excluded, each field gated by `array_key_exists` so untouched fields aren't blasted), wrapped in the same transaction as the `users` update. QA PASS. Verified live: updating phone via `profile.update` now shows correctly in `members.list` immediately.
+
+### App-wide latent bug found and fixed (via ui-designer, during dashboard polish)
+
+4. **Colored toasts (`success`/`warning`/`danger`/`info`) have silently rendered as plain grey app-wide since the app was built.** `showToast(msg, type)` sets `className = "toast toast-${type}"` (hyphenated), but `design-system.css` and `admin-layout.css` had color rules written as `.toast.danger` etc. (space-separated, no hyphen) — a selector that never matched. Fixed: renamed the CSS selectors to match what the JS actually emits (`.toast.toast-success`, `.toast.toast-danger`, etc.) in both files. **One remaining occurrence of the old broken pattern in `styles/mobile-design-system.css` — confirmed dead/unloaded by any live page, not fixed (out of scope, zero live impact).** QA PASS.
+
+### Dashboard UX fixes (admin_dashboard, user_dashboard)
+
+- **`user_dashboard_sql.js`** — `uploadPaymentBtn` was a dead-end toast; now routes to `loan_payments.html` (confirmed real working `files.upload` flow there). `requestLoanBtn` was also a dead-end toast; **investigated and confirmed no member-facing "request a new loan" flow exists anywhere in the ported app** (only admin-initiated `loans.force` and admin approve/reject exist) — reworded the toast to be honest about this instead of vague, and this gap is now recorded below as a real missing feature, not silently left as a mystery dead button.
+- Both `admin_dashboard_sql.js` and `user_dashboard_sql.js`: `safeGet()` was silently swallowing non-auth fetch failures and rendering them identically to "zero activity" — an admin/member with a failed network request would see a dashboard that looked like a clean, empty, healthy account. Now surfaces one toast per failed load (not spammed per section).
+- `user_dashboard.html`'s `#spinner` element existed in markup but was never wired up (dead code, page popped from blank to loaded with no transition). Now wired to match the working pattern already used on `admin_dashboard_sql.js`.
+- `admin_dashboard_sql.js`'s Collection Trends section: the Member Participation pie chart was gated only on member count, so it rendered alone (orphaned, 100%-inactive) whenever a group had zero real financial activity. Now gated on financial activity too, so a genuinely inactive group shows one consistent empty state instead of one lone chart.
+- Fixed as a side effect: toast close buttons now have `aria-label="Dismiss notification"` (were unlabeled icon-only buttons).
+
+All dashboard fixes QA-passed (13-point review, app-wide toast-selector precision independently re-verified).
+
+### New gaps recorded (not built — no product decision made, not silently invented)
+
+- **No member-facing "request a new loan" flow exists.** Only admins can originate loans (`loans.force`) or approve/reject member-submitted ones — but nothing lets a member submit a NEW loan REQUEST themselves via `loans.request`, even though that endpoint exists and is live. `requestLoanBtn` on the user dashboard is currently an honest dead-end. **Needs an owner decision**: is member-initiated loan requesting in scope, or is "loans only originate from an admin/forced" the intended product model?
+- **The owner's own real "Test" group (groupId starts `65a4e2e1...`, created 2026-07-14) still has 0 `group_rules` rows** — it predates today's `create_group()` fix and needs a one-time manual backfill (see bug 1 above) before its rules can ever be set.
+
+### Smoke-test data left live (owner's explicit instruction — "leave a working example")
+
+Two test groups (`[SMOKE TEST - safe to delete] Build Loop QA Group` / `Fix Verification Group`), one test admin user (`buildloop.smoketest+...@example.com`), two test members with uploaded test DPs, all in the live database. Clearly named, safe to delete whenever the owner wants — not touched further.
+
+### Firebase/dead-code cleanup this session
+
+Confirmed the prior session's Firebase migration commit already removed `functions/`, `firestore.rules`, `firestore.indexes.json`, and all previously-tracked dead nav scripts. Found and deleted 6 remaining orphans that still imported the now-deleted `firebaseConfig.js` and were confirmed unreferenced by any live page: `scripts/login.js`, `scripts/manage_members_new.js`, `scripts/utils_financial.js`, `firebase-messaging-sw.js`, `firebase.json`, `.firebaserc`. Not committed — sitting as unstaged deletions for the owner to review.

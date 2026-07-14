@@ -17,24 +17,44 @@ require_once __DIR__ . '/../lib/session.php';
 require_once __DIR__ . '/../lib/password.php';
 require_once __DIR__ . '/../../config/database.php';
 
-// Everything the caller may see about themselves. passwordHash is NEVER in here.
-const PROFILE_SELECT_COLUMNS = 'uid, email, fullName, phone, whatsappNumber, '
+// Base columns that always exist (pre-KYC migration).
+const PROFILE_BASE_COLUMNS = 'uid, email, fullName, phone, whatsappNumber, '
     . 'profileImageUrl, dateOfBirth, address, nationality, occupation, '
-    . 'guarantorName, guarantorPhone, guarantorRelationship, guarantorAddress, '
-    . 'collateralDescription, idType, idNumber, nextOfKinName, nextOfKinPhone, '
-    . 'nextOfKinRelationship, '
     . 'emailVerified, createdAt, updatedAt';
+
+// KYC columns added by migration 011. If the migration hasn't run yet,
+// we fall back to base columns only — the profile still works, just without
+// the optional KYC fields.
+const PROFILE_KYC_COLUMNS = 'guarantorName, guarantorPhone, guarantorRelationship, guarantorAddress, '
+    . 'collateralDescription, idType, idNumber, nextOfKinName, nextOfKinPhone, '
+    . 'nextOfKinRelationship';
 
 if (!function_exists('profile_select_row')) {
     function profile_select_row(PDO $pdo, string $uid): ?array
     {
-        $stmt = $pdo->prepare(
-            'SELECT ' . PROFILE_SELECT_COLUMNS . ' FROM users WHERE uid = :uid LIMIT 1'
-        );
-        $stmt->execute([':uid' => $uid]);
-        $row = $stmt->fetch();
-
-        return $row === false ? null : $row;
+        // Try with full columns first (including KYC). If the KYC migration
+        // hasn't been applied, fall back to base columns only.
+        try {
+            $stmt = $pdo->prepare(
+                'SELECT ' . PROFILE_BASE_COLUMNS . ', ' . PROFILE_KYC_COLUMNS
+                . ' FROM users WHERE uid = :uid LIMIT 1'
+            );
+            $stmt->execute([':uid' => $uid]);
+            $row = $stmt->fetch();
+            return $row === false ? null : $row;
+        } catch (PDOException $e) {
+            // If the error is about unknown KYC columns, retry without them.
+            // Any other error is re-thrown to be caught by the top-level handler.
+            if (stripos($e->getMessage(), 'Unknown column') !== false) {
+                $stmt = $pdo->prepare(
+                    'SELECT ' . PROFILE_BASE_COLUMNS . ' FROM users WHERE uid = :uid LIMIT 1'
+                );
+                $stmt->execute([':uid' => $uid]);
+                $row = $stmt->fetch();
+                return $row === false ? null : $row;
+            }
+            throw $e;
+        }
     }
 }
 
@@ -48,6 +68,32 @@ if (!function_exists('profile_optional_text')) {
         $value = trim($value);
 
         return $value === '' ? null : $value;
+    }
+}
+
+if (!function_exists('profile_has_kyc_columns')) {
+    /**
+     * Check whether migration 011 (KYC columns) has been applied.
+     * Result is cached per-request to avoid repeated information_schema queries.
+     */
+    function profile_has_kyc_columns(PDO $pdo): bool
+    {
+        static $checked = null;
+        if ($checked !== null) {
+            return $checked;
+        }
+        try {
+            $stmt = $pdo->prepare(
+                "SELECT COUNT(*) AS n FROM information_schema.COLUMNS "
+                . "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' "
+                . "AND COLUMN_NAME = 'guarantorName'"
+            );
+            $stmt->execute();
+            $checked = (int) $stmt->fetch()['n'] > 0;
+        } catch (PDOException $e) {
+            $checked = false;
+        }
+        return $checked;
     }
 }
 
@@ -97,21 +143,29 @@ if (!function_exists('update_profile')) {
             $params[':fullName'] = $fullName;
         }
 
+        // Base contact fields (always exist in the schema).
+        $baseFields = ['phone', 'whatsappNumber', 'address', 'nationality', 'occupation'];
+
+        foreach ($baseFields as $field) {
+            if (array_key_exists($field, $body)) {
+                $updates[] = "{$field} = :{$field}";
+                $params[":{$field}"] = profile_optional_text($body[$field]);
+            }
+        }
+
         // Optional KYC fields (guarantor, collateral, ID, next-of-kin): never
         // required, blank/absent is stored as NULL — see profile_optional_text().
+        // These require migration 011; if it hasn't been applied, we skip them.
         $kycFields = [
             'guarantorName', 'guarantorPhone', 'guarantorRelationship', 'guarantorAddress',
             'collateralDescription', 'idType', 'idNumber',
             'nextOfKinName', 'nextOfKinPhone', 'nextOfKinRelationship',
         ];
 
-        foreach (array_merge(
-            ['phone', 'whatsappNumber', 'address', 'nationality', 'occupation'],
-            $kycFields
-        ) as $field) {
-            if (array_key_exists($field, $body)) {
-                // Literal fragments only — $field comes from THIS hardcoded list,
-                // never from the client's key set.
+        $pdo = getDbConnection();
+        $hasKycColumns = profile_has_kyc_columns($pdo);
+        foreach ($kycFields as $field) {
+            if ($hasKycColumns && array_key_exists($field, $body)) {
                 $updates[] = "{$field} = :{$field}";
                 $params[":{$field}"] = profile_optional_text($body[$field]);
             }
@@ -148,9 +202,48 @@ if (!function_exists('update_profile')) {
 
         $updates[] = 'updatedAt = NOW()';
 
-        $pdo = getDbConnection();
-        $sql = 'UPDATE users SET ' . implode(', ', $updates) . ' WHERE uid = :uid';
-        $pdo->prepare($sql)->execute($params);
+        // The `members` table denormalises fullName/phone/whatsappNumber/
+        // profileImageUrl per group membership row (database/migrations/001).
+        // Only the columns actually present in this request are propagated —
+        // mirrors the same array_key_exists gating used for `users` above, so a
+        // field the caller didn't touch is never blasted with a stale value.
+        // `email` is deliberately excluded: it is not updatable via this
+        // endpoint at all (see the function docblock).
+        $memberUpdates = [];
+        $memberParams = [':uid' => (string) $user['uid']];
+
+        if (array_key_exists('fullName', $body)) {
+            $memberUpdates[] = 'fullName = :fullName';
+            $memberParams[':fullName'] = $params[':fullName'];
+        }
+        if (array_key_exists('phone', $body)) {
+            $memberUpdates[] = 'phone = :phone';
+            $memberParams[':phone'] = $params[':phone'];
+        }
+        if (array_key_exists('whatsappNumber', $body)) {
+            $memberUpdates[] = 'whatsappNumber = :whatsappNumber';
+            $memberParams[':whatsappNumber'] = $params[':whatsappNumber'];
+        }
+        if (array_key_exists('profileImageUrl', $body)) {
+            $memberUpdates[] = 'profileImageUrl = :profileImageUrl';
+            $memberParams[':profileImageUrl'] = $params[':profileImageUrl'];
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $sql = 'UPDATE users SET ' . implode(', ', $updates) . ' WHERE uid = :uid';
+            $pdo->prepare($sql)->execute($params);
+
+            if (!empty($memberUpdates)) {
+                $memberSql = 'UPDATE members SET ' . implode(', ', $memberUpdates) . ' WHERE uid = :uid';
+                $pdo->prepare($memberSql)->execute($memberParams);
+            }
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
 
         json_response(profile_select_row($pdo, (string) $user['uid']));
     }

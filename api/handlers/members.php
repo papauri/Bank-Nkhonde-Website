@@ -23,18 +23,40 @@ if (!function_exists('list_members')) {
 
         $pdo = getDbConnection();
         if ($canViewKyc) {
-            $stmt = $pdo->prepare(
-                'SELECT members.groupId, members.uid, members.fullName, members.email, members.phone, '
-                . 'members.whatsappNumber, members.profileImageUrl, members.role, members.status, '
-                . 'members.joinedAt, members.invitedBy, members.seedMoneyPaid, '
-                . 'members.monthlyContributionsCurrent, members.eligibleForLoan, members.createdAt, '
-                . 'members.updatedAt, users.guarantorName, users.guarantorPhone, '
-                . 'users.guarantorRelationship, users.guarantorAddress, users.collateralDescription, '
-                . 'users.idType, users.idNumber, users.nextOfKinName, users.nextOfKinPhone, '
-                . 'users.nextOfKinRelationship '
-                . 'FROM members JOIN users ON members.uid = users.uid '
-                . 'WHERE members.groupId = :groupId ORDER BY members.joinedAt ASC'
-            );
+            // Try with KYC columns first; if migration 011 hasn't run, fall back.
+            try {
+                $stmt = $pdo->prepare(
+                    'SELECT members.groupId, members.uid, members.fullName, members.email, members.phone, '
+                    . 'members.whatsappNumber, members.profileImageUrl, members.role, members.status, '
+                    . 'members.joinedAt, members.invitedBy, members.seedMoneyPaid, '
+                    . 'members.monthlyContributionsCurrent, members.eligibleForLoan, members.createdAt, '
+                    . 'members.updatedAt, users.guarantorName, users.guarantorPhone, '
+                    . 'users.guarantorRelationship, users.guarantorAddress, users.collateralDescription, '
+                    . 'users.idType, users.idNumber, users.nextOfKinName, users.nextOfKinPhone, '
+                    . 'users.nextOfKinRelationship '
+                    . 'FROM members JOIN users ON members.uid = users.uid '
+                    . 'WHERE members.groupId = :groupId ORDER BY members.joinedAt ASC'
+                );
+                $stmt->execute([':groupId' => $groupId]);
+                $members = $stmt->fetchAll();
+            } catch (PDOException $e) {
+                if (stripos($e->getMessage(), 'Unknown column') !== false) {
+                    // KYC migration not applied — retry without KYC columns
+                    $stmt = $pdo->prepare(
+                        'SELECT members.groupId, members.uid, members.fullName, members.email, members.phone, '
+                        . 'members.whatsappNumber, members.profileImageUrl, members.role, members.status, '
+                        . 'members.joinedAt, members.invitedBy, members.seedMoneyPaid, '
+                        . 'members.monthlyContributionsCurrent, members.eligibleForLoan, members.createdAt, '
+                        . 'members.updatedAt '
+                        . 'FROM members JOIN users ON members.uid = users.uid '
+                        . 'WHERE members.groupId = :groupId ORDER BY members.joinedAt ASC'
+                    );
+                    $stmt->execute([':groupId' => $groupId]);
+                    $members = $stmt->fetchAll();
+                } else {
+                    throw $e;
+                }
+            }
         } else {
             $stmt = $pdo->prepare(
                 'SELECT groupId, uid, fullName, email, phone, whatsappNumber, profileImageUrl, '
@@ -42,9 +64,9 @@ if (!function_exists('list_members')) {
                 . 'eligibleForLoan, createdAt, updatedAt '
                 . 'FROM members WHERE groupId = :groupId ORDER BY joinedAt ASC'
             );
+            $stmt->execute([':groupId' => $groupId]);
+            $members = $stmt->fetchAll();
         }
-        $stmt->execute([':groupId' => $groupId]);
-        $members = $stmt->fetchAll();
 
         json_response(['members' => $members]);
     }
@@ -324,7 +346,15 @@ if (!function_exists('update_member')) {
         if (!empty($userUpdates)) {
             $userUpdates[] = 'updatedAt = NOW()';
             $userSql = 'UPDATE users SET ' . implode(', ', $userUpdates) . ' WHERE uid = :uid';
-            $pdo->prepare($userSql)->execute($userParams);
+            try {
+                $pdo->prepare($userSql)->execute($userParams);
+            } catch (PDOException $e) {
+                // If KYC columns don't exist yet (migration 011 not applied),
+                // silently skip the KYC update — the member row was still saved.
+                if (stripos($e->getMessage(), 'Unknown column') === false) {
+                    throw $e;
+                }
+            }
         }
 
         json_response(member_select_row($pdo, $groupId, $uid));

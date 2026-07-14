@@ -131,10 +131,11 @@ async function loadDashboardAfterGroupSelection() {
   if (!currentGroup || !currentGroup.groupId) return;
   const groupId = currentGroup.groupId;
 
+  const failedSections = [];
   const [payments, loans, members] = await Promise.all([
-    safeGet("payments.list", { groupId }),
-    safeGet("loans.list", { groupId }),
-    safeGet("members.list", { groupId }),
+    safeGet("payments.list", { groupId }, "payments", failedSections),
+    safeGet("loans.list", { groupId }, "loans", failedSections),
+    safeGet("members.list", { groupId }, "members", failedSections),
   ]);
 
   // A 403 on an admin endpoint means a plain member reached this page by URL.
@@ -148,6 +149,18 @@ async function loadDashboardAfterGroupSelection() {
   groupData.loans = loans && Array.isArray(loans.loans) ? loans.loans : [];
   groupData.members =
     members && Array.isArray(members.members) ? members.members : [];
+
+  // A failed section renders as an empty list above (by design, so the rest of
+  // the dashboard still works) — but "zero" must never be silently confused
+  // with "we couldn't load it". Surface that distinction to the admin.
+  if (failedSections.length) {
+    showToast(
+      failedSections.length === 1
+        ? `Couldn't load ${failedSections[0]} — figures shown may be incomplete.`
+        : `Couldn't load ${failedSections.join(", ")} — figures shown may be incomplete.`,
+      "danger",
+    );
+  }
 
   memberNameById = new Map();
   for (const m of groupData.members) {
@@ -165,19 +178,27 @@ async function loadDashboardAfterGroupSelection() {
 
 /**
  * A GET that swallows load errors (returns null), bounces on 401, and returns a
- * sentinel on 403 so the caller can redirect a member off an admin page.
+ * sentinel on 403 so the caller can redirect a member off an admin page. On any
+ * other failure, the caller's rendering still treats null as "empty" — but the
+ * failure is also pushed onto `failedSections` (if given) so the caller can
+ * surface a visible signal instead of a silent false-empty dashboard.
  * @param {string} action
  * @param {Object} params
+ * @param {string} [sectionLabel] human label pushed to failedSections on error
+ * @param {Array<string>} [failedSections] accumulator for failed section labels
  * @return {Promise<*>}
  */
 const FORBIDDEN = Symbol("forbidden");
-async function safeGet(action, params) {
+async function safeGet(action, params, sectionLabel, failedSections) {
   try {
     return await apiGet(action, params);
   } catch (error) {
     handleSessionError(error);
     if (error instanceof ApiError && error.status === 403) return FORBIDDEN;
     console.error(`Failed to load ${action}:`, error);
+    if (sectionLabel && Array.isArray(failedSections)) {
+      failedSections.push(sectionLabel);
+    }
     return null;
   }
 }
@@ -365,7 +386,15 @@ function renderCollectionTrends() {
     );
   }
 
-  if (totalMembers > 0) {
+  // Member Participation only earns its place in the "Collection Trends"
+  // section when there's actual financial activity to contextualise it — a
+  // brand-new group with zero payments/loans has zero "participation" to speak
+  // of yet, and a lone 100%-inactive pie next to nothing else reads as broken
+  // rather than informative. Gate it on financial activity (not member count,
+  // which is always > 0 for any real group) so the whole section shares one
+  // intentional empty state until the group has actually started collecting.
+  const financialActivity = typeTotal + financialTotal + interestMinor;
+  if (totalMembers > 0 && financialActivity > 0) {
     chartHTML += createPieChart(
       "Member Participation",
       [
@@ -1548,10 +1577,12 @@ function showToast(message, type = "info") {
   toast.className = `toast toast-${type}`;
 
   const span = document.createElement("span");
+  span.className = "toast-content toast-message";
   span.textContent = message;
   const close = document.createElement("button");
   close.className = "toast-close";
   close.textContent = "×";
+  close.setAttribute("aria-label", "Dismiss notification");
   close.addEventListener("click", () => toast.remove());
 
   toast.appendChild(span);

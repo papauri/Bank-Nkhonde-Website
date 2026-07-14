@@ -240,6 +240,37 @@ if (!function_exists('update_rules')) {
             );
         }
 
+        // loanPenaltyType / contributionPenaltyType: ENUM('percentage','fixed')
+        // per database/migrations/001 (loanPenaltyType) and /005 (widened
+        // contributionPenaltyType). The engine (api/lib/penalty.php,
+        // api/handlers/payments.php) implements ONLY 'fixed' — 'percentage'
+        // throws a RuntimeException that the handler surfaces as a 501. Both
+        // values are still accepted here rather than restricted to 'fixed':
+        // rejecting 'percentage' at the whitelist would make it impossible for
+        // an admin to even SEE the value their group is misconfigured with
+        // (rules.get returns whatever is in the column), and a future cycle may
+        // implement percentage penalties, at which point this whitelist should
+        // not need to change. The actual guard against the broken mode lives at
+        // the point of use (the 501), which is the correct place to block real
+        // money computation — not here, where it would only block visibility.
+        if (array_key_exists('loanPenaltyType', $body)) {
+            $type = $body['loanPenaltyType'];
+            if ($type !== 'percentage' && $type !== 'fixed') {
+                json_error("loanPenaltyType must be exactly 'percentage' or 'fixed'.", 422);
+            }
+            $updates[] = 'loanPenaltyType = :loanPenaltyType';
+            $params[':loanPenaltyType'] = $type;
+        }
+
+        if (array_key_exists('contributionPenaltyType', $body)) {
+            $type = $body['contributionPenaltyType'];
+            if ($type !== 'percentage' && $type !== 'fixed') {
+                json_error("contributionPenaltyType must be exactly 'percentage' or 'fixed'.", 422);
+            }
+            $updates[] = 'contributionPenaltyType = :contributionPenaltyType';
+            $params[':contributionPenaltyType'] = $type;
+        }
+
         if (array_key_exists('loanPenaltyDailyAmount', $body)) {
             $updates[] = 'loanPenaltyDailyAmount = :loanPenaltyDailyAmount';
             $params[':loanPenaltyDailyAmount'] = rules_money_string(
