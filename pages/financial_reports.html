@@ -13,6 +13,13 @@
   <link rel="stylesheet" href="../styles/admin-layout.css">
   <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
+  <style>
+    /* #exportBtn is text+icon and used only here; scoped locally rather than
+       raising .btn-sm globally, since .btn-sm is shared across 10 pages. */
+    #exportBtn {
+      min-height: 44px;
+    }
+  </style>
 </head>
 <body>
   <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->

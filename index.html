@@ -288,6 +288,8 @@
       border: 1px solid rgba(255, 255, 255, 0.25);
       color: rgba(255, 255, 255, 0.95);
       padding: var(--bn-space-2) var(--bn-space-3);
+      min-width: 44px;
+      min-height: 44px;
       border-radius: var(--bn-radius-md);
       cursor: pointer;
       display: flex;
@@ -296,6 +298,15 @@
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
+    }
+
+    /* Nav-scoped 44x44 touch-target floor for the compact Start a Club /
+       Dashboard buttons; scoped locally so the shared .btn-sm rule used on
+       other pages' tight toolbars is left untouched */
+    .nav-cta .btn-sm {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
     }
 
     .nav-btn-logout:hover {
@@ -764,17 +775,16 @@
     }
 
     .trust-logo {
-      opacity: 0.5;
       filter: grayscale(100%);
       transition: all var(--bn-transition-base);
       font-size: var(--bn-text-lg);
       font-weight: 700;
-      color: var(--bn-gray-700);
+      color: var(--bn-gray);
       letter-spacing: -0.02em;
     }
 
     .trust-logo:hover {
-      opacity: 0.8;
+      color: var(--bn-gray-700);
       filter: grayscale(0%);
     }
 
@@ -1233,6 +1243,12 @@
         gap: var(--bn-space-3);
       }
 
+      /* Reserve space for the fixed notification bell (signed-in only) in the
+         769-1024px gap that the 768px/640px queries below don't cover */
+      .nav-cta:has(.nav-cta-user:not(.hidden)) {
+        margin-right: 70px;
+      }
+
       /* Hero Tablet */
       .hero {
         grid-template-columns: 1fr;
@@ -1308,9 +1324,12 @@
 
       .nav-cta {
         gap: var(--bn-space-3);
-        margin-right: 70px; /* Add space for notification bell */
       }
-      
+
+      .nav-cta:has(.nav-cta-user:not(.hidden)) {
+        margin-right: 70px; /* Add space for notification bell (signed-in only) */
+      }
+
       .nav-cta-guest,
       .nav-cta-user {
         gap: var(--bn-space-3);
@@ -1330,8 +1349,10 @@
       .nav-signin-mobile {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: var(--bn-space-2);
         padding: var(--bn-space-2) var(--bn-space-3);
+        min-height: 44px;
         font-size: var(--bn-text-xs);
         font-weight: 600;
         color: var(--bn-white);
@@ -1483,7 +1504,10 @@
 
       .nav-cta {
         gap: var(--bn-space-3);
-        margin-right: 70px; /* Add space for notification bell */
+      }
+
+      .nav-cta:has(.nav-cta-user:not(.hidden)) {
+        margin-right: 70px; /* Add space for notification bell (signed-in only) */
       }
 
       .nav-cta-guest,

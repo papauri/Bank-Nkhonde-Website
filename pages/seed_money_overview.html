@@ -13,6 +13,14 @@
   <link rel="stylesheet" href="../styles/admin-layout.css">
   <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
+  <style>
+    /* .tab is shared across 4 pages (user_dashboard, financial_reports,
+       analytics too); scoped locally here rather than raising the shared
+       rule so those other already-audited pages aren't affected. */
+    .content-section-header .tabs .tab {
+      min-height: 44px;
+    }
+  </style>
 </head>
 <body>
   <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->

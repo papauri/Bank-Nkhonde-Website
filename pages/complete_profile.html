@@ -84,6 +84,14 @@
       object-fit: cover;
     }
 
+    /* Locally scoped 44x44 touch-target floor for the compact ghost button
+       here; the shared .btn-sm rule in design-system.css is left untouched */
+    .avatar-upload .btn-sm {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+    }
+
     .form-section {
       margin-bottom: var(--bn-space-6);
       padding-bottom: var(--bn-space-6);

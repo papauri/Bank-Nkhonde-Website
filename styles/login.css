@@ -377,6 +377,14 @@ body {
   margin-bottom: var(--bn-space-sm);
 }
 
+/* Locally scoped 44x44 touch-target floor for the compact ghost button here;
+   the shared .btn-sm rule in design-system.css is left untouched */
+.help-section .btn-sm {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
 /* ============================================
    LOADING OVERLAY ENHANCEMENTS
    ============================================ */
