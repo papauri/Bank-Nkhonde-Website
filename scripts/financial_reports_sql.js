@@ -45,7 +45,7 @@
  *     payments.list date-range parameter beyond the existing `year` filter.
  */
 
-import {apiGet, requireSession, listMyGroups, ApiError} from "./api.js";
+import {apiGet, requireSession, listMyGroups, ApiError, redirectToLogin} from "./api.js";
 
 const REPORT_ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
 const SETTLED_STATUSES = ["approved", "completed"];
@@ -495,7 +495,7 @@ function showSpinner(show) {
 function handleApiError(error, fallback) {
   if (error instanceof ApiError) {
     if (error.status === 401) {
-      window.location.replace("/login.html");
+      redirectToLogin();
       return;
     }
     if (error.status === 403) {

@@ -21,7 +21,7 @@
  * No data-bearing innerHTML — every value via textContent.
  */
 
-import {apiGet, apiPost, requireSession, logout, ApiError} from "./api.js";
+import {apiGet, apiPost, requireSession, logout, ApiError, redirectToLogin} from "./api.js";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // matches the server's cap
 
@@ -234,7 +234,7 @@ async function handleLogout() {
   } finally {
     sessionStorage.clear();
     localStorage.removeItem("selectedGroupId");
-    window.location.replace("/login.html");
+    redirectToLogin();
   }
 }
 
@@ -321,7 +321,7 @@ function showSpinner(visible) {
 function handleApiError(error, fallback) {
   if (error instanceof ApiError) {
     if (error.status === 401) {
-      window.location.replace("/login.html");
+      redirectToLogin();
       return;
     }
     showToast(error.message || fallback, "error");

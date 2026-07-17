@@ -52,7 +52,7 @@
  *     payments.list day-level endpoint that does not exist.
  */
 
-import {apiGet, requireSession, listMyGroups, ApiError} from "./api.js";
+import {apiGet, requireSession, listMyGroups, ApiError, redirectToLogin} from "./api.js";
 
 const ANALYTICS_ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
 const MONTH_NAMES = [
@@ -489,7 +489,7 @@ function showSpinner(show) {
 function handleApiError(error, fallback) {
   if (error instanceof ApiError) {
     if (error.status === 401) {
-      window.location.replace("/login.html");
+      redirectToLogin();
       return;
     }
     if (error.status === 403) {

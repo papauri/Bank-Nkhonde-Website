@@ -17,7 +17,7 @@
  * carrying a server string.
  */
 
-import { requireSession, apiGet, logout, ApiError } from "./api.js";
+import { requireSession, apiGet, logout, ApiError, redirectToLogin } from "./api.js";
 
 // DOM elements — the contract preserved from the Firebase original, verbatim.
 const spinner = document.getElementById("spinner");
@@ -257,7 +257,7 @@ function setBadge(el, count) {
  */
 function handleSessionError(error) {
   if (error instanceof ApiError && error.status === 401) {
-    window.location.replace("/login.html");
+    redirectToLogin();
     throw new Promise(() => {});
   }
 }

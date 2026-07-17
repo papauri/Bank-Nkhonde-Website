@@ -17,7 +17,7 @@
  * are rebuilt with createElement + textContent.
  */
 
-import {apiGet, apiPost, requireSession, listMyGroups, ApiError} from "./api.js";
+import {apiGet, apiPost, requireSession, listMyGroups, ApiError, redirectToLogin} from "./api.js";
 
 let currentUser = null;
 let currentGroupId = null;
@@ -597,7 +597,7 @@ function hideModal(id) {
 function handleApiError(error, fallback) {
   if (error instanceof ApiError) {
     if (error.status === 401) {
-      window.location.replace("/login.html");
+      redirectToLogin();
       return;
     }
     showToast(error.message || fallback, "error");

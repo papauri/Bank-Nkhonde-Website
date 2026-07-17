@@ -26,7 +26,7 @@
  * rather than silently doing nothing. See the report for the named gaps.
  */
 
-import { requireSession, apiGet, logout, ApiError } from "./api.js";
+import { requireSession, apiGet, logout, ApiError, redirectToLogin } from "./api.js";
 
 // Admin-equivalent roles: decide the admin toggle and the admin-switch button.
 const ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
@@ -1050,7 +1050,7 @@ async function handleLogout() {
  */
 function handleSessionError(error) {
   if (error instanceof ApiError && error.status === 401) {
-    window.location.replace("/login.html");
+    redirectToLogin();
     throw new Promise(() => {});
   }
 }

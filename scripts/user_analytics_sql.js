@@ -51,7 +51,7 @@
  *     (require_role in cycle_equity()); a member page must not call it.
  */
 
-import {apiGet, requireSession, listMyGroups, ApiError} from "./api.js";
+import {apiGet, requireSession, listMyGroups, ApiError, redirectToLogin} from "./api.js";
 
 /**
  * Loan statuses where the loan was actually ISSUED (money left the box).
@@ -549,7 +549,7 @@ function showSpinner(show) {
 function handleApiError(error, fallback) {
   if (error instanceof ApiError) {
     if (error.status === 401) {
-      window.location.replace("/login.html");
+      redirectToLogin();
       return;
     }
     if (error.status === 403) {

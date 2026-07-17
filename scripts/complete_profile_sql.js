@@ -19,7 +19,7 @@
  * No data-bearing innerHTML — the photo preview uses createElement.
  */
 
-import {apiGet, apiPost, requireSession, listMyGroups, ApiError} from "./api.js";
+import {apiGet, apiPost, requireSession, listMyGroups, ApiError, redirectToLogin} from "./api.js";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -171,7 +171,7 @@ async function saveProfile() {
   } catch (error) {
     showSpinner(false);
     if (error instanceof ApiError && error.status === 401) {
-      window.location.replace("/login.html");
+      redirectToLogin();
       return;
     }
     showError(`Error saving profile: ${error.message || "please try again."}`);

@@ -35,7 +35,7 @@
  * modules and are not re-wired here (named in the report).
  */
 
-import { requireSession, apiGet, logout, ApiError } from "./api.js";
+import { requireSession, apiGet, logout, ApiError, redirectToLogin } from "./api.js";
 
 // Admin-equivalent roles: who may see the admin dashboard for a group.
 const ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
@@ -1452,7 +1452,7 @@ async function handleLogout() {
  */
 function handleSessionError(error) {
   if (error instanceof ApiError && error.status === 401) {
-    window.location.replace("/login.html");
+    redirectToLogin();
     throw new Promise(() => {});
   }
 }

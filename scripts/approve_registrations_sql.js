@@ -42,6 +42,7 @@ import {
   requireSession,
   listMyGroups,
   ApiError,
+  redirectToLogin,
 } from "./api.js";
 
 // ── Global state ────────────────────────────────────────────────────────────
@@ -350,7 +351,7 @@ function showLoading(show) {
 function handleApiError(error, fallback) {
   if (error instanceof ApiError) {
     if (error.status === 401) {
-      window.location.replace("/login.html");
+      redirectToLogin();
       return;
     }
     if (error.status === 403) {

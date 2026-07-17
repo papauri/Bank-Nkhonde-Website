@@ -47,7 +47,7 @@
  * loanPenalty.rate / monthlyPenalty.rate have no server field to write to.
  */
 
-import {apiGet, apiPost, requireSession, listMyGroups, ApiError} from "./api.js";
+import {apiGet, apiPost, requireSession, listMyGroups, ApiError, redirectToLogin} from "./api.js";
 
 const RATES_ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
 
@@ -578,7 +578,7 @@ function showSpinner(show) {
 function handleApiError(error, fallback) {
   if (error instanceof ApiError) {
     if (error.status === 401) {
-      window.location.replace("/login.html");
+      redirectToLogin();
       return;
     }
     if (error.status === 403) {

@@ -17,7 +17,7 @@
  * textContent only.
  */
 
-import {apiGet, apiPost, requireSession, listMyGroups, ApiError} from "./api.js";
+import {apiGet, apiPost, requireSession, listMyGroups, ApiError, redirectToLogin} from "./api.js";
 
 const MAX_PDF_BYTES = 5 * 1024 * 1024; // matches the server's UPLOAD_MAX_BYTES
 
@@ -341,7 +341,7 @@ function formatFileSize(bytes) {
 function handleApiError(error, fallback) {
   if (error instanceof ApiError) {
     if (error.status === 401) {
-      window.location.replace("/login.html");
+      redirectToLogin();
       return;
     }
     if (error.status === 403) {

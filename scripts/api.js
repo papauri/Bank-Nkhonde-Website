@@ -27,6 +27,9 @@ const API_BASE = BASE_PATH + "api/index.php";
 /** Where an unauthenticated caller gets sent. */
 const LOGIN_URL = BASE_PATH + "login.html";
 
+/** Deployment-agnostic 401 fallback: redirect to the login page. */
+export function redirectToLogin() { window.location.replace(LOGIN_URL); }
+
 /**
  * An error carrying the HTTP status and the parsed JSON body, so callers can
  * branch on `err.status` (401 -> login, 422 -> field error, 409 -> conflict, ...).
