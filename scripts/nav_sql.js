@@ -14,9 +14,12 @@
  * (require_role()) is the real gate.
  */
 
-import {getSession, logout as apiLogout} from "./api.js";
+import {getSession, logout as apiLogout, listMyGroups} from "./api.js";
 
 const LOGIN_URL = "../login.html";
+
+/** Roles that route into the admin dashboard on group switch. */
+const ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
 
 /** Static icon markup — no interpolated data, safe as innerHTML. */
 const ICONS = {
@@ -165,6 +168,135 @@ export function showToast(message, type = "success", duration = 4000) {
   }, duration);
 }
 
+/**
+ * Persist the chosen group + role and navigate to the group's correct
+ * dashboard. Dual-write to localStorage and sessionStorage mirrors
+ * select_group_sql.js's selectGroup(). Role is UX only — the server
+ * re-checks it on every request.
+ * @param {Object} group {groupId, groupName, myRole}
+ */
+function switchGroup(group) {
+  const role = ADMIN_ROLES.includes(group.myRole) ? "admin" : "user";
+  try {
+    localStorage.setItem("selectedGroupId", group.groupId);
+    localStorage.setItem("userRole", role);
+    sessionStorage.setItem("selectedGroupId", group.groupId);
+    sessionStorage.setItem("userRole", role);
+  } catch (storageError) {
+    // Storage may be unavailable (private browsing); navigation still proceeds.
+  }
+  window.location.href = role === "admin" ? "admin_dashboard.html" : "user_dashboard.html";
+}
+
+/**
+ * Build the in-place group-switcher chip + dropdown. Names are set via
+ * textContent only (server data, never trusted as markup).
+ * @param {Array<Object>} groups Caller's groups ({groupId, groupName, myRole}).
+ * @return {HTMLElement} The wrapper element to insert into the top-nav.
+ */
+function buildGroupSwitcher(groups) {
+  let selectedId = null;
+  try {
+    selectedId = localStorage.getItem("selectedGroupId");
+  } catch (storageError) {
+    selectedId = null;
+  }
+  const currentGroup = groups.find((g) => g.groupId === selectedId) || null;
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "current-group-display";
+  wrapper.id = "currentGroupDisplay";
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "current-group-toggle";
+  toggle.id = "currentGroupToggle";
+  toggle.title = "Click to change group";
+  toggle.setAttribute("aria-haspopup", "listbox");
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.setAttribute("aria-controls", "currentGroupMenu");
+
+  const groupNameEl = document.createElement("span");
+  groupNameEl.className = "current-group-name";
+  groupNameEl.id = "currentGroupName";
+  groupNameEl.textContent = currentGroup ? (currentGroup.groupName || "Unnamed Group") : "Select a group";
+
+  toggle.appendChild(groupNameEl);
+  toggle.appendChild(svgIcon("chevronDown", "16"));
+
+  const menu = document.createElement("ul");
+  menu.className = "current-group-menu";
+  menu.id = "currentGroupMenu";
+  menu.setAttribute("role", "listbox");
+  menu.hidden = true;
+
+  const closeMenu = () => {
+    menu.hidden = true;
+    toggle.setAttribute("aria-expanded", "false");
+  };
+  const openMenu = () => {
+    if (menu.children.length === 0) return;
+    menu.hidden = false;
+    toggle.setAttribute("aria-expanded", "true");
+    const selectedItem = menu.querySelector('[aria-selected="true"]') || menu.firstElementChild;
+    if (selectedItem) selectedItem.focus();
+  };
+
+  groups.forEach((group) => {
+    const item = document.createElement("li");
+    item.className = "current-group-menu-item";
+    item.setAttribute("role", "option");
+    item.tabIndex = -1;
+    item.textContent = group.groupName || "Unnamed Group";
+    if (currentGroup && group.groupId === currentGroup.groupId) {
+      item.setAttribute("aria-selected", "true");
+    }
+    const choose = () => {
+      closeMenu();
+      if (!currentGroup || group.groupId !== currentGroup.groupId) {
+        switchGroup(group);
+      }
+    };
+    item.addEventListener("click", choose);
+    item.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        choose();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        closeMenu();
+        toggle.focus();
+      } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const items = Array.from(menu.children);
+        const idx = items.indexOf(item);
+        const next = e.key === "ArrowDown" ? items[idx + 1] : items[idx - 1];
+        if (next) next.focus();
+      }
+    });
+    menu.appendChild(item);
+  });
+
+  toggle.addEventListener("click", () => {
+    if (menu.hidden) openMenu(); else closeMenu();
+  });
+  toggle.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
+      e.preventDefault();
+      openMenu();
+    } else if (e.key === "Escape") {
+      closeMenu();
+    }
+  });
+  document.addEventListener("click", (e) => {
+    if (!wrapper.contains(e.target)) closeMenu();
+  });
+
+  wrapper.appendChild(toggle);
+  wrapper.appendChild(menu);
+  return wrapper;
+}
+
 /* ============================================================
    USER VARIANT — top-nav + mobile menu (mirrors shared-top-nav.js)
    ============================================================ */
@@ -175,7 +307,7 @@ export function showToast(message, type = "success", duration = 4000) {
  * @param {Object} opts {showGroupDisplay, showViewToggle, logoLink, isAdmin}
  */
 function renderUserNav(user, opts) {
-  const {showGroupDisplay = false, showViewToggle = false, logoLink = "user_dashboard.html"} = opts;
+  const {showGroupDisplay = false, showViewToggle = false, logoLink = "user_dashboard.html", groups = []} = opts;
 
   const nav = document.createElement("nav");
   nav.className = "top-nav";
@@ -197,24 +329,9 @@ function renderUserNav(user, opts) {
   logo.appendChild(logoText);
   container.appendChild(logo);
 
-  // Optional current-group display (name filled from session data via textContent)
+  // Optional current-group switcher (group names filled via textContent only)
   if (showGroupDisplay) {
-    const groupDisplay = document.createElement("div");
-    groupDisplay.className = "current-group-display";
-    groupDisplay.id = "currentGroupDisplay";
-    groupDisplay.title = "Click to change group";
-    groupDisplay.addEventListener("click", () => {
-      window.location.href = "select_group.html";
-    });
-
-    const groupNameEl = document.createElement("div");
-    groupNameEl.className = "current-group-name";
-    groupNameEl.id = "currentGroupName";
-    groupNameEl.textContent = user && user.groupName ? user.groupName : "Select a group";
-
-    groupDisplay.appendChild(groupNameEl);
-    groupDisplay.appendChild(svgIcon("chevronDown", "16"));
-    container.appendChild(groupDisplay);
+    container.appendChild(buildGroupSwitcher(groups));
   }
 
   // Actions
@@ -242,17 +359,6 @@ function renderUserNav(user, opts) {
     toggle.appendChild(userBtn);
     actions.appendChild(toggle);
   }
-
-  const selectGroupBtn = document.createElement("button");
-  selectGroupBtn.type = "button";
-  selectGroupBtn.className = "top-nav-btn";
-  selectGroupBtn.title = "Select Group";
-  selectGroupBtn.setAttribute("aria-label", "Select Group");
-  selectGroupBtn.appendChild(svgIcon("grid"));
-  selectGroupBtn.addEventListener("click", () => {
-    window.location.href = "select_group.html";
-  });
-  actions.appendChild(selectGroupBtn);
 
   const notifBtn = document.createElement("button");
   notifBtn.type = "button";
@@ -344,7 +450,6 @@ function renderUserNav(user, opts) {
 
   const links = [
     {href: "user_dashboard.html", label: "Dashboard", icon: "dashboard"},
-    {href: "select_group.html", label: "Select Group", icon: "grid"},
     {href: "settings.html", label: "Settings", icon: "settings"},
   ];
   links.forEach(({href, label, icon}) => {
@@ -743,7 +848,15 @@ export async function initNav(options = {}) {
   if (variant === "admin") {
     renderAdminNav(user, options);
   } else {
-    renderUserNav(user, options);
+    let groups = [];
+    if (options.showGroupDisplay) {
+      try {
+        groups = await listMyGroups();
+      } catch (error) {
+        groups = [];
+      }
+    }
+    renderUserNav(user, {...options, groups});
   }
 
   return user;

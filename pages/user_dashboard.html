@@ -206,8 +206,7 @@
         display: none;
       }
       
-      /* Hide Select Group and Logout buttons on mobile */
-      .top-nav-btn[onclick*="select_group"],
+      /* Hide Logout button on mobile */
       .top-nav-btn#logoutBtn {
         display: none !important;
       }
@@ -1839,9 +1838,9 @@
             <a href="user_analytics.html" class="action-btn">
               <span class="action-label">Analytics</span>
             </a>
-            <a href="select_group.html" class="action-btn">
+            <button type="button" class="action-btn" id="viewGroupsBtn">
               <span class="action-label">Groups</span>
-            </a>
+            </button>
             <a href="settings.html" class="action-btn">
               <span class="action-label">Settings</span>
             </a>
@@ -2508,6 +2507,21 @@
   <script type="module">
     import { initNav } from '../scripts/nav_sql.js';
     initNav({ variant: 'user', activePage: 'user_dashboard', showGroupDisplay: true, showViewToggle: true, logoLink: '../index.html' });
+
+    // "Groups" quick action opens the nav's group-switcher dropdown
+    // (select_group.html is retired) rather than duplicating it here.
+    document.addEventListener('DOMContentLoaded', () => {
+      const viewGroupsBtn = document.getElementById('viewGroupsBtn');
+      if (viewGroupsBtn) {
+        viewGroupsBtn.addEventListener('click', () => {
+          const groupToggle = document.getElementById('currentGroupToggle');
+          if (groupToggle) {
+            groupToggle.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            groupToggle.click();
+          }
+        });
+      }
+    });
   </script>
   <script type="module" src="../scripts/user_dashboard_sql.js"></script>
   <script src="../scripts/mobile-nav-active.js"></script>

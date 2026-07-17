@@ -1847,7 +1847,7 @@
           <a href="pages/admin_registration.html" class="btn btn-accent btn-sm">Start a Club</a>
         </div>
         <div class="nav-cta-user hidden">
-          <a href="pages/select_group.html" class="nav-btn-secondary">My Groups</a>
+          <a href="#" id="navMyGroupsLink" class="nav-btn-secondary">My Groups</a>
           <a href="#" id="navDashboardLink" class="btn btn-accent btn-sm">Dashboard</a>
           <button id="logoutBtn" class="nav-btn-logout" title="Sign Out">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1913,7 +1913,7 @@
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
           </a>
-          <a href="pages/select_group.html" class="hero-cta-link">
+          <a href="#" id="heroManageGroupsLink" class="hero-cta-link">
             Manage Groups
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M5 12h14M12 5l7 7-7 7"/>
@@ -2208,7 +2208,7 @@
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
           </a>
-          <a href="pages/select_group.html" class="btn btn-secondary btn-xl" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); color: white;">
+          <a href="#" id="ctaSwitchGroupLink" class="btn btn-secondary btn-xl" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); color: white;">
             Switch Group
           </a>
         </div>
@@ -2511,6 +2511,17 @@
         if (heroDashboardLink) heroDashboardLink.href = dashboardUrl;
         const ctaDashboardLink = document.getElementById('ctaDashboardLink');
         if (ctaDashboardLink) ctaDashboardLink.href = dashboardUrl;
+
+        // "My Groups" / "Manage Groups" / "Switch Group" links previously pointed
+        // at the retired select_group.html; they now resolve to the same
+        // dashboard target (the nav's group-switcher dropdown, built in
+        // nav_sql.js, is the actual group-switching UI).
+        const navMyGroupsLink = document.getElementById('navMyGroupsLink');
+        if (navMyGroupsLink) navMyGroupsLink.href = dashboardUrl;
+        const heroManageGroupsLink = document.getElementById('heroManageGroupsLink');
+        if (heroManageGroupsLink) heroManageGroupsLink.href = dashboardUrl;
+        const ctaSwitchGroupLink = document.getElementById('ctaSwitchGroupLink');
+        if (ctaSwitchGroupLink) ctaSwitchGroupLink.href = dashboardUrl;
 
         // Update mobile bottom nav dashboard link
         const mobileDashboardLink = document.getElementById('mobileDashboardLink');

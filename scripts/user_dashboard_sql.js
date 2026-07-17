@@ -26,7 +26,7 @@
  * rather than silently doing nothing. See the report for the named gaps.
  */
 
-import { requireSession, apiGet, logout, ApiError, redirectToLogin } from "./api.js";
+import { requireSession, apiGet, logout, ApiError, redirectToLogin, listMyGroups } from "./api.js";
 
 // Admin-equivalent roles: decide the admin toggle and the admin-switch button.
 const ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
@@ -54,6 +54,45 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 /**
+ * Re-resolve a group to land on when no valid selectedGroupId is available,
+ * mirroring login_sql.js's last-used-else-first logic. Writes the resolution
+ * to both storages. Returns true if the caller should continue rendering the
+ * CURRENT page in place (a member-role group was resolved), false if it has
+ * already navigated away (zero groups, or an admin-role group).
+ */
+async function resolveGroupOrRedirect() {
+  let groups = [];
+  try {
+    groups = await listMyGroups();
+  } catch (error) {
+    groups = [];
+  }
+
+  if (!groups.length) {
+    window.location.href = "admin_registration.html";
+    return false;
+  }
+
+  const lastGroupId =
+    localStorage.getItem("selectedGroupId") ||
+    sessionStorage.getItem("selectedGroupId");
+  const target = groups.find((g) => g.groupId === lastGroupId) || groups[0];
+  const role = ADMIN_ROLES.includes(target.myRole) ? "admin" : "user";
+
+  localStorage.setItem("selectedGroupId", target.groupId);
+  localStorage.setItem("userRole", role);
+  sessionStorage.setItem("selectedGroupId", target.groupId);
+  sessionStorage.setItem("userRole", role);
+
+  if (role === "admin") {
+    window.location.href = "admin_dashboard.html";
+    return false;
+  }
+
+  return true;
+}
+
+/**
  * Entry point. Gates on the session, resolves the selected group, then loads it.
  */
 async function init() {
@@ -62,11 +101,16 @@ async function init() {
   renderIdentity(currentUser);
   resetSessionTimer();
 
-  const groupId = getSelectedGroupId();
+  let groupId = getSelectedGroupId();
   if (!groupId) {
-    // No group chosen — the dashboard is per-group, so send them to pick one.
-    window.location.href = "select_group.html";
-    return;
+    // No group chosen — resolve one the same way login does instead of
+    // bouncing through the retired select_group.html.
+    const shouldContinue = await resolveGroupOrRedirect();
+    if (!shouldContinue) {
+      showSpinner(false);
+      return;
+    }
+    groupId = getSelectedGroupId();
   }
 
   try {
@@ -81,9 +125,19 @@ async function init() {
 
   if (!currentGroup) {
     // The stored group is not one this member belongs to (any more). Re-pick.
-    showSpinner(false);
-    window.location.href = "select_group.html";
-    return;
+    const shouldContinue = await resolveGroupOrRedirect();
+    if (!shouldContinue) {
+      showSpinner(false);
+      return;
+    }
+    groupId = getSelectedGroupId();
+    currentGroup = userGroups.find((g) => g.groupId === groupId) || null;
+    if (!currentGroup) {
+      // Resolved group still isn't in the cached list (e.g. permissions
+      // changed mid-session) — reload so the dashboard re-fetches cleanly.
+      window.location.reload();
+      return;
+    }
   }
 
   renderGroupsList();
@@ -964,9 +1018,11 @@ function wireStaticHandlers() {
 /**
  * Guard the arrears modal so it prompts for a group instead of crashing.
  */
-function openArrearsModalGuarded() {
+async function openArrearsModalGuarded() {
   if (!getSelectedGroupId()) {
-    window.location.href = "select_group.html";
+    const shouldContinue = await resolveGroupOrRedirect();
+    if (!shouldContinue) return;
+    window.location.reload();
     return;
   }
   openArrearsModal();
@@ -975,9 +1031,11 @@ function openArrearsModalGuarded() {
 /**
  * Guard the upcoming-payments modal the same way.
  */
-function openUpcomingPaymentsModalGuarded() {
+async function openUpcomingPaymentsModalGuarded() {
   if (!getSelectedGroupId()) {
-    window.location.href = "select_group.html";
+    const shouldContinue = await resolveGroupOrRedirect();
+    if (!shouldContinue) return;
+    window.location.reload();
     return;
   }
   openUpcomingPaymentsModal();

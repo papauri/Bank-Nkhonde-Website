@@ -10,9 +10,12 @@
  * change to login.html.
  */
 
-import {login, ApiError} from "./api.js";
+import {login, ApiError, listMyGroups} from "./api.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
+
+// Admin-equivalent roles decide the target dashboard, mirroring select_group_sql.js.
+const ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
 
 document.addEventListener("DOMContentLoaded", () => {
   const loginBtn = document.getElementById("loginBtn");
@@ -167,12 +170,31 @@ document.addEventListener("DOMContentLoaded", () => {
       // The session cookie is set by this call. Nothing is stored client-side.
       await login(email, password);
 
-      // Destination matches the Firebase original: every user lands on group
-      // selection, regardless of role.
+      // Group-aware routing: resolve the caller's groups and land directly on
+      // the right dashboard instead of an intermediate group-selection page.
+      const groups = await listMyGroups();
+
+      if (groups.length === 0) {
+        displaySuccess("Login successful! Redirecting...");
+        window.location.href = "pages/admin_registration.html";
+        return;
+      }
+
+      const lastGroupId = localStorage.getItem("selectedGroupId");
+      const target =
+        groups.find((g) => g.groupId === lastGroupId) || groups[0];
+      const role = ADMIN_ROLES.includes(target.myRole) ? "admin" : "user";
+
+      localStorage.setItem("selectedGroupId", target.groupId);
+      localStorage.setItem("userRole", role);
+      sessionStorage.setItem("selectedGroupId", target.groupId);
+      sessionStorage.setItem("userRole", role);
+
       displaySuccess("Login successful! Redirecting...");
-      setTimeout(() => {
-        window.location.href = "pages/select_group.html";
-      }, 500);
+      window.location.href =
+        role === "admin" ?
+          "pages/admin_dashboard.html" :
+          "pages/user_dashboard.html";
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         displayError({

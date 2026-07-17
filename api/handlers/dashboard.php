@@ -1,7 +1,7 @@
 <?php
 /**
- * Dashboard endpoints: the small aggregate counts the post-login landing page
- * (select_group) shows as per-group badges.
+ * Dashboard endpoints: the small aggregate counts shown as per-group badges
+ * on the dashboard pages themselves, reached directly after login.
  *
  * AUTHORIZATION IS PER-GROUP AND RE-CHECKED SERVER-SIDE. dashboard.badges gates
  * on require_role($groupId, any-member) BEFORE any query runs — a caller who is
