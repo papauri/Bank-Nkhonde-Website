@@ -5,16 +5,21 @@
  * the admin sidebar/topbar/mobile-nav, replacing shared-top-nav.js,
  * unified-navigation.js, and admin-layout.js for ported (_sql.js) pages.
  *
- * Navigation is full-page (anchor href) on purpose: every _sql.js page runs
- * `await requireSession()` on its own DOMContentLoaded, so an SPA content
- * swap would skip that per-page gate. Do not turn this into a fetch-based
- * router.
+ * Navigation is full-page (anchor href) by default. A pilot SPA content
+ * router (scripts/spa-router.js) is bootstrapped from initNav() below and
+ * takes over same-app navigation ONLY between the 3 whitelisted pages it
+ * knows about (see PAGE_CONFIG in that file); every other page still
+ * navigates the normal way, and every converted page's init() still starts
+ * with `await requireSession()`, router-driven or not.
  *
- * The only import is api.js. Role/name shown here is UX only — the server
- * (require_role()) is the real gate.
+ * Imports: api.js for the session/logout calls, and spa-router.js (imported
+ * statically so its module-eval side effect — window.__bnSpa = true — lands
+ * before any page's own DOMContentLoaded fires). Role/name shown here is UX
+ * only — the server (require_role()) is the real gate.
  */
 
 import {getSession, logout as apiLogout, listMyGroups} from "./api.js";
+import {initSpaRouter} from "./spa-router.js";
 
 const LOGIN_URL = "../login.html";
 
@@ -754,6 +759,7 @@ function renderAdminNav(user, opts) {
     a.href = item.href;
     const isActive = item.nav === activePage;
     a.className = "mobile-nav-item" + (isActive ? " active" : "");
+    a.setAttribute("data-nav", item.nav);
     if (isActive) a.setAttribute("aria-current", "page");
     a.appendChild(svgIcon(item.icon, "20"));
     const span = document.createElement("span");
@@ -859,7 +865,39 @@ export async function initNav(options = {}) {
     renderUserNav(user, {...options, groups});
   }
 
+  // Bootstrap the pilot SPA router once per page load. Inert on any page
+  // that isn't one of the 3 whitelisted pages; does not rebuild the sidebar
+  // or topbar on navigation — see updateActiveNav() for the chrome update
+  // the router does perform on a content swap.
+  initSpaRouter();
+
   return user;
+}
+
+/**
+ * Update just the active-link highlight (sidebar + admin mobile bottom nav)
+ * and the topbar title, without touching or rebuilding any other nav DOM.
+ * Called by spa-router.js after each content swap between the whitelisted
+ * pages — never rebuilds the sidebar/topbar (no initNav call per navigation).
+ * @param {string} activePage Nav identifier, e.g. "loans" (matches
+ *     ADMIN_NAV_ITEMS[].nav / the elements' data-nav attribute).
+ * @param {string} [pageTitle] New topbar title text.
+ */
+export function updateActiveNav(activePage, pageTitle) {
+  document.querySelectorAll("[data-nav]").forEach((el) => {
+    const isActive = el.getAttribute("data-nav") === activePage;
+    el.classList.toggle("active", isActive);
+    if (isActive) {
+      el.setAttribute("aria-current", "page");
+    } else {
+      el.removeAttribute("aria-current");
+    }
+  });
+
+  if (typeof pageTitle === "string") {
+    const titleEl = document.querySelector(".topbar-title");
+    if (titleEl) titleEl.textContent = pageTitle;
+  }
 }
 
 // Re-export the session gate directly so callers only need to import this

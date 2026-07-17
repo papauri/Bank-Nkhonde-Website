@@ -53,11 +53,24 @@ let memberNameById = new Map();
 // Cached loaded data for the selected group, so modals render without refetch.
 let groupData = { payments: [], loans: [], members: [] };
 
-document.addEventListener("DOMContentLoaded", () => {
+/**
+ * Router-compatible entry point. Body is identical to the former
+ * DOMContentLoaded handler; the SPA router (scripts/spa-router.js) calls this
+ * directly after every content swap, and the guarded bootstrap below covers
+ * a normal hard page load.
+ * @return {Promise<void>}
+ */
+export async function init() {
   setupEventListeners();
   updateCurrentDate();
-  init();
-});
+  await loadDashboard();
+}
+
+if (!window.__bnSpa) {
+  document.addEventListener("DOMContentLoaded", () => {
+    init();
+  });
+}
 
 /* ------------------------------------------------------------------ *
  * Entry point + group resolution
@@ -66,7 +79,7 @@ document.addEventListener("DOMContentLoaded", () => {
 /**
  * Gate on the session, resolve the admin group list, then load the selected one.
  */
-async function init() {
+async function loadDashboard() {
   showSpinner(true);
   currentUser = await requireSession();
   renderIdentity(currentUser);
