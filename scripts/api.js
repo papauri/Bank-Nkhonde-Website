@@ -112,7 +112,10 @@ async function request(url, options) {
     throw new ApiError("Unexpected server response", response.status, null);
   }
 
-  return body;
+  // Every success envelope is {ok:true, data:{...}} (api/lib/http.php's
+  // json_response). Callers read fields straight off the result (data.groups,
+  // data.email, ...), so this unwraps to the payload, not the envelope.
+  return body && typeof body === "object" && "data" in body ? body.data : body;
 }
 
 /**
