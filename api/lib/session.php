@@ -49,6 +49,18 @@ if (!function_exists('current_user')) {
         if (empty($_SESSION['uid'])) {
             return null;
         }
+
+        $pdo = getDbConnection();
+        $stmt = $pdo->prepare('SELECT uid FROM users WHERE uid = :uid LIMIT 1');
+        $stmt->execute([':uid' => $_SESSION['uid']]);
+        $row = $stmt->fetch();
+
+        if ($row === false) {
+            session_unset();
+            session_destroy();
+            return null;
+        }
+
         return [
             'uid' => $_SESSION['uid'],
             'email' => $_SESSION['email'] ?? null,
