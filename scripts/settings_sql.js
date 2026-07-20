@@ -43,8 +43,8 @@ if (!window.__bnSpa) {
 }
 
 function setupEventListeners() {
-  document.getElementById("personalInfoForm")?.addEventListener("submit", savePersonalInfo);
-  document.getElementById("profileForm")?.addEventListener("submit", savePersonalInfo);
+  document.getElementById("personalForm")?.addEventListener("submit", savePersonalInfo);
+  document.getElementById("professionalForm")?.addEventListener("submit", savePersonalInfo);
   document.getElementById("passwordForm")?.addEventListener("submit", changePassword);
   document.getElementById("changePasswordForm")?.addEventListener("submit", changePassword);
 
@@ -89,8 +89,12 @@ function renderProfile() {
   setValue("settingsPhone", profile.phone);
   setValue("whatsappNumber", profile.whatsappNumber);
   setValue("address", profile.address);
-  setValue("nationality", profile.nationality);
-  setValue("occupation", profile.occupation);
+  // Professional panel: `occupation` is the only professional-info column that
+  // exists server-side (see api/handlers/profile.php PROFILE_BASE_COLUMNS) and
+  // maps to the "Career/Profession" field. `jobTitle` and `workplace` have no
+  // backing column yet, so they are left blank on load instead of faking data.
+  // `nationality` has no corresponding input in this markup anymore.
+  setValue("career", profile.occupation);
   setValue("dateOfBirth", toDateInput(profile.dateOfBirth));
 
   // Email is display-only (see the file header).
@@ -153,8 +157,10 @@ async function savePersonalInfo(e) {
     phone: firstValue("phone", "settingsPhone") ?? "",
     whatsappNumber: valueOf("whatsappNumber") ?? "",
     address: valueOf("address") ?? "",
-    nationality: valueOf("nationality") ?? "",
-    occupation: valueOf("occupation") ?? "",
+    // Only `career` has a real backend column (`occupation`). `jobTitle` and
+    // `workplace` are UI-only until a migration adds columns for them (see
+    // api/handlers/profile.php) and are deliberately not sent to the server.
+    occupation: valueOf("career") ?? "",
   };
 
   const dob = valueOf("dateOfBirth");

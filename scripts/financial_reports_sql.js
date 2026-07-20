@@ -75,7 +75,6 @@ const totalDisbursementsEl = () => document.getElementById("totalDisbursements")
 const netPositionEl = () => document.getElementById("netPosition");
 const outstandingLoansEl = () => document.getElementById("outstandingLoans");
 const detailedReportEl = () => document.getElementById("detailedReport");
-const downloadBtn = () => document.getElementById("downloadBtn");
 const exportBtn = () => document.getElementById("exportBtn");
 const spinner = () => document.getElementById("spinner");
 
@@ -118,9 +117,8 @@ function setupEventListeners() {
   // No export endpoint exists yet — see DEFERRED note in the file header.
   // Never re-implement the original's client-composed-HTML print/CSV flow;
   // that pattern is the exact XSS risk this port must not carry over.
-  downloadBtn()?.addEventListener("click", () => {
-    showToast("PDF export is not available yet — it needs a reports.export endpoint.", "info");
-  });
+  // #downloadBtn does not exist in pages/financial_reports.html — the real
+  // "Download PDF" control is #exportBtn, wired below.
   exportBtn()?.addEventListener("click", () => {
     showToast("Report export is not available yet — it needs a reports.export endpoint.", "info");
   });

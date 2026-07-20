@@ -90,42 +90,15 @@ if (!window.__bnSpa) {
 }
 
 function setupEventListeners() {
-  document.querySelectorAll(".tab-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const tab = btn.dataset.tab;
-
-      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-
-      document.querySelectorAll(".tab-content").forEach((content) => {
-        content.classList.remove("active");
-        content.style.display = "none";
-      });
-
-      const activeTab = document.getElementById(`${tab}Tab`);
-      if (activeTab) {
-        activeTab.classList.add("active");
-        activeTab.style.display = "block";
-      }
-
-      if (currentGroupId) {
-        if (tab === "contributions") loadContributions();
-        else if (tab === "loans") loadLoans();
-        else if (tab === "bookings") showBookingsDeferred();
-      }
-    });
-  });
-
   groupSelectorEl()?.addEventListener("change", async (e) => {
     currentGroupId = e.target.value;
     if (currentGroupId) {
       sessionStorage.setItem("selectedGroupId", currentGroupId);
-      const activeTab = document.querySelector(".tab-btn.active");
-      const tab = activeTab ? activeTab.dataset.tab : "contributions";
-      if (tab === "contributions") await loadContributions();
-      else if (tab === "loans") await loadLoans();
-      else if (tab === "bookings") showBookingsDeferred();
+      await loadGroupData();
     } else {
+      obligations = null;
+      myLoans = [];
+      myRepayments = [];
       const section = groupStatsSectionEl();
       if (section) section.style.display = "none";
       const container = chartContainerEl();
@@ -133,12 +106,12 @@ function setupEventListeners() {
         container.textContent = "";
         container.appendChild(emptyState("📊", "Select a group to view contribution trends"));
       }
+      const activity = document.getElementById("recentActivity");
+      if (activity) {
+        activity.textContent = "";
+        activity.appendChild(emptyState("📊", "Select a group to view recent activity"));
+      }
     }
-  });
-
-  // "Book a loan" — the whole booking feature is deferred (see header).
-  document.getElementById("bookLoanBtn")?.addEventListener("click", () => {
-    showToast("Loan booking is not available yet on this page.", "info");
   });
 }
 
@@ -175,7 +148,7 @@ async function loadUserGroups() {
     if (selector) selector.value = currentGroupId;
     sessionStorage.setItem("selectedGroupId", currentGroupId);
 
-    await loadContributions();
+    await loadGroupData();
   } catch (error) {
     handleApiError(error, "Failed to load your groups");
   } finally {
@@ -183,7 +156,15 @@ async function loadUserGroups() {
   }
 }
 
-// ── Contributions tab ───────────────────────────────────────────────────────
+// Loads both contribution obligations and loan/repayment data for the
+// selected group, then renders every stat block the real markup exposes.
+async function loadGroupData() {
+  if (!currentGroupId) return;
+  await loadContributions();
+  await loadLoans();
+}
+
+// ── Contributions ───────────────────────────────────────────────────────────
 async function loadContributions() {
   if (!currentGroupId) return;
   showSpinner(true);
@@ -191,7 +172,6 @@ async function loadContributions() {
     obligations = await apiGet("payments.obligations", {groupId: currentGroupId});
 
     renderTopStats();
-    renderMonthlyBreakdown();
     renderContributionTrendChart();
   } catch (error) {
     obligations = null;
@@ -235,67 +215,13 @@ function renderTopStats() {
   );
   setText(document.getElementById("userGroupsCount"), String(userGroups.length));
 
-  setText(
-      document.getElementById("monthlyContribution"),
-      formatCurrency(obligations?.monthlyContributions?.totalAmount),
-  );
-  setText(document.getElementById("yearlyTotal"), formatCurrency(totalContributed));
-  setText(document.getElementById("yourContributions"), formatCurrency(totalContributed));
+  // groupTotalContributed mirrors totalContributed: obligations is already
+  // scoped to currentGroupId, so "you contributed" for the selected group is
+  // the same figure as the top-of-page total.
+  setText(document.getElementById("groupTotalContributed"), formatCurrency(totalContributed));
 
   const section = groupStatsSectionEl();
   if (section) section.style.display = "";
-}
-
-function renderMonthlyBreakdown() {
-  const container = document.getElementById("monthlyBreakdown");
-  if (!container) return;
-  container.textContent = "";
-
-  const months = obligations?.monthlyContributions?.months || [];
-  if (months.length === 0) {
-    container.appendChild(emptyState("📊", "No breakdown available"));
-    return;
-  }
-
-  months.forEach((month) => {
-    const expected = numberOf(month.totalAmount);
-    const paid = numberOf(month.amountPaid);
-    const paidPercent = expected > 0 ? (paid / expected) * 100 : 0;
-
-    const div = el("div", "list-item");
-
-    const info = el("div");
-    info.style.flex = "1";
-
-    const title = el("div", "list-item-title");
-    title.textContent = month.month;
-    info.appendChild(title);
-
-    const row = el("div");
-    row.style.cssText = "display:flex; justify-content:space-between; margin-top:8px; margin-bottom:4px; font-size:0.875rem;";
-
-    const expectedSpan = document.createElement("span");
-    expectedSpan.textContent = `Expected: ${formatCurrency(expected)}`;
-    const paidSpan = document.createElement("span");
-    paidSpan.textContent = `Paid: ${formatCurrency(paid)}`;
-    row.append(expectedSpan, paidSpan);
-    info.appendChild(row);
-
-    const barTrack = el("div");
-    barTrack.style.cssText = "background: rgba(255,255,255,0.1); border-radius:4px; height:8px; overflow:hidden;";
-    const barFill = el("div");
-    barFill.style.cssText = `background: ${paidPercent >= 100 ? "var(--bn-success)" : "var(--bn-primary)"}; height:100%; width:${Math.min(100, paidPercent)}%;`;
-    barTrack.appendChild(barFill);
-    info.appendChild(barTrack);
-
-    const percentLabel = el("div");
-    percentLabel.style.cssText = "margin-top:4px; font-size:0.75rem; color: rgba(255,255,255,0.7);";
-    percentLabel.textContent = `${paidPercent.toFixed(1)}% complete`;
-    info.appendChild(percentLabel);
-
-    div.appendChild(info);
-    container.appendChild(div);
-  });
 }
 
 function renderContributionTrendChart() {
@@ -335,7 +261,7 @@ function renderContributionTrendChart() {
   });
 }
 
-// ── Loans tab ───────────────────────────────────────────────────────────────
+// ── Loans / repayment history ───────────────────────────────────────────────
 async function loadLoans() {
   if (!currentGroupId) return;
   showSpinner(true);
@@ -348,11 +274,10 @@ async function loadLoans() {
     const repayData = await apiGet("repayments.mine", {groupId: currentGroupId});
     myRepayments = Array.isArray(repayData && repayData.payments) ? repayData.payments : [];
 
-    renderLoanStats();
-    renderMyLoans();
     renderRepaymentHistory();
 
-    // Re-derive the top stats now that loans are loaded.
+    // Re-derive the top stats now that loans are loaded (totalBorrowed,
+    // outstanding, userActiveLoans depend on myLoans).
     renderTopStats();
   } catch (error) {
     myLoans = [];
@@ -361,99 +286,6 @@ async function loadLoans() {
   } finally {
     showSpinner(false);
   }
-}
-
-function renderLoanStats() {
-  const outstanding = myLoans
-      .filter((l) => ISSUED_LOAN_STATUSES.includes(l.status))
-      .reduce((sum, l) => sum + numberOf(l.remainingBalance), 0);
-  const paid = myLoans.reduce((sum, l) => sum + numberOf(l.amountRepaid), 0);
-  const activeCount = myLoans.filter((l) => ISSUED_LOAN_STATUSES.includes(l.status)).length;
-
-  setText(document.getElementById("activeLoansCount"), String(activeCount));
-  setText(document.getElementById("outstandingLoans"), formatCurrency(outstanding));
-  setText(document.getElementById("totalLoansPaid"), formatCurrency(paid));
-
-  // "Next disbursement" (loans currently being disbursed to OTHER members) is
-  // not available to a member — see DEFERRED note in the file header. Report
-  // it, don't invent a figure.
-  const nextEl = document.getElementById("nextDisbursement");
-  if (nextEl) nextEl.textContent = "—";
-
-  const disbursedContainer = document.getElementById("disbursedLoans");
-  if (disbursedContainer) {
-    disbursedContainer.textContent = "";
-    disbursedContainer.appendChild(
-        emptyState("💰", "Other members' loan disbursement details are not available on this page."),
-    );
-  }
-}
-
-function renderMyLoans() {
-  const container = document.getElementById("yourLoans");
-  if (!container) return;
-  container.textContent = "";
-
-  if (myLoans.length === 0) {
-    container.appendChild(emptyState("📋", "No loans found"));
-    return;
-  }
-
-  myLoans.forEach((loan) => {
-    const div = el("div", "list-item");
-
-    const info = el("div");
-    info.style.flex = "1";
-
-    const title = el("div", "list-item-title");
-    title.textContent = `Loan ${loan.loanNumber || String(loan.loanId).slice(0, 8)}`;
-    info.appendChild(title);
-
-    const requestedDate = loan.requestedAt ? new Date(loan.requestedAt).toLocaleDateString() : "N/A";
-    const subtitle = el("div", "list-item-subtitle");
-    subtitle.textContent = `${loan.purpose || "Not specified"} • Requested ${requestedDate}`;
-    info.appendChild(subtitle);
-
-    const principal = numberOf(loan.principalAmount ?? loan.approvedAmount);
-    const totalRepayment = numberOf(loan.totalRepayment);
-    const repaid = numberOf(loan.amountRepaid);
-    const progress = totalRepayment > 0 ? (repaid / totalRepayment) * 100 : 0;
-
-    const progressWrap = el("div");
-    progressWrap.style.marginTop = "12px";
-
-    const amountsRow = el("div");
-    amountsRow.style.cssText = "display:flex; justify-content:space-between; margin-bottom:4px; font-size:0.875rem;";
-    const amountSpan = document.createElement("span");
-    amountSpan.textContent = `Amount: ${formatCurrency(principal)}`;
-    const paidSpan = document.createElement("span");
-    paidSpan.textContent = `Paid: ${formatCurrency(repaid)}`;
-    amountsRow.append(amountSpan, paidSpan);
-    progressWrap.appendChild(amountsRow);
-
-    const barTrack = el("div");
-    barTrack.style.cssText = "background: rgba(255,255,255,0.1); border-radius:4px; height:8px; overflow:hidden;";
-    const barFill = el("div");
-    barFill.style.cssText = `background: var(--bn-primary); height:100%; width:${Math.min(100, progress)}%;`;
-    barTrack.appendChild(barFill);
-    progressWrap.appendChild(barTrack);
-
-    const remainingLabel = el("div");
-    remainingLabel.style.cssText = "margin-top:4px; font-size:0.75rem; color: rgba(255,255,255,0.7);";
-    remainingLabel.textContent = `${progress.toFixed(1)}% complete • Remaining: ${formatCurrency(loan.remainingBalance)}`;
-    progressWrap.appendChild(remainingLabel);
-
-    info.appendChild(progressWrap);
-    div.appendChild(info);
-
-    const badgeWrap = el("div");
-    const badge = el("span", `badge badge-${ISSUED_LOAN_STATUSES.includes(loan.status) ? "success" : "warning"}`);
-    badge.textContent = loan.status;
-    badgeWrap.appendChild(badge);
-    div.appendChild(badgeWrap);
-
-    container.appendChild(div);
-  });
 }
 
 function renderRepaymentHistory() {
@@ -497,21 +329,6 @@ function renderRepaymentHistory() {
 
     container.appendChild(div);
   });
-}
-
-// ── Bookings tab (deferred entirely — see file header) ─────────────────────
-function showBookingsDeferred() {
-  const yourBookings = document.getElementById("yourBookings");
-  if (yourBookings) {
-    yourBookings.textContent = "";
-    yourBookings.appendChild(emptyState("📅", "Loan booking is not available yet."));
-  }
-  const queue = document.getElementById("bookingQueue");
-  if (queue) {
-    queue.textContent = "";
-    queue.appendChild(emptyState("📊", "Loan booking is not available yet."));
-  }
-  showToast("Loan booking is not available yet on this page.", "info");
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

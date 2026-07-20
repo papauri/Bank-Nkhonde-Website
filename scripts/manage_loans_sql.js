@@ -108,6 +108,10 @@ function setupEventListeners() {
     });
   }
 
+  // pages/manage_loans.html has no refresh control (confirmed — no
+  // #refreshBtn or equivalent anywhere in the markup). Left as a safe no-op
+  // optional-chained lookup rather than fabricating a target; group data is
+  // already reloaded via the group selector's change handler above.
   document.getElementById("refreshBtn")?.addEventListener("click", async () => {
     if (selectedGroupId) await loadGroupData();
   });

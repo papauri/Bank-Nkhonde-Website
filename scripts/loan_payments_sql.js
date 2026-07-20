@@ -60,6 +60,10 @@ function setupEventListeners() {
     });
   }
 
+  // NOTE: #makePaymentBtn does not exist in the real markup (pages/loan_payments.html) —
+  // the page opens the payment modal per-loan instead, via the "Make Payment" button
+  // built in createLoanCard(). This listener is a guarded no-op kept only in case a
+  // future top-level trigger is added with this id.
   document.getElementById("makePaymentBtn")?.addEventListener("click", () => {
     if (activeLoans.length > 0) openPaymentModal(activeLoans[0]);
   });
@@ -161,11 +165,19 @@ function updateStats() {
     totalPaid += numberOf(loan.amountRepaid);
   });
 
+  // NOTE: #activeLoansCount and #totalOutstanding do not exist anywhere in the real
+  // markup (pages/loan_payments.html has no summary stat cards on this page) — these
+  // are guarded no-ops until such elements are added to the page.
   setText("activeLoansCount", activeLoans.length);
   setText("totalOutstanding", formatCurrency(totalOutstanding));
-  setText("totalPaid", formatCurrency(totalPaid));
+  // #totalPaidAmount is the real id (also reused inside the payment modal for a
+  // single loan's amount-paid figure). Since the modal is hidden by default and
+  // openPaymentModal() always overwrites this element with the correct per-loan
+  // value before the modal is shown, writing the aggregate figure here first is safe.
+  setText("totalPaidAmount", formatCurrency(totalPaid));
   setText("pendingPaymentsCount", pendingPayments.length);
 
+  // NOTE: #makePaymentBtn does not exist in the real markup — see setupEventListeners().
   const makePaymentBtn = document.getElementById("makePaymentBtn");
   if (makePaymentBtn) {
     makePaymentBtn.style.display = activeLoans.length > 0 ? "block" : "none";
@@ -427,7 +439,14 @@ async function handlePaymentSubmit(e) {
   const amount = parseFloat(document.getElementById("paymentAmount")?.value || "");
   const proofFile = document.getElementById("paymentProof")?.files?.[0];
   const notes = document.getElementById("paymentNotes")?.value.trim() || "";
-  const method = document.getElementById("paymentMethod")?.value || "cash";
+  // The real markup (pages/loan_payments.html) has no payment-method selector at
+  // all — there is no #paymentMethod element to read, so this is not a lost user
+  // choice, it is a missing control. "cash" is one of the server's accepted values
+  // (repayments.php REPAYMENT_METHODS: cash, bank_transfer, mobile_money), so this
+  // sends a valid value rather than an invalid guess. A method selector needs to be
+  // added to the modal markup (out of scope here) before this can reflect the
+  // member's actual choice.
+  const method = "cash";
 
   if (!loanId || !Number.isFinite(amount) || amount <= 0) {
     showToast("Enter a valid payment amount.", "error");

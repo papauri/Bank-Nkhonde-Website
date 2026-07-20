@@ -18,6 +18,7 @@
  */
 
 import {apiGet, apiPost, requireSession, listMyGroups, ApiError, redirectToLogin} from "./api.js";
+import {updateActiveNav} from "./nav_sql.js";
 
 const MAX_PDF_BYTES = 5 * 1024 * 1024; // matches the server's UPLOAD_MAX_BYTES
 
@@ -41,6 +42,17 @@ if (!window.__bnSpa) {
 }
 
 function setupEventListeners() {
+  document.querySelectorAll(".rules-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".rules-tab").forEach((t) => t.classList.remove("active"));
+      document.querySelectorAll(".rules-tab-content").forEach((p) => p.classList.remove("active"));
+
+      tab.classList.add("active");
+      const panel = document.getElementById(`${tab.dataset.tab}Tab`);
+      if (panel) panel.classList.add("active");
+    });
+  });
+
   document.getElementById("editTextRulesBtn")?.addEventListener("click", openTextEditor);
   document.getElementById("cancelTextRulesBtn")?.addEventListener("click", closeTextEditor);
   document.getElementById("saveTextRulesBtn")?.addEventListener("click", saveTextRules);
@@ -102,7 +114,11 @@ async function loadGroup() {
     const resp = await apiGet("groups.get", {groupId: selectedGroupId});
     group = (resp && (resp.group || resp)) || {};
 
-    setText("groupName", group.groupName || "Group Rules");
+    // pages/manage_rules.html has no #groupName element — the actual group
+    // name display is the shared topbar title (.topbar-title), set here via
+    // nav_sql.js's updateActiveNav rather than a page-local id that never
+    // existed in the markup.
+    updateActiveNav("rules", group.groupName || "Group Rules");
     renderTextRules();
     renderPdf();
   } catch (error) {

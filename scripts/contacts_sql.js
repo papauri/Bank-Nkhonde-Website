@@ -65,6 +65,9 @@ let messageTargetName = "";
 // existing markup binds at cutover) ─────────────────────────────────────────
 const groupSelectorEl = () => document.getElementById("groupSelector");
 const contactsListEl = () => document.getElementById("contactsList");
+// No search input exists in pages/contacts.html — confirmed absent, not
+// fabricated. Search wiring is a no-op via the safe optional chaining below
+// until such a control is added to the markup.
 const searchBoxEl = () => document.getElementById("searchContacts");
 const messageAdminModalEl = () => document.getElementById("messageAdminModal");
 const messageAdminFormEl = () => document.getElementById("messageAdminForm");

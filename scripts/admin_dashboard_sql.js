@@ -1356,11 +1356,16 @@ function setupEventListeners() {
     ?.addEventListener("click", handleLogout);
   document.getElementById("logoutBtn")?.addEventListener("click", handleLogout);
 
-  document.getElementById("switchViewBtn")?.addEventListener("click", () => {
-    window.location.href = "user_dashboard.html";
-  });
+  // The "Switch to User View" affordances are plain <a href="user_dashboard.html">
+  // links injected by nav_sql.js (no id assigned there) — target them by the
+  // href they're built with rather than an id that doesn't exist in the DOM.
   document
-    .getElementById("switchToUserViewMobile")
+    .querySelector('a.sidebar-nav-item[href="user_dashboard.html"]')
+    ?.addEventListener("click", () => {
+      window.location.href = "user_dashboard.html";
+    });
+  document
+    .querySelector('a.mobile-nav-item[href="user_dashboard.html"]')
     ?.addEventListener("click", (e) => {
       e.preventDefault();
       window.location.href = "user_dashboard.html";
@@ -1402,7 +1407,7 @@ function toggleUserMenu() {
  * Show/hide the "Switch to User View" affordance based on admin membership.
  */
 function updateMobileNavUserView() {
-  const el = document.getElementById("switchToUserViewMobile");
+  const el = document.querySelector('a.mobile-nav-item[href="user_dashboard.html"]');
   if (el) el.style.display = adminGroups.length > 0 ? "flex" : "none";
 }
 

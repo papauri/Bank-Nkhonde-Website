@@ -78,7 +78,6 @@ const SETTLED_STATUSES = ["approved", "completed"];
 // ── DOM elements (IDs kept identical to the Firebase original) ─────────────
 const groupSelector = () => document.getElementById("groupSelector");
 const pendingPaymentsList = () => document.getElementById("pendingPaymentsList");
-const recentPaymentsList = () => document.getElementById("recentPaymentsList");
 const spinner = () => document.getElementById("spinner");
 
 // ── Init ─────────────────────────────────────────────────────────────────────
@@ -105,6 +104,9 @@ function setupEventListeners() {
     }
   });
 
+  // NOTE: manage_payments.html has no "#refreshBtn" (or any refresh control)
+  // — confirmed absent, not fabricated. This listener is a documented no-op
+  // via optional chaining until a real refresh control is added to the page.
   document.getElementById("refreshBtn")?.addEventListener("click", async () => {
     if (selectedGroupId) await loadGroupData();
   });
@@ -130,9 +132,9 @@ function setupEventListeners() {
   document.getElementById("paymentSettingsForm")?.addEventListener("submit", handleSaveSettings);
   document.getElementById("sendRemindersForm")?.addEventListener("submit", handleSendReminders);
 
-  document.querySelectorAll(".action-tab").forEach((tab) => {
+  document.querySelectorAll(".payment-tab").forEach((tab) => {
     tab.addEventListener("click", () => {
-      document.querySelectorAll(".action-tab").forEach((t) => t.classList.remove("active"));
+      document.querySelectorAll(".payment-tab").forEach((t) => t.classList.remove("active"));
       tab.classList.add("active");
       currentTab = tab.dataset.tab || "pending";
       renderCurrentTab();
@@ -269,7 +271,6 @@ async function loadGroupData() {
     updateStats();
     renderCurrentTab();
     renderPendingPreview();
-    renderRecentPreview();
   } catch (error) {
     handleApiError(error, "Failed to load group data");
   } finally {
@@ -367,13 +368,13 @@ function filteredPayments() {
     case "pending":
       filtered = allPayments.filter((p) => p.approvalStatus === "pending");
       break;
-    case "seedMoney":
+    case "seed":
       filtered = allPayments.filter((p) => p.paymentType === "seed_money");
       break;
     case "monthly":
       filtered = allPayments.filter((p) => p.paymentType === "monthly_contribution");
       break;
-    case "serviceFee":
+    case "servicefee":
       filtered = allPayments.filter((p) => p.paymentType === "service_fee");
       break;
     case "arrears":
@@ -423,21 +424,14 @@ function renderPendingPreview() {
   renderCurrentTab();
 }
 
-function renderRecentPreview() {
-  const list = recentPaymentsList();
-  if (!list) return;
-  list.textContent = "";
-
-  const recent = [...allPayments]
-    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-    .slice(0, 10);
-
-  if (recent.length === 0) {
-    list.appendChild(emptyState("📋", "No recent payments"));
-    return;
-  }
-  recent.forEach((payment) => list.appendChild(createPaymentCard(payment, false)));
-}
+// NOTE (dead-code removal): a renderRecentPreview() used to target a
+// "#recentPaymentsList" element that never existed in manage_payments.html
+// (only "#pendingPaymentsList" does) — it always
+// bailed at `if (!list) return` and was unreachable in practice. The
+// "Recent" tab is fully served by the .payment-tab click handler ->
+// filteredPayments() (case "recent") -> renderCurrentTab(), which renders
+// into the real "#pendingPaymentsList" container. Removed as unreachable
+// dead code; nothing else called renderRecentPreview().
 
 const PAYMENT_TYPE_LABELS = {
   seed_money: "Seed Money",
@@ -604,6 +598,12 @@ function openRecordPaymentModal(preSelectMemberId = null) {
  * computed server-side, penalties included. The client never derives it.
  */
 async function updateAmountDueForSelection() {
+  // NOTE: manage_payments.html has no "#paymentAmountHint" element (confirmed
+  // absent, not fabricated). The record-payment modal only exposes a static
+  // instructional <small> next to the "#autoFillAmountBtn" button — that
+  // button isn't wired to anything in this file either. Wiring a real hint
+  // display / auto-fill click handler is out of scope for this fix; this
+  // stays a documented no-op via the early return below.
   const hint = document.getElementById("paymentAmountHint");
   const amountInput = document.getElementById("paymentAmount");
   const targetUid = document.getElementById("memberSelect")?.value;

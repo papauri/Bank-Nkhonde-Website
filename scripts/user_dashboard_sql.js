@@ -229,7 +229,7 @@ function applyRole() {
  * Render the member's groups in the sidebar list.
  */
 function renderGroupsList() {
-  const list = document.getElementById("groupList");
+  const list = document.getElementById("groupSelectionList");
   if (!list) return;
   list.replaceChildren();
 
@@ -313,12 +313,12 @@ function updateCurrentGroupDisplay() {
   const display = document.getElementById("currentGroupDisplay");
   const name = document.getElementById("currentGroupName");
   const icon = document.getElementById("currentGroupIcon");
-  if (!display || !name || !icon) return;
+  if (!display || !name) return;
 
   if (currentGroup && currentGroup.groupName) {
     display.style.display = "flex";
     name.textContent = currentGroup.groupName;
-    icon.textContent = currentGroup.groupName.charAt(0).toUpperCase();
+    if (icon) icon.textContent = currentGroup.groupName.charAt(0).toUpperCase();
   } else {
     display.style.display = "none";
   }

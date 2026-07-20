@@ -7,131 +7,87 @@
  * 003 + api/handlers/invitations.php) has NO token column and no expiry on an
  * invite; `invitations.respond` requires a SIGNED-IN caller whose session email
  * matches the invite, and there is no `invitations.mine` for an invitee to look up
- * their own pending invite by id. So the SQL-native join is the JOIN CODE:
+ * their own pending invite by id. So the SQL-native join is the JOIN CODE, and the
+ * caller must already be signed in — there is no endpoint that previews group
+ * info from a bare code, so this page cannot show live group details before the
+ * visitor accepts. It shows neutral copy instead, then redeems on click:
  *
- *   register {email, fullName, password}  →  login  →  codes.redeem {code}
+ *   (must be signed in already)  →  click Accept  →  codes.redeem {code}
  *
- * This page implements exactly that. A `?code=` query param pre-fills the code.
- * (An email-token acceptance path would need an `invitations.mine` endpoint — see
- * BUILD_PLAN B22. Not built here.)
- *
- * register() does NOT open a session, so login() is called after it. No
+ * The `?code=` (or legacy `?token=`) query param supplies the join code. No
  * data-bearing innerHTML — every message via textContent.
  */
 
-import {apiPost, login, apiGet, getSession, ApiError} from "./api.js";
+import {apiPost, getSession, ApiError} from "./api.js";
+
+let code = "";
 
 document.addEventListener("DOMContentLoaded", async () => {
   const params = new URLSearchParams(window.location.search);
-  const codeFromUrl = params.get("code") || params.get("token") || "";
+  code = params.get("code") || params.get("token") || "";
 
-  const loadingMessage = document.getElementById("loadingMessage");
-  const invitationForm = document.getElementById("invitationForm");
-  const form = document.getElementById("acceptInvitationForm");
-  const submitBtn = document.getElementById("submitBtn");
+  const acceptBtn = document.getElementById("acceptBtn");
 
-  // Prefill the join code if present, and hide the loading state.
-  const codeInput = document.getElementById("joinCode") || document.getElementById("invitationCode");
-  if (codeInput && codeFromUrl) codeInput.value = codeFromUrl;
-
-  if (loadingMessage) loadingMessage.style.display = "none";
-  if (invitationForm) invitationForm.style.display = "block";
-
-  // If already signed in, they only need the code — hide the account fields.
-  const existing = await getSession();
-  const alreadySignedIn = !!existing;
-  if (alreadySignedIn) {
-    ["fullName", "email", "password", "confirmPassword"].forEach((id) => {
-      const el = document.getElementById(id);
-      const group = el?.closest(".form-group") || el?.parentElement;
-      if (group) group.style.display = "none";
-    });
-  }
-
-  form?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    handleJoin(alreadySignedIn, submitBtn);
-  });
-});
-
-async function handleJoin(alreadySignedIn, submitBtn) {
-  const codeInput = document.getElementById("joinCode") || document.getElementById("invitationCode");
-  const code = (codeInput?.value || "").trim();
   if (!code) {
-    showError("Enter the join code you were given.");
+    showError("This invitation link is missing its join code. Ask your group admin to resend it.");
+    if (acceptBtn) acceptBtn.disabled = true;
     return;
   }
 
-  const setBusy = (busy, label) => {
-    if (!submitBtn) return;
-    submitBtn.disabled = busy;
-    if (label) submitBtn.textContent = label;
-  };
+  // No endpoint exists to preview group info from a bare code — show honest
+  // neutral copy rather than a permanent "Loading..." or fabricated numbers.
+  const groupName = document.getElementById("groupName");
+  if (groupName) groupName.textContent = "You've been invited to a savings group";
+  const groupDetails = document.querySelector(".group-details");
+  if (groupDetails) groupDetails.classList.add("hidden");
+
+  const existing = await getSession();
+  if (!existing) {
+    showError("Please sign in first, then reopen this invitation link to accept it.");
+    if (acceptBtn) acceptBtn.disabled = true;
+    return;
+  }
+
+  acceptBtn?.addEventListener("click", handleAccept);
+});
+
+async function handleAccept() {
+  const acceptBtn = document.getElementById("acceptBtn");
+  const spinner = document.getElementById("spinner");
+
+  showError("");
+  if (acceptBtn) acceptBtn.disabled = true;
+  spinner?.classList.remove("hidden");
 
   try {
-    setBusy(true, "Joining…");
-
-    if (!alreadySignedIn) {
-      const fullName = valueOf("fullName");
-      const email = valueOf("email");
-      const password = valueOf("password");
-      const confirmPassword = valueOf("confirmPassword");
-
-      if (!fullName || !email || !password) {
-        showError("Please fill in your name, email and password.");
-        setBusy(false, "Create Account & Join Group");
-        return;
-      }
-      if (password.length < 8) {
-        showError("Password must be at least 8 characters long.");
-        setBusy(false, "Create Account & Join Group");
-        return;
-      }
-      if (password !== confirmPassword) {
-        showError("Passwords do not match.");
-        setBusy(false, "Create Account & Join Group");
-        return;
-      }
-
-      // Register (no session yet), then log in to open one.
-      try {
-        await apiPost("register", {email, fullName, password});
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 409) {
-          // Account already exists — try to log them in with what they typed, so
-          // an existing user can still redeem the code from this page.
-          showError("");
-        } else {
-          throw error;
-        }
-      }
-      await login(email, password);
-
-      // Best-effort: attach the phone if the form collected one (register doesn't).
-      const phone = valueOf("phone");
-      if (phone) {
-        try {
-          await apiPost("profile.update", {phone});
-        } catch (e) { /* non-fatal — joining is what matters */ }
-      }
-    }
-
-    // Redeem the code — this is the actual group join.
     const result = await apiPost("codes.redeem", {code});
-    const groupName = (result && result.groupName) || "your group";
 
-    if (result && (result.groupId)) {
+    if (result && result.groupId) {
       sessionStorage.setItem("selectedGroupId", result.groupId);
     }
 
-    showSuccess(`Joined ${groupName}! Redirecting to your dashboard…`);
+    // Populate the display fields if the redeem response happens to carry them.
+    if (result) {
+      const groupNameEl = document.getElementById("groupName");
+      if (groupNameEl && result.groupName) groupNameEl.textContent = result.groupName;
+
+      const memberCountEl = document.getElementById("memberCount");
+      const contributionEl = document.getElementById("contribution");
+      const hasCounts = result.memberCount != null || result.contribution != null;
+      if (hasCounts) {
+        if (memberCountEl && result.memberCount != null) memberCountEl.textContent = result.memberCount;
+        if (contributionEl && result.contribution != null) contributionEl.textContent = result.contribution;
+        document.querySelector(".group-details")?.classList.remove("hidden");
+      }
+    }
+
     setTimeout(() => {
       window.location.href = "user_dashboard.html";
-    }, 1500);
+    }, 1200);
   } catch (error) {
     if (error instanceof ApiError) {
       if (error.status === 401) {
-        showError("That email is registered but the password didn't match. Log in first, then redeem the code.");
+        showError("Your session has expired. Please log in again, then reopen this link.");
       } else if (error.status === 409) {
         showError(error.message || "You have already used this code.");
       } else if (error.status === 404) {
@@ -143,32 +99,19 @@ async function handleJoin(alreadySignedIn, submitBtn) {
       console.error("Join failed", error);
       showError("Could not join the group. Please try again.");
     }
-    setBusy(false, alreadySignedIn ? "Join Group" : "Create Account & Join Group");
+    if (acceptBtn) acceptBtn.disabled = false;
+    spinner?.classList.add("hidden");
   }
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-function valueOf(id) {
-  const el = document.getElementById(id);
-  return el ? el.value.trim() : "";
-}
-
 function showError(message) {
   const err = document.getElementById("errorMessage");
-  const ok = document.getElementById("successMessage");
-  if (ok) ok.style.display = "none";
-  if (err) {
-    err.textContent = message;
-    err.style.display = message ? "block" : "none";
-  }
-}
-
-function showSuccess(message) {
-  const err = document.getElementById("errorMessage");
-  const ok = document.getElementById("successMessage");
-  if (err) err.style.display = "none";
-  if (ok) {
-    ok.textContent = message;
-    ok.style.display = "block";
+  if (!err) return;
+  err.textContent = message;
+  if (message) {
+    err.classList.remove("hidden");
+  } else {
+    err.classList.add("hidden");
   }
 }

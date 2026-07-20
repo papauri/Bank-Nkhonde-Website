@@ -1921,14 +1921,43 @@
       </div>
 
       <div class="hero-content-user hidden">
+        <div class="user-welcome-badge">
+          <span class="badge-icon">👋</span>
+          <span class="badge-text">Welcome back, <span id="userDisplayName">Member</span></span>
+        </div>
+
         <h1 class="hero-title">
-          Welcome back! <span class="hero-title-accent">Ready to manage your groups?</span>
+          <span id="userGreeting">Welcome back!</span> <span class="hero-title-accent" id="userSubGreeting">Ready to manage your groups?</span>
         </h1>
 
-        <p class="hero-description">
-          Access your dashboard to track contributions, manage loans, view analytics, and stay updated with your savings groups. 
+        <p class="hero-description" id="userDescription">
+          Access your dashboard to track contributions, manage loans, view analytics, and stay updated with your savings groups.
           Everything you need is just a click away.
         </p>
+
+        <div class="user-quick-stats hidden" id="userQuickStats">
+          <div class="quick-stat-card">
+            <span class="quick-stat-icon">👥</span>
+            <div class="quick-stat-info">
+              <div class="quick-stat-value" id="userGroupsCount">0</div>
+              <div class="quick-stat-label">Groups</div>
+            </div>
+          </div>
+          <div class="quick-stat-card">
+            <span class="quick-stat-icon">📅</span>
+            <div class="quick-stat-info">
+              <div class="quick-stat-value" id="userUpcomingPayments">—</div>
+              <div class="quick-stat-label">Upcoming Payments</div>
+            </div>
+          </div>
+          <div class="quick-stat-card">
+            <span class="quick-stat-icon">💰</span>
+            <div class="quick-stat-info">
+              <div class="quick-stat-value" id="userTotalSavings">—</div>
+              <div class="quick-stat-label">Total Savings</div>
+            </div>
+          </div>
+        </div>
 
         <div class="hero-cta">
           <a href="#" id="heroDashboardLink" class="btn btn-accent btn-lg">
