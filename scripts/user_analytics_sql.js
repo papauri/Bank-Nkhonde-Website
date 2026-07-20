@@ -66,6 +66,9 @@ let currentGroupId = null;
 let userGroups = [];
 let obligations = null;
 let myLoans = [];
+/** loans.list's server-computed `summary` block — already member-scoped since
+ * a plain member's loans.list call only ever returns their own rows. */
+let myLoansSummary = null;
 let myRepayments = [];
 
 const groupSelectorEl = () => document.getElementById("groupSelector");
@@ -182,20 +185,26 @@ async function loadContributions() {
 }
 
 function renderTopStats() {
-  const months = obligations?.monthlyContributions?.months || [];
-  const monthlyPaid = months.reduce((sum, m) => sum + numberOf(m.amountPaid), 0);
-  const seedPaid = numberOf(obligations?.seedMoney?.amountPaid);
-  const feePaid = numberOf(obligations?.serviceFee?.amountPaid);
-  const totalContributed = monthlyPaid + seedPaid + feePaid;
+  // totalContributed/totalArrears below span seed money + monthly
+  // contributions + service fee combined — the exact scope the server's
+  // obligations `summary.contributed` / `summary.arrears` fields cover, so
+  // they're read directly instead of re-summed client-side. (Note:
+  // summary.arrears alone, without penaltyAccrued, matches this page's prior
+  // scope — it never folded live-penalty accrual into "arrears" either.)
+  const summary = obligations?.summary || {};
+  const totalContributed = numberOf(summary.contributed);
+  const totalArrears = numberOf(summary.arrears);
 
-  const monthlyArrears = months.reduce((sum, m) => sum + numberOf(m.arrears), 0);
-  const seedArrears = numberOf(obligations?.seedMoney?.arrears);
-  const feeArrears = numberOf(obligations?.serviceFee?.arrears);
-  const totalArrears = monthlyArrears + seedArrears + feeArrears;
-
-  const outstanding = myLoans
-    .filter((l) => ISSUED_LOAN_STATUSES.includes(l.status))
-    .reduce((sum, l) => sum + numberOf(l.remainingBalance), 0);
+  // Substituted with the server summary: remainingBalance is '0.00' for every
+  // loan outside ISSUED_LOAN_STATUSES (pending/rejected never had a balance
+  // set, completed loans are repaid to 0), so summing over ALL of this caller's
+  // rows (`summary.totalOutstanding` — loans.list is already member-scoped)
+  // equals this filtered client-side sum.
+  const outstanding = myLoansSummary ? numberOf(myLoansSummary.totalOutstanding) : 0;
+  // NOT substituted with `summary.totalPrincipal`/`activePrincipal`: totalPrincipal
+  // sums over ALL rows including pending/rejected (which still carry a nonzero
+  // requested principalAmount), and activePrincipal excludes completed/defaulted.
+  // Neither scope matches ISSUED_LOAN_STATUSES, so this stays a client-side sum.
   const totalBorrowed = myLoans
     .filter((l) => ISSUED_LOAN_STATUSES.includes(l.status))
     .reduce((sum, l) => sum + numberOf(l.principalAmount ?? l.approvedAmount), 0);
@@ -270,6 +279,7 @@ async function loadLoans() {
     // The server already restricts a plain member's rows to their own loans —
     // no client-side filtering by borrowerId is performed or needed here.
     myLoans = Array.isArray(data && data.loans) ? data.loans : [];
+    myLoansSummary = data && data.summary && typeof data.summary === "object" ? data.summary : null;
 
     const repayData = await apiGet("repayments.mine", {groupId: currentGroupId});
     myRepayments = Array.isArray(repayData && repayData.payments) ? repayData.payments : [];
@@ -281,6 +291,7 @@ async function loadLoans() {
     renderTopStats();
   } catch (error) {
     myLoans = [];
+    myLoansSummary = null;
     myRepayments = [];
     handleApiError(error, "Failed to load your loans");
   } finally {

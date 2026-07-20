@@ -75,6 +75,10 @@ let currentGroupId = null;
 let members = [];
 let payments = [];
 let loans = [];
+/** loans.list's server-computed `summary` block (totalPrincipal/totalOutstanding/
+ * totalInterest/activePrincipal, all ALL-loan-rows scope) — used only where a
+ * client-side sum's filter scope genuinely matches it. */
+let loansSummary = null;
 let cycleEquity = null;
 /** Sum of live arrears across all members, current year — no client math beyond +=. */
 let liveArrearsTotal = 0;
@@ -222,8 +226,10 @@ async function loadLoans() {
   try {
     const data = await apiGet("loans.list", {groupId: currentGroupId});
     loans = Array.isArray(data && data.loans) ? data.loans : [];
+    loansSummary = data && data.summary && typeof data.summary === "object" ? data.summary : null;
   } catch (error) {
     loans = [];
+    loansSummary = null;
     handleApiError(error, "Failed to load loans");
   }
 }
@@ -282,6 +288,11 @@ function renderSummaryTiles() {
 
   const totalIncome = collected + interestPaid;
 
+  // NOT substituted with loans.list's `summary.totalPrincipal`/`activePrincipal`:
+  // totalPrincipal sums over ALL rows (including pending/rejected, which still
+  // carry a nonzero requested principalAmount), and activePrincipal is scoped to
+  // approved+disbursed only (excludes completed/defaulted). Neither matches this
+  // ISSUED_LOAN_STATUSES (approved+disbursed+completed+defaulted) filter.
   const disbursed = loans
     .filter((l) => ISSUED_LOAN_STATUSES.includes(l.status))
     .reduce((sum, l) => sum + numberOf(l.principalAmount ?? l.approvedAmount), 0);
@@ -314,6 +325,9 @@ function renderMonthlyTrendChart() {
       if (idx >= 0 && idx <= currentMonth) monthly[idx].collected += numberOf(p.amountPaid);
     });
 
+  // Not substituted with loans.list's `summary` (a single group-wide total, not
+  // a per-month breakdown) — this loop needs disbursed amounts bucketed by month,
+  // which no summary field provides.
   loans
     .filter((l) => ISSUED_LOAN_STATUSES.includes(l.status))
     .forEach((l) => {
@@ -378,6 +392,8 @@ function renderChartContainer() {
   const collected = payments
     .filter((p) => SETTLED_STATUSES.includes(p.approvalStatus))
     .reduce((sum, p) => sum + numberOf(p.amountPaid), 0);
+  // Same scope mismatch as renderSummaryTiles's `disbursed` above — see comment
+  // there. Left as a client-side sum, not substituted with `summary`.
   const disbursed = loans
     .filter((l) => ISSUED_LOAN_STATUSES.includes(l.status))
     .reduce((sum, l) => sum + numberOf(l.principalAmount ?? l.approvedAmount), 0);
@@ -391,9 +407,13 @@ function renderChartContainer() {
   container.appendChild(statCard("Loans Disbursed", formatCurrency(disbursed)));
   container.appendChild(statCard("Outstanding Arrears (live)", formatCurrency(liveArrearsTotal)));
 
-  const outstandingLoans = loans
-    .filter((l) => ISSUED_LOAN_STATUSES.includes(l.status))
-    .reduce((sum, l) => sum + numberOf(l.remainingBalance), 0);
+  // Substituted with the server summary: remainingBalance is 0.00 for every
+  // loan outside ISSUED_LOAN_STATUSES (pending/rejected never had a balance set,
+  // and completed loans are repaid to 0) — so summing it over ALL rows
+  // (`summary.totalOutstanding`) is mathematically identical to this filtered
+  // client-side sum. Verified against api/handlers/loans.php's remainingBalance
+  // writes (default '0.00' on insert, only ever set on approve/repay).
+  const outstandingLoans = loansSummary ? numberOf(loansSummary.totalOutstanding) : 0;
   container.appendChild(statCard("Outstanding Loan Balances", formatCurrency(outstandingLoans)));
 }
 

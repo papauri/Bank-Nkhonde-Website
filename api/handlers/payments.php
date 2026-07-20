@@ -571,6 +571,9 @@ if (!function_exists('list_payments')) {
         $rules = payment_fetch_rules($pdo, $groupId);
 
         $payments = [];
+        $collectedVerifiedMinor = 0;
+        $arrearsTotalMinor = 0;
+        $penaltyAccruedMinor = 0;
         foreach ($stmt->fetchAll() as $row) {
             $arrearsMinor = money_to_minor(trim((string) $row['arrears']));
 
@@ -581,10 +584,24 @@ if (!function_exists('list_payments')) {
                 $arrearsMinor
             );
 
+            if (in_array((string) $row['approvalStatus'], ['approved', 'completed'], true)) {
+                $collectedVerifiedMinor += money_to_minor(trim((string) $row['amountPaid']));
+            }
+            $arrearsTotalMinor += $arrearsMinor;
+            $penaltyAccruedMinor += money_to_minor(trim((string) $row['penalty']['amountAccrued']));
+
             $payments[] = $row;
         }
 
-        json_response(['payments' => $payments]);
+        json_response([
+            'payments' => $payments,
+            'summary' => [
+                'verifiedCollected' => money_from_minor($collectedVerifiedMinor),
+                'arrears' => money_from_minor($arrearsTotalMinor),
+                'penaltyAccrued' => money_from_minor($penaltyAccruedMinor),
+                'totalArrears' => money_from_minor($arrearsTotalMinor + $penaltyAccruedMinor),
+            ],
+        ]);
     }
 }
 
@@ -712,6 +729,22 @@ if (!function_exists('my_obligations')) {
 
         $member = payment_fetch_member($pdo, $groupId, $uid);
 
+        // Summary — sums of the SAME per-item figures already computed above
+        // (seed money, every month, service fee). No re-fetch, no new query.
+        $contributedMinor = $seedPaidMinor;
+        $arrearsMinor = $seedArrearsMinor;
+        $penaltyAccruedMinor = money_to_minor(trim((string) $seed['penalty']['amountAccrued']));
+        foreach ($months as $monthRow) {
+            $contributedMinor += money_to_minor(trim((string) $monthRow['amountPaid']));
+            $arrearsMinor += money_to_minor(trim((string) $monthRow['arrears']));
+            $penaltyAccruedMinor += money_to_minor(trim((string) $monthRow['penalty']['amountAccrued']));
+        }
+        if ($serviceFee !== null) {
+            $contributedMinor += money_to_minor(trim((string) $serviceFee['amountPaid']));
+            $arrearsMinor += money_to_minor(trim((string) $serviceFee['arrears']));
+            $penaltyAccruedMinor += money_to_minor(trim((string) $serviceFee['penalty']['amountAccrued']));
+        }
+
         json_response([
             'year' => $year,
             'seedMoney' => $seed,
@@ -726,6 +759,11 @@ if (!function_exists('my_obligations')) {
                 'seedMoneyPaid' => (int) ($member['seedMoneyPaid'] ?? 0) === 1,
                 'monthlyContributionsCurrent' => (int) ($member['monthlyContributionsCurrent'] ?? 0) === 1,
                 'eligibleForLoan' => (int) ($member['eligibleForLoan'] ?? 0) === 1,
+            ],
+            'summary' => [
+                'contributed' => money_from_minor($contributedMinor),
+                'arrears' => money_from_minor($arrearsMinor),
+                'penaltyAccrued' => money_from_minor($penaltyAccruedMinor),
             ],
         ]);
     }

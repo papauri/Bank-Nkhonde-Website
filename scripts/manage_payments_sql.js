@@ -669,6 +669,11 @@ function arrearsFor(obligations, paymentType) {
       const row = months.find((m) => String(m.month) === String(month));
       return row ? numberOf(row.arrears) : 0;
     }
+    // Scope note: this totals monthly_contribution arrears ONLY (this branch
+    // never sees seed money or service fee types). The new obligations
+    // `summary.arrears` field spans seed + months + service fee combined, so
+    // it does not match this narrower per-payment-type figure — left as a
+    // client-side sum intentionally.
     return months.reduce((sum, m) => sum + numberOf(m.arrears), 0);
   }
   return null;

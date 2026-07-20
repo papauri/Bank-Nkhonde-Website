@@ -554,8 +554,10 @@ if (!function_exists('forced_loans_preview')) {
         }
 
         $members = [];
+        $totalShortfallMinor = 0;
         foreach ($figures as $row) {
             $shortfallMinor = max(0, $targetMinor - $row['borrowedMinor']);
+            $totalShortfallMinor += $shortfallMinor;
             $members[] = [
                 'uid' => $row['uid'],
                 'fullName' => $row['fullName'],
@@ -580,6 +582,7 @@ if (!function_exists('forced_loans_preview')) {
             'method' => $method,
             'target' => money_from_minor($targetMinor),
             'members' => $members,
+            'totalShortfall' => money_from_minor($totalShortfallMinor),
         ]);
     }
 }

@@ -36,6 +36,7 @@
  */
 
 import { requireSession, apiGet, logout, ApiError, redirectToLogin } from "./api.js";
+import { formatCurrency as formatServerCurrency } from "./utils_financial.js";
 
 // Admin-equivalent roles: who may see the admin dashboard for a group.
 const ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
@@ -51,7 +52,7 @@ let adminGroups = [];
 let currentGroup = null;
 let memberNameById = new Map();
 // Cached loaded data for the selected group, so modals render without refetch.
-let groupData = { payments: [], loans: [], members: [] };
+let groupData = { payments: [], loans: [], members: [], summary: null };
 
 /**
  * Router-compatible entry point. Body is identical to the former
@@ -158,6 +159,10 @@ async function loadDashboardAfterGroupSelection() {
 
   groupData.payments =
     payments && Array.isArray(payments.payments) ? payments.payments : [];
+  groupData.summary =
+    payments && payments.summary && typeof payments.summary === "object"
+      ? payments.summary
+      : null;
   groupData.loans = loans && Array.isArray(loans.loans) ? loans.loans : [];
   groupData.members =
     members && Array.isArray(members.members) ? members.members : [];
@@ -259,18 +264,9 @@ function isActiveLoan(status) {
  * Compute and render the four stat cards from the loaded lists.
  */
 function renderDashboardStats() {
-  // Total collections = every VERIFIED payment's amountPaid, in minor units.
-  let collectionsMinor = 0;
-  for (const p of groupData.payments) {
-    if (isVerifiedPayment(p)) collectionsMinor += toMinor(p.amountPaid);
-  }
-
-  // Total arrears = outstanding arrears + accrued live penalties on every row.
-  let arrearsMinor = 0;
-  for (const p of groupData.payments) {
-    arrearsMinor += toMinor(p.arrears);
-    if (p.penalty) arrearsMinor += toMinor(p.penalty.amountAccrued);
-  }
+  // Total collections + total arrears are server-computed over the same rows
+  // (payments.list's `summary` field) — never re-summed client-side.
+  const summary = groupData.summary || {};
 
   // Active loans count.
   const activeLoansCount = groupData.loans.filter((l) =>
@@ -285,10 +281,16 @@ function renderDashboardStats() {
     (l) => String(l.status) === "pending",
   ).length;
 
-  setText("totalCollections", formatCurrencyFromMinor(collectionsMinor));
+  setText(
+    "totalCollections",
+    formatServerCurrency(summary.verifiedCollected != null ? summary.verifiedCollected : "0.00"),
+  );
   setText("activeLoans", String(activeLoansCount));
   setText("pendingApprovals", String(pendingPayments + pendingLoans));
-  setText("totalArrears", formatCurrencyFromMinor(arrearsMinor));
+  setText(
+    "totalArrears",
+    formatServerCurrency(summary.totalArrears != null ? summary.totalArrears : "0.00"),
+  );
 }
 
 /* ------------------------------------------------------------------ *
@@ -328,7 +330,12 @@ function renderCollectionTrends() {
     if (paidMinor > 0) payingMembers.add(String(p.uid));
   }
 
-  // Interest actually collected = interest on completed loans.
+  // Interest actually collected = interest on completed loans only.
+  // NOT substituted with loans.list's `summary.totalInterest`: that field sums
+  // totalInterest across EVERY loan row regardless of status (pending, approved,
+  // disbursed, defaulted, completed), while "collected" here is deliberately
+  // scoped to completed loans only. The scopes are genuinely different, so the
+  // server summary cannot replace this loop without changing what the number means.
   for (const l of groupData.loans) {
     if (String(l.status) === "completed") interestMinor += toMinor(l.totalInterest);
   }

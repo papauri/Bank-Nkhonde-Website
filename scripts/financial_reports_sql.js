@@ -66,6 +66,8 @@ let currentGroupName = "";
 let members = [];
 let payments = [];
 let loans = [];
+/** loans.list's server-computed `summary` block (ALL-loan-rows scope). */
+let loansSummary = null;
 /** uid -> obligations response (payments.obligations), live snapshot. */
 let obligationsByUid = new Map();
 
@@ -223,8 +225,10 @@ async function loadLoans() {
   try {
     const data = await apiGet("loans.list", {groupId: currentGroupId});
     loans = Array.isArray(data && data.loans) ? data.loans : [];
+    loansSummary = data && data.summary && typeof data.summary === "object" ? data.summary : null;
   } catch (error) {
     loans = [];
+    loansSummary = null;
     handleApiError(error, "Failed to load loans");
   }
 }
@@ -269,20 +273,31 @@ function renderSummaryTiles() {
   const settled = payments.filter((p) => SETTLED_STATUSES.includes(p.approvalStatus));
   // Interest counts as income on any loan whose money actually went out (same
   // status set as disbursements — 'active' is not a status this schema has).
+  // Substituted with the server summary: totalInterest is '0.00' on every loan
+  // until `loans.approve` computes it (api/handlers/loans.php), so pending and
+  // rejected loans (the rows DISBURSED_LOAN_STATUSES excludes) contribute
+  // nothing either way — summing over ALL rows (`summary.totalInterest`) is
+  // mathematically identical to this filtered client-side sum.
+  const loanInterestIncome = loansSummary ? numberOf(loansSummary.totalInterest) : 0;
   const totalIncome = settled.reduce((sum, p) => sum + numberOf(p.amountPaid), 0)
-    + loans
-      .filter((l) => DISBURSED_LOAN_STATUSES.includes(l.status))
-      .reduce((sum, l) => sum + numberOf(l.totalInterest), 0);
+    + loanInterestIncome;
 
+  // NOT substituted with `summary.totalPrincipal`/`activePrincipal`: totalPrincipal
+  // sums over ALL rows (pending/rejected loans still carry a nonzero requested
+  // principalAmount, unlike totalInterest/remainingBalance which start at zero),
+  // and activePrincipal excludes completed/defaulted. Neither scope matches
+  // DISBURSED_LOAN_STATUSES here, so the client-side filter stays.
   const totalDisbursements = loans
     .filter((l) => DISBURSED_LOAN_STATUSES.includes(l.status))
     .reduce((sum, l) => sum + numberOf(l.principalAmount ?? l.approvedAmount), 0);
 
   const netPosition = totalIncome - totalDisbursements;
 
-  const outstandingLoans = loans
-    .filter((l) => DISBURSED_LOAN_STATUSES.includes(l.status))
-    .reduce((sum, l) => sum + numberOf(l.remainingBalance), 0);
+  // Substituted with the server summary: remainingBalance is '0.00' for every
+  // loan outside DISBURSED_LOAN_STATUSES (pending/rejected never had a balance
+  // set, completed loans are repaid to 0), so summing over ALL rows
+  // (`summary.totalOutstanding`) equals this filtered client-side sum.
+  const outstandingLoans = loansSummary ? numberOf(loansSummary.totalOutstanding) : 0;
 
   setText(totalIncomeEl(), formatCurrency(totalIncome));
   setText(totalDisbursementsEl(), formatCurrency(totalDisbursements));

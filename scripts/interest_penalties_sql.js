@@ -370,6 +370,11 @@ function renderCollectedInterest(loans) {
   }
 
   // Sum already-server-computed totalInterest figures — no new arithmetic.
+  // NOT substituted with loans.list's `summary.totalInterest`: that field sums
+  // totalInterest across ALL rows including 'approved' loans (which already have
+  // a nonzero totalInterest set at approval time, before disbursement), while
+  // this list is filtered to ['disbursed', 'completed'] only — 'approved' loans
+  // are deliberately excluded here. The scopes do not match.
   const totalInterest = loans.reduce((sum, loan) => sum + numberOf(loan.totalInterest), 0);
 
   const summary = el("div", "interest-summary");

@@ -440,12 +440,12 @@ function warnFetchFailure() {
  * @param {Array<Object>} loans loan rows
  */
 function renderFinancialOverview(ob, payments, loans) {
-  // Total VERIFIED contributions this year, summed in minor units.
-  let contributedMinor = 0;
-  contributedMinor += toMinor(ob.seedMoney && ob.seedMoney.amountPaid);
-  for (const m of monthsOf(ob)) contributedMinor += toMinor(m.amountPaid);
-  if (ob.serviceFee) contributedMinor += toMinor(ob.serviceFee.amountPaid);
-  setText("totalContributed", formatMoney(fromMinor(contributedMinor)));
+  // Total VERIFIED contributions (seed + months + service fee) and total
+  // arrears (arrears + accrued live penalties), read directly from the
+  // server-computed summary — matches this card's scope exactly, so the old
+  // client-side seed/months/serviceFee accumulation loops are redundant.
+  const summary = (ob && ob.summary) || {};
+  setText("totalContributed", formatMoney(summary.contributed));
 
   // Pending = un-adjudicated claims (approvalStatus 'pending') from the ledger.
   let pendingMinor = 0;
@@ -456,8 +456,9 @@ function renderFinancialOverview(ob, payments, loans) {
   }
   setText("pendingPayments", formatMoney(fromMinor(pendingMinor)));
 
-  // Arrears = outstanding arrears + accrued live penalties across obligations.
-  const arrearsMinor = totalArrearsMinor(ob);
+  // Arrears = outstanding arrears + accrued live penalties across obligations
+  // (seed + months + service fee).
+  const arrearsMinor = toMinor(summary.arrears) + toMinor(summary.penaltyAccrued);
   setText("totalArrears", formatMoney(fromMinor(arrearsMinor)));
 
   // Active-loans count (approved / disbursed).
@@ -469,29 +470,6 @@ function renderFinancialOverview(ob, payments, loans) {
     count.textContent = String(active);
     activeEl.appendChild(count);
   }
-}
-
-/**
- * Total arrears + accrued penalties, in minor units, across all obligations.
- * @param {Object} ob
- * @return {number}
- */
-function totalArrearsMinor(ob) {
-  let total = 0;
-  const seed = ob.seedMoney;
-  if (seed) {
-    total += toMinor(seed.arrears);
-    total += toMinor(seed.penalty && seed.penalty.amountAccrued);
-  }
-  for (const m of monthsOf(ob)) {
-    total += toMinor(m.arrears);
-    total += toMinor(m.penalty && m.penalty.amountAccrued);
-  }
-  if (ob.serviceFee) {
-    total += toMinor(ob.serviceFee.arrears);
-    total += toMinor(ob.serviceFee.penalty && ob.serviceFee.penalty.amountAccrued);
-  }
-  return total;
 }
 
 /**

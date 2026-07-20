@@ -173,8 +173,33 @@ if (!function_exists('list_loans')) {
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
+        $rows = $stmt->fetchAll();
 
-        json_response(['loans' => $stmt->fetchAll()]);
+        $totalPrincipalMinor = 0;
+        $totalOutstandingMinor = 0;
+        $totalInterestMinor = 0;
+        $activePrincipalMinor = 0;
+        foreach ($rows as $row) {
+            $principalMinor = money_to_minor(
+                trim((string) ($row['approvedAmount'] ?? $row['principalAmount']))
+            );
+            $totalPrincipalMinor += $principalMinor;
+            $totalOutstandingMinor += money_to_minor(trim((string) $row['remainingBalance']));
+            $totalInterestMinor += money_to_minor(trim((string) $row['totalInterest']));
+            if (in_array((string) $row['status'], ['approved', 'disbursed'], true)) {
+                $activePrincipalMinor += $principalMinor;
+            }
+        }
+
+        json_response([
+            'loans' => $rows,
+            'summary' => [
+                'totalPrincipal' => money_from_minor($totalPrincipalMinor),
+                'totalOutstanding' => money_from_minor($totalOutstandingMinor),
+                'totalInterest' => money_from_minor($totalInterestMinor),
+                'activePrincipal' => money_from_minor($activePrincipalMinor),
+            ],
+        ]);
     }
 }
 

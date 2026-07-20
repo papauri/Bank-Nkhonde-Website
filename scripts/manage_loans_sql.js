@@ -443,6 +443,15 @@ function updateStats() {
   const pending = loans.filter((l) => l.status === "pending").length;
   const active = loans.filter((l) => l.status === "approved" || l.status === "disbursed").length;
 
+  // NOT substituted with loans.list's `summary` block: totalDisbursed here is
+  // scoped to approved+disbursed+completed (excludes pending/rejected, which
+  // still carry a nonzero requested principalAmount — unlike totalOutstanding
+  // below), which matches neither `totalPrincipal` (ALL rows) nor
+  // `activePrincipal` (approved+disbursed only, excludes completed). And
+  // totalOutstanding here is scoped to approved+disbursed only, excluding
+  // 'defaulted' loans that can still carry a nonzero remainingBalance — so it
+  // does not equal `summary.totalOutstanding` (which is summed over ALL rows
+  // and does include any outstanding balance left on a defaulted loan).
   let totalDisbursed = 0;
   let totalOutstanding = 0;
 
@@ -1107,8 +1116,9 @@ function renderForcedLoansResults(data) {
 
   const withShortfall = membersList.filter((m) => numberOf(m.shortfall) > 0);
   setText("totalForcedLoans", withShortfall.length);
-  const totalDeficit = membersList.reduce((sum, m) => sum + numberOf(m.shortfall), 0);
-  setText("totalDeficitAmount", formatCurrency(totalDeficit));
+  // Server-computed sum of every member's shortfall (cycle.forced.preview's
+  // totalShortfall) — same scope as membersList, so no client-side re-sum.
+  setText("totalDeficitAmount", formatCurrency(numberOf(data.totalShortfall)));
   setText("membersAffected", membersList.length);
   const targetEl = document.getElementById("highestInterestPaid");
   if (targetEl) targetEl.textContent = formatCurrency(data.target);
