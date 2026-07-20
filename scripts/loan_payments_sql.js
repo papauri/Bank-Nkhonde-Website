@@ -439,14 +439,11 @@ async function handlePaymentSubmit(e) {
   const amount = parseFloat(document.getElementById("paymentAmount")?.value || "");
   const proofFile = document.getElementById("paymentProof")?.files?.[0];
   const notes = document.getElementById("paymentNotes")?.value.trim() || "";
-  // The real markup (pages/loan_payments.html) has no payment-method selector at
-  // all — there is no #paymentMethod element to read, so this is not a lost user
-  // choice, it is a missing control. "cash" is one of the server's accepted values
-  // (repayments.php REPAYMENT_METHODS: cash, bank_transfer, mobile_money), so this
-  // sends a valid value rather than an invalid guess. A method selector needs to be
-  // added to the modal markup (out of scope here) before this can reflect the
-  // member's actual choice.
-  const method = "cash";
+  // Read the member's choice from the #paymentMethod select in the modal markup
+  // (pages/loan_payments.html). Falls back to "cash" — a valid server enum value
+  // (repayments.php REPAYMENT_METHODS: cash, bank_transfer, mobile_money) — only if
+  // the element is somehow missing.
+  const method = document.getElementById("paymentMethod")?.value || "cash";
 
   if (!loanId || !Number.isFinite(amount) || amount <= 0) {
     showToast("Enter a valid payment amount.", "error");

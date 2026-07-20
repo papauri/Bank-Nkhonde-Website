@@ -211,6 +211,14 @@
             <input type="date" id="paymentDate" class="form-input" required>
           </div>
           <div class="form-group">
+            <label class="form-label" for="paymentMethod">Payment Method *</label>
+            <select id="paymentMethod" class="form-input" required>
+              <option value="cash">Cash</option>
+              <option value="bank_transfer">Bank Transfer</option>
+              <option value="mobile_money">Mobile Money</option>
+            </select>
+          </div>
+          <div class="form-group">
             <label class="form-label">Proof of Payment *</label>
             <input type="file" id="paymentProof" class="form-input" accept="image/*,.pdf" required>
           </div>

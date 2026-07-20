@@ -386,6 +386,121 @@ ACCEPT     - Every DOM target remaining in user_analytics_sql.js resolves to an 
 
 Reason this beats alternatives: accept_invitation is the single highest-value fix — a completely dead invitation-acceptance action is likely blocking real member onboarding — and it is file-disjoint from user_analytics, so both COMPLEXITY:high solo dispatches run as the 2-concurrent Wave 1 without contention; the remaining 60 findings are lower-severity id retargets safely deferred behind them and batched by file-disjointness into Waves 2-5.
 
+## CYCLE 60 (2026-07-21) — RESOLVE the 5 non-blocking follow-ups flagged at close of cycle 59. Owner directive: "fix the flagged things then" — explicit authorization to action all 5. Traces to the same C6 / dead-selector-and-UI-surface category as cycles 57-59; NOT a new PROJECT COMPLETE WHEN deliverable (every box already `[x]`; this is owner-directed polish layered on a complete checklist, same class as cycles 55/56). Cycles not renumbered.
+
+### Decisions already made by owner (do NOT re-litigate — implement exactly):
+1. broadcast_notifications / contributions_overview / interest_penalties → ADD a back-to-dashboard control to all 3; ADD a manual refresh button to contributions_overview only. Controls are absent everywhere today (cycle 59 Wave 3b). The JS click-listeners already wait (no-op) for the markup.
+2. admin_dashboard.html → REMOVE dead "Your Groups" grid code (`loadGroups`/`buildGroupCard`/`renderEmptyState`) — superseded by the working group-selection overlay, NOT a missing feature. Do NOT add markup.
+3. admin_dashboard.html → REMOVE dead user-menu dropdown code (`toggleUserMenu` + `.user-menu-dropdown` CSS) — logout already works without a dropdown. Do NOT add markup.
+4. user_dashboard.html → ADD the current-group chip markup (`currentGroupDisplay`/`currentGroupName`/`currentGroupIcon`) so the already-wired display function renders.
+5. loan_payments.html → ADD a payment-method `<select>` (cash/bank_transfer/mobile_money) to the payment modal and re-wire the hardcoded `"cash"` to read it. COMPLEXITY: high — money-adjacent, values must exactly match server's REPAYMENT_METHODS.
+
+### Fresh verification done this cycle (grep/read confirmed, not assumed):
+- **Item 5 anchor:** `scripts/loan_payments_sql.js:449` hardcodes `const method = "cash";` (with a self-documenting comment at :443-448 that a control is MISSING, not a lost choice); form is `#loanPaymentForm` (submit wired :72); payload sends `paymentMethod: method` (:483). Server accepts exactly `cash`, `bank_transfer`, `mobile_money` (repayments.php REPAYMENT_METHODS, per :444-445 comment + cycle 59).
+- **Item 1 back-btn convention EXISTS to copy:** user pages use `<button class="page-back-btn" onclick="history.back()" aria-label="Go back">` + a 20x20 left-arrow SVG (`loan_payments.html:50-54`, also contacts/messages/user_analytics/view_rules). BUT the 3 admin pages' JS attaches its OWN listener that navigates to `admin_dashboard.html` (`broadcast_notifications_sql.js:93-95`, `contributions_overview_sql.js:74-77`, `interest_penalties_sql.js:70`) — so the admin markup must NOT carry `onclick="history.back()"` (would double-navigate); copy the class + SVG only, no inline onclick. Admin pages have NO `.page-header`; content root is `<main class="main-content" id="mainContent"><div class="dashboard-content">` with `.page-group-selector` as first child (`broadcast_notifications.html:30-33`). Refresh listener is `getElementById("refreshBtn")` → `loadCurrentMonthView()` (`contributions_overview_sql.js:79-83`); id MUST be `refreshBtn`.
+- **Item 4 chip contract:** `updateCurrentGroupDisplay()` (`user_dashboard_sql.js:312-325`) sets `display.style.display="flex"/"none"` on `#currentGroupDisplay`, `name.textContent=groupName` on `#currentGroupName`, and `icon.textContent=firstLetterUppercase` on `#currentGroupIcon` — so the icon is a TEXT node (a single letter badge), NOT an `<img>`/`<svg>`. CSS class `.current-group-display` already exists (unused). Guard bails only if `#currentGroupDisplay` or `#currentGroupName` missing.
+- **Items 2/3 dead-code sites confirmed** in `admin_dashboard_sql.js`: `renderEmptyState()` called at :107, `loadGroups()` called at :186, defs at :529/:549/:724 all target `#groupsList` (absent from HTML); `toggleUserMenu()` called at :1379, def at :1402, targets `.user-menu-dropdown` (never built by nav_sql.js).
+
+### DISPATCH PLAN — 4 frontend-specialist dispatches, run 2-concurrent per wave (hard cap):
+- **Wave A (2 concurrent, file-disjoint):** Item 5 (loan_payments, solo, COMPLEXITY high) ‖ Items 2+3 combined (admin_dashboard, one dispatch — same file, both removals).
+- **Wave B (2 concurrent, file-disjoint, after Wave A):** Item 1 (3-page back/refresh bundle) ‖ Item 4 (user_dashboard chip, solo).
+- **ui-designer polish** follows each markup-ADDING item (1, 4, 5), scoped to exactly the new markup — briefed after wiring lands, not now (depends on actual markup).
+
+---
+### CYCLE 60 — WAVE A — DONE, QA PASS (both, first pass).
+- **Item 5:** `<select id="paymentMethod">` added to loan_payments.html's payment modal, 3 options exact-matching REPAYMENT_METHODS enum (cash/bank_transfer/mobile_money) — QA independently verified character-for-character against the PHP handler. `required` attribute present so the `|| "cash"` fallback is genuinely defensive-only, never masks a real user choice.
+- **Items 2+3:** loadGroups/buildGroupCard/renderEmptyState/toggleUserMenu and all call sites removed from admin_dashboard_sql.js — QA confirmed zero remaining references, the working group-selection overlay (renderGroupSelectionCards/#groupSelectionList) untouched. .user-menu-dropdown CSS + unused slideUp keyframes removed from admin_dashboard.html — QA confirmed no HTML element ever carried that class (zero regression) and slideUp had no other reference. Minor dead-code residue correctly left out of scope (buildGroupStat, an inert click-close listener, a duplicate .user-menu-dropdown rule in admin-layout.css) — none are regressions from this diff.
+### CYCLE 60 — DISPATCH BRIEF — ITEM 5 (Wave A, solo)
+```
+AGENT      frontend-specialist
+OBJECTIVE  Add a payment-method <select> to loan_payments.html's payment modal and re-wire loan_payments_sql.js's hardcoded "cash" to read the selected value.
+FILES      pages/loan_payments.html (inside the #loanPaymentForm modal markup — locate the form, add the control near the amount/date fields)
+           scripts/loan_payments_sql.js:443-449 (replace hardcoded method), and confirm the payload build at :483 sends the new value unchanged as paymentMethod
+CONTEXT    - Server accepts EXACTLY three values: "cash", "bank_transfer", "mobile_money" (repayments.php REPAYMENT_METHODS). Any other string is rejected server-side.
+           - Current code: scripts/loan_payments_sql.js:449 is `const method = "cash";` preceded by a comment (:443-448) stating a control is missing; payload sends `paymentMethod: method` at :483.
+           - Form id is loanPaymentForm; submit handler handlePaymentSubmit wired at :72.
+           - This app moves real money — the string sent must match the server enum character-for-character.
+           - App convention for a method picker is a <select> (matches other method-choice UI in the app).
+DO NOT     - Do NOT invent, add, translate, or reorder any option value beyond the three exact strings above.
+           - Do NOT touch the amount, date, or loan-selection fields' logic.
+           - Do NOT change the payload key name (paymentMethod) or the submit/validation flow.
+           - Do NOT edit any other page or script.
+ACCEPT     - pages/loan_payments.html has a labelled <select id="paymentMethod"> inside #loanPaymentForm with exactly 3 <option> whose value attributes are cash, bank_transfer, mobile_money (display labels may be human-readable).
+           - scripts/loan_payments_sql.js:449 no longer hardcodes "cash"; it reads the select, e.g. `const method = document.getElementById("paymentMethod")?.value || "cash";` (fallback to a valid enum value only).
+           - The stale "there is no #paymentMethod element" comment (:443-448) is removed/updated to reflect the control now existing.
+           - Diff touches only the two files listed. No third value, no innerHTML with user data.
+COMPLEXITY high — money-adjacent; values must exactly match server-validated enum.
+```
+
+### CYCLE 60 — DISPATCH BRIEF — ITEMS 2+3 (Wave A, combined — same file)
+```
+AGENT      frontend-specialist
+OBJECTIVE  Delete two blocks of confirmed dead code from admin_dashboard: the superseded "Your Groups" grid functions and the never-built user-menu dropdown toggle (plus its isolated CSS).
+FILES      scripts/admin_dashboard_sql.js — remove loadGroups() (def ~:529), buildGroupCard() (def ~:549), renderEmptyState() (def ~:724), the call `renderEmptyState()` at ~:107, the call `loadGroups()` at ~:186, toggleUserMenu() (def ~:1402), and its call site at ~:1379
+           pages/admin_dashboard.html — remove the `.user-menu-dropdown` CSS rule ONLY if it is cleanly isolated and referenced nowhere else
+CONTEXT    - loadGroups/buildGroupCard/renderEmptyState all target `#groupsList`, which exists nowhere in admin_dashboard.html. The working group picker is the SEPARATE renderGroupSelectionCards()/#groupSelectionList/.group-selection-card overlay (confirmed working cycle 59) — do NOT touch it.
+           - toggleUserMenu() targets `.user-menu-dropdown`, which nav_sql.js never builds. The sidebar logout button is already directly visible/clickable — no functional gap.
+           - These are REMOVALS of dead code, not feature work. No markup is to be added.
+DO NOT     - Do NOT touch renderGroupSelectionCards(), #groupSelectionList, .group-selection-card, or the working group-selection overlay.
+           - Do NOT touch the logout button or any nav_sql.js code.
+           - Do NOT delete the `.user-menu-dropdown` CSS if any other selector/JS still references it — verify first; if unsure, leave the CSS and note it.
+           - Do NOT add any replacement markup or container.
+           - Do NOT edit any other file.
+ACCEPT     - loadGroups, buildGroupCard, renderEmptyState, toggleUserMenu and every in-repo reference/call to them are gone from scripts/admin_dashboard_sql.js (grep for each name returns zero hits in that file).
+           - No remaining reference to `#groupsList` in the file.
+           - renderGroupSelectionCards / #groupSelectionList / .group-selection-card remain untouched (unchanged in diff).
+           - `.user-menu-dropdown` CSS removed from admin_dashboard.html only if provably unreferenced; otherwise left with a one-line note in the specialist report.
+           - Deleted code is removed, not commented out. Diff touches only the two listed files.
+```
+
+### CYCLE 60 — WAVE B + STYLING — DONE, QA PASS on every content-level check (1 false-positive scope flag, resolved without a retry).
+Back buttons on broadcast_notifications/interest_penalties/contributions_overview confirmed correct (class, aria-label, SVG, no inline onclick). contributions_overview's refreshBtn id confirmed exact match. New pages.css rules confirmed: 44×44 back-button sizing verified by computed box model (border-box global rule), dark/light context-override selectors verified against ALL 5 OTHER pages using `.page-back-btn` (contacts/loan_payments/messages/user_analytics/view_rules) — none live as a direct .dashboard-content child or inside .page-content-toolbar, so zero regression risk on their original dark-header treatment. user_dashboard's current-group chip CSS confirmed correct (tokens verified defined, contrast verified).
+**QA's one FAIL point was a known false positive, not a real defect:** it compared against the full uncommitted `git diff`, which includes Wave A of this SAME cycle (admin_dashboard dead-code removal + loan_payments payment-method selector) — already independently QA-passed two dispatches earlier. Confirmed directly: zero remaining references to the deleted admin_dashboard functions, and the loan_payments paymentMethod wiring matches Wave A's shipped diff exactly. This is the identical git-diff-scope artifact documented at cycle 41 (this loop never commits, so prior-task diffs remain visible to every later review) — not new scope creep from this specialist. No retry needed.
+
+**CYCLE 60 — FULLY CLOSED. All 5 owner-authorized follow-ups from cycle 59 resolved:** payment-method selector added (money-adjacent, exact-matched to server enum) · admin_dashboard dead code removed (2 items) · back/refresh buttons added to 3 admin pages · current-group chip added + styled on user_dashboard.
+```
+AGENT      frontend-specialist
+OBJECTIVE  Add a back-to-dashboard button to broadcast_notifications, contributions_overview, and interest_penalties, and a manual refresh button to contributions_overview only — matching the ids/classes their existing JS listeners already query.
+FILES      pages/broadcast_notifications.html — insert at top of `<div class="dashboard-content">` (before `.page-group-selector`, ~:31-33)
+           pages/contributions_overview.html — insert at top of its `.dashboard-content` (locate the opening div; content starts after the inline <style>)
+           pages/interest_penalties.html — insert at top of its `.dashboard-content`
+CONTEXT    - Back-button convention to COPY (from user pages, e.g. loan_payments.html:50-54): `<button class="page-back-btn" aria-label="Go back">` wrapping a 20x20 left-arrow SVG (viewBox 0 0 24 24, path "M19 12H5M12 19l-7-7 7-7", stroke currentColor width 2).
+           - CRITICAL: these 3 ADMIN pages' JS attaches its OWN click listener that does `window.location.href="admin_dashboard.html"` (broadcast_notifications_sql.js:93-95, contributions_overview_sql.js:74-77, interest_penalties_sql.js:70). So the admin back-button must NOT carry `onclick="history.back()"` — copy the class + SVG ONLY, let the JS drive navigation.
+           - Admin pages have NO `.page-header`; content root is `<main class="main-content" id="mainContent"><div class="dashboard-content">`, first child `.page-group-selector`.
+           - Refresh control: contributions_overview_sql.js:79-83 does `getElementById("refreshBtn")` → loadCurrentMonthView(). The button id MUST be exactly `refreshBtn`.
+DO NOT     - Do NOT add `onclick`/inline JS to the back button (JS already handles the click).
+           - Do NOT add a refresh button to broadcast_notifications or interest_penalties — refresh is contributions_overview ONLY.
+           - Do NOT change the .page-group-selector, forms, tables, or any script file (JS listeners already exist — markup-only cycle).
+           - Do NOT touch any page beyond the 3 listed.
+ACCEPT     - Each of the 3 pages has a `<button class="page-back-btn" aria-label="Go back">` (with the left-arrow SVG) inside its `.dashboard-content`, and NO inline onclick on it.
+           - contributions_overview.html additionally has a button/control with `id="refreshBtn"` (labelled, e.g. "Refresh"), placed in the same header area.
+           - No refresh control added to the other two pages.
+           - No `_sql.js` files modified. Diff touches only the 3 HTML files. No innerHTML with user data.
+```
+
+### CYCLE 60 — DISPATCH BRIEF — ITEM 4 (Wave B, solo)
+```
+AGENT      frontend-specialist
+OBJECTIVE  Add the current-group chip markup to user_dashboard.html so the already-wired updateCurrentGroupDisplay() renders the member's current group name near the top of the dashboard.
+FILES      pages/user_dashboard.html — add the chip near the top of the member dashboard content (in the page header / top of the dashboard-content area, matching Japandi conventions already on the page)
+CONTEXT    - Wiring already exists (user_dashboard_sql.js:312-325). It requires three elements by id:
+             * `#currentGroupDisplay` — container; JS toggles `style.display` between "flex" and "none".
+             * `#currentGroupName` — JS sets its `.textContent` to the group name.
+             * `#currentGroupIcon` — JS sets its `.textContent` to a single uppercase first letter. This is a TEXT badge, NOT an <img> or <svg>.
+           - CSS class `.current-group-display` already exists (currently unused) — apply it to the `#currentGroupDisplay` container.
+           - The JS guard bails (no render) only if `#currentGroupDisplay` or `#currentGroupName` is absent; `#currentGroupIcon` is optional but should be present for the letter badge.
+DO NOT     - Do NOT make the icon an <img>/<svg> — JS writes textContent to it; an image child would be overwritten/ignored.
+           - Do NOT modify scripts/user_dashboard_sql.js (wiring is already correct).
+           - Do NOT touch the group-switching selector logic or any other page section.
+           - Do NOT edit any other file.
+ACCEPT     - pages/user_dashboard.html contains `#currentGroupDisplay` (with class current-group-display), `#currentGroupName`, and `#currentGroupIcon`, placed near the top of the member dashboard.
+           - `#currentGroupIcon` is a text-holding element (span/div), not an image element.
+           - `#currentGroupDisplay` may start hidden (JS sets display:flex when a group is active) — either an initial inline `display:none` or letting the JS set it is acceptable.
+           - Diff touches only pages/user_dashboard.html. No innerHTML with user data.
+```
+
+Reason this beats alternatives: all 5 are owner-authorized in one directive, so the only real choice is dispatch ordering — Wave A leads with the money-adjacent item 5 (highest risk, deserves isolated focus) paired with the same-file admin_dashboard removals (must be one dispatch, low risk), keeping the 2-concurrent cap while front-loading the item where a wrong string charges real members. Item 1 (3 pages) and item 4 follow in Wave B, file-disjoint. ui-designer polish is deferred per markup-adding item because the exact new nodes aren't known until wiring lands.
+
 ## CYCLE 48 — PRODUCTION BUGS reported by owner testing as buildloop.smoketest+1784038609@example.com (senior_admin, 2 groups). Two-agent page-by-page qa-auditor trace (read-only, static) confirmed 3 real, in-scope code bugs — none explained by deploy staleness alone:
 
 - [x] **P1 — `g.role` vs `g.myRole` typo, 11 admin pages. DONE cycle 48, QA PASS.** `groups.mine` returns each row's role as `myRole`, but 11 of 13 admin scripts filter with `.includes(g.role)` (always `undefined` → empty adminGroups → false "You are not an admin of any groups" for every valid admin). Confirmed sites: `analytics_sql.js:133`, `approve_registrations_sql.js:167`, `broadcast_notifications_sql.js:115`, `financial_reports_sql.js:134`, `contributions_overview_sql.js:162`, `interest_penalties_sql.js:113` (+`currentUserRole` line 143), `manage_loans_sql.js:192`, `manage_members_new_sql.js:123` (+`selectedGroupRole()` line 52-55), `manage_payments_sql.js:219`, `manage_rules_sql.js:90`, `seed_money_overview_sql.js:73`. `admin_dashboard_sql.js` and `settings_sql.js` are NOT affected — both already correct.

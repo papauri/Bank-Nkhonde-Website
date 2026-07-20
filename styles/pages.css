@@ -71,6 +71,38 @@ body {
   background: rgba(255, 255, 255, 0.2);
 }
 
+/* ============================================
+   PAGE CONTENT TOOLBAR
+   Used when a back button (and optional actions) sit directly
+   inside .dashboard-content, against the light page background,
+   rather than inside the dark .page-header gradient.
+   ============================================ */
+.page-content-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bn-space-3);
+  margin-bottom: var(--bn-space-5);
+}
+
+/* .page-back-btn is designed for the dark .page-header gradient
+   (white icon on translucent white). When it appears standalone
+   on the light .dashboard-content background, invert the treatment
+   so it stays visible and matches the card/button visual language. */
+.dashboard-content > .page-back-btn,
+.page-content-toolbar .page-back-btn {
+  background: var(--bn-white);
+  color: var(--bn-dark);
+  border: 1px solid var(--bn-gray-lighter);
+  box-shadow: var(--bn-shadow-sm);
+}
+
+.dashboard-content > .page-back-btn:hover,
+.page-content-toolbar .page-back-btn:hover {
+  background: var(--bn-gray-100);
+  border-color: var(--bn-gray-light);
+}
+
 .page-title {
   font-size: var(--bn-text-2xl);
   font-weight: 800;

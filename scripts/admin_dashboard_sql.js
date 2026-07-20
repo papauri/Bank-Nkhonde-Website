@@ -104,7 +104,6 @@ async function loadDashboard() {
 
   if (adminGroups.length === 0) {
     hideGroupSelectionOverlay();
-    renderEmptyState();
     showSpinner(false);
     return;
   }
@@ -183,7 +182,6 @@ async function loadDashboardAfterGroupSelection() {
   updateCurrentDate();
   renderDashboardStats();
   renderCollectionTrends();
-  loadGroups();
   loadPendingApprovals();
   loadDuePayments();
 }
@@ -524,65 +522,6 @@ function createPieChart(title, segments, total, centerLabel, isCount = false) {
  * ------------------------------------------------------------------ */
 
 /**
- * Render the admin's groups as switchable cards (built from nodes).
- */
-function loadGroups() {
-  const groupsList = document.getElementById("groupsList");
-  if (!groupsList) return;
-
-  if (adminGroups.length === 0) {
-    renderEmptyState();
-    return;
-  }
-
-  groupsList.replaceChildren();
-  for (const group of adminGroups) {
-    groupsList.appendChild(buildGroupCard(group));
-  }
-}
-
-/**
- * One switchable group card.
- * @param {Object} group
- * @return {HTMLElement}
- */
-function buildGroupCard(group) {
-  const stats = group.statistics || {};
-  const selected = currentGroup && currentGroup.groupId === group.groupId;
-
-  const card = document.createElement("a");
-  card.href = "javascript:void(0)";
-  card.className = "group-card" + (selected ? " selected" : "");
-  if (!selected) {
-    card.addEventListener("click", () => switchGroup(group.groupId));
-  }
-
-  const name = document.createElement("h4");
-  name.className = "group-name";
-  name.textContent = group.groupName || "Unnamed Group";
-  card.appendChild(name);
-
-  const statsWrap = document.createElement("div");
-  statsWrap.className = "group-stats";
-
-  statsWrap.appendChild(
-    buildGroupStat(String(stats.totalMembers || 0), "Members"),
-  );
-  statsWrap.appendChild(
-    buildGroupStat(formatCurrencyShortFromMinor(toMinor(stats.totalFunds)), "Funds"),
-  );
-  card.appendChild(statsWrap);
-
-  if (selected) {
-    const badge = document.createElement("div");
-    badge.className = "group-card-active-badge";
-    badge.textContent = "Active";
-    card.appendChild(badge);
-  }
-  return card;
-}
-
-/**
  * One stat cell inside a group card.
  * @param {string} value
  * @param {string} label
@@ -717,38 +656,6 @@ async function selectGroup(groupId) {
   showSpinner(false);
 }
 window.selectGroup = selectGroup;
-
-/**
- * The no-groups empty state.
- */
-function renderEmptyState() {
-  const groupsList = document.getElementById("groupsList");
-  if (!groupsList) return;
-  groupsList.replaceChildren();
-
-  const wrap = document.createElement("div");
-  wrap.className = "empty-state";
-  wrap.style.gridColumn = "span 3";
-
-  const icon = document.createElement("div");
-  icon.className = "empty-state-icon";
-  icon.textContent = "\u{1F4C1}";
-
-  const text = document.createElement("p");
-  text.className = "empty-state-text";
-  text.textContent = "No groups found. Create your first group!";
-
-  const link = document.createElement("a");
-  link.href = "admin_registration.html";
-  link.className = "btn btn-accent btn-sm";
-  link.style.marginTop = "var(--bn-space-4)";
-  link.textContent = "Create Group";
-
-  wrap.appendChild(icon);
-  wrap.appendChild(text);
-  wrap.appendChild(link);
-  groupsList.appendChild(wrap);
-}
 
 /* ------------------------------------------------------------------ *
  * Pending approvals list
@@ -1376,7 +1283,6 @@ function setupEventListeners() {
     sidebarUser.addEventListener("click", (e) => {
       if (e.target.closest("a") || e.target.closest("button")) return;
       e.stopPropagation();
-      toggleUserMenu();
     });
   }
   document.addEventListener("click", (e) => {
@@ -1394,13 +1300,6 @@ function setupEventListeners() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeStatModal();
   });
-}
-
-/**
- * Toggle the sidebar user dropdown.
- */
-function toggleUserMenu() {
-  document.getElementById("userMenuDropdown")?.classList.toggle("show");
 }
 
 /**

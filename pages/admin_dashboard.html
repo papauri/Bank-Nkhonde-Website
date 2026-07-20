@@ -199,36 +199,6 @@
       position: relative;
     }
 
-    .user-menu-dropdown {
-      position: absolute;
-      bottom: calc(100% + var(--bn-space-2));
-      left: 0;
-      right: 0;
-      background: var(--bn-white);
-      border-radius: var(--bn-radius-lg);
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-      border: 1px solid var(--bn-gray-lighter);
-      overflow: hidden;
-      z-index: 1000;
-      display: none;
-      animation: slideUp 0.2s ease-out;
-    }
-
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .user-menu-dropdown.show {
-      display: block;
-    }
-
     .user-menu-item {
       display: flex;
       align-items: center;

@@ -78,6 +78,40 @@
       gap: var(--bn-space-3);
     }
 
+    .current-group-display {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+      margin-top: var(--bn-space-2);
+      padding: var(--bn-space-1) var(--bn-space-3);
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: var(--bn-radius-full);
+      transition: background var(--bn-transition-fast);
+    }
+
+    .current-group-icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      border-radius: var(--bn-radius-full);
+      background: var(--bn-gradient-accent);
+      color: var(--bn-dark);
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-transform: uppercase;
+    }
+
+    .current-group-name {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-white);
+    }
+
     .current-group-display:hover {
       background: rgba(255, 255, 255, 0.15) !important;
     }
@@ -1765,6 +1799,10 @@
       <div class="hero-greeting">
         <p class="hero-greeting-text">Welcome back,</p>
         <h1 class="hero-greeting-name" id="userName">User</h1>
+        <div class="current-group-display" id="currentGroupDisplay" style="display: none;">
+          <span class="current-group-icon" id="currentGroupIcon"></span>
+          <span class="current-group-name" id="currentGroupName"></span>
+        </div>
       </div>
 
         <div class="hero-stats">
