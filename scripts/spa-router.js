@@ -219,6 +219,119 @@ function shouldIntercept(anchor) {
 }
 
 /**
+ * Marker attribute used to identify <style> elements that are page-local
+ * (i.e. belong to whichever whitelisted page is currently mounted) so they
+ * can be swapped out wholesale on the next navigation, rather than
+ * accumulating alongside every page's rules.
+ * @const {string}
+ */
+const LOCAL_STYLE_ATTR = "data-spa-page-style";
+
+/**
+ * Selector for page-local <style> elements outside the swapped
+ * .dashboard-content region: <head>'s own <style> blocks, plus any <style>
+ * that is a *direct* child of <body> (e.g. a modal/overlay block placed
+ * after </main> in markup like admin_dashboard.html's and
+ * user_dashboard.html's "Select a Group" overlay). Deliberately scoped to
+ * direct children only — a <style> nested inside .dashboard-content (itself
+ * nested well below <body>) never matches this selector and stays solely
+ * the content swap's responsibility, never double-handled here.
+ * @const {string}
+ */
+const LOCAL_STYLE_SELECTOR = "head > style, body > style";
+
+/**
+ * Tag any local <style> element (see LOCAL_STYLE_SELECTOR) already sitting
+ * in the live document that isn't tagged yet. Runs before the first swap so
+ * a page's own inline <style> block(s) — whether in <head> or a body-level
+ * block like a modal overlay's styles — present on the very first, non-SPA
+ * load are known to be page-local and can be replaced on the next
+ * navigateTo() call, instead of surviving forever alongside the incoming
+ * page's <style> blocks. Idempotent — a second call is a no-op for
+ * already-tagged elements.
+ */
+function tagExistingLocalStyles() {
+  const styles = document.querySelectorAll(
+      LOCAL_STYLE_SELECTOR.split(", ")
+          .map((sel) => sel + ":not([" + LOCAL_STYLE_ATTR + "])")
+          .join(", "),
+  );
+  styles.forEach((styleEl) => {
+    styleEl.setAttribute(LOCAL_STYLE_ATTR, "true");
+  });
+}
+
+/**
+ * Additively sync <link rel="stylesheet"> tags from the freshly-fetched
+ * target document's <head> into the live <head>. Never removes a <link> —
+ * a sheet the live page no longer references but a previous page still
+ * needs (in case of a swap back) is harmless to leave in place.
+ * @param {Document} targetDoc Parsed document for the destination page.
+ * @param {string} baseHref Absolute URL the target document was fetched
+ *     from, used to resolve any relative href on its <link> tags.
+ */
+function syncStylesheetLinks(targetDoc, baseHref) {
+  const existingHrefs = new Set(
+      Array.from(document.head.querySelectorAll("link[rel~=\"stylesheet\"]"))
+          .map((link) => link.href),
+  );
+
+  const targetLinks = targetDoc.head.querySelectorAll("link[rel~=\"stylesheet\"]");
+  targetLinks.forEach((link) => {
+    const rawHref = link.getAttribute("href");
+    if (!rawHref) return;
+    let absoluteHref;
+    try {
+      absoluteHref = new URL(rawHref, baseHref).href;
+    } catch (error) {
+      return;
+    }
+    if (existingHrefs.has(absoluteHref)) return;
+
+    const newLink = document.createElement("link");
+    newLink.setAttribute("rel", "stylesheet");
+    newLink.setAttribute("href", rawHref);
+    document.head.appendChild(newLink);
+    existingHrefs.add(absoluteHref);
+  });
+}
+
+/**
+ * Replace the current page's local <style> block(s) (see
+ * LOCAL_STYLE_SELECTOR — <head>'s own blocks plus any body-level, direct-
+ * child-of-<body> block such as a modal overlay's styles) with the target
+ * page's equivalent block(s). Tagged (not appended alongside) so
+ * conflicting rules from the outgoing page never linger in the cascade
+ * after a swap, and so a body-level block like .group-selection-overlay's
+ * styles is actually removed when navigating away rather than remaining a
+ * permanent, stale DOM resident.
+ * @param {Document} targetDoc Parsed document for the destination page.
+ */
+function swapLocalStyles(targetDoc) {
+  tagExistingLocalStyles();
+
+  const staleStyles = document.querySelectorAll(
+      LOCAL_STYLE_SELECTOR.split(", ")
+          .map((sel) => sel + "[" + LOCAL_STYLE_ATTR + "]")
+          .join(", "),
+  );
+  staleStyles.forEach((styleEl) => styleEl.remove());
+
+  const targetStyles = targetDoc.querySelectorAll(LOCAL_STYLE_SELECTOR);
+  targetStyles.forEach((styleEl) => {
+    const clone = document.createElement("style");
+    clone.setAttribute(LOCAL_STYLE_ATTR, "true");
+    clone.textContent = styleEl.textContent;
+    // Preserve the original document's placement (head-level vs a
+    // body-level block like a modal overlay's styles) so a body-level
+    // block ends up back at the body level rather than being funnelled
+    // into <head>.
+    const belongsToBody = styleEl.parentElement && styleEl.parentElement.tagName === "BODY";
+    (belongsToBody ? document.body : document.head).appendChild(clone);
+  });
+}
+
+/**
  * Fetch a whitelisted page, swap its .dashboard-content into the live DOM,
  * update chrome + history, and mount the target page's module.
  * @param {string} href Destination URL (relative or absolute).
@@ -262,6 +375,12 @@ async function navigateTo(href, opts = {}) {
       // Non-fatal — proceed with the swap regardless.
     }
   }
+
+  // Head CSS sync: additively bring in any stylesheet <link> the target
+  // page needs but the live document hasn't loaded yet, then replace the
+  // outgoing page's local <style> block(s) with the target's.
+  syncStylesheetLinks(doc, url.href);
+  swapLocalStyles(doc);
 
   currentContent.replaceWith(newContent);
   if (doc.title) document.title = doc.title;

@@ -48,15 +48,23 @@ function setupEventListeners() {
   document.getElementById("passwordForm")?.addEventListener("submit", changePassword);
   document.getElementById("changePasswordForm")?.addEventListener("submit", changePassword);
 
-  document.getElementById("profileImageInput")?.addEventListener("change", (e) => {
+  document.getElementById("profilePictureInput")?.addEventListener("change", (e) => {
     uploadProfileImage(e.target.files?.[0] || null);
-  });
-  document.getElementById("changePhotoBtn")?.addEventListener("click", () => {
-    document.getElementById("profileImageInput")?.click();
   });
 
   document.getElementById("logoutBtn")?.addEventListener("click", handleLogout);
   document.getElementById("signOutBtn")?.addEventListener("click", handleLogout);
+
+  document.querySelectorAll(".settings-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".settings-tab").forEach((t) => t.classList.remove("active"));
+      document.querySelectorAll(".settings-panel").forEach((p) => p.classList.remove("active"));
+
+      tab.classList.add("active");
+      const panel = document.getElementById(`${tab.dataset.panel}Panel`);
+      if (panel) panel.classList.add("active");
+    });
+  });
 }
 
 // ── Load ────────────────────────────────────────────────────────────────────
@@ -87,7 +95,7 @@ function renderProfile() {
 
   // Email is display-only (see the file header).
   setValue("email", profile.email);
-  setText("userEmail", profile.email);
+  setText("profileEmail", profile.email);
   const emailInput = document.getElementById("email");
   if (emailInput) {
     emailInput.disabled = true;
@@ -101,24 +109,32 @@ function renderProfile() {
 }
 
 function renderAvatar() {
-  const preview = document.getElementById("profileImagePreview") ||
-    document.getElementById("profileAvatar");
-  if (!preview) return;
+  const img = document.getElementById("profileImage");
+  const initials = document.getElementById("profileInitials");
 
-  preview.textContent = "";
+  const name = profile.fullName || "";
+  const initialsText = name
+    ? name.split(" ").map((n) => n[0]).join("").toUpperCase().substring(0, 2)
+    : "??";
 
   if (profile.profileImageUrl) {
-    const img = document.createElement("img");
-    img.src = profile.profileImageUrl;
-    img.alt = profile.fullName || "Profile photo";
-    preview.appendChild(img);
+    if (img) {
+      img.src = profile.profileImageUrl;
+      img.alt = profile.fullName || "Profile photo";
+      img.style.display = "";
+    }
+    if (initials) initials.style.display = "none";
     return;
   }
 
-  const name = profile.fullName || "";
-  preview.textContent = name
-    ? name.split(" ").map((n) => n[0]).join("").toUpperCase().substring(0, 2)
-    : "??";
+  if (img) {
+    img.src = "";
+    img.style.display = "none";
+  }
+  if (initials) {
+    initials.style.display = "";
+    initials.textContent = initialsText;
+  }
 }
 
 // ── Profile ─────────────────────────────────────────────────────────────────
@@ -180,7 +196,7 @@ async function uploadProfileImage(file) {
     handleApiError(error, "Failed to upload your photo");
   } finally {
     showSpinner(false);
-    const input = document.getElementById("profileImageInput");
+    const input = document.getElementById("profilePictureInput");
     if (input) input.value = "";
   }
 }
