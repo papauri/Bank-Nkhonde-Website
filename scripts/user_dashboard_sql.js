@@ -27,6 +27,7 @@
  */
 
 import { requireSession, apiGet, logout, ApiError, redirectToLogin, listMyGroups } from "./api.js";
+import { formatCurrency } from "./utils_financial.js";
 
 // Admin-equivalent roles: decide the admin toggle and the admin-switch button.
 const ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
@@ -445,7 +446,7 @@ function renderFinancialOverview(ob, payments, loans) {
   // server-computed summary — matches this card's scope exactly, so the old
   // client-side seed/months/serviceFee accumulation loops are redundant.
   const summary = (ob && ob.summary) || {};
-  setText("totalContributed", formatMoney(summary.contributed));
+  setText("totalContributed", formatCurrency(summary.contributed));
 
   // Pending = un-adjudicated claims (approvalStatus 'pending') from the ledger.
   let pendingMinor = 0;
@@ -454,12 +455,12 @@ function renderFinancialOverview(ob, payments, loans) {
       pendingMinor += toMinor(row.amountPaid);
     }
   }
-  setText("pendingPayments", formatMoney(fromMinor(pendingMinor)));
+  setText("pendingPayments", formatCurrency(fromMinor(pendingMinor)));
 
   // Arrears = outstanding arrears + accrued live penalties across obligations
   // (seed + months + service fee).
   const arrearsMinor = toMinor(summary.arrears) + toMinor(summary.penaltyAccrued);
-  setText("totalArrears", formatMoney(fromMinor(arrearsMinor)));
+  setText("totalArrears", formatCurrency(fromMinor(arrearsMinor)));
 
   // Active-loans count (approved / disbursed).
   const active = loans.filter((l) => isActiveLoan(l.status)).length;
@@ -499,7 +500,7 @@ function renderNextMonthlyPayment(ob) {
   }
 
   if (next) {
-    detailsEl.textContent = `${formatMoney(next.amountStr)} on ${formatDate(next.due)}`;
+    detailsEl.textContent = `${formatCurrency(next.amountStr)} on ${formatDate(next.due)}`;
     detailsEl.style.display = "block";
     if (badgeEl) badgeEl.style.display = next.overdue ? "block" : "none";
     if (statEl) statEl.classList.toggle("flash", next.overdue);
@@ -601,7 +602,7 @@ function buildUpcomingRow(item) {
   const amount = document.createElement("div");
   amount.style.fontWeight = "700";
   amount.style.color = "var(--bn-dark)";
-  amount.textContent = formatMoney(item.amountStr);
+  amount.textContent = formatCurrency(item.amountStr);
 
   const badge = document.createElement("span");
   if (item.overdue) {
@@ -653,12 +654,12 @@ function renderActiveLoans(loans) {
   detailsEl.replaceChildren();
   if (receivedMinor > 0) {
     detailsEl.appendChild(
-      makeLine(`Received: ${formatMoney(fromMinor(receivedMinor))}`),
+      makeLine(`Received: ${formatCurrency(fromMinor(receivedMinor))}`),
     );
   }
   if (balanceMinor > 0) {
     detailsEl.appendChild(
-      makeLine(`Balance: ${formatMoney(fromMinor(balanceMinor))}`),
+      makeLine(`Balance: ${formatCurrency(fromMinor(balanceMinor))}`),
     );
   }
   detailsEl.style.display = "block";
@@ -794,7 +795,7 @@ function openArrearsModal() {
   if (!rows.length) {
     const empty = buildEmptyState("✅", "You have no arrears. Great job!");
     container.appendChild(empty);
-    if (totalEl) totalEl.textContent = formatMoney("0.00");
+    if (totalEl) totalEl.textContent = formatCurrency("0.00");
     if (countEl) countEl.textContent = "0";
     if (nextDueEl) nextDueEl.textContent = "-";
     return;
@@ -813,13 +814,13 @@ function openArrearsModal() {
     const tr = document.createElement("tr");
     tr.appendChild(makeCell(`${item.type} (${item.month})`, "Type"));
     tr.appendChild(makeCell(formatDate(item.due), "Due"));
-    tr.appendChild(makeCell(formatMoney(item.amountStr), "Arrears"));
+    tr.appendChild(makeCell(formatCurrency(item.amountStr), "Arrears"));
     tbody.appendChild(tr);
   }
   table.appendChild(tbody);
   container.appendChild(table);
 
-  if (totalEl) totalEl.textContent = formatMoney(fromMinor(totalMinor));
+  if (totalEl) totalEl.textContent = formatCurrency(fromMinor(totalMinor));
   if (countEl) countEl.textContent = String(rows.length);
   if (nextDueEl) nextDueEl.textContent = "Overdue";
 }
@@ -871,10 +872,10 @@ function showAllPaymentsModal() {
       const tr = document.createElement("tr");
       tr.appendChild(makeCell(p.type, "Type"));
       tr.appendChild(makeCell(p.date ? formatDate(p.date) : "-", "Date"));
-      tr.appendChild(makeCell(formatMoney(p.amountStr), "Amount"));
+      tr.appendChild(makeCell(formatCurrency(p.amountStr), "Amount"));
       tbody.appendChild(tr);
     }
-    if (totalEl) totalEl.textContent = formatMoney(fromMinor(totalMinor));
+    if (totalEl) totalEl.textContent = formatCurrency(fromMinor(totalMinor));
   }
 
   modal.classList.remove("hidden");
@@ -1306,21 +1307,6 @@ function fromMinor(cents) {
   const whole = Math.floor(abs / 100);
   const frac = String(abs % 100).padStart(2, "0");
   return `${neg ? "-" : ""}${whole}.${frac}`;
-}
-
-/**
- * Format a 2dp money string as "MWK 1,234.56" using string ops only.
- * @param {*} value 2dp string from the server (or from fromMinor).
- * @return {string}
- */
-function formatMoney(value) {
-  const s = String(value == null ? "0.00" : value).trim();
-  const neg = s.startsWith("-");
-  const body = neg ? s.slice(1) : s;
-  let [intPart, frac = "00"] = body.split(".");
-  frac = (frac + "00").slice(0, 2);
-  intPart = (intPart || "0").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `MWK ${neg ? "-" : ""}${intPart}.${frac}`;
 }
 
 /* ---- dates ---- */

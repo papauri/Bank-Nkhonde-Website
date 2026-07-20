@@ -36,7 +36,7 @@
  */
 
 import { requireSession, apiGet, logout, ApiError, redirectToLogin } from "./api.js";
-import { formatCurrency as formatServerCurrency } from "./utils_financial.js";
+import { formatCurrency, formatCurrencyFromMinor } from "./utils_financial.js";
 
 // Admin-equivalent roles: who may see the admin dashboard for a group.
 const ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
@@ -283,13 +283,13 @@ function renderDashboardStats() {
 
   setText(
     "totalCollections",
-    formatServerCurrency(summary.verifiedCollected != null ? summary.verifiedCollected : "0.00"),
+    formatCurrency(summary.verifiedCollected != null ? summary.verifiedCollected : "0.00"),
   );
   setText("activeLoans", String(activeLoansCount));
   setText("pendingApprovals", String(pendingPayments + pendingLoans));
   setText(
     "totalArrears",
-    formatServerCurrency(summary.totalArrears != null ? summary.totalArrears : "0.00"),
+    formatCurrency(summary.totalArrears != null ? summary.totalArrears : "0.00"),
   );
 }
 
@@ -491,7 +491,7 @@ function createPieChart(title, segments, total, centerLabel, isCount = false) {
 
     const displayValue = isCount
       ? String(Math.round(segment.value))
-      : formatCurrencyFromMinor(segment.value);
+      : formatCurrencyFromMinor(segment.value != null ? segment.value : 0);
     legendHTML +=
       `<div class="legend-item">` +
       `<span class="legend-dot" style="background: ${segment.color};"></span>` +
@@ -886,7 +886,7 @@ function buildDuePaymentCard(payment, groupId) {
 
   const amount = document.createElement("div");
   amount.className = "due-payment-amount";
-  amount.textContent = formatCurrency(payment.amountStr);
+  amount.textContent = formatCurrency(payment.amountStr != null ? payment.amountStr : "0.00");
 
   const type = document.createElement("div");
   type.className = "due-payment-type";
@@ -1158,7 +1158,7 @@ function buildStatModalItem(item, type) {
     small.style.cssText =
       "color: var(--bn-gray); font-size: 0.75rem; display: block;";
     small.textContent = item.breakdown
-      .map((b) => `${b.type}: ${formatCurrency(b.amountStr)}`)
+      .map((b) => `${b.type}: ${formatCurrency(b.amountStr != null ? b.amountStr : "0.00")}`)
       .join(", ");
     detail.appendChild(small);
   }
@@ -1167,7 +1167,7 @@ function buildStatModalItem(item, type) {
 
   const amount = document.createElement("div");
   amount.className = "stat-modal-item-amount";
-  amount.textContent = formatCurrency(item.amountStr);
+  amount.textContent = formatCurrency(item.amountStr != null ? item.amountStr : "0.00");
 
   const actions = document.createElement("div");
   actions.className = "stat-modal-item-actions";
@@ -1547,29 +1547,6 @@ function fromMinor(cents) {
   const whole = Math.floor(abs / 100);
   const frac = String(abs % 100).padStart(2, "0");
   return `${neg ? "-" : ""}${whole}.${frac}`;
-}
-
-/**
- * Whole-currency display ("MWK 1,234") from a 2dp money string, matching the
- * Firebase original's zero-decimal stat cards. Rounds for display only.
- * @param {*} value 2dp string.
- * @return {string}
- */
-function formatCurrency(value) {
-  return formatCurrencyFromMinor(toMinor(value));
-}
-
-/**
- * Whole-currency display from integer minor units. Display rounding only — the
- * underlying sums stay in minor units.
- * @param {number} cents
- * @return {string}
- */
-function formatCurrencyFromMinor(cents) {
-  const neg = cents < 0;
-  const whole = Math.round(Math.abs(cents) / 100);
-  const grouped = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `MWK ${neg ? "-" : ""}${grouped}`;
 }
 
 /**

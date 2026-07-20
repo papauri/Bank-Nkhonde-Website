@@ -51,6 +51,7 @@ import {
   ApiError,
   redirectToLogin,
 } from "./api.js";
+import { formatCurrency } from "./utils_financial.js";
 
 // ── Global state ────────────────────────────────────────────────────────────
 let currentUser = null;
@@ -1428,10 +1429,6 @@ function el(tag, className) {
 function numberOf(value) {
   const n = parseFloat(value);
   return Number.isFinite(n) ? n : 0;
-}
-
-function formatCurrency(amount) {
-  return `MWK ${numberOf(amount).toLocaleString("en-US", {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
 }
 
 function formatDate(value) {

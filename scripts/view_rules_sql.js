@@ -13,6 +13,7 @@
  */
 
 import {apiGet, requireSession, ApiError} from "./api.js";
+import {formatCurrency} from "./utils_financial.js";
 
 let selectedGroupId = null;
 
@@ -43,11 +44,6 @@ function queryDomElements() {
   ruleDueDay = document.getElementById("ruleDueDay");
   rulePenalty = document.getElementById("rulePenalty");
   ruleInterest = document.getElementById("ruleInterest");
-}
-
-function formatCurrency(amount) {
-  const n = parseFloat(amount);
-  return `MWK ${(Number.isFinite(n) ? n : 0).toLocaleString("en-US")}`;
 }
 
 function showSpinner(show) {

@@ -39,6 +39,7 @@
  */
 
 import {apiGet, requireSession, listMyGroups, ApiError, redirectToLogin} from "./api.js";
+import { formatCurrency } from "./utils_financial.js";
 
 const CONTRIBUTION_ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
 const MONTH_NAMES = [
@@ -549,10 +550,6 @@ function emptyState(icon, text) {
 function numberOf(value) {
   const n = parseFloat(value);
   return Number.isFinite(n) ? n : 0;
-}
-
-function formatCurrency(amount) {
-  return `MWK ${numberOf(amount).toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 }
 
 function formatDate(value) {
