@@ -74,7 +74,7 @@ const messageAdminMessageEl = () => document.getElementById("messageAdminMessage
 const toastContainerEl = () => document.getElementById("toastContainer");
 
 // ── Init ─────────────────────────────────────────────────────────────────────
-document.addEventListener("DOMContentLoaded", async () => {
+export async function init() {
   setupEventListeners();
   try {
     currentUser = await requireSession(); // redirects to login on 401
@@ -83,7 +83,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
   await loadUserGroups();
-});
+}
+if (!window.__bnSpa) {
+  document.addEventListener("DOMContentLoaded", () => { init(); });
+}
 
 function setupEventListeners() {
   groupSelectorEl()?.addEventListener("change", async (e) => {

@@ -25,7 +25,7 @@ let selectedGroupId = null;
 let group = null;
 let selectedFile = null;
 
-document.addEventListener("DOMContentLoaded", async () => {
+export async function init() {
   setupEventListeners();
 
   try {
@@ -35,7 +35,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   await loadGroup();
-});
+}
+if (!window.__bnSpa) {
+  document.addEventListener("DOMContentLoaded", () => { init(); });
+}
 
 function setupEventListeners() {
   document.getElementById("editTextRulesBtn")?.addEventListener("click", openTextEditor);

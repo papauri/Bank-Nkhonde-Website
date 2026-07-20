@@ -27,7 +27,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // matches the server's cap
 
 let profile = null;
 
-document.addEventListener("DOMContentLoaded", async () => {
+export async function init() {
   setupEventListeners();
 
   try {
@@ -37,7 +37,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   await loadProfile();
-});
+}
+if (!window.__bnSpa) {
+  document.addEventListener("DOMContentLoaded", () => { init(); });
+}
 
 function setupEventListeners() {
   document.getElementById("personalInfoForm")?.addEventListener("submit", savePersonalInfo);

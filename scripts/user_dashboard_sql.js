@@ -48,10 +48,13 @@ let currentGroup = null;
 let isAdmin = false;
 let sessionTimer = null;
 
-document.addEventListener("DOMContentLoaded", () => {
+export async function init() {
   wireStaticHandlers();
-  init();
-});
+  loadUserDashboardEntry();
+}
+if (!window.__bnSpa) {
+  document.addEventListener("DOMContentLoaded", () => { init(); });
+}
 
 /**
  * Re-resolve a group to land on when no valid selectedGroupId is available,
@@ -94,8 +97,10 @@ async function resolveGroupOrRedirect() {
 
 /**
  * Entry point. Gates on the session, resolves the selected group, then loads it.
+ * Renamed from `init` to `loadUserDashboardEntry` so the module can export a
+ * top-level `init()` for the SPA router without a duplicate declaration.
  */
-async function init() {
+async function loadUserDashboardEntry() {
   showSpinner(true);
   currentUser = await requireSession();
   renderIdentity(currentUser);
@@ -1009,10 +1014,20 @@ function wireStaticHandlers() {
       window.location.href = "loan_payments.html";
     });
 
-  // Idle-timeout reset on interaction.
-  ["click", "keypress", "mousemove", "scroll"].forEach((evt) =>
-    window.addEventListener(evt, resetSessionTimer, { passive: true }),
-  );
+  // Idle-timeout reset on interaction. These are WINDOW-level listeners, so
+  // unlike every other listener in this function (attached to elements that
+  // get discarded when the SPA router swaps in a fresh DOM subtree), they
+  // are NOT cleaned up by the swap and would accumulate — one full set of 4
+  // duplicate listeners per return visit to this page — on every SPA
+  // navigation back here, since init() (and therefore wireStaticHandlers())
+  // runs again each time. Idle tracking is inherently page-independent, so
+  // attach these exactly once ever rather than once per visit.
+  if (!window.__bnIdleListenersWired) {
+    window.__bnIdleListenersWired = true;
+    ["click", "keypress", "mousemove", "scroll"].forEach((evt) =>
+      window.addEventListener(evt, resetSessionTimer, { passive: true }),
+    );
+  }
 }
 
 /**

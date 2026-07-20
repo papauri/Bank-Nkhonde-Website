@@ -16,22 +16,34 @@ import {apiGet, requireSession, ApiError} from "./api.js";
 
 let selectedGroupId = null;
 
-// DOM elements (same IDs as the Firebase page).
-const groupNameEl = document.getElementById("groupName");
-const textRulesContainer = document.getElementById("textRulesContainer");
-const pdfRulesContainer = document.getElementById("pdfRulesContainer");
-const noRulesContainer = document.getElementById("noRulesContainer");
-const textRulesContent = document.getElementById("textRulesContent");
-const pdfViewer = document.getElementById("pdfViewer");
-const downloadPdfBtn = document.getElementById("downloadPdfBtn");
-const spinner = document.getElementById("spinner");
+// DOM elements (same IDs as the Firebase page). Re-queried at the top of
+// init() on every call, not just once at module-evaluation time — this
+// module is only ever evaluated ONCE by the browser, but init() runs again
+// on every SPA navigation back to this page against a freshly-swapped-in
+// DOM subtree, so module-level constants captured here once would go stale
+// (pointing at detached nodes) after the first visit.
+let groupNameEl, textRulesContainer, pdfRulesContainer, noRulesContainer,
+    textRulesContent, pdfViewer, downloadPdfBtn, spinner,
+    ruleMonthlyContribution, ruleSeedMoney, ruleCycleLength, ruleDueDay,
+    rulePenalty, ruleInterest;
 
-const ruleMonthlyContribution = document.getElementById("ruleMonthlyContribution");
-const ruleSeedMoney = document.getElementById("ruleSeedMoney");
-const ruleCycleLength = document.getElementById("ruleCycleLength");
-const ruleDueDay = document.getElementById("ruleDueDay");
-const rulePenalty = document.getElementById("rulePenalty");
-const ruleInterest = document.getElementById("ruleInterest");
+function queryDomElements() {
+  groupNameEl = document.getElementById("groupName");
+  textRulesContainer = document.getElementById("textRulesContainer");
+  pdfRulesContainer = document.getElementById("pdfRulesContainer");
+  noRulesContainer = document.getElementById("noRulesContainer");
+  textRulesContent = document.getElementById("textRulesContent");
+  pdfViewer = document.getElementById("pdfViewer");
+  downloadPdfBtn = document.getElementById("downloadPdfBtn");
+  spinner = document.getElementById("spinner");
+
+  ruleMonthlyContribution = document.getElementById("ruleMonthlyContribution");
+  ruleSeedMoney = document.getElementById("ruleSeedMoney");
+  ruleCycleLength = document.getElementById("ruleCycleLength");
+  ruleDueDay = document.getElementById("ruleDueDay");
+  rulePenalty = document.getElementById("rulePenalty");
+  ruleInterest = document.getElementById("ruleInterest");
+}
 
 function formatCurrency(amount) {
   const n = parseFloat(amount);
@@ -42,7 +54,8 @@ function showSpinner(show) {
   if (spinner) spinner.classList.toggle("hidden", !show);
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
+export async function init() {
+  queryDomElements();
   selectedGroupId = localStorage.getItem("selectedGroupId") || sessionStorage.getItem("selectedGroupId");
   if (!selectedGroupId) {
     window.location.href = "user_dashboard.html";
@@ -56,7 +69,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   await loadGroupRules();
-});
+}
+if (!window.__bnSpa) {
+  document.addEventListener("DOMContentLoaded", () => { init(); });
+}
 
 async function loadGroupRules() {
   if (!selectedGroupId) {

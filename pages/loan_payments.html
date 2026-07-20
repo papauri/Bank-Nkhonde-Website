@@ -23,6 +23,22 @@
     .action-tab:hover:not(.active) {
       color: var(--bn-dark) !important;
     }
+
+    /* SPA markup contract: admin-layout.css is not loaded on this page,
+       so preserve the .page-content layout (pages.css) on the new wrapper. */
+    #mainContent .dashboard-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 var(--bn-space-6);
+      margin-top: calc(-1 * var(--bn-space-6));
+      position: relative;
+      z-index: 2;
+    }
+    @media (max-width: 768px) {
+      #mainContent .dashboard-content {
+        padding: 0 var(--bn-space-4);
+      }
+    }
   </style>
 </head>
 <body class="user-page">
@@ -52,7 +68,8 @@
   </header>
 
   <!-- Page Content -->
-  <main class="page-content">
+  <main class="main-content" id="mainContent">
+   <div class="dashboard-content">
     <!-- Loan Status Tabs -->
     <div class="action-tabs" style="display: flex; gap: var(--bn-space-2); margin-bottom: var(--bn-space-6); padding: var(--bn-space-2); background: var(--bn-gray-100); border-radius: var(--bn-radius-full); overflow-x: auto;">
       <button class="action-tab active" data-tab="pending" style="padding: var(--bn-space-3) var(--bn-space-5); border: none; background: transparent; border-radius: var(--bn-radius-full); font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-gray); cursor: pointer; transition: all var(--bn-transition-fast); white-space: nowrap;">
@@ -115,6 +132,7 @@
         </div>
       </div>
     </section>
+   </div>
   </main>
 
   <!-- Make Payment Modal -->

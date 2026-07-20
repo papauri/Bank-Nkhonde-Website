@@ -63,7 +63,14 @@ const spinnerEl = () => document.getElementById("spinner");
 const messageSubjectEl = () => document.getElementById("messageSubject");
 const messageBodyEl = () => document.getElementById("messageBody");
 
-document.addEventListener("DOMContentLoaded", async () => {
+/**
+ * Router-compatible entry point. Body is identical to the former
+ * DOMContentLoaded handler; the SPA router (scripts/spa-router.js) calls this
+ * directly after every content swap, and the guarded bootstrap below covers
+ * a normal hard page load.
+ * @return {Promise<void>}
+ */
+export async function init() {
   setupEventListeners();
 
   try {
@@ -74,7 +81,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   await loadAdminGroups();
-});
+}
+
+if (!window.__bnSpa) {
+  document.addEventListener("DOMContentLoaded", () => {
+    init();
+  });
+}
 
 function setupEventListeners() {
   document.querySelector(".page-back-btn")?.addEventListener("click", () => {

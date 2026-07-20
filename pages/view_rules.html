@@ -81,6 +81,22 @@
         min-height: 500px;
       }
     }
+
+    /* SPA markup contract: admin-layout.css is not loaded on this page,
+       so preserve the .page-content layout (pages.css) on the new wrapper. */
+    #mainContent .dashboard-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 var(--bn-space-6);
+      margin-top: calc(-1 * var(--bn-space-6));
+      position: relative;
+      z-index: 2;
+    }
+    @media (max-width: 768px) {
+      #mainContent .dashboard-content {
+        padding: 0 var(--bn-space-4);
+      }
+    }
   </style>
 </head>
 <body class="user-page">
@@ -104,7 +120,8 @@
   </header>
 
   <!-- Page Content -->
-  <main class="page-content">
+  <main class="main-content" id="mainContent">
+   <div class="dashboard-content">
     <!-- Text Rules Section -->
     <div class="rules-container" id="textRulesContainer" style="display: none;">
       <div class="rules-header">
@@ -175,6 +192,7 @@
         </div>
       </div>
     </div>
+   </div>
   </main>
 
   <!-- Mobile Bottom Navigation -->

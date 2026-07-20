@@ -82,7 +82,7 @@ const recentPaymentsList = () => document.getElementById("recentPaymentsList");
 const spinner = () => document.getElementById("spinner");
 
 // ── Init ─────────────────────────────────────────────────────────────────────
-document.addEventListener("DOMContentLoaded", async () => {
+export async function init() {
   setupEventListeners();
   try {
     currentUser = await requireSession(); // redirects to login on 401
@@ -91,7 +91,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
   await loadAdminGroups();
-});
+}
+if (!window.__bnSpa) {
+  document.addEventListener("DOMContentLoaded", () => { init(); });
+}
 
 function setupEventListeners() {
   groupSelector()?.addEventListener("change", async (e) => {

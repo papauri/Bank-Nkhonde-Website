@@ -37,7 +37,7 @@ const groupSelector = () => document.getElementById("groupSelector");
 const seedMoneyList = () => document.getElementById("seedMoneyList");
 const spinner = () => document.getElementById("spinner");
 
-document.addEventListener("DOMContentLoaded", async () => {
+export async function init() {
   document.querySelectorAll(".tab[data-filter]").forEach((tab) => {
     tab.addEventListener("click", () => {
       document.querySelectorAll(".tab[data-filter]").forEach((t) => t.classList.remove("active"));
@@ -64,7 +64,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   await loadAdminGroups();
-});
+}
+if (!window.__bnSpa) {
+  document.addEventListener("DOMContentLoaded", () => { init(); });
+}
 
 async function loadAdminGroups() {
   showSpinner(true);

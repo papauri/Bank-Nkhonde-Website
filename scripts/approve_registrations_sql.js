@@ -53,7 +53,14 @@ let allInvitations = [];
 let currentFilter = "all";
 
 // ── Init ────────────────────────────────────────────────────────────────────
-document.addEventListener("DOMContentLoaded", async () => {
+/**
+ * Router-compatible entry point. Body is identical to the former
+ * DOMContentLoaded handler; the SPA router (scripts/spa-router.js) calls this
+ * directly after every content swap, and the guarded bootstrap below covers
+ * a normal hard page load.
+ * @return {Promise<void>}
+ */
+export async function init() {
   try {
     currentUser = await requireSession(); // redirects to login on 401
   } catch (error) {
@@ -63,7 +70,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   buildInviteForm();
   setupEventListeners();
   await loadAdminGroups();
-});
+}
+
+if (!window.__bnSpa) {
+  document.addEventListener("DOMContentLoaded", () => {
+    init();
+  });
+}
 
 // ── Event listeners ─────────────────────────────────────────────────────────
 function setupEventListeners() {

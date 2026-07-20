@@ -73,7 +73,7 @@ const spinner = () => document.getElementById("spinner");
 const chartContainerEl = () => document.getElementById("chartContainer");
 const groupStatsSectionEl = () => document.getElementById("groupStatsSection");
 
-document.addEventListener("DOMContentLoaded", async () => {
+export async function init() {
   setupEventListeners();
 
   try {
@@ -84,7 +84,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   await loadUserGroups();
-});
+}
+if (!window.__bnSpa) {
+  document.addEventListener("DOMContentLoaded", () => { init(); });
+}
 
 function setupEventListeners() {
   document.querySelectorAll(".tab-btn").forEach((btn) => {

@@ -78,7 +78,7 @@ const modalActions = () => document.getElementById("modalActions");
 const showReadBtn = () => document.getElementById("showReadBtn");
 
 // ── Init ─────────────────────────────────────────────────────────────────────
-document.addEventListener("DOMContentLoaded", async () => {
+export async function init() {
   setupEventListeners();
   try {
     currentUser = await requireSession(); // redirects to login on 401
@@ -88,7 +88,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   await loadUserGroups();
   await loadMessages();
-});
+}
+if (!window.__bnSpa) {
+  document.addEventListener("DOMContentLoaded", () => { init(); });
+}
 
 function setupEventListeners() {
   groupSelector()?.addEventListener("change", () => filterMessages());

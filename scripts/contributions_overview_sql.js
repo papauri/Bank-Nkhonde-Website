@@ -63,7 +63,14 @@ const contributionHistory = () => document.getElementById("contributionHistory")
 const breakdownCards = () => document.getElementById("breakdownCards");
 const spinner = () => document.getElementById("spinner");
 
-document.addEventListener("DOMContentLoaded", async () => {
+/**
+ * Router-compatible entry point. Body is identical to the former
+ * DOMContentLoaded handler; the SPA router (scripts/spa-router.js) calls this
+ * directly after every content swap, and the guarded bootstrap below covers
+ * a normal hard page load.
+ * @return {Promise<void>}
+ */
+export async function init() {
   const backButton = document.querySelector(".page-back-btn");
   backButton?.addEventListener("click", () => {
     window.location.href = "admin_dashboard.html";
@@ -102,7 +109,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   await loadAdminGroups();
-});
+}
+
+if (!window.__bnSpa) {
+  document.addEventListener("DOMContentLoaded", () => {
+    init();
+  });
+}
 
 /**
  * The year the page is currently showing. Driven by the year selector; falls back

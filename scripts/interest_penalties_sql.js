@@ -66,7 +66,7 @@ const editModal = () => document.getElementById("editModal");
 const modalForm = () => document.getElementById("modalForm");
 const modalTitle = () => document.getElementById("modalTitle");
 
-document.addEventListener("DOMContentLoaded", async () => {
+export async function init() {
   const backButton = document.querySelector(".page-back-btn");
   backButton?.addEventListener("click", () => {
     window.location.href = "admin_dashboard.html";
@@ -104,7 +104,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   await loadAdminGroups();
-});
+}
+if (!window.__bnSpa) {
+  document.addEventListener("DOMContentLoaded", () => { init(); });
+}
 
 async function loadAdminGroups() {
   showSpinner(true);

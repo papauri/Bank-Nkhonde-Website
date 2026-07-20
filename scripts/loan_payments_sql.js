@@ -30,7 +30,7 @@ let currentLoanTab = "pending";
 /** A loan that can actually receive a repayment (matches the server's payable set). */
 const PAYABLE_STATUSES = ["approved", "disbursed"];
 
-document.addEventListener("DOMContentLoaded", async () => {
+export async function init() {
   setupEventListeners();
 
   try {
@@ -40,7 +40,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   await loadUserGroups();
-});
+}
+if (!window.__bnSpa) {
+  document.addEventListener("DOMContentLoaded", () => { init(); });
+}
 
 function setupEventListeners() {
   const groupSelector = document.getElementById("groupSelector");

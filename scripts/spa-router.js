@@ -1,15 +1,18 @@
 /**
- * spa-router.js — pilot SPA content-swap router.
+ * spa-router.js — SPA content-swap router.
  *
- * Scope: exactly the 3 whitelisted admin pages named in PAGE_CONFIG below
- * (admin_dashboard.html, manage_members.html, manage_loans.html). A click on
- * a same-app <a> is only intercepted when BOTH the current page and the
- * link's target page are in that whitelist; every other link (including any
- * link on a non-piloted page, or a link from a piloted page to a
- * non-piloted one — e.g. "Switch to User View", analytics.html,
- * settings.html, login/logout, exports.*, mailto:/tel:, #-anchors,
- * target="_blank", download links, or any external origin) falls through to
- * a normal browser navigation untouched.
+ * Scope: every page named in PAGE_CONFIG below (13 admin + 6 user pages, as
+ * of cycle 56 batch B). A click on a same-app <a> is only intercepted when
+ * BOTH the current page and the link's target page are in that whitelist
+ * AND share the same `variant` (admin pages only swap between admin pages;
+ * user pages only swap between user pages — admin and user have
+ * structurally different nav shells, built by renderAdminNav/renderUserNav
+ * respectively, so crossing that boundary — e.g. "Switch to User View" —
+ * must stay a real navigation, never a content-only swap). Every other link
+ * (any link on a non-converted page, a cross-variant link, login/logout,
+ * exports.*, mailto:/tel:, #-anchors, target="_blank", download links, or
+ * any external origin) falls through to a normal browser navigation
+ * untouched.
  *
  * Only .dashboard-content inside #mainContent is ever replaced. #mainContent
  * itself, <head>, the sidebar, topbar chrome, and mobile nav are never
@@ -30,19 +33,118 @@ window.__bnSpa = true;
 /** Whitelisted pages: filename -> {module specifier, nav id, topbar title}. */
 const PAGE_CONFIG = {
   "admin_dashboard.html": {
+    variant: "admin",
     module: "./admin_dashboard_sql.js",
     nav: "dashboard",
     title: "Dashboard",
   },
   "manage_members.html": {
+    variant: "admin",
     module: "./manage_members_new_sql.js",
     nav: "members",
     title: "Manage Members",
   },
   "manage_loans.html": {
+    variant: "admin",
     module: "./manage_loans_sql.js",
     nav: "loans",
     title: "Manage Loans",
+  },
+  "analytics.html": {
+    variant: "admin",
+    module: "./analytics_sql.js",
+    nav: "analytics",
+    title: "Analytics",
+  },
+  "approve_registrations.html": {
+    variant: "admin",
+    module: "./approve_registrations_sql.js",
+    nav: "approvals",
+    title: "Approve Registrations",
+  },
+  "broadcast_notifications.html": {
+    variant: "admin",
+    module: "./broadcast_notifications_sql.js",
+    nav: "broadcast",
+    title: "Broadcast Notifications",
+  },
+  "contributions_overview.html": {
+    variant: "admin",
+    module: "./contributions_overview_sql.js",
+    nav: "contributions",
+    title: "Contributions Overview",
+  },
+  "financial_reports.html": {
+    variant: "admin",
+    module: "./financial_reports_sql.js",
+    nav: "reports",
+    title: "Financial Reports",
+  },
+  "manage_payments.html": {
+    variant: "admin",
+    module: "./manage_payments_sql.js",
+    nav: "payments",
+    title: "Manage Payments",
+  },
+  "manage_rules.html": {
+    variant: "admin",
+    module: "./manage_rules_sql.js",
+    nav: "rules",
+    title: "Manage Rules",
+  },
+  "interest_penalties.html": {
+    variant: "admin",
+    module: "./interest_penalties_sql.js",
+    nav: "penalties",
+    title: "Interest & Penalties",
+  },
+  "seed_money_overview.html": {
+    variant: "admin",
+    module: "./seed_money_overview_sql.js",
+    nav: "seed-money",
+    title: "Seed Money Overview",
+  },
+  "settings.html": {
+    variant: "admin",
+    module: "./settings_sql.js",
+    nav: "settings",
+    title: "Settings",
+  },
+  "user_dashboard.html": {
+    variant: "user",
+    module: "./user_dashboard_sql.js",
+    nav: "user_dashboard",
+    title: "Dashboard",
+  },
+  "user_analytics.html": {
+    variant: "user",
+    module: "./user_analytics_sql.js",
+    nav: "user_analytics",
+    title: "My Analytics",
+  },
+  "loan_payments.html": {
+    variant: "user",
+    module: "./loan_payments_sql.js",
+    nav: "loan_payments",
+    title: "Loan Payments",
+  },
+  "contacts.html": {
+    variant: "user",
+    module: "./contacts_sql.js",
+    nav: "contacts",
+    title: "Contacts",
+  },
+  "messages.html": {
+    variant: "user",
+    module: "./messages_sql.js",
+    nav: "messages",
+    title: "Messages",
+  },
+  "view_rules.html": {
+    variant: "user",
+    module: "./view_rules_sql.js",
+    nav: "view_rules",
+    title: "Group Rules",
   },
 };
 
@@ -104,6 +206,14 @@ function shouldIntercept(anchor) {
 
   const targetBasename = resolveSameOriginBasename(anchor.href);
   if (!targetBasename || !isWhitelisted(targetBasename)) return false;
+
+  // Admin and user pages have structurally different nav shells (separate
+  // sidebar/topbar markup built by renderAdminNav/renderUserNav). Crossing
+  // that boundary (e.g. the "Switch to User View" link) must stay a real
+  // navigation — a content-only swap would leave the wrong sidebar mounted.
+  if (PAGE_CONFIG[currentBasename].variant !== PAGE_CONFIG[targetBasename].variant) {
+    return false;
+  }
 
   return true;
 }

@@ -177,6 +177,27 @@
       color: var(--bn-gray);
       font-weight: 500;
     }
+
+    /* SPA markup contract: #mainContent .main-content is layout-only
+       (admin-layout.css is not loaded on this page). Preserve the
+       .page-content layout (pages.css) on the new wrapper. */
+    #mainContent.main-content {
+      margin-left: 0;
+      min-height: 0;
+    }
+    #mainContent .dashboard-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 var(--bn-space-6);
+      margin-top: calc(-1 * var(--bn-space-6));
+      position: relative;
+      z-index: 2;
+    }
+    @media (max-width: 768px) {
+      #mainContent .dashboard-content {
+        padding: 0 var(--bn-space-4);
+      }
+    }
   </style>
 </head>
 <body class="user-page">
@@ -224,7 +245,8 @@
   </header>
 
   <!-- Page Content -->
-  <main class="page-content">
+  <main class="main-content" id="mainContent">
+   <div class="dashboard-content">
     <!-- User Overview Stats -->
     <section class="content-section">
       <div class="content-section-header">
@@ -318,6 +340,7 @@
         </div>
       </div>
     </section>
+   </div>
   </main>
 
   <!-- Mobile Bottom Navigation -->
