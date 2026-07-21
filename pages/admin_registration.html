@@ -395,14 +395,6 @@
       color: var(--bn-gray);
     }
 
-    .file-remove-btn {
-      background: none;
-      border: none;
-      color: var(--bn-danger);
-      cursor: pointer;
-      padding: var(--bn-space-1);
-    }
-
     /* Help Text */
     .help-text {
       font-size: var(--bn-text-xs);
@@ -536,6 +528,42 @@
       min-height: 120px;
       resize: vertical;
     }
+
+    /* Icon-only controls: 44px touch target + visible focus state */
+    .password-toggle-btn {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 44px;
+      min-height: 44px;
+      color: var(--bn-gray);
+    }
+
+    .password-toggle-btn:focus-visible,
+    .file-remove-btn:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: 2px;
+    }
+
+    .file-remove-btn {
+      background: none;
+      border: none;
+      color: var(--bn-danger);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 44px;
+      min-height: 44px;
+      padding: var(--bn-space-1);
+    }
   </style>
 </head>
 <body>
@@ -622,8 +650,8 @@
             <div class="form-group">
               <label class="form-label">Password *</label>
               <div style="position: relative;">
-                <input type="password" id="password" class="form-input" placeholder="Min 8 characters" required minlength="8" autocomplete="new-password" style="padding-right: 45px;">
-                <button type="button" class="password-toggle-btn" id="togglePassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 8px; color: var(--bn-gray);">
+                <input type="password" id="password" class="form-input" placeholder="Min 8 characters" required minlength="8" autocomplete="new-password" style="padding-right: var(--bn-space-12);">
+                <button type="button" class="password-toggle-btn" id="togglePassword" aria-label="Show password">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="eyeIcon">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                     <circle cx="12" cy="12" r="3"/>
@@ -647,8 +675,8 @@
             <div class="form-group">
               <label class="form-label">Confirm Password *</label>
               <div style="position: relative;">
-                <input type="password" id="confirmPassword" class="form-input" placeholder="Confirm password" required autocomplete="new-password" style="padding-right: 45px;">
-                <button type="button" class="password-toggle-btn" id="toggleConfirmPassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 8px; color: var(--bn-gray);">
+                <input type="password" id="confirmPassword" class="form-input" placeholder="Confirm password" required autocomplete="new-password" style="padding-right: var(--bn-space-12);">
+                <button type="button" class="password-toggle-btn" id="toggleConfirmPassword" aria-label="Show password">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="eyeIcon2">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                     <circle cx="12" cy="12" r="3"/>
@@ -930,7 +958,7 @@
                   <div class="file-preview-name" id="rulesFileName">document.pdf</div>
                   <div class="file-preview-size" id="rulesFileSize">1.2 MB</div>
                 </div>
-                <button type="button" class="file-remove-btn" id="removeRulesFile">✕</button>
+                <button type="button" class="file-remove-btn" id="removeRulesFile" aria-label="Remove file">✕</button>
               </div>
             </div>
             <span class="help-text">Upload a detailed PDF of your group's constitution or rules</span>
@@ -1210,6 +1238,7 @@
             eyeIcon.style.display = type === 'password' ? 'block' : 'none';
             eyeOffIcon.style.display = type === 'password' ? 'none' : 'block';
           }
+          togglePassword.setAttribute('aria-label', type === 'password' ? 'Show password' : 'Hide password');
         });
       }
 
@@ -1221,6 +1250,7 @@
             eyeIcon2.style.display = type === 'password' ? 'block' : 'none';
             eyeOffIcon2.style.display = type === 'password' ? 'none' : 'block';
           }
+          toggleConfirmPassword.setAttribute('aria-label', type === 'password' ? 'Show password' : 'Hide password');
         });
       }
     }

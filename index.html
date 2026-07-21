@@ -1131,6 +1131,21 @@
       flex-wrap: wrap;
     }
 
+    /* Secondary CTA button on the dark gradient section - reused by both
+       guest and signed-in states instead of duplicating the same inline
+       override on each link */
+    .cta-btn-inverse {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.3);
+      color: var(--bn-white);
+    }
+
+    .transparency-title {
+      font-size: var(--bn-text-base);
+      font-weight: 700;
+      margin: 0;
+    }
+
     /* ============================================
        FOOTER
        ============================================ */
@@ -1526,7 +1541,7 @@
       }
     }
 
-    @media (max-width: 640px) {
+    @media (max-width: 480px) {
       /* Navigation Mobile */
       .nav-container {
         padding: 0 var(--bn-space-4);
@@ -1855,6 +1870,21 @@
       opacity: 1;
       transform: translateY(0);
     }
+
+    /* ============================================
+       FOCUS VISIBILITY (keyboard navigation)
+       ============================================ */
+    .hero-cta-link:focus-visible,
+    .footer-links a:focus-visible,
+    .footer-legal a:focus-visible,
+    .footer-logo:focus-visible,
+    .nav-logo:focus-visible,
+    .btn-accent:focus-visible,
+    .btn-secondary:focus-visible,
+    .index-notification-btn:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: 2px;
+    }
   </style>
 </head>
 <body>
@@ -1903,7 +1933,7 @@
         <div class="nav-cta-user hidden">
           <a href="#" id="navMyGroupsLink" class="nav-btn-secondary">My Groups</a>
           <a href="#" id="navDashboardLink" class="btn btn-accent btn-sm">Dashboard</a>
-          <button id="logoutBtn" class="nav-btn-logout" title="Sign Out">
+          <button id="logoutBtn" class="nav-btn-logout" title="Sign Out" aria-label="Sign Out">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
               <polyline points="16 17 21 12 16 7"></polyline>
@@ -2244,7 +2274,7 @@
         <div class="feature-visual">
           <div class="transparency-card">
             <div class="transparency-header">
-              <h4 style="font-size: var(--bn-text-base); font-weight: 700; margin: 0;">Group Performance</h4>
+              <h4 class="transparency-title">Group Performance</h4>
               <div class="transparency-tabs">
                 <span class="transparency-tab">Week</span>
                 <span class="transparency-tab active">Month</span>
@@ -2280,7 +2310,7 @@
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
           </a>
-          <a href="login.html" class="btn btn-secondary btn-xl" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); color: white;">
+          <a href="login.html" class="btn btn-secondary btn-xl cta-btn-inverse">
             Sign In
           </a>
         </div>
@@ -2297,7 +2327,7 @@
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
           </a>
-          <a href="#" id="ctaSwitchGroupLink" class="btn btn-secondary btn-xl" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); color: white;">
+          <a href="#" id="ctaSwitchGroupLink" class="btn btn-secondary btn-xl cta-btn-inverse">
             Switch Group
           </a>
         </div>
@@ -2366,7 +2396,7 @@
   </footer>
 
   <!-- Amazing Notification Button (Top Right) -->
-  <a href="pages/messages.html" id="indexNotificationBtn" class="index-notification-btn hidden">
+  <a href="pages/messages.html" id="indexNotificationBtn" class="index-notification-btn hidden" aria-label="View notifications">
     <div class="notification-btn-ring"></div>
     <div class="notification-btn-ring notification-btn-ring-2"></div>
     <div class="notification-btn-icon">

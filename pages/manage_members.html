@@ -190,6 +190,9 @@
 
     .filter-tab {
       padding: var(--bn-space-2) var(--bn-space-4);
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
       border: none;
       background: transparent;
       border-radius: var(--bn-radius-full);
@@ -208,6 +211,11 @@
 
     .filter-tab:hover:not(.active) {
       color: var(--bn-dark);
+    }
+
+    .filter-tab:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: 2px;
     }
 
     /* Search Bar */
@@ -230,6 +238,11 @@
       outline: none;
       border-color: var(--bn-accent);
       box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.1);
+    }
+
+    .search-input:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: 2px;
     }
 
     /* Modal Styles */
@@ -307,6 +320,11 @@
     .modal-close:hover {
       background: var(--bn-danger-light);
       color: var(--bn-danger);
+    }
+
+    .modal-close:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: 2px;
     }
 
     .modal-body {
@@ -399,7 +417,7 @@
       margin-bottom: var(--bn-space-4);
     }
 
-    @media (max-width: 640px) {
+    @media (max-width: 768px) {
       .form-row {
         grid-template-columns: 1fr;
         gap: var(--bn-space-4);
@@ -560,7 +578,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2 class="modal-title">Add New Member</h2>
-        <button class="modal-close" id="closeAddMemberModal">&times;</button>
+        <button class="modal-close" id="closeAddMemberModal" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
         <form id="addMemberForm">
@@ -592,7 +610,7 @@
               <div class="form-group">
                 <label class="form-label">Date of Birth</label>
                 <input type="date" class="form-input" id="memberDOB">
-                <span class="help-text" style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: var(--bn-space-1); display: block;">
+                <span class="help-text">
                   Member must be at least 18 years old
                 </span>
               </div>
@@ -747,7 +765,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2 class="modal-title">Edit Member</h2>
-        <button class="modal-close" id="closeEditMemberModal">&times;</button>
+        <button class="modal-close" id="closeEditMemberModal" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
         <form id="editMemberForm">
@@ -776,7 +794,7 @@
     <div class="modal-content" style="max-width: 420px;">
       <div class="modal-header">
         <h2 class="modal-title">Remove Member</h2>
-        <button class="modal-close" id="closeDeleteMemberModal">&times;</button>
+        <button class="modal-close" id="closeDeleteMemberModal" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body" style="text-align: center;">
         <div style="font-size: 3rem; margin-bottom: var(--bn-space-4);">⚠️</div>

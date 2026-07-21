@@ -14,11 +14,17 @@
   <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
-    /* .tab is shared across 4 pages (user_dashboard, financial_reports,
-       analytics too); scoped locally here rather than raising the shared
-       rule so those other already-audited pages aren't affected. */
+    /* Touch target + keyboard focus for the tab control (shared .tab class has no focus-visible state);
+       scoped locally here rather than raising the shared rule so other already-audited pages aren't affected. */
     .content-section-header .tabs .tab {
       min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .content-section-header .tabs .tab:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: 2px;
     }
   </style>
 </head>

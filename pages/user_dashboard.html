@@ -465,6 +465,7 @@
     .hero-stat {
       flex: 1;
       min-width: 120px;
+      min-height: 44px;
       background: rgba(255, 255, 255, 0.08);
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 255, 255, 0.1);
@@ -474,6 +475,9 @@
       display: flex;
       flex-direction: column;
       justify-content: flex-start;
+      font: inherit;
+      text-align: inherit;
+      color: inherit;
     }
 
     .hero-stat:hover {
@@ -487,6 +491,20 @@
     .hero-stat.clickable:hover {
       background: rgba(255, 255, 255, 0.15);
       transform: translateY(-2px);
+    }
+
+    button.hero-stat {
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .hero-stat:focus-visible,
+    .action-btn:focus-visible,
+    #calendarPrevMonth:focus-visible,
+    #calendarNextMonth:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: 2px;
     }
 
     .hero-stat-status {
@@ -628,6 +646,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      min-height: 44px;
       padding: var(--bn-space-4);
       background: var(--bn-gray-100);
       border: none;
@@ -1012,8 +1031,8 @@
       /* Calendar Navigation Buttons Mobile */
       #calendarPrevMonth,
       #calendarNextMonth {
-        min-width: 36px !important;
-        min-height: 36px !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
         padding: 8px !important;
         font-size: 16px !important;
         font-weight: 700 !important;
@@ -1097,8 +1116,8 @@
       /* Calendar navigation buttons */
       #calendarPrevMonth,
       #calendarNextMonth {
-        min-width: 32px !important;
-        min-height: 32px !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
         padding: 6px !important;
         font-size: 14px !important;
       }
@@ -1813,7 +1832,7 @@
           </div>
           <div class="hero-stat-label">Next Payment</div>
           <div class="hero-stat-details" id="nextPaymentDetails"></div>
-          <div class="hero-stat-badge" id="nextPaymentBadge" style="position: absolute; top: var(--bn-space-1); right: var(--bn-space-1); background: var(--bn-danger); color: var(--bn-white); font-size: 8px; padding: 2px 6px; border-radius: 10px; font-weight: 700; cursor: pointer; display: none; z-index: 10;" onclick="dismissNextPaymentBadge(event)">Due</div>
+          <button type="button" class="hero-stat-badge" id="nextPaymentBadge" aria-label="Dismiss payment due reminder" style="position: absolute; top: var(--bn-space-1); right: var(--bn-space-1); background: var(--bn-danger); color: var(--bn-white); font-size: 8px; padding: 2px 6px; border: none; font-family: inherit; border-radius: 10px; font-weight: 700; cursor: pointer; display: none; z-index: 10;" onclick="dismissNextPaymentBadge(event)">Due</button>
         </div>
         <div class="hero-stat" id="activeLoansStat" onclick="window.location.href='loan_payments.html'" style="cursor: pointer; position: relative;">
           <div class="hero-stat-value" id="activeLoans" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
@@ -1822,7 +1841,7 @@
           </div>
           <div class="hero-stat-label">Loans</div>
           <div class="hero-stat-details" id="activeLoansDetails"></div>
-          <div class="hero-stat-badge" id="activeLoansBadge" style="position: absolute; top: var(--bn-space-1); right: var(--bn-space-1); background: var(--bn-danger); color: var(--bn-white); font-size: 8px; padding: 2px 6px; border-radius: 10px; font-weight: 700; cursor: pointer; display: none; z-index: 10;" onclick="dismissActiveLoansBadge(event)">Due</div>
+          <button type="button" class="hero-stat-badge" id="activeLoansBadge" aria-label="Dismiss loan due reminder" style="position: absolute; top: var(--bn-space-1); right: var(--bn-space-1); background: var(--bn-danger); color: var(--bn-white); font-size: 8px; padding: 2px 6px; border: none; font-family: inherit; border-radius: 10px; font-weight: 700; cursor: pointer; display: none; z-index: 10;" onclick="dismissActiveLoansBadge(event)">Due</button>
         </div>
         <div class="hero-stat">
           <div class="hero-stat-value" id="pendingPayments">0</div>
@@ -1839,10 +1858,10 @@
           </div>
           <div class="hero-stat-label">Group Members</div>
         </a>
-        <div class="hero-stat" id="totalContributedStat" style="cursor: pointer;" onclick="showAllPaymentsModal()">
+        <button type="button" class="hero-stat" id="totalContributedStat" style="cursor: pointer;" onclick="showAllPaymentsModal()">
           <div class="hero-stat-value" id="totalContributed">MWK 0</div>
           <div class="hero-stat-label">Contributed</div>
-        </div>
+        </button>
       </div>
     </div>
   </section>
@@ -1914,9 +1933,9 @@
       <div class="content-card-header" style="padding: var(--bn-space-3) var(--bn-space-4); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--bn-space-2);">
         <h2 class="content-card-title" style="font-size: var(--bn-text-base); margin: 0;">Payment Calendar</h2>
         <div style="display: flex; gap: var(--bn-space-1); align-items: center;">
-          <button class="btn btn-ghost btn-sm" id="calendarPrevMonth" style="padding: 4px 8px; font-size: 12px; min-width: 36px; min-height: 36px;">&lt;</button>
+          <button class="btn btn-ghost btn-sm" id="calendarPrevMonth" aria-label="Previous month" style="padding: 4px 8px; font-size: 12px; min-width: 44px; min-height: 44px;">&lt;</button>
           <span id="calendarMonthYear" style="font-weight: 600; min-width: 120px; text-align: center; font-size: var(--bn-text-sm);"></span>
-          <button class="btn btn-ghost btn-sm" id="calendarNextMonth" style="padding: 4px 8px; font-size: 12px; min-width: 36px; min-height: 36px;">&gt;</button>
+          <button class="btn btn-ghost btn-sm" id="calendarNextMonth" aria-label="Next month" style="padding: 4px 8px; font-size: 12px; min-width: 44px; min-height: 44px;">&gt;</button>
         </div>
       </div>
       <div class="content-card-body" style="padding: var(--bn-space-4);">
@@ -1973,7 +1992,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2 class="modal-title">Book a Loan</h2>
-        <button class="modal-close" id="closeLoanModal">&times;</button>
+        <button class="modal-close" id="closeLoanModal" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
         <form id="loanRequestForm">
@@ -2061,7 +2080,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2 class="modal-title">Upload Payment Proof</h2>
-        <button class="modal-close" id="closePaymentModal">&times;</button>
+        <button class="modal-close" id="closePaymentModal" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
         <form id="paymentUploadForm">
@@ -2137,7 +2156,7 @@
     <div class="modal-content" style="max-width: 800px; max-height: 90vh;">
       <div class="modal-header">
         <h2 class="modal-title">Upcoming Payments</h2>
-        <button class="modal-close" id="closeUpcomingPaymentsModal">&times;</button>
+        <button class="modal-close" id="closeUpcomingPaymentsModal" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
         <div style="margin-bottom: var(--bn-space-4); padding: var(--bn-space-3); background: var(--bn-gray-100); border-radius: var(--bn-radius-lg);">
@@ -2424,7 +2443,7 @@
     <div class="modal-content" style="max-width: 600px; max-height: 80vh;">
       <div class="modal-header">
         <h2 class="modal-title">All Approved Payments</h2>
-        <button class="modal-close" onclick="document.getElementById('allPaymentsModal').classList.add('hidden')">&times;</button>
+        <button class="modal-close" aria-label="Close" onclick="document.getElementById('allPaymentsModal').classList.add('hidden')">&times;</button>
       </div>
       <div class="modal-body" style="padding: var(--bn-space-4);">
         <div class="table-container">
@@ -2458,7 +2477,7 @@
     <div class="modal-content payment-details-modal">
       <div class="modal-header">
         <h2 class="modal-title">Payment Details</h2>
-        <button class="modal-close" id="closePaymentDetailsModal">&times;</button>
+        <button class="modal-close" id="closePaymentDetailsModal" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body" style="padding: 0;">
         <div id="paymentDetailsTableContainer" class="payment-details-table-container">
@@ -2473,7 +2492,7 @@
     <div class="modal-content" style="max-width: 900px; max-height: 90vh;">
       <div class="modal-header">
         <h2 class="modal-title">💰 Arrears Dashboard</h2>
-        <button class="modal-close" id="closeArrearsModal">&times;</button>
+        <button class="modal-close" id="closeArrearsModal" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body" style="padding: 0;">
         <!-- Summary Section -->

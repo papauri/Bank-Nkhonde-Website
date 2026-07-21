@@ -40,6 +40,11 @@
       border-color: var(--bn-accent);
     }
 
+    .message-item:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: 2px;
+    }
+
     .message-header {
       display: flex;
       align-items: flex-start;
@@ -117,6 +122,10 @@
     }
 
     .action-tab {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
       padding: var(--bn-space-2) var(--bn-space-4);
       border: none;
       background: transparent;
@@ -133,6 +142,11 @@
       background: var(--bn-white);
       color: var(--bn-dark);
       box-shadow: var(--bn-shadow-sm);
+    }
+
+    .action-tab:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: 2px;
     }
 
     .message-item.read {
@@ -200,6 +214,11 @@
       justify-content: center;
       font-size: var(--bn-text-xl);
       color: var(--bn-gray);
+    }
+
+    .message-modal-close:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: 2px;
     }
 
     .message-modal-body {
@@ -307,7 +326,7 @@
     <div class="message-modal-content">
       <div class="message-modal-header">
         <h3 class="message-modal-title" id="modalTitle">Message</h3>
-        <button class="message-modal-close" id="closeModal">&times;</button>
+        <button class="message-modal-close" id="closeModal" aria-label="Close message">&times;</button>
       </div>
       <div class="message-modal-body">
         <div class="message-modal-meta" id="modalMeta"></div>

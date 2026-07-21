@@ -98,6 +98,10 @@
     }
 
     .settings-tab {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
       padding: var(--bn-space-3) var(--bn-space-5);
       border: none;
       background: transparent;
@@ -118,6 +122,13 @@
 
     .settings-tab:hover:not(.active) {
       color: var(--bn-dark);
+    }
+
+    .settings-tab:focus-visible,
+    .profile-picture-edit:focus-visible,
+    #testSoundBtn:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: 2px;
     }
 
     .settings-panel {
@@ -247,7 +258,7 @@
       box-shadow: 0 0 0 4px rgba(4, 120, 87, 0.1);
     }
 
-    @media (max-width: 640px) {
+    @media (max-width: 768px) {
       .form-row {
         grid-template-columns: 1fr;
       }
@@ -266,13 +277,13 @@
           <span id="profileInitials">U</span>
           <img id="profileImage" src="" alt="Profile" style="display: none;">
         </div>
-        <label for="profilePictureInput" class="profile-picture-edit" title="Change photo">
+        <label for="profilePictureInput" class="profile-picture-edit" title="Change photo" aria-label="Change profile photo">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
             <circle cx="12" cy="13" r="4"/>
           </svg>
         </label>
-        <input type="file" id="profilePictureInput" accept="image/*" style="display: none;">
+        <input type="file" id="profilePictureInput" accept="image/*" class="hidden">
       </div>
       <div class="profile-name" id="profileName">User Name</div>
       <div class="profile-email" id="profileEmail">email@example.com</div>

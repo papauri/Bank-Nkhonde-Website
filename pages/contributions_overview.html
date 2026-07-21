@@ -256,6 +256,14 @@
       color: var(--bn-dark);
     }
 
+    /* Compact header select (Monthly Breakdown / History year filter) */
+    .section-select-compact {
+      width: auto;
+      padding: var(--bn-space-2) var(--bn-space-4);
+      font-size: var(--bn-text-sm);
+      min-height: 44px;
+    }
+
     /* Mobile Responsive */
     @media (max-width: 768px) {
       .contributions-table-wrapper {
@@ -322,7 +330,7 @@
     <section class="content-section">
       <div class="content-section-header">
         <h2 class="content-section-title">Monthly Breakdown</h2>
-        <select class="form-select" style="width: auto; padding: var(--bn-space-2) var(--bn-space-4); font-size: var(--bn-text-sm);" id="monthSelector">
+        <select class="form-select section-select-compact" id="monthSelector">
           <option value="">Select Month...</option>
         </select>
       </div>
@@ -348,7 +356,7 @@
     <section class="content-section">
       <div class="content-section-header">
         <h2 class="content-section-title">Contribution History</h2>
-        <select class="form-select" style="width: auto; padding: var(--bn-space-2) var(--bn-space-4); font-size: var(--bn-text-sm);" id="historyYearSelector">
+        <select class="form-select section-select-compact" id="historyYearSelector">
           <option value="">All Years</option>
         </select>
       </div>

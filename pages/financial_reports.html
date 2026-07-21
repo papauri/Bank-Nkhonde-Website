@@ -19,6 +19,18 @@
     #exportBtn {
       min-height: 44px;
     }
+
+    /* .tab (shared, styles/pages.css) lacks a focus-visible ring and a
+       44px touch target. Same gap patched locally on analytics.html;
+       pages.css is out of scope for a single-page dispatch. */
+    .content-section-header .tabs .tab {
+      min-height: 44px;
+    }
+
+    .tab:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: 2px;
+    }
   </style>
 </head>
 <body>

@@ -144,6 +144,7 @@
 
     .action-tab {
       padding: var(--bn-space-3) var(--bn-space-5);
+      min-height: 44px;
       border: none;
       background: transparent;
       border-radius: var(--bn-radius-full);
@@ -153,6 +154,16 @@
       cursor: pointer;
       transition: all var(--bn-transition-fast);
       white-space: nowrap;
+    }
+
+    .action-tab:hover:not(.active) {
+      color: var(--bn-dark);
+      background: var(--bn-white);
+    }
+
+    .action-tab:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: 2px;
     }
 
     .action-tab.active {
@@ -184,6 +195,12 @@
       transform: translateY(-2px);
     }
 
+    .quick-action-card:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: 2px;
+      border-color: var(--bn-accent);
+    }
+
     .quick-action-icon {
       font-size: 2rem;
       margin-bottom: var(--bn-space-3);
@@ -211,6 +228,21 @@
         grid-template-columns: repeat(2, 1fr);
       }
       .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .quick-action-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--bn-space-3);
+      }
+
+      .quick-action-card {
+        padding: var(--bn-space-4);
+      }
+
+      .loan-details-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -411,7 +443,7 @@
     <div class="modal-content" style="max-width: 560px;">
       <div class="modal-header">
         <h2 class="modal-title">Disburse New Loan</h2>
-        <button class="modal-close" id="closeNewLoanModal">&times;</button>
+        <button class="modal-close" id="closeNewLoanModal" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
         <form id="newLoanForm">
@@ -473,7 +505,7 @@
     <div class="modal-content" style="max-width: 480px;">
       <div class="modal-header">
         <h2 class="modal-title">Record Loan Payment</h2>
-        <button class="modal-close" id="closeRecordPaymentModal">&times;</button>
+        <button class="modal-close" id="closeRecordPaymentModal" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
         <form id="recordPaymentForm">
@@ -520,7 +552,7 @@
     <div class="modal-content" style="max-width: 560px;">
       <div class="modal-header">
         <h2 class="modal-title">Loan Settings</h2>
-        <button class="modal-close" id="closeLoanSettingsModal">&times;</button>
+        <button class="modal-close" id="closeLoanSettingsModal" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
         <form id="loanSettingsForm">
@@ -581,7 +613,7 @@
     <div class="modal-content" style="max-width: 520px;">
       <div class="modal-header">
         <h2 class="modal-title">Send Loan Reminder</h2>
-        <button class="modal-close" id="closeCommunicationsModal">&times;</button>
+        <button class="modal-close" id="closeCommunicationsModal" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
         <form id="communicationsForm">
@@ -626,7 +658,7 @@
     <div class="modal-content" style="max-width: 560px;">
       <div class="modal-header">
         <h2 class="modal-title">⚡ Forced Loans Configuration</h2>
-        <button class="modal-close" id="closeForcedLoansConfigModal">&times;</button>
+        <button class="modal-close" id="closeForcedLoansConfigModal" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
         <form id="forcedLoansConfigForm">

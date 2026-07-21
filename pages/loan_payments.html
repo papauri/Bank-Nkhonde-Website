@@ -15,6 +15,19 @@
   <link rel="stylesheet" href="../styles/unified-mobile-nav.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
+    .action-tab {
+      padding: var(--bn-space-3) var(--bn-space-5);
+      min-height: 44px;
+      border: none;
+      background: transparent;
+      border-radius: var(--bn-radius-full);
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-gray);
+      cursor: pointer;
+      transition: all var(--bn-transition-fast);
+      white-space: nowrap;
+    }
     .action-tab.active {
       background: var(--bn-white) !important;
       color: var(--bn-dark) !important;
@@ -22,6 +35,10 @@
     }
     .action-tab:hover:not(.active) {
       color: var(--bn-dark) !important;
+    }
+    .action-tab:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: 2px;
     }
 
     /* SPA markup contract: admin-layout.css is not loaded on this page,
@@ -72,16 +89,16 @@
    <div class="dashboard-content">
     <!-- Loan Status Tabs -->
     <div class="action-tabs" style="display: flex; gap: var(--bn-space-2); margin-bottom: var(--bn-space-6); padding: var(--bn-space-2); background: var(--bn-gray-100); border-radius: var(--bn-radius-full); overflow-x: auto;">
-      <button class="action-tab active" data-tab="pending" style="padding: var(--bn-space-3) var(--bn-space-5); border: none; background: transparent; border-radius: var(--bn-radius-full); font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-gray); cursor: pointer; transition: all var(--bn-transition-fast); white-space: nowrap;">
+      <button class="action-tab active" data-tab="pending">
         Pending Requests
       </button>
-      <button class="action-tab" data-tab="approved" style="padding: var(--bn-space-3) var(--bn-space-5); border: none; background: transparent; border-radius: var(--bn-radius-full); font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-gray); cursor: pointer; transition: all var(--bn-transition-fast); white-space: nowrap;">
+      <button class="action-tab" data-tab="approved">
         Approved
       </button>
-      <button class="action-tab" data-tab="active" style="padding: var(--bn-space-3) var(--bn-space-5); border: none; background: transparent; border-radius: var(--bn-radius-full); font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-gray); cursor: pointer; transition: all var(--bn-transition-fast); white-space: nowrap;">
+      <button class="action-tab" data-tab="active">
         Active Loans
       </button>
-      <button class="action-tab" data-tab="repaid" style="padding: var(--bn-space-3) var(--bn-space-5); border: none; background: transparent; border-radius: var(--bn-radius-full); font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-gray); cursor: pointer; transition: all var(--bn-transition-fast); white-space: nowrap;">
+      <button class="action-tab" data-tab="repaid">
         Repaid
       </button>
     </div>
@@ -140,7 +157,7 @@
     <div class="modal-content" style="max-width: 720px;">
       <div class="modal-header">
         <h2 class="modal-title">Make Loan Payment</h2>
-        <button class="modal-close" id="closePaymentModal">&times;</button>
+        <button class="modal-close" id="closePaymentModal" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
         <form id="loanPaymentForm">

@@ -169,6 +169,28 @@
     .performance-rate.good { background: var(--bn-success-light); color: var(--bn-success); }
     .performance-rate.warning { background: var(--bn-warning-light); color: var(--bn-warning); }
     .performance-rate.danger { background: var(--bn-danger-light); color: var(--bn-danger); }
+
+    /* Touch target + keyboard focus for the tab control (shared .tab class has no focus-visible state) */
+    .tab {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .tab:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: 2px;
+    }
+
+    .monthly-trend-chart {
+      margin-bottom: var(--bn-space-6);
+    }
+
+    @media (max-width: 480px) {
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
@@ -212,7 +234,7 @@
         </div>
       </div>
       <div class="content-section-body" id="chartsContainer">
-        <div id="monthlyTrendChart" style="margin-bottom: var(--bn-space-6);">
+        <div id="monthlyTrendChart" class="monthly-trend-chart">
           <!-- Monthly trend chart will be rendered here -->
         </div>
         <div class="charts-grid" id="chartContainer">
