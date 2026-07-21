@@ -1,3 +1,5 @@
+import { formatCurrency } from "./utils_financial.js";
+
 // Multi-step form navigation
 let currentStep = 1;
 const totalSteps = 5;
@@ -270,11 +272,6 @@ function getCurrencyValue(id) {
   const el = document.getElementById(id);
   if (!el) return 0;
   return parseInt(el.value.replace(/[^\d]/g, '')) || 0;
-}
-
-// Format currency for display
-function formatCurrency(amount) {
-  return 'MWK ' + parseInt(amount || 0).toLocaleString('en-US');
 }
 
 // File upload

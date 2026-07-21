@@ -467,6 +467,81 @@ function swapLocalStyles(targetDoc) {
 }
 
 /**
+ * Marker attribute used to identify body-level elements that are page-local
+ * (e.g. a modal overlay like #newLoanModal, or a page's #spinner loading
+ * overlay) so they can be swapped out wholesale on the next navigation. Every
+ * whitelisted admin page places some of this markup as a direct child of
+ * <body>, after </main> — it exists on a real/hard page load but is never
+ * part of .dashboard-content, so the content-only swap above never inserts
+ * it unless this pass handles it separately.
+ * @const {string}
+ */
+const LOCAL_BODY_ATTR = "data-spa-page-body-el";
+
+/**
+ * Selector for the shared, persistent chrome that lives as a direct child of
+ * <body> and must never be tagged, removed, or duplicated by the body-level
+ * sync below — it is rendered once by nav_sql.js's renderAdminNav()/
+ * renderUserNav() and updated in place (see updateActiveNav()), never
+ * rebuilt per navigation. Everything else that is a direct child of <body>
+ * and isn't a <script> is page-local content (modals, #spinner, etc.) that
+ * belongs to whichever whitelisted page is currently mounted.
+ * @const {string}
+ */
+const SHARED_BODY_CHROME_SELECTOR =
+    "#mainContent, #sidebar, #sidebarOverlay, .mobile-nav, #toastContainer, " +
+    ".top-nav, #mobileMenuOverlay, #mobileMenu";
+
+/**
+ * @param {Element} el A direct child of <body> (in either the live document
+ *     or a freshly-parsed target document).
+ * @return {boolean} Whether this element is page-local content that the
+ *     body-level sync owns, as opposed to shared chrome or a <script> tag.
+ */
+function isSyncablePageBodyElement(el) {
+  if (el.tagName === "SCRIPT") return false;
+  return !el.matches(SHARED_BODY_CHROME_SELECTOR);
+}
+
+/**
+ * Tag any page-local, direct-child-of-<body> element already sitting in the
+ * live document that isn't tagged yet (e.g. a modal overlay present on the
+ * very first, non-SPA load). Idempotent — a second call is a no-op for
+ * already-tagged elements. Mirrors tagExistingLocalStyles() above.
+ */
+function tagExistingLocalBodyElements() {
+  Array.from(document.body.children).forEach((el) => {
+    if (el.hasAttribute(LOCAL_BODY_ATTR)) return;
+    if (!isSyncablePageBodyElement(el)) return;
+    el.setAttribute(LOCAL_BODY_ATTR, "true");
+  });
+}
+
+/**
+ * Replace the current page's local body-level element(s) — modal overlays,
+ * #spinner, etc. — with the target page's equivalent element(s). Tagged
+ * (not appended alongside) so an outgoing page's modal never lingers in the
+ * DOM after a swap. Shared chrome (sidebar, topbar's container #mainContent,
+ * mobile nav, toast container, user top-nav/mobile menu) is left completely
+ * untouched — this only ever adds/removes elements matched by
+ * isSyncablePageBodyElement(). Mirrors swapLocalStyles() above.
+ * @param {Document} targetDoc Parsed document for the destination page.
+ */
+function swapLocalBodyElements(targetDoc) {
+  tagExistingLocalBodyElements();
+
+  const staleEls = document.body.querySelectorAll(":scope > [" + LOCAL_BODY_ATTR + "]");
+  staleEls.forEach((el) => el.remove());
+
+  Array.from(targetDoc.body.children).forEach((el) => {
+    if (!isSyncablePageBodyElement(el)) return;
+    const clone = el.cloneNode(true);
+    clone.setAttribute(LOCAL_BODY_ATTR, "true");
+    document.body.appendChild(clone);
+  });
+}
+
+/**
  * Fetch a whitelisted page, swap its .dashboard-content into the live DOM,
  * update chrome + history, and mount the target page's module.
  * @param {string} href Destination URL (relative or absolute).
@@ -525,6 +600,7 @@ async function navigateTo(href, opts = {}) {
   // delay.
   const newlyAppendedLinks = syncStylesheetLinks(doc, url.href);
   swapLocalStyles(doc);
+  swapLocalBodyElements(doc);
   await waitForStylesheets(newlyAppendedLinks, STYLESHEET_LOAD_TIMEOUT_MS);
 
   // The new content is about to become visible in the same spot the loader
