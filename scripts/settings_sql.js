@@ -45,8 +45,30 @@ if (!window.__bnSpa) {
 function setupEventListeners() {
   document.getElementById("personalForm")?.addEventListener("submit", savePersonalInfo);
   document.getElementById("professionalForm")?.addEventListener("submit", savePersonalInfo);
+  document.getElementById("securityForm")?.addEventListener("submit", saveSecurityInfo);
   document.getElementById("passwordForm")?.addEventListener("submit", changePassword);
   document.getElementById("changePasswordForm")?.addEventListener("submit", changePassword);
+
+  // No bank-account columns exist on the server yet (see api/handlers/profile.php
+  // PROFILE_BASE_COLUMNS / PROFILE_KYC_COLUMNS) — there is nothing to POST this
+  // form to. Toast-deferred rather than left as a silent full-page form submit.
+  document.getElementById("bankAccountForm")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    showToast("Saving bank account details isn't available yet — no backend field exists for this yet.", "info");
+  });
+
+  // No email-verification endpoint exists yet (api/handlers/auth.php has no
+  // resend-verification action) — toast-deferred rather than a dead click.
+  document.getElementById("resendVerificationBtn")?.addEventListener("click", () => {
+    showToast("Resending a verification email isn't available yet.", "info");
+  });
+
+  document.getElementById("testSoundBtn")?.addEventListener("click", playTestSound);
+
+  const soundVolumeSlider = document.getElementById("soundVolumeSlider");
+  soundVolumeSlider?.addEventListener("input", (e) => {
+    setText("volumeValue", e.target.value);
+  });
 
   document.getElementById("profilePictureInput")?.addEventListener("change", (e) => {
     uploadProfileImage(e.target.files?.[0] || null);
@@ -96,6 +118,12 @@ function renderProfile() {
   // `nationality` has no corresponding input in this markup anymore.
   setValue("career", profile.occupation);
   setValue("dateOfBirth", toDateInput(profile.dateOfBirth));
+
+  // Security panel: idType/idNumber are real columns (migration 011 — see
+  // api/handlers/profile.php PROFILE_KYC_COLUMNS). Absent if that migration
+  // hasn't run yet; setValue() blanks them harmlessly in that case.
+  setValue("idType", profile.idType);
+  setValue("idNumber", profile.idNumber);
 
   // Email is display-only (see the file header).
   setValue("email", profile.email);
@@ -175,6 +203,62 @@ async function savePersonalInfo(e) {
     handleApiError(error, "Failed to update your profile");
   } finally {
     showSpinner(false);
+  }
+}
+
+/**
+ * Security panel's ID fields — real columns (idType/idNumber, migration 011),
+ * saved through the same whitelisted profile.update endpoint as the other
+ * panels. Was previously not wired to anything (this form's submit fell
+ * through to a native page reload).
+ */
+async function saveSecurityInfo(e) {
+  e.preventDefault();
+
+  const payload = {
+    idType: valueOf("idType") ?? "",
+    idNumber: valueOf("idNumber") ?? "",
+  };
+
+  showSpinner(true);
+  try {
+    profile = await apiPost("profile.update", payload);
+    renderProfile();
+    showToast("Security info updated", "success");
+  } catch (error) {
+    handleApiError(error, "Failed to update your security info");
+  } finally {
+    showSpinner(false);
+  }
+}
+
+/** Client-only test tone for the notification-sound preview — no backend involved. */
+function playTestSound() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) {
+      showToast("Sound preview isn't supported in this browser.", "warning");
+      return;
+    }
+    const ctx = new AudioCtx();
+    const volumePercent = Number(document.getElementById("soundVolumeSlider")?.value ?? 70);
+    const soundType = document.getElementById("soundTypeSelector")?.value || "chime";
+    const FREQUENCY_BY_TYPE = {chime: 880, bell: 660, notification: 1046.5};
+
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = FREQUENCY_BY_TYPE[soundType] || 880;
+    gainNode.gain.value = Math.min(Math.max(volumePercent, 0), 100) / 100 * 0.3;
+
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    oscillator.start();
+    oscillator.stop(ctx.currentTime + 0.35);
+    oscillator.onended = () => ctx.close();
+  } catch (error) {
+    console.error("Failed to play test sound", error);
+    showToast("Could not play the test sound.", "error");
   }
 }
 

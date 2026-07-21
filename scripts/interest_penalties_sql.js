@@ -60,8 +60,8 @@ let members = [];
 
 const groupSelector = () => document.getElementById("groupSelector");
 const editRatesBtn = () => document.getElementById("editRatesBtn");
-const pendingPenaltiesList = () => document.getElementById("pendingPenaltiesList");
-const collectedInterestList = () => document.getElementById("collectedInterestList");
+const pendingPenaltiesList = () => document.getElementById("pendingPenaltiesWrap");
+const collectedInterestList = () => document.getElementById("collectedInterestWrap");
 const spinner = () => document.getElementById("spinner");
 const editModal = () => document.getElementById("editModal");
 const modalForm = () => document.getElementById("modalForm");
@@ -302,41 +302,73 @@ function renderPendingPenalties(rows) {
     return;
   }
 
-  const list = el("div", "penalties-list");
-  rows.forEach((row) => list.appendChild(penaltyItem(row)));
-  container.appendChild(list);
+  const table = el("table", "table table-responsive");
+  const thead = el("thead");
+  const headRow = el("tr");
+  ["Member", "Type", "Amount", "Due Date", "Details", "Status"].forEach((label) => {
+    const th = el("th");
+    th.textContent = label;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = el("tbody");
+  rows.forEach((row) => tbody.appendChild(createPenaltyRow(row)));
+  table.appendChild(tbody);
+
+  container.appendChild(table);
 }
 
-function penaltyItem(row) {
-  const item = el("div", "penalty-item");
+/**
+ * Renders one outstanding-arrears row as a <tr> for the
+ * .table.table-responsive component (pure-CSS desktop table / mobile card
+ * collapse, same pattern as manage_loans_sql.js's createLoanRow). Carries
+ * every field penaltyItem() used to show: member, arrears type, amount, due
+ * date, status badge, and the conditional live-penalty note folded into a
+ * "Details" cell that stays empty (data-label="") when no penalty accrued.
+ */
+function createPenaltyRow(row) {
+  const tr = el("tr");
 
-  const info = el("div", "penalty-info");
-  const member = el("div", "penalty-member");
-  member.textContent = row.memberName;
-  const type = el("div", "penalty-type");
-  type.textContent = row.type;
-  const amount = el("div", "penalty-amount");
-  amount.textContent = formatCurrency(row.amount);
-  const date = el("div", "penalty-date");
-  date.textContent = `Due: ${formatDate(row.dueDate)}`;
-  info.append(member, type, amount, date);
+  const memberCell = el("td");
+  memberCell.dataset.label = "Member";
+  memberCell.textContent = row.memberName;
+  tr.appendChild(memberCell);
 
+  const typeCell = el("td");
+  typeCell.dataset.label = "Type";
+  typeCell.textContent = row.type;
+  tr.appendChild(typeCell);
+
+  const amountCell = el("td", "cell-right");
+  amountCell.dataset.label = "Amount";
+  amountCell.textContent = formatCurrency(row.amount);
+  tr.appendChild(amountCell);
+
+  const dueDateCell = el("td");
+  dueDateCell.dataset.label = "Due Date";
+  dueDateCell.textContent = formatDate(row.dueDate);
+  tr.appendChild(dueDateCell);
+
+  const detailsCell = el("td");
   if (row.penaltyAccrued > 0) {
-    const penaltyLine = el("div", "penalty-date");
-    penaltyLine.style.color = "var(--bn-danger)";
+    const penaltyLine = el("div");
+    penaltyLine.style.cssText = "font-size: var(--bn-text-sm); color: var(--bn-danger);";
     penaltyLine.textContent = `Live penalty: ${formatCurrency(row.penaltyAccrued)}`;
-    info.appendChild(penaltyLine);
+    detailsCell.appendChild(penaltyLine);
   }
+  detailsCell.dataset.label = detailsCell.childNodes.length ? "Details" : "";
+  tr.appendChild(detailsCell);
 
-  item.appendChild(info);
-
-  const statusWrap = el("div", "penalty-status");
+  const statusCell = el("td");
+  statusCell.dataset.label = "Status";
   const badge = el("span", `badge badge-${row.penaltyAccrued > 0 ? "danger" : "warning"}`);
   badge.textContent = row.penaltyAccrued > 0 ? "Penalty accruing" : "Outstanding";
-  statusWrap.appendChild(badge);
-  item.appendChild(statusWrap);
+  statusCell.appendChild(badge);
+  tr.appendChild(statusCell);
 
-  return item;
+  return tr;
 }
 
 /** Interest already booked into loans.list rows for disbursed/completed loans. */
@@ -388,33 +420,62 @@ function renderCollectedInterest(loans) {
   summary.appendChild(summaryCard);
   container.appendChild(summary);
 
-  const list = el("div", "interest-list");
-  loans.forEach((loan) => list.appendChild(interestItem(loan)));
-  container.appendChild(list);
+  const table = el("table", "table table-responsive");
+  const thead = el("thead");
+  const headRow = el("tr");
+  ["Borrower", "Loan Amount", "Interest", "Disbursed", "Status"].forEach((label2) => {
+    const th = el("th");
+    th.textContent = label2;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = el("tbody");
+  loans.forEach((loan) => tbody.appendChild(createInterestRow(loan)));
+  table.appendChild(tbody);
+
+  container.appendChild(table);
 }
 
-function interestItem(loan) {
-  const item = el("div", "interest-item");
+/**
+ * Renders one disbursed/completed loan's interest as a <tr> for the
+ * .table.table-responsive component (pure-CSS desktop table / mobile card
+ * collapse, same pattern as manage_loans_sql.js's createLoanRow). Carries
+ * every field interestItem() used to show: borrower, loan principal,
+ * interest, disbursed date, and status badge.
+ */
+function createInterestRow(loan) {
+  const tr = el("tr");
 
-  const info = el("div", "interest-info");
-  const borrower = el("div", "interest-borrower");
-  borrower.textContent = loan.borrowerName || "Unknown";
-  const amount = el("div", "interest-loan");
-  amount.textContent = `Loan: ${formatCurrency(loan.principalAmount ?? loan.approvedAmount)}`;
-  const interest = el("div", "interest-amount");
-  interest.textContent = `Interest: ${formatCurrency(loan.totalInterest)}`;
-  const date = el("div", "interest-date");
-  date.textContent = `Disbursed: ${formatDate(loan.disbursedAt)}`;
-  info.append(borrower, amount, interest, date);
-  item.appendChild(info);
+  const borrowerCell = el("td");
+  borrowerCell.dataset.label = "Borrower";
+  borrowerCell.textContent = loan.borrowerName || "Unknown";
+  tr.appendChild(borrowerCell);
 
-  const statusWrap = el("div", "interest-status");
+  const loanAmountCell = el("td", "cell-right");
+  loanAmountCell.dataset.label = "Loan Amount";
+  loanAmountCell.textContent = formatCurrency(loan.principalAmount ?? loan.approvedAmount);
+  tr.appendChild(loanAmountCell);
+
+  const interestCell = el("td", "cell-right");
+  interestCell.dataset.label = "Interest";
+  interestCell.textContent = formatCurrency(loan.totalInterest);
+  tr.appendChild(interestCell);
+
+  const disbursedCell = el("td");
+  disbursedCell.dataset.label = "Disbursed";
+  disbursedCell.textContent = formatDate(loan.disbursedAt);
+  tr.appendChild(disbursedCell);
+
+  const statusCell = el("td");
+  statusCell.dataset.label = "Status";
   const badge = el("span", `badge badge-${loan.status === "completed" ? "success" : "info"}`);
   badge.textContent = loan.status;
-  statusWrap.appendChild(badge);
-  item.appendChild(statusWrap);
+  statusCell.appendChild(badge);
+  tr.appendChild(statusCell);
 
-  return item;
+  return tr;
 }
 
 // ── Edit Rates modal ─────────────────────────────────────────────────────────

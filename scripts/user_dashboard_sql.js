@@ -685,6 +685,38 @@ function renderActiveLoans(loans) {
     );
   }
   detailsEl.style.display = "block";
+
+  if (badgeEl) {
+    const isDue = active.some((loan) => isLoanDue(loan));
+    badgeEl.style.display = isDue ? "block" : "none";
+  }
+}
+
+/**
+ * Whether a loan is "due": active status, outstanding balance, and its
+ * maturity (approvedAt + repaymentPeriod months, day-clamped) has passed.
+ * Same rule as the Overdue tab on manage_loans_sql.js (cycle 65) — kept in
+ * sync so "due" means one thing app-wide.
+ * @param {Object} loan
+ * @return {boolean}
+ */
+function isLoanDue(loan) {
+  if (!isActiveLoan(loan.status)) return false;
+  if (toMinor(loan.remainingBalance) <= 0) return false;
+  if (!loan.approvedAt) return false;
+  const start = new Date(loan.approvedAt);
+  if (isNaN(start.getTime())) return false;
+  const months = parseInt(loan.repaymentPeriod, 10) || 0;
+  const targetMonth = start.getMonth() + months;
+  const targetFirst = new Date(start.getFullYear(), targetMonth, 1);
+  const daysInTargetMonth = new Date(
+    targetFirst.getFullYear(),
+    targetFirst.getMonth() + 1,
+    0,
+  ).getDate();
+  const maturity = new Date(targetFirst);
+  maturity.setDate(Math.min(start.getDate(), daysInTargetMonth));
+  return maturity.getTime() < Date.now();
 }
 
 /* ------------------------------------------------------------------ *

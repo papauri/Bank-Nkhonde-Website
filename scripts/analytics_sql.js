@@ -431,6 +431,12 @@ function statCard(label, value) {
 }
 
 // ── Member participation table — straight from cycle.equity, no re-derivation ──
+// Renders one member as a <tr> for the .table.table-responsive component (same
+// pure-CSS desktop table / mobile card collapse pattern as
+// manage_loans_sql.js's createLoanRow). Carries every field the former
+// participationItem() card showed: name, contributed, borrowed, interest
+// paid, on-target/needs-forced-loan badge, and the conditional shortfall
+// note folded into the Status cell.
 function renderMemberParticipation() {
   const container = memberPerformanceEl();
   if (!container) return;
@@ -440,49 +446,62 @@ function renderMemberParticipation() {
 
   const rows = Array.isArray(cycleEquity?.members) ? cycleEquity.members : [];
   if (rows.length === 0) {
-    container.appendChild(emptyState("👥", "No member equity data available"));
+    container.appendChild(emptyTableRow("No member equity data available", 5));
     return;
   }
 
-  const list = el("div", "performance-list");
-  rows.forEach((row) => list.appendChild(participationItem(row)));
-  container.appendChild(list);
+  rows.forEach((row) => container.appendChild(createParticipationRow(row)));
 }
 
-function participationItem(row) {
-  const item = el("div", "performance-item");
+function createParticipationRow(row) {
+  const tr = el("tr");
 
-  const info = el("div", "performance-info");
-  const name = el("div", "performance-name");
-  name.textContent = row.fullName || "Unknown";
-  const stats = el("div", "performance-stats");
+  const memberCell = el("td");
+  memberCell.dataset.label = "Member";
+  memberCell.textContent = row.fullName || "Unknown";
+  tr.appendChild(memberCell);
 
-  const contributed = document.createElement("span");
-  contributed.className = "text-success";
-  contributed.textContent = `Contributed: ${formatCurrency(row.totalContributed)}`;
-  const borrowed = document.createElement("span");
-  borrowed.textContent = `Borrowed: ${formatCurrency(row.totalBorrowed)}`;
-  const interestPaid = document.createElement("span");
-  interestPaid.textContent = `Interest paid: ${formatCurrency(row.totalInterestPaid)}`;
-  stats.append(contributed, borrowed, interestPaid);
+  const contributedCell = el("td", "cell-right");
+  contributedCell.dataset.label = "Contributed";
+  contributedCell.textContent = formatCurrency(row.totalContributed);
+  contributedCell.style.color = "var(--bn-success)";
+  tr.appendChild(contributedCell);
 
-  info.append(name, stats);
+  const borrowedCell = el("td", "cell-right");
+  borrowedCell.dataset.label = "Borrowed";
+  borrowedCell.textContent = formatCurrency(row.totalBorrowed);
+  tr.appendChild(borrowedCell);
 
+  const interestCell = el("td", "cell-right");
+  interestCell.dataset.label = "Interest Paid";
+  interestCell.textContent = formatCurrency(row.totalInterestPaid);
+  tr.appendChild(interestCell);
+
+  const statusCell = el("td");
+  statusCell.dataset.label = "Status";
+  const badge = el("span", `status-badge ${row.needsForcedLoan ? "danger" : "success"}`);
+  badge.textContent = row.needsForcedLoan ? "Needs forced loan" : "On target";
+  statusCell.appendChild(badge);
   if (row.needsForcedLoan) {
     const shortfallNote = el("div", "cell-danger");
     shortfallNote.textContent = `Shortfall vs target: ${formatCurrency(row.shortfallVsTarget)}`;
-    info.appendChild(shortfallNote);
+    statusCell.appendChild(shortfallNote);
   }
+  tr.appendChild(statusCell);
 
-  item.appendChild(info);
+  return tr;
+}
 
-  const badgeWrap = el("div", "performance-rate");
-  const badge = el("span", `status-badge ${row.needsForcedLoan ? "danger" : "success"}`);
-  badge.textContent = row.needsForcedLoan ? "Needs forced loan" : "On target";
-  badgeWrap.appendChild(badge);
-  item.appendChild(badgeWrap);
-
-  return item;
+/** Empty-state <tr> spanning all columns, matching manage_loans_sql.js's emptyTableRow. */
+function emptyTableRow(text, colspan) {
+  const row = el("tr");
+  const cell = el("td");
+  cell.colSpan = colspan;
+  cell.dataset.label = "";
+  cell.style.cssText = "text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);";
+  cell.textContent = text;
+  row.appendChild(cell);
+  return row;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

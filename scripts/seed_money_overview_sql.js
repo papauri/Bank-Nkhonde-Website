@@ -207,77 +207,91 @@ function displaySeedMoneyTable(data) {
   container.textContent = "";
 
   if (data.length === 0) {
-    container.appendChild(emptyState("🌱", "No seed money data available"));
+    container.appendChild(emptyTableRow("No seed money data available", 8));
     return;
   }
 
-  data.forEach((item) => container.appendChild(memberCard(item)));
+  data.forEach((item) => container.appendChild(createSeedMoneyRow(item)));
 }
 
-function memberCard(item) {
-  const card = el("div", "member-card");
+/**
+ * Renders one member's seed-money status as a <tr> for the
+ * .table.table-responsive component (pure-CSS desktop table / mobile card
+ * collapse, same pattern as manage_loans_sql.js's createLoanRow). Carries
+ * every field memberCard() used to show: member name, status badge, the
+ * three money figures, due date, the paid/required progress bar, and the
+ * conditional live-penalty note folded into a "Details" cell that stays
+ * empty (data-label="") when no penalty has accrued.
+ */
+function createSeedMoneyRow(item) {
+  const row = el("tr");
 
-  const header = el("div", "member-card-header");
-  const info = el("div", "member-info");
-  const name = el("div", "member-name");
-  name.textContent = item.memberName;
+  const nameCell = el("td");
+  nameCell.dataset.label = "Member";
+  nameCell.textContent = item.memberName;
+  row.appendChild(nameCell);
+
+  const statusCell = el("td");
+  statusCell.dataset.label = "Status";
   const badgeClass = item.status === "Paid" ? "success" : item.status === "Partially Paid" ? "warning" : "danger";
   const badge = el("span", `badge badge-${badgeClass}`);
   badge.textContent = item.status;
-  info.append(name, badge);
-  header.appendChild(info);
-  card.appendChild(header);
+  statusCell.appendChild(badge);
+  row.appendChild(statusCell);
 
-  const body = el("div", "member-card-body");
-  const grid = el("div", "member-details-grid");
-  grid.append(
-    memberDetail("Required", formatCurrency(item.required)),
-    memberDetail("Paid", formatCurrency(item.paid), "var(--bn-success)"),
-    memberDetail("Outstanding", formatCurrency(item.outstanding), item.outstanding > 0 ? "var(--bn-danger)" : "var(--bn-success)"),
-    memberDetail("Due Date", formatDate(item.dueDate)),
-  );
-  body.appendChild(grid);
+  const requiredCell = el("td", "cell-right");
+  requiredCell.dataset.label = "Required";
+  requiredCell.textContent = formatCurrency(item.required);
+  row.appendChild(requiredCell);
 
-  if (item.penaltyAccrued > 0) {
-    const penaltyNote = el("div");
-    penaltyNote.style.cssText = "font-size: var(--bn-text-sm); color: var(--bn-danger); margin-top: var(--bn-space-2);";
-    penaltyNote.textContent = `Live penalty accrued: ${formatCurrency(item.penaltyAccrued)}`;
-    body.appendChild(penaltyNote);
-  }
+  const paidCell = el("td", "cell-right");
+  paidCell.dataset.label = "Paid";
+  paidCell.textContent = formatCurrency(item.paid);
+  paidCell.style.color = "var(--bn-success)";
+  row.appendChild(paidCell);
+
+  const outstandingCell = el("td", "cell-right");
+  outstandingCell.dataset.label = "Outstanding";
+  outstandingCell.textContent = formatCurrency(item.outstanding);
+  outstandingCell.style.color = item.outstanding > 0 ? "var(--bn-danger)" : "var(--bn-success)";
+  row.appendChild(outstandingCell);
+
+  const dueDateCell = el("td");
+  dueDateCell.dataset.label = "Due Date";
+  dueDateCell.textContent = formatDate(item.dueDate);
+  row.appendChild(dueDateCell);
 
   const progressPercent = item.required > 0 ? Math.min((item.paid / item.required) * 100, 100) : 0;
+  const progressCell = el("td");
+  progressCell.dataset.label = "Progress";
   const progressWrap = el("div", "progress-bar");
-  progressWrap.style.marginTop = "var(--bn-space-4)";
   const progressFill = el("div", "progress-bar-fill");
   progressFill.style.width = `${progressPercent}%`;
   progressWrap.appendChild(progressFill);
-  body.appendChild(progressWrap);
-
   const progressLabel = el("div");
-  progressLabel.style.cssText = "text-align:center; font-size: var(--bn-text-sm); color: var(--bn-gray); margin-top: var(--bn-space-2);";
-  progressLabel.textContent = `${progressPercent.toFixed(1)}% Complete`;
-  body.appendChild(progressLabel);
+  progressLabel.style.cssText = "text-align:center; font-size: var(--bn-text-sm); color: var(--bn-gray); margin-top: var(--bn-space-1);";
+  progressLabel.textContent = `${progressPercent.toFixed(1)}%`;
+  progressCell.append(progressWrap, progressLabel);
+  row.appendChild(progressCell);
 
-  card.appendChild(body);
-  return card;
-}
+  const detailsCell = el("td");
+  if (item.penaltyAccrued > 0) {
+    const penaltyNote = el("div");
+    penaltyNote.style.cssText = "font-size: var(--bn-text-sm); color: var(--bn-danger);";
+    penaltyNote.textContent = `Live penalty accrued: ${formatCurrency(item.penaltyAccrued)}`;
+    detailsCell.appendChild(penaltyNote);
+  }
+  detailsCell.dataset.label = detailsCell.childNodes.length ? "Details" : "";
+  row.appendChild(detailsCell);
 
-function memberDetail(label, value, color) {
-  const wrap = el("div", "member-detail");
-  const labelEl = el("div", "member-detail-label");
-  labelEl.textContent = label;
-  const valueEl = el("div", "member-detail-value");
-  valueEl.textContent = value;
-  if (color) valueEl.style.color = color;
-  wrap.append(labelEl, valueEl);
-  return wrap;
+  return row;
 }
 
 function renderEmpty(text) {
   const container = seedMoneyList();
   if (!container) return;
   container.textContent = "";
-  container.appendChild(emptyState("🌱", text));
+  container.appendChild(emptyTableRow(text, 8));
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -287,14 +301,15 @@ function el(tag, className) {
   return node;
 }
 
-function emptyState(icon, text) {
-  const wrap = el("div", "empty-state");
-  const i = el("div", "empty-state-icon");
-  i.textContent = icon;
-  const p = el("p", "empty-state-text");
-  p.textContent = text;
-  wrap.append(i, p);
-  return wrap;
+function emptyTableRow(text, colspan) {
+  const row = el("tr");
+  const cell = el("td");
+  cell.colSpan = colspan;
+  cell.dataset.label = "";
+  cell.style.cssText = "text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);";
+  cell.textContent = text;
+  row.appendChild(cell);
+  return row;
 }
 
 function numberOf(value) {

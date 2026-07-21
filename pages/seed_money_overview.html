@@ -26,6 +26,34 @@
       outline: 2px solid var(--bn-accent);
       outline-offset: 2px;
     }
+
+    /* Details column (folded live-penalty note, seed_money_overview_sql.js's
+       createSeedMoneyRow) — cap width so it doesn't dominate the row, same
+       treatment as manage_loans.html's #loansTable Details column. */
+    #seedMoneyTable th:nth-child(8),
+    #seedMoneyTable td:nth-child(8) {
+      max-width: 260px;
+      white-space: normal;
+      word-break: break-word;
+    }
+
+    /* Progress bar cell — capped at desktop so the bar doesn't stretch to the
+       column's natural width; min-width is kept unconditionally (including
+       the mobile-card view) so it doesn't collapse to 0 width as a shrunk
+       flex item, same treatment as manage_loans.html's #loansTable
+       .loan-progress. */
+    #seedMoneyTable td[data-label="Progress"] .progress-bar {
+      max-width: 160px;
+      min-width: 100px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 768px) {
+      #seedMoneyTable td[data-label="Progress"] .progress-bar {
+        max-width: none;
+        margin: 0;
+      }
+    }
   </style>
 </head>
 <body>
@@ -68,11 +96,26 @@
           <button class="tab" data-filter="pending">Pending</button>
         </div>
       </div>
-      <div class="content-section-body" id="seedMoneyList">
-        <div class="empty-state">
-          <div class="empty-state-icon">🌱</div>
-          <p class="empty-state-text">Select a group to view seed money status</p>
-        </div>
+      <div class="table-container">
+        <table class="table table-responsive" id="seedMoneyTable">
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>Status</th>
+              <th class="cell-right">Required</th>
+              <th class="cell-right">Paid</th>
+              <th class="cell-right">Outstanding</th>
+              <th>Due Date</th>
+              <th>Progress</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="seedMoneyList">
+            <tr>
+              <td colspan="8" style="text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);">Select a group to view seed money status</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
     </div>
@@ -101,6 +144,6 @@
     import { initNav } from '../scripts/nav_sql.js';
     initNav({ variant: 'admin', activePage: 'seed-money', pageTitle: 'Seed Money' });
   </script>
-  <script type="module" src="../scripts/seed_money_overview_sql.js"></script>
+  <script type="module" src="../scripts/seed_money_overview_sql.js?v=20260722"></script>
 </body>
 </html>

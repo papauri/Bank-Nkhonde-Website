@@ -104,72 +104,6 @@
     .legend-dot.income { background: var(--bn-gradient-accent); }
     .legend-dot.expense { background: var(--bn-gray-400); }
 
-    /* Performance List */
-    .performance-list {
-      display: flex;
-      flex-direction: column;
-      gap: var(--bn-space-3);
-    }
-
-    .performance-item {
-      display: flex;
-      align-items: center;
-      gap: var(--bn-space-4);
-      padding: var(--bn-space-4);
-      background: var(--bn-gray-100);
-      border-radius: var(--bn-radius-lg);
-      transition: all var(--bn-transition-fast);
-    }
-
-    .performance-item:hover {
-      background: var(--bn-white);
-      box-shadow: var(--bn-shadow-sm);
-    }
-
-    .performance-rank {
-      width: 36px;
-      height: 36px;
-      border-radius: var(--bn-radius-full);
-      background: var(--bn-primary);
-      color: var(--bn-white);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: var(--bn-text-sm);
-    }
-
-    .performance-info {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .performance-name {
-      font-weight: 600;
-      color: var(--bn-dark);
-      margin-bottom: 2px;
-    }
-
-    .performance-stats {
-      font-size: var(--bn-text-xs);
-      display: flex;
-      gap: var(--bn-space-3);
-    }
-
-    .performance-stats .text-success { color: var(--bn-success); }
-    .performance-stats .text-danger { color: var(--bn-danger); }
-
-    .performance-rate {
-      font-size: var(--bn-text-lg);
-      font-weight: 700;
-      padding: var(--bn-space-2) var(--bn-space-3);
-      border-radius: var(--bn-radius-md);
-    }
-
-    .performance-rate.good { background: var(--bn-success-light); color: var(--bn-success); }
-    .performance-rate.warning { background: var(--bn-warning-light); color: var(--bn-warning); }
-    .performance-rate.danger { background: var(--bn-danger-light); color: var(--bn-danger); }
-
     /* Touch target + keyboard focus for the tab control (shared .tab class has no focus-visible state) */
     .tab {
       min-height: 44px;
@@ -248,10 +182,24 @@
       <div class="content-section-header">
         <h2 class="content-section-title">Member Performance</h2>
       </div>
-      <div class="content-section-body" id="memberPerformance">
-        <div class="empty-state">
-          <div class="empty-state-icon">👥</div>
-          <p class="empty-state-text">Select a group to view member performance</p>
+      <div class="content-section-body">
+        <div class="table-container">
+          <table class="table table-responsive" id="memberPerformanceTable">
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th class="cell-right">Contributed</th>
+                <th class="cell-right">Borrowed</th>
+                <th class="cell-right">Interest Paid</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="memberPerformance">
+              <tr>
+                <td colspan="5" style="text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);">Select a group to view member performance</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </section>
@@ -288,6 +236,6 @@
     import { initNav } from '../scripts/nav_sql.js';
     initNav({ variant: 'admin', activePage: 'analytics', pageTitle: 'Analytics' });
   </script>
-  <script type="module" src="../scripts/analytics_sql.js"></script>
+  <script type="module" src="../scripts/analytics_sql.js?v=20260722"></script>
 </body>
 </html>

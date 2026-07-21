@@ -187,6 +187,27 @@
       font-weight: 800;
       color: var(--bn-dark);
     }
+
+    /* Outstanding Arrears / Collected Interest tables are rendered by
+       interest_penalties_sql.js directly into these containers (no static
+       markup here). Wrapping them in the shared .table-container box gives
+       the same bordered/overflow-x treatment as manage_loans.html's tables;
+       the mobile-card collapse (design-system.css) still applies unchanged. */
+    #pendingPenaltiesWrap.table-container,
+    #collectedInterestWrap.table-container {
+      padding: 0;
+    }
+
+    /* Details column (folded live-penalty note on the Outstanding Arrears
+       table, createPenaltyRow's 5th column) — cap width so it doesn't
+       dominate the row, same treatment as manage_loans.html's Details
+       column. */
+    #pendingPenaltiesWrap table th:nth-child(5),
+    #pendingPenaltiesWrap table td:nth-child(5) {
+      max-width: 260px;
+      white-space: normal;
+      word-break: break-word;
+    }
   </style>
 </head>
 <body>
@@ -250,7 +271,7 @@
       <div class="content-section-header">
         <h2 class="content-section-title">Outstanding Arrears</h2>
       </div>
-      <div class="content-section-body" id="pendingPenaltiesList">
+      <div class="content-section-body table-container" id="pendingPenaltiesWrap">
         <div class="empty-state">
           <div class="empty-state-icon">⚖️</div>
           <p class="empty-state-text">No outstanding arrears</p>
@@ -263,7 +284,7 @@
       <div class="content-section-header">
         <h2 class="content-section-title">Collected Interest</h2>
       </div>
-      <div class="content-section-body" id="collectedInterestList">
+      <div class="content-section-body table-container" id="collectedInterestWrap">
         <div class="empty-state">
           <div class="empty-state-icon">💰</div>
           <p class="empty-state-text">No interest collected yet</p>
@@ -307,6 +328,6 @@
     import { initNav } from '../scripts/nav_sql.js';
     initNav({ variant: 'admin', activePage: 'penalties', pageTitle: 'Interest & Penalties' });
   </script>
-  <script type="module" src="../scripts/interest_penalties_sql.js"></script>
+  <script type="module" src="../scripts/interest_penalties_sql.js?v=20260722"></script>
 </body>
 </html>
