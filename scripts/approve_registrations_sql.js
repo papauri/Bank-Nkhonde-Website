@@ -97,6 +97,7 @@ function setupEventListeners() {
       tab.classList.add("active");
       currentFilter = tab.dataset.filter;
       filterAndDisplay();
+      document.getElementById("pendingList")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
 }

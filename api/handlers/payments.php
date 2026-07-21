@@ -137,16 +137,26 @@ if (!function_exists('compute_contribution_penalty')) {
      *     is actually owed.
      *
      * COMPUTED ON READ. It grows every night and there is no cron in this system,
-     * so any persisted running total is stale by morning. Nothing here is stored.
+     * so any persisted running total is stale by morning. Only SETTLED penalties
+     * — paid or waived — are persisted (in penalty_settlements, paymentId-scoped),
+     * because a settlement is a fact that has stopped accruing. This mirrors
+     * compute_loan_penalty()'s loanId-scoped netting exactly.
      *
      * @param array|null  $rules        group_rules row, or null when the group has none.
      * @param string|null $dueDate      The obligation's due date; null when unscheduled.
      * @param int         $arrearsMinor What is still owed, in minor units.
+     * @param string|null $paymentId    The obligation's payments row id, when one
+     *                                  exists, so already-settled amounts can be
+     *                                  netted off. Null when no row exists yet
+     *                                  (an obligation never claimed has nothing to
+     *                                  net against, and amountOutstanding equals
+     *                                  amountAccrued).
      * @param string|null $asOf         Defaults to today.
      *
      * @return array{
      *     dailyAmount:string, gracePeriodDays:int, firstChargeableDay:?string,
-     *     daysCharged:int, amountAccrued:string, dueDate:?string, asOf:string
+     *     daysCharged:int, amountAccrued:string, amountSettled:string,
+     *     amountOutstanding:string, dueDate:?string, asOf:string
      * }
      *
      * @throws RuntimeException when the group's penalty config cannot be honoured.
@@ -155,6 +165,7 @@ if (!function_exists('compute_contribution_penalty')) {
         ?array $rules,
         ?string $dueDate,
         int $arrearsMinor,
+        ?string $paymentId = null,
         ?string $asOf = null
     ): array {
         $asOfDay = payment_day($asOf ?? 'now');
@@ -165,6 +176,8 @@ if (!function_exists('compute_contribution_penalty')) {
             'firstChargeableDay' => null,
             'daysCharged' => 0,
             'amountAccrued' => '0.00',
+            'amountSettled' => '0.00',
+            'amountOutstanding' => '0.00',
             'dueDate' => null,
             'asOf' => $asOfDay->format('Y-m-d'),
         ];
@@ -222,12 +235,45 @@ if (!function_exists('compute_contribution_penalty')) {
             ? (int) $firstChargeable->diff($asOfDay)->days
             : 0;
 
+        $accruedMinor = $dailyMinor * $daysCharged;
+
+        // Penalties already settled against this payment — paid or waived — have
+        // stopped accruing and are facts on the ledger. Netting them off is what
+        // stops a member being charged twice for the same overdue days, and is
+        // what makes a waiver actually stick on the next read.
+        // Summed row-wise in integer minor units, same reasoning as
+        // compute_loan_penalty(): an aggregate SQL SUM() comes back as a string of
+        // uncertain scale, and coercing it would mean a float touching money.
+        // There are only a handful of settlement rows per payment, so the
+        // row-wise sum is exact and cheap. No settlement rows can exist without a
+        // paymentId (the column doesn't exist until a claim is recorded), so a
+        // null paymentId skips the query rather than running it for nothing.
+        $settledMinor = 0;
+        if ($paymentId !== null && $paymentId !== '') {
+            $pdo = getDbConnection();
+            $settledStmt = $pdo->prepare(
+                'SELECT amountPaid, amountWaived FROM penalty_settlements WHERE paymentId = :paymentId'
+            );
+            $settledStmt->execute([':paymentId' => $paymentId]);
+            foreach ($settledStmt->fetchAll() as $row) {
+                $settledMinor += money_to_minor(trim((string) $row['amountPaid']));
+                $settledMinor += money_to_minor(trim((string) $row['amountWaived']));
+            }
+        }
+
+        $outstandingMinor = $accruedMinor - $settledMinor;
+        if ($outstandingMinor < 0) {
+            $outstandingMinor = 0;
+        }
+
         return [
             'dailyAmount' => money_from_minor($dailyMinor),
             'gracePeriodDays' => $graceDays,
             'firstChargeableDay' => $firstChargeable->format('Y-m-d'),
             'daysCharged' => $daysCharged,
-            'amountAccrued' => money_from_minor($dailyMinor * $daysCharged),
+            'amountAccrued' => money_from_minor($accruedMinor),
+            'amountSettled' => money_from_minor($settledMinor),
+            'amountOutstanding' => money_from_minor($outstandingMinor),
             'dueDate' => $dueDay->format('Y-m-d'),
             'asOf' => $asOfDay->format('Y-m-d'),
         ];
@@ -241,13 +287,113 @@ if (!function_exists('payment_penalty_or_501')) {
      * (percentage penalties, or 'fixed' with no daily amount) — a wrong charge
      * against a real member is worse than a failed request.
      */
-    function payment_penalty_or_501(?array $rules, ?string $dueDate, int $arrearsMinor): array
-    {
+    function payment_penalty_or_501(
+        ?array $rules,
+        ?string $dueDate,
+        int $arrearsMinor,
+        ?string $paymentId = null
+    ): array {
         try {
-            return compute_contribution_penalty($rules, $dueDate, $arrearsMinor);
+            return compute_contribution_penalty($rules, $dueDate, $arrearsMinor, $paymentId);
         } catch (RuntimeException $e) {
             json_error($e->getMessage(), 501);
         }
+    }
+}
+
+if (!function_exists('waive_contribution_penalty')) {
+    /**
+     * POST payments.waivePenalty — forgive the outstanding penalty on a
+     * contribution obligation (seed money / monthly contribution / service fee).
+     *
+     * SENIOR ADMIN ONLY. Waiving is forgiving real debt, so it sits at the
+     * highest privilege in the group — the same gate repayments.waive uses for
+     * loan penalties.
+     *
+     * A penalty is never silently zeroed. A waiver is a recorded decision with an
+     * author and a reason, written to penalty_settlements (paymentId-scoped,
+     * mirroring the loanId-scoped loan-penalty settlement) — which is also what
+     * stops the waived days from being charged again on the next read.
+     *
+     * Scoped to an EXISTING payments row: an obligation that has never had a
+     * payment claim recorded has no paymentId to attach a settlement to (the
+     * column doesn't exist until a claim is recorded). That mirrors how loan
+     * waivers work — a loan always exists once originated; here, a payments row
+     * exists once a claim, even a rejected one, has been recorded.
+     */
+    function waive_contribution_penalty(): void
+    {
+        $body = read_json_body();
+        $paymentId = (string) ($body['paymentId'] ?? '');
+        $reason = trim((string) ($body['waivedReason'] ?? ''));
+
+        if ($paymentId === '') {
+            json_error('paymentId is required.', 422);
+        }
+        if ($reason === '') {
+            json_error('waivedReason is required.', 422);
+        }
+
+        $pdo = getDbConnection();
+
+        $stmt = $pdo->prepare('SELECT * FROM payments WHERE paymentId = :paymentId LIMIT 1');
+        $stmt->execute([':paymentId' => $paymentId]);
+        $payment = $stmt->fetch();
+
+        if ($payment === false) {
+            json_error('Payment not found.', 404);
+        }
+
+        $caller = require_role((string) $payment['groupId'], ['senior_admin']);
+
+        $rules = payment_fetch_rules($pdo, (string) $payment['groupId']);
+        $arrearsMinor = money_to_minor(trim((string) $payment['arrears']));
+        $dueDate = $payment['dueDate'] === null ? null : (string) $payment['dueDate'];
+        $penalty = payment_penalty_or_501($rules, $dueDate, $arrearsMinor, $paymentId);
+
+        $outstandingMinor = money_to_minor($penalty['amountOutstanding']);
+        if ($outstandingMinor <= 0) {
+            json_error('There is no outstanding penalty on this payment to waive.', 409);
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $settlement = $pdo->prepare(
+                'INSERT INTO penalty_settlements '
+                . '(groupId, uid, loanId, paymentId, accruedFrom, accruedTo, daysCharged, '
+                . 'dailyAmount, amountAccrued, amountPaid, amountWaived, status, waivedReason, '
+                . 'settledBy, settledAt, createdAt) '
+                . 'VALUES (:groupId, :uid, NULL, :paymentId, :accruedFrom, :accruedTo, :daysCharged, '
+                . ":dailyAmount, :amountAccrued, '0.00', :amountWaived, 'waived', :waivedReason, "
+                . ':settledBy, NOW(), NOW())'
+            );
+            $settlement->execute([
+                ':groupId' => $payment['groupId'],
+                ':uid' => $payment['uid'],
+                ':paymentId' => $paymentId,
+                ':accruedFrom' => $penalty['firstChargeableDay'],
+                ':accruedTo' => $penalty['asOf'],
+                ':daysCharged' => $penalty['daysCharged'],
+                ':dailyAmount' => $penalty['dailyAmount'],
+                ':amountAccrued' => $penalty['amountAccrued'],
+                ':amountWaived' => money_from_minor($outstandingMinor),
+                ':waivedReason' => $reason,
+                ':settledBy' => $caller['uid'],
+            ]);
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+
+        // Recomputed on read: the waiver has netted the outstanding penalty to zero.
+        json_response([
+            'paymentId' => $paymentId,
+            'penalty' => payment_penalty_or_501($rules, $dueDate, $arrearsMinor, $paymentId),
+        ]);
     }
 }
 
@@ -581,14 +727,20 @@ if (!function_exists('list_payments')) {
             $row['penalty'] = payment_penalty_or_501(
                 $rules,
                 $row['dueDate'] === null ? null : (string) $row['dueDate'],
-                $arrearsMinor
+                $arrearsMinor,
+                (string) $row['paymentId']
             );
 
             if (in_array((string) $row['approvalStatus'], ['approved', 'completed'], true)) {
                 $collectedVerifiedMinor += money_to_minor(trim((string) $row['amountPaid']));
             }
             $arrearsTotalMinor += $arrearsMinor;
-            $penaltyAccruedMinor += money_to_minor(trim((string) $row['penalty']['amountAccrued']));
+            // amountOutstanding, not amountAccrued: a waived/paid penalty must not
+            // keep inflating this summary once it has been settled — this is the
+            // direct consequence of adding settlement netting above. The field
+            // name (penaltyAccrued) is kept stable for existing API consumers;
+            // only the VALUE now reflects what is actually still outstanding.
+            $penaltyAccruedMinor += money_to_minor(trim((string) $row['penalty']['amountOutstanding']));
 
             $payments[] = $row;
         }
@@ -666,6 +818,7 @@ if (!function_exists('my_obligations')) {
         $seedPaidMinor = payment_settled_minor($pdo, $groupId, $uid, 'seed_money');
         $seedArrearsMinor = $seedDueMinor === null ? 0 : max(0, $seedDueMinor - $seedPaidMinor);
         $seedDueDate = payment_due_date($rules, 'seed_money', null, $year);
+        $seedRow = payment_fetch_row($pdo, $groupId, $uid, 'seed_money', $year, null);
 
         $seed = [
             'required' => (int) ($rules['seedMoneyRequired'] ?? 0) === 1,
@@ -674,7 +827,12 @@ if (!function_exists('my_obligations')) {
             'amountPaid' => money_from_minor($seedPaidMinor),
             'arrears' => money_from_minor($seedArrearsMinor),
             'dueDate' => $seedDueDate,
-            'penalty' => payment_penalty_or_501($rules, $seedDueDate, $seedArrearsMinor),
+            'penalty' => payment_penalty_or_501(
+                $rules,
+                $seedDueDate,
+                $seedArrearsMinor,
+                $seedRow === null ? null : (string) $seedRow['paymentId']
+            ),
         ];
 
         // --- Monthly contributions, month by month across the current year. ---
@@ -702,7 +860,12 @@ if (!function_exists('my_obligations')) {
                 'arrears' => money_from_minor($arrearsMinor),
                 'dueDate' => $dueDate,
                 'approvalStatus' => $row === null ? 'unpaid' : (string) $row['approvalStatus'],
-                'penalty' => payment_penalty_or_501($rules, $dueDate, $arrearsMinor),
+                'penalty' => payment_penalty_or_501(
+                    $rules,
+                    $dueDate,
+                    $arrearsMinor,
+                    $row === null ? null : (string) $row['paymentId']
+                ),
             ];
         }
 
@@ -715,6 +878,7 @@ if (!function_exists('my_obligations')) {
             $feePaidMinor = payment_settled_minor($pdo, $groupId, $uid, 'service_fee', $year);
             $feeArrearsMinor = $feeDueMinor === null ? 0 : max(0, $feeDueMinor - $feePaidMinor);
             $feeDueDate = payment_due_date($rules, 'service_fee', null, $year);
+            $feeRow = payment_fetch_row($pdo, $groupId, $uid, 'service_fee', $year, null);
 
             $serviceFee = [
                 'required' => true,
@@ -723,7 +887,12 @@ if (!function_exists('my_obligations')) {
                 'amountPaid' => money_from_minor($feePaidMinor),
                 'arrears' => money_from_minor($feeArrearsMinor),
                 'dueDate' => $feeDueDate,
-                'penalty' => payment_penalty_or_501($rules, $feeDueDate, $feeArrearsMinor),
+                'penalty' => payment_penalty_or_501(
+                    $rules,
+                    $feeDueDate,
+                    $feeArrearsMinor,
+                    $feeRow === null ? null : (string) $feeRow['paymentId']
+                ),
             ];
         }
 
@@ -733,16 +902,19 @@ if (!function_exists('my_obligations')) {
         // (seed money, every month, service fee). No re-fetch, no new query.
         $contributedMinor = $seedPaidMinor;
         $arrearsMinor = $seedArrearsMinor;
-        $penaltyAccruedMinor = money_to_minor(trim((string) $seed['penalty']['amountAccrued']));
+        // amountOutstanding, not amountAccrued: a waived/paid penalty must not
+        // keep inflating this summary once it has been settled (same reasoning
+        // as list_payments' summary, above).
+        $penaltyAccruedMinor = money_to_minor(trim((string) $seed['penalty']['amountOutstanding']));
         foreach ($months as $monthRow) {
             $contributedMinor += money_to_minor(trim((string) $monthRow['amountPaid']));
             $arrearsMinor += money_to_minor(trim((string) $monthRow['arrears']));
-            $penaltyAccruedMinor += money_to_minor(trim((string) $monthRow['penalty']['amountAccrued']));
+            $penaltyAccruedMinor += money_to_minor(trim((string) $monthRow['penalty']['amountOutstanding']));
         }
         if ($serviceFee !== null) {
             $contributedMinor += money_to_minor(trim((string) $serviceFee['amountPaid']));
             $arrearsMinor += money_to_minor(trim((string) $serviceFee['arrears']));
-            $penaltyAccruedMinor += money_to_minor(trim((string) $serviceFee['penalty']['amountAccrued']));
+            $penaltyAccruedMinor += money_to_minor(trim((string) $serviceFee['penalty']['amountOutstanding']));
         }
 
         json_response([
@@ -1012,7 +1184,7 @@ if (!function_exists('record_payment')) {
             'payment' => $payment,
             // The claim is NOT yet money. Say so plainly.
             'awaitingApproval' => true,
-            'penalty' => payment_penalty_or_501($rules, $rowDueDate, $arrearsMinor),
+            'penalty' => payment_penalty_or_501($rules, $rowDueDate, $arrearsMinor, $paymentId),
         ], 201);
     }
 }

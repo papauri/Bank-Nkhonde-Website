@@ -82,6 +82,7 @@ function setupEventListeners() {
       el.classList.add("active");
       currentLoanTab = el.dataset.tab;
       displayLoansByTab();
+      document.getElementById("loansList")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
 

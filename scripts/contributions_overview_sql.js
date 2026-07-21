@@ -90,13 +90,17 @@ export async function init() {
     await loadGroupData();
   });
 
-  monthSelector()?.addEventListener("change", loadCurrentMonthView);
+  monthSelector()?.addEventListener("change", async () => {
+    await loadCurrentMonthView();
+    document.getElementById("breakdownCards")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
 
   // The year now drives BOTH sections: relabel the months for that year, refresh
   // the live arrears view for it, and reload the settled history.
   historyYearSelector()?.addEventListener("change", async () => {
     populateMonthSelector();
     await Promise.all([loadCurrentMonthView(), loadHistory()]);
+    document.getElementById("contributionHistory")?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 
   populateMonthSelector();

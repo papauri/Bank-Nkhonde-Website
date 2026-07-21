@@ -29,7 +29,7 @@
  * exactly matching the behaviour of the inline calls this replaces.
  */
 
-import { initNav } from './nav_sql.js';
+import { initNav } from './nav_sql.js?v=20260722';
 
 document.addEventListener('DOMContentLoaded', () => {
   const nav = document.body.dataset;

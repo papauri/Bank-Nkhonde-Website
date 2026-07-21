@@ -103,6 +103,7 @@ function setupEventListeners() {
       tab.classList.add("active");
       currentFilter = tab.dataset.filter || "all";
       filterMessages();
+      document.getElementById("messagesList")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
 

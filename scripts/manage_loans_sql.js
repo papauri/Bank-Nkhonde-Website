@@ -129,6 +129,7 @@ function setupEventListeners() {
       }
 
       renderLoans();
+      document.getElementById("loansContainer")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
 
@@ -143,10 +144,14 @@ function setupEventListeners() {
         });
       }
       renderLoans();
+      document.getElementById("loansContainer")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }
 
-  document.getElementById("borrowerFilterDropdown")?.addEventListener("change", renderLoans);
+  document.getElementById("borrowerFilterDropdown")?.addEventListener("change", () => {
+    renderLoans();
+    document.getElementById("loansContainer")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
 
   document.getElementById("newLoanBtn")?.addEventListener("click", () => openNewLoanModal());
   document.getElementById("recordPaymentBtn")?.addEventListener("click", () => openRecordPaymentModal());

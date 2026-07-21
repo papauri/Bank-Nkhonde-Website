@@ -99,6 +99,7 @@ function setupEventListeners() {
       currentGroupId = groupId;
       sessionStorage.setItem("selectedGroupId", groupId);
       await loadMembers(groupId);
+      document.getElementById("contactsList")?.scrollIntoView({ behavior: "smooth", block: "start" });
     } else {
       currentGroupId = null;
       allMembers = [];
@@ -106,7 +107,10 @@ function setupEventListeners() {
     }
   });
 
-  searchBoxEl()?.addEventListener("input", filterAndRender);
+  searchBoxEl()?.addEventListener("input", () => {
+    filterAndRender();
+    document.getElementById("contactsList")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
 
   messageAdminFormEl()?.addEventListener("submit", handleSendMessage);
 

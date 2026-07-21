@@ -139,7 +139,10 @@ function setupEventListeners() {
       if (tab.textContent?.trim() !== "Month") {
         showToast("Week/Year breakdowns are not available yet — showing the monthly view.", "info");
       }
-      if (currentGroupId) await loadAnalytics();
+      if (currentGroupId) {
+        await loadAnalytics();
+        document.getElementById("memberPerformanceTable")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     });
   });
 }

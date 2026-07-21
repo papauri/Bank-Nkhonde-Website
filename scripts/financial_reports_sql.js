@@ -136,7 +136,10 @@ function setupEventListeners() {
       if (tab.textContent?.trim() !== "Monthly") {
         showToast("Quarterly/Annual breakdowns are not available yet — showing the monthly report.", "info");
       }
-      if (currentGroupId) await loadReportData();
+      if (currentGroupId) {
+        await loadReportData();
+        document.getElementById("detailedReport")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     });
   });
 }

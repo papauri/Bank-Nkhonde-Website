@@ -82,6 +82,7 @@ const ROUTES = [
     'payments.record'      => ['POST', 'record_payment'],
     'payments.approve'     => ['POST', 'approve_payment'],
     'payments.reject'      => ['POST', 'reject_payment'],
+    'payments.waivePenalty' => ['POST', 'waive_contribution_penalty'],
 
     'rules.get'    => ['GET', 'get_rules'],
     'rules.update' => ['POST', 'update_rules'],

@@ -44,6 +44,7 @@ export async function init() {
       document.querySelectorAll(".tab[data-filter]").forEach((t) => t.classList.remove("active"));
       tab.classList.add("active");
       applyFilter(tab.dataset.filter);
+      document.getElementById("seedMoneyTable")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
 

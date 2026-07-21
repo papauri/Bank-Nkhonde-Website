@@ -18,7 +18,7 @@
  */
 
 import {apiGet, apiPost, requireSession, listMyGroups, ApiError, redirectToLogin} from "./api.js";
-import {updateActiveNav} from "./nav_sql.js";
+import {updateActiveNav} from "./nav_sql.js?v=20260722";
 
 const MAX_PDF_BYTES = 5 * 1024 * 1024; // matches the server's UPLOAD_MAX_BYTES
 

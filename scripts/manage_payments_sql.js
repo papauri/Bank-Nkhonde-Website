@@ -146,7 +146,10 @@ function setupEventListeners() {
   document.getElementById("sendRemindersForm")?.addEventListener("submit", handleSendReminders);
 
   document.querySelectorAll(".payment-tab").forEach((tab) => {
-    tab.addEventListener("click", () => activateTab(tab.dataset.tab || "pending"));
+    tab.addEventListener("click", () => {
+      activateTab(tab.dataset.tab || "pending");
+      document.getElementById("pendingPaymentsList")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   });
 
   // Stat tiles: click switches to the related tab. "approved" and "collected"

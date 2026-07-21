@@ -613,7 +613,7 @@ async function navigateTo(href, opts = {}) {
     window.history.pushState({bnSpa: true}, "", url.href);
   }
 
-  const {updateActiveNav} = await import("./nav_sql.js");
+  const {updateActiveNav} = await import("./nav_sql.js?v=20260722");
   updateActiveNav(config.nav, config.title);
 
   let mod;

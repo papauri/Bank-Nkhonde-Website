@@ -19,7 +19,7 @@
  */
 
 import {getSession, logout as apiLogout, listMyGroups} from "./api.js";
-import {initSpaRouter} from "./spa-router.js";
+import {initSpaRouter} from "./spa-router.js?v=20260722";
 
 const LOGIN_URL = "../login.html";
 

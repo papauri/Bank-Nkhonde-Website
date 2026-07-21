@@ -121,10 +121,14 @@ function setupEventListeners() {
       tab.classList.add("active");
       currentFilter = tab.dataset.filter;
       filterMembers();
+      document.getElementById("membersList")?.closest(".table-container")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
 
-  document.getElementById("searchMembers")?.addEventListener("input", filterMembers);
+  document.getElementById("searchMembers")?.addEventListener("input", () => {
+    filterMembers();
+    document.getElementById("membersList")?.closest(".table-container")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
 }
 
 // ── Load the caller's admin groups ──────────────────────────────────────────
