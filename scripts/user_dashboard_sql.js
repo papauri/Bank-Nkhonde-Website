@@ -349,6 +349,28 @@ async function selectUserGroup(groupId) {
 window.selectUserGroup = selectUserGroup;
 
 /**
+ * Dismiss the "Due" badge on the next-payment stat tile. The badge is
+ * re-shown on the next data refresh by renderNextMonthlyPayment() if the
+ * obligation is still overdue, so this only hides the current instance.
+ * @param {Event} event
+ */
+window.dismissNextPaymentBadge = function dismissNextPaymentBadge(event) {
+  event.stopPropagation(); // badge sits on top of the parent stat tile's own click-through
+  event.target.style.display = "none";
+};
+
+/**
+ * Dismiss the "Due" badge on the active-loans stat tile. The badge is
+ * re-shown on the next data refresh by renderActiveLoans() if it decides
+ * to show it again, so this only hides the current instance.
+ * @param {Event} event
+ */
+window.dismissActiveLoansBadge = function dismissActiveLoansBadge(event) {
+  event.stopPropagation(); // badge sits on top of the parent stat tile's own click-through
+  event.target.style.display = "none";
+};
+
+/**
  * Jump to the admin dashboard for the selected group.
  */
 window.handleSwitchToAdmin = function handleSwitchToAdmin() {
@@ -935,6 +957,18 @@ function wireStaticHandlers() {
   overlay?.addEventListener("click", closeMobileMenu);
   window.closeMobileMenu = closeMobileMenu;
 
+  // Active-loans stat tile: keyboard access (it's a div, not a button,
+  // because its nested badge is itself a button — button-in-button is
+  // invalid HTML). Guard against double-firing when Enter/Space is
+  // pressed while focus is on the nested badge button.
+  const activeLoansStat = document.getElementById("activeLoansStat");
+  activeLoansStat?.addEventListener("keydown", (e) => {
+    if ((e.key === "Enter" || e.key === " ") && e.target === activeLoansStat) {
+      e.preventDefault();
+      window.location.href = "loan_payments.html";
+    }
+  });
+
   // Arrears modal.
   const totalArrears = document.getElementById("totalArrears");
   if (totalArrears) {
@@ -1091,6 +1125,7 @@ async function handleLogout() {
   localStorage.removeItem("userRole");
   window.location.href = "../login.html";
 }
+window.handleMobileNavLogout = handleLogout;
 
 /* ------------------------------------------------------------------ *
  * Shared helpers

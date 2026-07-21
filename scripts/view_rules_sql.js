@@ -12,7 +12,7 @@
  * No Firebase imports. No data-bearing innerHTML — every value via textContent.
  */
 
-import {apiGet, requireSession, ApiError} from "./api.js";
+import {apiGet, requireSession, ApiError, redirectToLogin, logout} from "./api.js";
 import {formatCurrency} from "./utils_financial.js";
 
 let selectedGroupId = null;
@@ -195,4 +195,17 @@ function showNoRules(message) {
   }
   if (textRulesContainer) textRulesContainer.style.display = "none";
   if (pdfRulesContainer) pdfRulesContainer.style.display = "none";
+}
+
+// ── Mobile nav: Sign Out ────────────────────────────────────────────────────
+window.handleMobileNavLogout = async function handleMobileNavLogout() {
+  try {
+    await logout();
+  } catch (error) {
+    console.error("Logout failed", error);
+  } finally {
+    sessionStorage.clear();
+    localStorage.removeItem("selectedGroupId");
+    redirectToLogin();
+  }
 }

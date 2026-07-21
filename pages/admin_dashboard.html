@@ -968,12 +968,22 @@
       transition: all var(--bn-transition-fast);
       cursor: pointer;
       border-left: 3px solid var(--bn-warning);
+      font: inherit;
+      color: inherit;
+      text-align: inherit;
+      width: 100%;
+      display: block;
     }
 
     .due-payment-card:hover {
       border-color: var(--bn-warning);
       box-shadow: var(--bn-shadow-sm);
       transform: translateY(-2px);
+    }
+
+    .due-payment-card:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: 2px;
     }
 
     .due-payment-card.overdue {

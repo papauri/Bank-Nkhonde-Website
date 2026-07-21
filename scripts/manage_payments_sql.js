@@ -73,6 +73,18 @@ let allPayments = [];
 let groupRules = null;
 let currentTab = "pending";
 
+// Activates the given payment tab (by data-tab value): updates the active
+// button state, sets currentTab, and re-renders. Shared by the .payment-tab
+// click listeners and the clickable stat tiles.
+function activateTab(tabName) {
+  const tabs = document.querySelectorAll(".payment-tab");
+  tabs.forEach((t) => t.classList.remove("active"));
+  const target = Array.from(tabs).find((t) => t.dataset.tab === tabName);
+  if (target) target.classList.add("active");
+  currentTab = tabName || "pending";
+  renderCurrentTab();
+}
+
 const PAYMENT_ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
 const SETTLED_STATUSES = ["approved", "completed"];
 
@@ -134,13 +146,16 @@ function setupEventListeners() {
   document.getElementById("sendRemindersForm")?.addEventListener("submit", handleSendReminders);
 
   document.querySelectorAll(".payment-tab").forEach((tab) => {
-    tab.addEventListener("click", () => {
-      document.querySelectorAll(".payment-tab").forEach((t) => t.classList.remove("active"));
-      tab.classList.add("active");
-      currentTab = tab.dataset.tab || "pending";
-      renderCurrentTab();
-    });
+    tab.addEventListener("click", () => activateTab(tab.dataset.tab || "pending"));
   });
+
+  // Stat tiles: click switches to the related tab. "approved" and "collected"
+  // have no dedicated tab predicate, so both map to "recent" (sorted activity,
+  // no filter) as the closest match.
+  document.getElementById("pendingStat")?.addEventListener("click", () => activateTab("pending"));
+  document.getElementById("arrearsStat")?.addEventListener("click", () => activateTab("arrears"));
+  document.getElementById("approvedStat")?.addEventListener("click", () => activateTab("recent"));
+  document.getElementById("collectedStat")?.addEventListener("click", () => activateTab("recent"));
 
   document.getElementById("filterByMember")?.addEventListener("change", renderCurrentTab);
   document.getElementById("filterByPaymentType")?.addEventListener("change", renderCurrentTab);
@@ -176,6 +191,19 @@ function setupEventListeners() {
   // The live arrears depend on WHO is paying and WHICH month, not just the type.
   document.getElementById("memberSelect")?.addEventListener("change", updateAmountDueForSelection);
   document.getElementById("paymentMonth")?.addEventListener("change", updateAmountDueForSelection);
+
+  document.getElementById("recordPaymentPOP")?.addEventListener("change", (e) => {
+    const file = e.target.files?.[0];
+    const preview = document.getElementById("recordPaymentPOPPreview");
+    const nameEl = document.getElementById("recordPaymentPOPFileName");
+    if (file) {
+      if (nameEl) nameEl.textContent = file.name;
+      if (preview) preview.style.display = "block";
+    } else {
+      if (nameEl) nameEl.textContent = "";
+      if (preview) preview.style.display = "none";
+    }
+  });
 
   document.getElementById("reminderRecipient")?.addEventListener("change", (e) => {
     const specificGroup = document.getElementById("specificMemberGroup");
@@ -679,6 +707,16 @@ function arrearsFor(obligations, paymentType) {
   }
   return null;
 }
+
+function clearPOPUpload() {
+  const input = document.getElementById("recordPaymentPOP");
+  const preview = document.getElementById("recordPaymentPOPPreview");
+  const nameEl = document.getElementById("recordPaymentPOPFileName");
+  if (input) input.value = "";
+  if (preview) preview.style.display = "none";
+  if (nameEl) nameEl.textContent = "";
+}
+window.clearPOPUpload = clearPOPUpload;
 
 async function handleRecordPayment(e) {
   e.preventDefault();

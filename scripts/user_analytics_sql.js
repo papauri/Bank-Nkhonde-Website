@@ -51,7 +51,7 @@
  *     (require_role in cycle_equity()); a member page must not call it.
  */
 
-import {apiGet, requireSession, listMyGroups, ApiError, redirectToLogin} from "./api.js";
+import {apiGet, requireSession, listMyGroups, ApiError, redirectToLogin, logout} from "./api.js";
 import { formatCurrency } from "./utils_financial.js";
 
 /**
@@ -412,3 +412,16 @@ function showToast(message, type = "info") {
     setTimeout(() => toast.remove(), 300);
   }, 5000);
 }
+
+// ── Mobile nav: Sign Out ────────────────────────────────────────────────────
+window.handleMobileNavLogout = async function handleMobileNavLogout() {
+  try {
+    await logout();
+  } catch (error) {
+    console.error("Logout failed", error);
+  } finally {
+    sessionStorage.clear();
+    localStorage.removeItem("selectedGroupId");
+    redirectToLogin();
+  }
+};

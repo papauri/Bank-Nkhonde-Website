@@ -29,6 +29,10 @@
       text-align: center;
       cursor: pointer;
       transition: all var(--bn-transition-fast);
+      font: inherit;
+      color: inherit;
+      width: 100%;
+      display: block;
     }
 
     .quick-action-card:hover {
@@ -244,6 +248,13 @@
       transition: all var(--bn-transition-fast);
       cursor: pointer;
       user-select: none;
+      background: none;
+      border: none;
+      font: inherit;
+      color: inherit;
+      text-align: inherit;
+      width: 100%;
+      display: block;
     }
     
     .clickable-stat:hover {
@@ -287,51 +298,51 @@
       </div>
 
       <div class="page-stats">
-        <div class="page-stat clickable-stat" id="pendingStat" data-stat-type="pending">
+        <button type="button" class="page-stat clickable-stat" id="pendingStat" data-stat-type="pending">
           <div class="page-stat-value warning" id="pendingCount">0</div>
           <div class="page-stat-label">Pending</div>
-        </div>
-        <div class="page-stat clickable-stat" id="approvedStat" data-stat-type="approved">
+        </button>
+        <button type="button" class="page-stat clickable-stat" id="approvedStat" data-stat-type="approved">
           <div class="page-stat-value success" id="approvedCount">0</div>
           <div class="page-stat-label">Approved</div>
-        </div>
-        <div class="page-stat clickable-stat" id="collectedStat" data-stat-type="collected">
+        </button>
+        <button type="button" class="page-stat clickable-stat" id="collectedStat" data-stat-type="collected">
           <div class="page-stat-value info" id="totalCollected">MWK 0</div>
           <div class="page-stat-label">Collected</div>
-        </div>
-        <div class="page-stat clickable-stat" id="arrearsStat" data-stat-type="arrears">
+        </button>
+        <button type="button" class="page-stat clickable-stat" id="arrearsStat" data-stat-type="arrears">
           <div class="page-stat-value danger" id="totalArrears">MWK 0</div>
           <div class="page-stat-label">Arrears</div>
-        </div>
+        </button>
       </div>
 
     <!-- Quick Actions -->
     <div class="quick-action-grid">
-      <div class="quick-action-card" id="recordPaymentBtn">
+      <button type="button" class="quick-action-card" id="recordPaymentBtn">
         <div class="quick-action-icon">💵</div>
         <div class="quick-action-title">Record Payment</div>
         <div class="quick-action-desc">Manual cash payment</div>
-      </div>
-      <div class="quick-action-card" id="applyPenaltyBtn">
+      </button>
+      <button type="button" class="quick-action-card" id="applyPenaltyBtn">
         <div class="quick-action-icon">⚠️</div>
         <div class="quick-action-title">Apply Penalties</div>
         <div class="quick-action-desc">Overdue payments</div>
-      </div>
-      <div class="quick-action-card" id="paymentSettingsBtn">
+      </button>
+      <button type="button" class="quick-action-card" id="paymentSettingsBtn">
         <div class="quick-action-icon">⚙️</div>
         <div class="quick-action-title">Settings</div>
         <div class="quick-action-desc">Rates & penalties</div>
-      </div>
-      <div class="quick-action-card" id="sendRemindersBtn">
+      </button>
+      <button type="button" class="quick-action-card" id="sendRemindersBtn">
         <div class="quick-action-icon">📧</div>
         <div class="quick-action-title">Reminders</div>
         <div class="quick-action-desc">Send payment reminders</div>
-      </div>
-      <div class="quick-action-card" id="viewAllPaymentDetailsBtn">
+      </button>
+      <button type="button" class="quick-action-card" id="viewAllPaymentDetailsBtn">
         <div class="quick-action-icon">📋</div>
         <div class="quick-action-title">Payment Details</div>
         <div class="quick-action-desc">View all payment details table</div>
-      </div>
+      </button>
     </div>
 
     <!-- Payment Tabs -->

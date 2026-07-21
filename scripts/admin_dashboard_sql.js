@@ -866,7 +866,8 @@ function loadDuePayments() {
  * @return {HTMLElement}
  */
 function buildDuePaymentCard(payment, groupId) {
-  const card = document.createElement("div");
+  const card = document.createElement("button");
+  card.type = "button";
   card.className = "due-payment-card" + (payment.isOverdue ? " overdue" : "");
   card.title = `View ${payment.memberName}'s payments`;
   card.addEventListener("click", () => {
@@ -914,7 +915,8 @@ function buildDuePaymentCard(payment, groupId) {
  * @return {HTMLElement}
  */
 function buildMoreDueCard(more, groupId) {
-  const card = document.createElement("div");
+  const card = document.createElement("button");
+  card.type = "button";
   card.className = "due-payment-card";
   card.style.cssText =
     "border-left-color: var(--bn-gray-lighter); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-direction: column;";

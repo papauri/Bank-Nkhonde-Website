@@ -52,6 +52,7 @@ import {
   listMyGroups,
   ApiError,
   redirectToLogin,
+  logout,
 } from "./api.js";
 
 // ── Global state ────────────────────────────────────────────────────────────
@@ -111,6 +112,41 @@ function setupEventListeners() {
 
   messageAdminModalEl()?.addEventListener("click", (e) => {
     if (e.target === messageAdminModalEl()) closeMessageModal();
+  });
+
+  // Escape-to-close + Tab focus trap while #messageAdminModal is open. No
+  // shared modal-utility script (scripts/modal-utils.js) is loaded on this
+  // page and the modal isn't marked up with the `.modal-overlay` class that
+  // utility targets, so this stays self-contained here rather than reusing
+  // it — reuses closeMessageModal() rather than duplicating close logic.
+  document.addEventListener("keydown", (e) => {
+    const modal = messageAdminModalEl();
+    if (!modal || modal.style.display !== "flex") return;
+
+    if (e.key === "Escape") {
+      closeMessageModal();
+      return;
+    }
+
+    if (e.key === "Tab") {
+      const focusable = Array.from(
+        modal.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((elm) => !elm.disabled && elm.offsetParent !== null);
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
   });
 }
 
@@ -227,7 +263,22 @@ function emptyState(icon, text) {
 // ── Member card ──────────────────────────────────────────────────────────────
 function createMemberCard(member) {
   const card = el("div", "member-card");
+  card.setAttribute("tabindex", "0");
+  card.setAttribute("role", "button");
   card.addEventListener("click", () => showMemberDetails(member));
+  card.addEventListener("keydown", (e) => {
+    // Only react when the card itself is focused — a nested <a>/<button>
+    // (tel/mailto/whatsapp links, the message/call/whatsapp/email actions)
+    // already handles its own Enter/Space via native behaviour, and those
+    // elements each call e.stopPropagation() on click, so letting this
+    // bubble up would double-fire showMemberDetails() on top of the link's
+    // own action.
+    if (e.target !== card) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      showMemberDetails(member);
+    }
+  });
 
   const isAdminRole = member.role === "admin" || member.role === "senior_admin" || member.role === "treasurer";
   const initials = member.fullName
@@ -402,7 +453,13 @@ function openMessageModal(recipientName) {
   messageAdminFormEl()?.reset();
 
   const modal = messageAdminModalEl();
-  if (modal) modal.style.display = "flex";
+  if (modal) {
+    modal.style.display = "flex";
+    const firstFocusable = modal.querySelector(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    if (firstFocusable) setTimeout(() => firstFocusable.focus(), 0);
+  }
 }
 
 function closeMessageModal() {
@@ -410,6 +467,7 @@ function closeMessageModal() {
   if (modal) modal.style.display = "none";
   messageTargetName = "";
 }
+window.closeMessageModal = closeMessageModal;
 
 async function handleSendMessage(e) {
   e.preventDefault();
@@ -514,3 +572,26 @@ function showToast(message, type = "info") {
     toast.remove();
   }, 4000);
 }
+
+// ── Mobile nav: Sign Out ────────────────────────────────────────────────────
+window.handleMobileNavLogout = async function handleMobileNavLogout() {
+  try {
+    await logout();
+  } catch (error) {
+    console.error("Logout failed", error);
+  } finally {
+    sessionStorage.clear();
+    localStorage.removeItem("selectedGroupId");
+    redirectToLogin();
+  }
+};
+
+// ── Mobile nav: Switch to Admin ─────────────────────────────────────────────
+window.handleSwitchToAdmin = function handleSwitchToAdmin() {
+  const groupId = currentGroupId ||
+    localStorage.getItem("selectedGroupId") ||
+    sessionStorage.getItem("selectedGroupId");
+  window.location.href = groupId ?
+    `admin_dashboard.html?groupId=${encodeURIComponent(groupId)}` :
+    "admin_dashboard.html";
+};

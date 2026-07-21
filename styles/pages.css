@@ -547,16 +547,34 @@ body {
   border-radius: var(--bn-radius-md);
   cursor: pointer;
   transition: all var(--bn-transition-fast);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .tab:hover {
   color: var(--bn-dark);
 }
 
+.tab:focus-visible {
+  outline: 2px solid var(--bn-accent);
+  outline-offset: 2px;
+}
+
 .tab.active {
   background: var(--bn-white);
   color: var(--bn-dark);
   box-shadow: var(--bn-shadow-sm);
+}
+
+/* ============================================
+   RADIO OPTION
+   ============================================ */
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: var(--bn-space-2);
+  cursor: pointer;
 }
 
 /* ============================================

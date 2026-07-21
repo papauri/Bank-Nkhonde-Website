@@ -17,7 +17,7 @@
  * are rebuilt with createElement + textContent.
  */
 
-import {apiGet, apiPost, requireSession, listMyGroups, ApiError, redirectToLogin} from "./api.js";
+import {apiGet, apiPost, requireSession, listMyGroups, ApiError, redirectToLogin, logout} from "./api.js";
 import { formatCurrency } from "./utils_financial.js";
 
 let currentUser = null;
@@ -641,3 +641,26 @@ function showToast(message, type = "info") {
     setTimeout(() => toast.remove(), 300);
   }, 5000);
 }
+
+// ── Mobile nav: Sign Out ────────────────────────────────────────────────────
+window.handleMobileNavLogout = async function handleMobileNavLogout() {
+  try {
+    await logout();
+  } catch (error) {
+    console.error("Logout failed", error);
+  } finally {
+    sessionStorage.clear();
+    localStorage.removeItem("selectedGroupId");
+    redirectToLogin();
+  }
+};
+
+// ── Mobile nav: Switch to Admin ─────────────────────────────────────────────
+window.handleSwitchToAdmin = function handleSwitchToAdmin() {
+  const groupId = currentGroupId ||
+    localStorage.getItem("selectedGroupId") ||
+    sessionStorage.getItem("selectedGroupId");
+  window.location.href = groupId ?
+    `admin_dashboard.html?groupId=${encodeURIComponent(groupId)}` :
+    "admin_dashboard.html";
+};

@@ -1834,7 +1834,7 @@
           <div class="hero-stat-details" id="nextPaymentDetails"></div>
           <button type="button" class="hero-stat-badge" id="nextPaymentBadge" aria-label="Dismiss payment due reminder" style="position: absolute; top: var(--bn-space-1); right: var(--bn-space-1); background: var(--bn-danger); color: var(--bn-white); font-size: 8px; padding: 2px 6px; border: none; font-family: inherit; border-radius: 10px; font-weight: 700; cursor: pointer; display: none; z-index: 10;" onclick="dismissNextPaymentBadge(event)">Due</button>
         </div>
-        <div class="hero-stat" id="activeLoansStat" onclick="window.location.href='loan_payments.html'" style="cursor: pointer; position: relative;">
+        <div class="hero-stat" id="activeLoansStat" onclick="window.location.href='loan_payments.html'" tabindex="0" role="button" style="cursor: pointer; position: relative;">
           <div class="hero-stat-value" id="activeLoans" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
             <span>0</span>
             <span style="font-size: 14px; line-height: 1;" title="Active Loans">💰</span>

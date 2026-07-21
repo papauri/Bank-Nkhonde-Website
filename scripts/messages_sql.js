@@ -52,6 +52,7 @@ import {
   listMyGroups,
   ApiError,
   redirectToLogin,
+  logout,
 } from "./api.js";
 
 // ── Global state ────────────────────────────────────────────────────────────
@@ -116,6 +117,41 @@ function setupEventListeners() {
   // Present in the original markup but no longer meaningful now that "Read" is
   // its own filter tab; kept hidden rather than removed (see filterMessages()).
   showReadBtn()?.addEventListener("click", () => {});
+
+  // Escape-to-close + Tab focus trap for #messageModal. Attached once here
+  // (init() only runs once) rather than on every modal open, so repeated
+  // open/close cycles never stack duplicate listeners.
+  document.addEventListener("keydown", handleModalKeydown);
+}
+
+function handleModalKeydown(e) {
+  const modal = messageModal();
+  if (!modal || !modal.classList.contains("active")) return;
+
+  if (e.key === "Escape") {
+    hideMessageModal();
+    return;
+  }
+
+  if (e.key === "Tab") {
+    const focusables = getFocusableElements(modal);
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+}
+
+function getFocusableElements(container) {
+  return Array.from(
+    container.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+  ).filter((el) => !el.disabled && el.offsetParent !== null);
 }
 
 function hideMessageModal() {
@@ -338,7 +374,20 @@ const TYPE_BADGE_CLASS = {
 function createMessageElement(message) {
   const div = document.createElement("div");
   div.className = `message-item ${message.read ? "read" : "unread"}`;
+  div.setAttribute("tabindex", "0");
+  div.setAttribute("role", "button");
   div.addEventListener("click", () => openMessage(message));
+  div.addEventListener("keydown", (e) => {
+    // Guard against the nested dismissBtn: only fire when Enter/Space is
+    // pressed on the message-item itself, not a bubbled event from a
+    // descendant (the dismiss button has its own click/stopPropagation and
+    // isn't focusable via this listener anyway, but this keeps intent explicit).
+    if (e.target !== div) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openMessage(message);
+    }
+  });
 
   const header = document.createElement("div");
   header.className = "message-header";
@@ -443,8 +492,15 @@ async function openMessage(message) {
     buildModalActions(message, actions);
   }
 
-  messageModal()?.classList.add("active");
+  const modal = messageModal();
+  modal?.classList.add("active");
   filterMessages();
+
+  // Move focus into the modal for the Tab focus trap (handleModalKeydown).
+  if (modal) {
+    const focusables = getFocusableElements(modal);
+    if (focusables.length > 0) focusables[0].focus();
+  }
 }
 
 function metaRow(label, value) {
@@ -625,3 +681,16 @@ function showToast(message, type = "info") {
     setTimeout(() => toast.remove(), 300);
   }, 4000);
 }
+
+// ── Mobile nav: Sign Out ────────────────────────────────────────────────────
+window.handleMobileNavLogout = async function handleMobileNavLogout() {
+  try {
+    await logout();
+  } catch (error) {
+    console.error("Logout failed", error);
+  } finally {
+    sessionStorage.clear();
+    localStorage.removeItem("selectedGroupId");
+    redirectToLogin();
+  }
+};
