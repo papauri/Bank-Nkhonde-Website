@@ -63,7 +63,7 @@ function setupEventListeners() {
 
   // NOTE: #makePaymentBtn does not exist in the real markup (pages/loan_payments.html) —
   // the page opens the payment modal per-loan instead, via the "Make Payment" button
-  // built in createLoanCard(). This listener is a guarded no-op kept only in case a
+  // built in createLoanRow(). This listener is a guarded no-op kept only in case a
   // future top-level trigger is added with this id.
   document.getElementById("makePaymentBtn")?.addEventListener("click", () => {
     if (activeLoans.length > 0) openPaymentModal(activeLoans[0]);
@@ -215,15 +215,25 @@ function displayLoansByTab(filterValue = null) {
   loansList.textContent = "";
 
   if (filtered.length === 0) {
-    loansList.appendChild(emptyState("💰", `No ${activeFilter === "all" ? "" : activeFilter} loans found`));
+    loansList.appendChild(emptyTableRow(`No ${activeFilter === "all" ? "" : activeFilter} loans found`));
     return;
   }
 
-  filtered.forEach((loan) => loansList.appendChild(createLoanCard(loan)));
+  filtered.forEach((loan) => loansList.appendChild(createLoanRow(loan)));
 }
 
-function createLoanCard(loan) {
-  const div = el("div", "list-item");
+/**
+ * Renders one loan as a <tr> for the .table.table-responsive component
+ * (pure-CSS desktop table / mobile card collapse — see design-system.css).
+ * Carries every field createLoanCard() used to show: loan title, status
+ * badge, purpose+date, loan amount, amount paid, and the conditional extras
+ * (interest, total repayable, remaining balance, due date) which don't map
+ * to a fixed column — those are folded into one optional "Details" cell that
+ * stays empty (data-label="") when none apply, matching the pilot's pattern
+ * in manage_payments_sql.js's createPaymentRow().
+ */
+function createLoanRow(loan) {
+  const row = el("tr");
 
   const principal = numberOf(loan.principalAmount ?? loan.approvedAmount);
   const totalRepayment = numberOf(loan.totalRepayment);
@@ -250,68 +260,91 @@ function createLoanCard(loan) {
   const label = statusLabels[loan.status] || "Unknown";
   const badgeClass = statusClasses[loan.status] || "secondary";
 
-  // Header: title + status badge
-  const body = el("div");
-  body.style.flex = "1";
+  const loanCell = el("td");
+  loanCell.dataset.label = "Loan";
+  loanCell.textContent = `Loan ${loan.loanNumber || `#${String(loan.loanId || "").substring(0, 8).toUpperCase()}`}`;
+  row.appendChild(loanCell);
 
-  const header = el("div");
-  header.style.cssText = "display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: var(--bn-space-2);";
-  const title = el("div", "list-item-title");
-  title.textContent = `Loan ${loan.loanNumber || `#${String(loan.loanId || "").substring(0, 8).toUpperCase()}`}`;
+  const statusCell = el("td");
+  statusCell.dataset.label = "Status";
   const badge = el("span", `badge badge-${badgeClass}`);
   badge.textContent = label;
-  header.append(title, badge);
+  statusCell.appendChild(badge);
+  row.appendChild(statusCell);
 
-  const subtitle = el("div", "list-item-subtitle");
+  const purposeCell = el("td");
+  purposeCell.dataset.label = "Purpose / Date";
   const purpose = loan.purpose ? `Purpose: ${loan.purpose}` : "Loan";
   const when = loan.approvedAt || loan.createdAt || loan.requestedAt;
-  subtitle.textContent = when ? `${purpose} • ${new Date(when).toLocaleDateString()}` : purpose;
+  purposeCell.textContent = when ? `${purpose} • ${new Date(when).toLocaleDateString()}` : purpose;
+  row.appendChild(purposeCell);
 
-  body.append(header, subtitle);
+  const amountCell = el("td", "cell-right");
+  amountCell.dataset.label = "Amount";
+  amountCell.textContent = formatCurrency(principal);
+  row.appendChild(amountCell);
 
-  // Figures — all straight from the API.
-  const grid = el("div");
-  grid.style.cssText = "display:grid; grid-template-columns:repeat(2,1fr); gap: var(--bn-space-3); margin-top: var(--bn-space-3);";
-  grid.append(
-    figure("Loan Amount", formatCurrency(principal)),
-    figure("Amount Paid", formatCurrency(repaid)),
-  );
-  if (interest > 0) grid.appendChild(figure("Interest", formatCurrency(interest)));
-  if (totalRepayment > 0) grid.appendChild(figure("Total Repayable", formatCurrency(totalRepayment)));
+  const paidCell = el("td", "cell-right");
+  paidCell.dataset.label = "Paid";
+  paidCell.textContent = formatCurrency(repaid);
+  row.appendChild(paidCell);
+
+  // Details: interest, total repayable, remaining balance, due date — all
+  // conditional, folded into one cell so the table doesn't need a fixed
+  // column for each one.
+  const detailsCell = el("td");
+  if (interest > 0) {
+    const line = el("div");
+    line.textContent = `Interest: ${formatCurrency(interest)}`;
+    detailsCell.appendChild(line);
+  }
+  if (totalRepayment > 0) {
+    const line = el("div");
+    line.textContent = `Total Repayable: ${formatCurrency(totalRepayment)}`;
+    detailsCell.appendChild(line);
+  }
   if (PAYABLE_STATUSES.includes(loan.status)) {
-    grid.appendChild(figure("Remaining Balance", formatCurrency(remaining)));
+    const balanceLine = el("div");
+    balanceLine.textContent = `Remaining Balance: ${formatCurrency(remaining)}`;
+    detailsCell.appendChild(balanceLine);
     if (loan.dueDate) {
-      grid.appendChild(figure("Due Date", new Date(loan.dueDate).toLocaleDateString()));
+      const dueLine = el("div");
+      dueLine.textContent = `Due Date: ${new Date(loan.dueDate).toLocaleDateString()}`;
+      detailsCell.appendChild(dueLine);
     }
   }
-  body.appendChild(grid);
-
-  div.appendChild(body);
+  // Empty when none of the above apply — data-label="" matches the existing
+  // "hide empty cells on mobile" rule and an empty <td> is simply blank on
+  // desktop (same pattern as manage_payments_sql.js's createPaymentRow()).
+  detailsCell.dataset.label = detailsCell.childNodes.length ? "Details" : "";
+  row.appendChild(detailsCell);
 
   // Pay button only when the loan is payable AND something is still owed.
+  const actionsCell = el("td");
   const canPay = PAYABLE_STATUSES.includes(loan.status) && remaining > 0;
   if (canPay) {
-    const actions = el("div");
+    actionsCell.dataset.label = "Actions";
     const payBtn = el("button", "btn btn-primary btn-sm");
     payBtn.textContent = "Make Payment";
     payBtn.addEventListener("click", () => openPaymentModal(loan));
-    actions.appendChild(payBtn);
-    div.appendChild(actions);
+    actionsCell.appendChild(payBtn);
+  } else {
+    actionsCell.dataset.label = "";
   }
+  row.appendChild(actionsCell);
 
-  return div;
+  return row;
 }
 
-function figure(label, value) {
-  const wrap = el("div");
-  const l = el("div");
-  l.style.cssText = "font-size:0.75rem; color: var(--bn-gray); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px; font-weight:600;";
-  l.textContent = label;
-  const v = el("div");
-  v.style.cssText = "font-size:1rem; font-weight:700; color: var(--bn-dark);";
-  v.textContent = value;
-  wrap.append(l, v);
-  return wrap;
+function emptyTableRow(text) {
+  const row = el("tr");
+  const cell = el("td");
+  cell.colSpan = 7;
+  cell.dataset.label = "";
+  cell.style.cssText = "text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);";
+  cell.textContent = text;
+  row.appendChild(cell);
+  return row;
 }
 
 // ── Pending + history lists ─────────────────────────────────────────────────
@@ -543,7 +576,7 @@ function clearDisplay() {
 
   if (loansList) {
     loansList.textContent = "";
-    loansList.appendChild(emptyState("💰", "Select a group to view loans"));
+    loansList.appendChild(emptyTableRow("Select a group to view loans"));
   }
   if (pending) {
     pending.textContent = "";

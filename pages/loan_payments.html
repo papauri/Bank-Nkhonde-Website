@@ -115,11 +115,25 @@
           <option value="repaid">Repaid</option>
         </select>
       </div>
-      <div class="content-section-body" id="loansList">
-        <div class="empty-state">
-          <div class="empty-state-icon">💰</div>
-          <p class="empty-state-text">Select a group to view your loans</p>
-        </div>
+      <div class="table-container">
+        <table class="table table-responsive">
+          <thead>
+            <tr>
+              <th>Loan</th>
+              <th>Status</th>
+              <th>Purpose / Date</th>
+              <th class="cell-right">Amount</th>
+              <th class="cell-right">Paid</th>
+              <th>Details</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="loansList">
+            <tr>
+              <td colspan="7" style="text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);">Select a group to view your loans</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
 

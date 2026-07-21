@@ -440,11 +440,11 @@ function renderCurrentTab() {
   container.textContent = "";
 
   if (filtered.length === 0) {
-    container.appendChild(emptyState("💰", `No ${currentTab} payments found`));
+    container.appendChild(emptyTableRow(`No ${currentTab} payments found`));
     return;
   }
 
-  filtered.forEach((payment) => container.appendChild(createPaymentCard(payment)));
+  filtered.forEach((payment) => container.appendChild(createPaymentRow(payment)));
 }
 
 function renderPendingPreview() {
@@ -468,20 +468,44 @@ const PAYMENT_TYPE_LABELS = {
   service_fee: "Service Fee",
 };
 
-function createPaymentCard(payment, showActions = true) {
-  const card = el("div", "loan-card");
+/**
+ * Renders one payment as a <tr> for the .table.table-responsive component
+ * (pure-CSS desktop table / mobile card collapse — see design-system.css).
+ * Carries every field createPaymentCard() used to show: member, type+month,
+ * amount paid/of total, arrears, status badge, approve/reject actions, and
+ * the conditional extras (live penalty, notes, rejection reason, proof link)
+ * which don't map to a fixed column — those are folded into one optional
+ * "Details" cell that stays empty (and hides itself, per the existing
+ * `td[data-label=""]` / `td:empty` mobile rule) when none apply.
+ */
+function createPaymentRow(payment, showActions = true) {
+  const row = el("tr");
 
-  const header = el("div", "loan-card-header");
-  const info = el("div");
-  const name = el("div", "loan-borrower-name");
+  const memberCell = el("td");
+  memberCell.dataset.label = "Member";
+  memberCell.textContent = memberName(payment.uid);
+  row.appendChild(memberCell);
+
+  const typeCell = el("td");
+  typeCell.dataset.label = "Type";
   const typeLabel = PAYMENT_TYPE_LABELS[payment.paymentType] || payment.paymentType || "Payment";
   const monthSuffix = payment.month ? ` — ${payment.month}` : "";
-  name.textContent = `${memberName(payment.uid)} · ${typeLabel}${monthSuffix}`;
-  const meta = el("div", "loan-borrower-date");
-  meta.textContent = `${formatCurrency(payment.amountPaid)} of ${formatCurrency(payment.totalAmount)} · ${formatDate(payment.paidAt || payment.createdAt)}`;
-  info.append(name, meta);
-  header.appendChild(info);
+  typeCell.textContent = `${typeLabel}${monthSuffix}`;
+  row.appendChild(typeCell);
 
+  const amountCell = el("td", "cell-right");
+  amountCell.dataset.label = "Amount";
+  amountCell.textContent = `${formatCurrency(payment.amountPaid)} of ${formatCurrency(payment.totalAmount)} · ${formatDate(payment.paidAt || payment.createdAt)}`;
+  row.appendChild(amountCell);
+
+  const arrears = numberOf(payment.arrears);
+  const arrearsCell = el("td", arrears > 0 ? "cell-right cell-danger" : "cell-right");
+  arrearsCell.dataset.label = "Arrears";
+  arrearsCell.textContent = formatCurrency(payment.arrears);
+  row.appendChild(arrearsCell);
+
+  const statusCell = el("td");
+  statusCell.dataset.label = "Status";
   const statusClass = payment.approvalStatus === "completed" || payment.approvalStatus === "approved"
     ? "success"
     : payment.approvalStatus === "rejected"
@@ -489,75 +513,73 @@ function createPaymentCard(payment, showActions = true) {
       : "warning";
   const statusBadge = el("span", `badge badge-${statusClass}`);
   statusBadge.textContent = payment.approvalStatus;
-  header.appendChild(statusBadge);
-  card.appendChild(header);
+  statusCell.appendChild(statusBadge);
+  row.appendChild(statusCell);
 
-  const body = el("div", "loan-card-body");
-  const grid = el("div", "loan-details-grid");
-  grid.append(
-    loanDetail(formatCurrency(payment.totalAmount), "Total Due"),
-    loanDetail(formatCurrency(payment.amountPaid), "Paid"),
-    loanDetail(formatCurrency(payment.arrears), "Arrears", "var(--bn-danger)"),
-  );
-  body.appendChild(grid);
-
+  const detailsCell = el("td");
   const penalty = payment.penalty;
   if (penalty && numberOf(penalty.amountAccrued) > 0) {
     const penaltyNote = el("div");
-    penaltyNote.style.cssText = "font-size: var(--bn-text-sm); color: var(--bn-danger); margin-top: var(--bn-space-2);";
+    penaltyNote.style.cssText = "font-size: var(--bn-text-sm); color: var(--bn-danger);";
     penaltyNote.textContent = `Live penalty: ${formatCurrency(penalty.amountAccrued)} (${penalty.daysCharged} day(s) at ${formatCurrency(penalty.dailyAmount)}/day)`;
-    body.appendChild(penaltyNote);
+    detailsCell.appendChild(penaltyNote);
   }
-
   if (payment.notes) {
     const notes = el("div");
-    notes.style.cssText = "font-size: var(--bn-text-sm); color: var(--bn-gray); margin-top: var(--bn-space-2);";
+    notes.style.cssText = "font-size: var(--bn-text-sm); color: var(--bn-gray);";
     notes.textContent = `Notes: ${payment.notes}`;
-    body.appendChild(notes);
+    detailsCell.appendChild(notes);
   }
-
   if (payment.approvalStatus === "rejected" && payment.rejectionReason) {
     const reason = el("div");
-    reason.style.cssText = "font-size: var(--bn-text-sm); color: var(--bn-danger); margin-top: var(--bn-space-2);";
+    reason.style.cssText = "font-size: var(--bn-text-sm); color: var(--bn-danger);";
     reason.textContent = `Rejected: ${payment.rejectionReason}`;
-    body.appendChild(reason);
+    detailsCell.appendChild(reason);
   }
-
   if (payment.proofOfPaymentImageUrl) {
     const link = document.createElement("a");
     link.href = payment.proofOfPaymentImageUrl;
     link.target = "_blank";
     link.rel = "noopener noreferrer";
     link.textContent = "View proof";
-    link.style.cssText = "display: inline-block; margin-top: var(--bn-space-2); font-size: var(--bn-text-sm);";
-    body.appendChild(link);
+    link.style.cssText = "display: inline-block; font-size: var(--bn-text-sm);";
+    detailsCell.appendChild(link);
   }
+  // Empty when none of the above apply — data-label="" matches the existing
+  // "hide empty cells on mobile" rule (design-system.css ~922-925) and an
+  // empty <td> is simply blank on desktop.
+  detailsCell.dataset.label = detailsCell.childNodes.length ? "Details" : "";
+  row.appendChild(detailsCell);
 
+  const actionsCell = el("td");
+  actionsCell.dataset.label = "Actions";
   if (showActions && payment.approvalStatus === "pending") {
     const actions = el("div", "loan-actions");
-    const approveBtn = el("button", "btn btn-accent");
+    const approveBtn = el("button", "btn btn-accent btn-sm");
     approveBtn.textContent = "Approve";
     approveBtn.addEventListener("click", () => approvePayment(payment.paymentId));
-    const rejectBtn = el("button", "btn btn-danger");
+    const rejectBtn = el("button", "btn btn-danger btn-sm");
     rejectBtn.textContent = "Reject";
     rejectBtn.addEventListener("click", () => rejectPayment(payment));
     actions.append(approveBtn, rejectBtn);
-    body.appendChild(actions);
+    actionsCell.appendChild(actions);
+  } else {
+    actionsCell.dataset.label = "";
   }
+  row.appendChild(actionsCell);
 
-  card.appendChild(body);
-  return card;
+  return row;
 }
 
-function loanDetail(value, label, color) {
-  const wrap = el("div", "loan-detail");
-  const valueEl = el("div", "loan-detail-value");
-  valueEl.textContent = value;
-  if (color) valueEl.style.color = color;
-  const labelEl = el("div", "loan-detail-label");
-  labelEl.textContent = label;
-  wrap.append(valueEl, labelEl);
-  return wrap;
+function emptyTableRow(text) {
+  const row = el("tr");
+  const cell = el("td");
+  cell.colSpan = 7;
+  cell.dataset.label = "";
+  cell.style.cssText = "text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);";
+  cell.textContent = text;
+  row.appendChild(cell);
+  return row;
 }
 
 // ── Approve / reject ─────────────────────────────────────────────────────────

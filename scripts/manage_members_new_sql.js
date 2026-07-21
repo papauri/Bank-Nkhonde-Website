@@ -236,41 +236,30 @@ function displayMembers(members) {
   list.textContent = "";
 
   if (members.length === 0) {
-    let title = "No Members Found";
     let text = "Add your first member to get started";
     if (allMembers.length > 0 && currentFilter === "member") {
-      title = "No Regular Members";
       text = "All current members have admin roles. Switch to 'All' or 'Admins' tab to see them.";
     } else if (allMembers.length > 0 && currentFilter === "admin") {
-      title = "No Admin Members";
       text = "No members with admin role found. Switch to 'All' tab to see all members.";
     } else if (!selectedGroupId) {
-      title = "Select a Group";
       text = "Choose a group from the dropdown above to view its members.";
     }
 
-    const empty = document.createElement("div");
-    empty.className = "empty-state";
-    empty.style.gridColumn = "1 / -1";
-
-    const icon = document.createElement("div");
-    icon.className = "empty-state-icon";
-    icon.textContent = "👥";
-    const h3 = document.createElement("h3");
-    h3.textContent = title;
-    const p = document.createElement("p");
-    p.className = "empty-state-text";
-    p.textContent = text;
-
-    empty.append(icon, h3, p);
-    list.appendChild(empty);
+    list.appendChild(emptyTableRow(text));
     return;
   }
 
-  members.forEach((member) => list.appendChild(createMemberCard(member)));
+  members.forEach((member) => list.appendChild(createMemberRow(member)));
 }
 
-function createMemberCard(member) {
+/**
+ * Renders one member as a <tr> for the .table.table-responsive component
+ * (pure-CSS desktop table / mobile card collapse — see design-system.css),
+ * matching the pattern createPaymentRow() uses in manage_payments_sql.js.
+ * Carries every field createMemberCard() used to show: avatar+name+YOU badge,
+ * role badge, phone, email, joined date, status, and the edit/remove actions.
+ */
+function createMemberRow(member) {
   const initials = member.fullName
     ? member.fullName.split(" ").map((n) => n[0]).join("").toUpperCase().substring(0, 2)
     : "??";
@@ -283,10 +272,12 @@ function createMemberCard(member) {
   const joinedDate = member.joinedAt ? new Date(member.joinedAt).toLocaleDateString() : "N/A";
   const isCurrentUser = member.uid === currentUser?.uid;
 
-  const card = el("div", "member-card");
+  const row = el("tr");
 
-  // Header
-  const header = el("div", "member-card-header");
+  // Member: avatar + name (+ YOU badge)
+  const memberCell = el("td");
+  memberCell.dataset.label = "Member";
+  const memberWrap = el("div", "member-info");
   const avatar = el("div", "member-avatar");
   if (member.profileImageUrl) {
     const img = document.createElement("img");
@@ -296,7 +287,6 @@ function createMemberCard(member) {
   } else {
     avatar.textContent = initials;
   }
-  const info = el("div", "member-info");
   const nameEl = el("div", "member-name");
   nameEl.textContent = member.fullName || "Unknown";
   if (isCurrentUser) {
@@ -305,23 +295,45 @@ function createMemberCard(member) {
     you.style.cssText = "background: var(--bn-accent); color: var(--bn-dark); padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; margin-left: 8px;";
     nameEl.appendChild(you);
   }
+  memberWrap.append(avatar, nameEl);
+  memberCell.appendChild(memberWrap);
+  row.appendChild(memberCell);
+
+  // Role
+  const roleCell = el("td");
+  roleCell.dataset.label = "Role";
   const roleBadge = el("span", `member-role ${roleClass}`);
   roleBadge.textContent = roleName;
-  info.append(nameEl, roleBadge);
-  header.append(avatar, info);
+  roleCell.appendChild(roleBadge);
+  row.appendChild(roleCell);
 
-  // Body
-  const body = el("div", "member-card-body");
-  const grid = el("div", "member-details-grid");
-  grid.append(
-    detail("Phone", member.phone || "N/A"),
-    detail("Email", member.email || "N/A", "11px"),
-    detail("Joined", joinedDate),
-    detail("Status", member.status || "N/A"),
-  );
-  body.appendChild(grid);
+  // Phone
+  const phoneCell = el("td");
+  phoneCell.dataset.label = "Phone";
+  phoneCell.textContent = member.phone || "N/A";
+  row.appendChild(phoneCell);
+
+  // Email
+  const emailCell = el("td");
+  emailCell.dataset.label = "Email";
+  emailCell.textContent = member.email || "N/A";
+  row.appendChild(emailCell);
+
+  // Joined
+  const joinedCell = el("td");
+  joinedCell.dataset.label = "Joined";
+  joinedCell.textContent = joinedDate;
+  row.appendChild(joinedCell);
+
+  // Status
+  const statusCell = el("td");
+  statusCell.dataset.label = "Status";
+  statusCell.textContent = member.status || "N/A";
+  row.appendChild(statusCell);
 
   // Actions — only the writes the SQL backend actually supports.
+  const actionsCell = el("td");
+  actionsCell.dataset.label = "Actions";
   const actions = el("div", "member-actions");
   const editBtn = el("button", "btn btn-ghost btn-sm");
   editBtn.textContent = "Edit";
@@ -342,21 +354,21 @@ function createMemberCard(member) {
     removeBtn.addEventListener("click", () => openDeleteMemberModal(member));
     actions.appendChild(removeBtn);
   }
+  actionsCell.appendChild(actions);
+  row.appendChild(actionsCell);
 
-  body.appendChild(actions);
-  card.append(header, body);
-  return card;
+  return row;
 }
 
-function detail(label, value, valueFontSize) {
-  const wrap = el("div", "member-detail");
-  const l = el("div", "member-detail-label");
-  l.textContent = label;
-  const v = el("div", "member-detail-value");
-  v.textContent = value;
-  if (valueFontSize) v.style.fontSize = valueFontSize;
-  wrap.append(l, v);
-  return wrap;
+function emptyTableRow(text) {
+  const row = el("tr");
+  const cell = el("td");
+  cell.colSpan = 7;
+  cell.dataset.label = "";
+  cell.style.cssText = "text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);";
+  cell.textContent = text;
+  row.appendChild(cell);
+  return row;
 }
 
 // ── Add member (members.create — creates the account + membership) ───────────
@@ -429,7 +441,10 @@ async function handleAddMember(e) {
  * the wrong surface. Render a dismissible banner the admin must close.
  */
 function showTemporaryPassword(fullName, tempPassword) {
-  const host = document.getElementById("membersList")?.parentElement || document.body;
+  // membersList is now a <tbody>; its grandparent is the .table-container div
+  // (tbody -> table -> table-container) — a banner <div> can't legally live
+  // inside a <table>, so it goes above the table in that container instead.
+  const host = document.getElementById("membersList")?.parentElement?.parentElement || document.body;
   const banner = el("div", "temp-password-banner");
   banner.style.cssText = "background: var(--bn-accent-subtle, #fff8e1); border: 1px solid var(--bn-accent, #C8A45A); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;";
 

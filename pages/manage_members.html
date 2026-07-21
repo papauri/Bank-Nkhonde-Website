@@ -563,12 +563,26 @@
       <button class="filter-tab" data-filter="member">Members</button>
     </div>
 
-    <!-- Members Grid -->
-    <div class="members-grid" id="membersList">
-      <div class="empty-state" style="grid-column: 1 / -1;">
-        <div class="empty-state-icon">👥</div>
-        <p class="empty-state-text">Select a group to view members</p>
-      </div>
+    <!-- Members Table -->
+    <div class="table-container">
+      <table class="table table-responsive">
+        <thead>
+          <tr>
+            <th>Member</th>
+            <th>Role</th>
+            <th>Phone</th>
+            <th>Email</th>
+            <th>Joined</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="membersList">
+          <tr>
+            <td colspan="7" style="text-align: center;">Select a group to view members</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
     </div>
   </main>

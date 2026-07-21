@@ -268,62 +268,76 @@ function displayInvitations(invitations) {
   list.textContent = "";
 
   if (invitations.length === 0) {
-    const empty = el("div", "empty-state");
-    const icon = el("div", "empty-state-icon");
-    icon.textContent = "✅";
-    const p = el("p", "empty-state-text");
-    p.textContent = selectedGroupId
+    const message = selectedGroupId
       ? `No ${currentFilter === "all" ? "" : currentFilter} invitations found.`
       : "Select a group to see its invitations.";
-    empty.append(icon, p);
-    list.appendChild(empty);
+    list.appendChild(emptyTableRow(message));
     return;
   }
 
-  invitations.forEach((invitation) => list.appendChild(createInvitationCard(invitation)));
+  invitations.forEach((invitation) => list.appendChild(createInvitationRow(invitation)));
 }
 
-function createInvitationCard(invitation) {
+/**
+ * Renders one invitation as a <tr> for the .table.table-responsive component
+ * (pure-CSS desktop table / mobile card collapse — see design-system.css).
+ * Carries every field createInvitationCard() used to show: invited email,
+ * status badge, invited date, and the conditional responded date. This page
+ * has no admin-actionable buttons per row (an admin cannot approve/reject on
+ * the invitee's behalf) — the pending-only help text is folded into the Note
+ * column instead of a separate Actions column.
+ */
+function createInvitationRow(invitation) {
   const statusClass = invitation.status === "accepted" ? "approved"
     : invitation.status === "rejected" ? "rejected" : "pending";
   const statusText = invitation.status === "accepted" ? "Accepted"
     : invitation.status === "rejected" ? "Rejected" : "Pending";
 
-  const card = el("div", `registration-card ${statusClass}`);
+  const row = el("tr");
 
-  const header = el("div", "registration-header");
-  const emailEl = el("div", "registration-code");
-  emailEl.textContent = invitation.invitedEmail || "Unknown";
-  const statusEl = el("div", `registration-status status-${statusClass}`);
-  statusEl.textContent = statusText;
-  header.append(emailEl, statusEl);
+  const emailCell = el("td");
+  emailCell.dataset.label = "Email";
+  emailCell.textContent = invitation.invitedEmail || "Unknown";
+  row.appendChild(emailCell);
 
-  const info = el("div", "registration-info");
-  info.appendChild(infoRow("Invited", invitation.createdAt ? new Date(invitation.createdAt).toLocaleString() : "Unknown"));
-  if (invitation.respondedAt) {
-    info.appendChild(infoRow("Responded", new Date(invitation.respondedAt).toLocaleString()));
-  }
+  const statusCell = el("td");
+  statusCell.dataset.label = "Status";
+  const statusBadge = el("span", `registration-status status-${statusClass}`);
+  statusBadge.textContent = statusText;
+  statusCell.appendChild(statusBadge);
+  row.appendChild(statusCell);
 
-  card.append(header, info);
+  const invitedCell = el("td");
+  invitedCell.dataset.label = "Invited";
+  invitedCell.textContent = invitation.createdAt ? new Date(invitation.createdAt).toLocaleString() : "Unknown";
+  row.appendChild(invitedCell);
 
+  const respondedCell = el("td");
+  respondedCell.dataset.label = invitation.respondedAt ? "Responded" : "";
+  respondedCell.textContent = invitation.respondedAt ? new Date(invitation.respondedAt).toLocaleString() : "";
+  row.appendChild(respondedCell);
+
+  const noteCell = el("td");
   if (invitation.status === "pending") {
-    const actions = el("div", "action-buttons");
-    const note = el("p", "help-text");
-    note.textContent = "Awaiting the invitee's own response — an admin cannot approve or reject on their behalf.";
-    actions.appendChild(note);
-    card.appendChild(actions);
+    noteCell.dataset.label = "Note";
+    noteCell.classList.add("help-text");
+    noteCell.textContent = "Awaiting the invitee's own response — an admin cannot approve or reject on their behalf.";
+  } else {
+    noteCell.dataset.label = "";
   }
+  row.appendChild(noteCell);
 
-  return card;
+  return row;
 }
 
-function infoRow(label, value) {
-  const row = el("div", "info-row");
-  const l = el("span", "info-label");
-  l.textContent = `${label}:`;
-  const v = el("span", "info-value");
-  v.textContent = value;
-  row.append(l, v);
+function emptyTableRow(text) {
+  const row = el("tr");
+  const cell = el("td");
+  cell.colSpan = 5;
+  cell.dataset.label = "";
+  cell.style.cssText = "text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);";
+  cell.textContent = text;
+  row.appendChild(cell);
   return row;
 }
 

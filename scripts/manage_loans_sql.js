@@ -335,65 +335,82 @@ function renderPendingPayments() {
   listEl.textContent = "";
 
   if (pendingPayments.length === 0) {
-    const empty = el("div", "empty-state");
-    const icon = el("div", "empty-state-icon");
-    icon.textContent = "✅";
-    const text = el("p", "empty-state-text");
-    text.textContent = "No pending payments to review";
-    empty.append(icon, text);
-    listEl.appendChild(empty);
+    listEl.appendChild(emptyTableRow("No pending payments to review", 7));
     return;
   }
 
-  pendingPayments.forEach((payment) => listEl.appendChild(createPendingPaymentCard(payment)));
+  pendingPayments.forEach((payment) => listEl.appendChild(createPendingPaymentRow(payment)));
 }
 
-function createPendingPaymentCard(payment) {
-  const card = el("div", "loan-card");
-  card.style.marginBottom = "var(--bn-space-3)";
+/**
+ * Renders one pending loan-payment as a <tr> for the .table.table-responsive
+ * component (same pattern as manage_payments_sql.js's createPaymentRow —
+ * pure-CSS desktop table / mobile card collapse). Carries every field
+ * createPendingPaymentCard() used to show: borrower, loan #/amount/method/
+ * date, and the conditional notes/proof-link folded into one "Details" cell
+ * that stays empty (data-label="") when neither applies.
+ */
+function createPendingPaymentRow(payment) {
+  const row = el("tr");
 
-  const header = el("div", "loan-card-header");
-  const info = el("div");
-  const name = el("div", "loan-borrower-name");
-  name.textContent = payment.userName || "Unknown";
-  const meta = el("div", "loan-borrower-date");
-  const paidWhen = formatDate(payment.paidAt || payment.createdAt);
-  meta.textContent = `Loan #${payment.loanNumber || payment.loanId} · ${formatCurrency(payment.amount)} · ${payment.paymentMethod || "N/A"} · ${paidWhen}`;
-  info.append(name, meta);
-  header.appendChild(info);
-  card.appendChild(header);
+  const borrowerCell = el("td");
+  borrowerCell.dataset.label = "Borrower";
+  borrowerCell.appendChild(borrowerIdentity(payment.userName || "Unknown"));
+  row.appendChild(borrowerCell);
 
-  const body = el("div", "loan-card-body");
+  const loanNumCell = el("td");
+  loanNumCell.dataset.label = "Loan #";
+  loanNumCell.textContent = String(payment.loanNumber || payment.loanId || "—");
+  row.appendChild(loanNumCell);
 
+  const amountCell = el("td", "cell-right");
+  amountCell.dataset.label = "Amount";
+  amountCell.textContent = formatCurrency(payment.amount);
+  row.appendChild(amountCell);
+
+  const methodCell = el("td");
+  methodCell.dataset.label = "Method";
+  methodCell.textContent = payment.paymentMethod || "N/A";
+  row.appendChild(methodCell);
+
+  const dateCell = el("td");
+  dateCell.dataset.label = "Date";
+  dateCell.textContent = formatDate(payment.paidAt || payment.createdAt);
+  row.appendChild(dateCell);
+
+  const detailsCell = el("td");
   if (payment.notes) {
     const notes = el("div");
-    notes.style.cssText = "font-size: var(--bn-text-sm); color: var(--bn-gray); margin-bottom: var(--bn-space-2);";
+    notes.style.cssText = "font-size: var(--bn-text-sm); color: var(--bn-gray);";
     notes.textContent = `Notes: ${payment.notes}`;
-    body.appendChild(notes);
+    detailsCell.appendChild(notes);
   }
-
   if (payment.proofOfPaymentImageUrl) {
     const link = document.createElement("a");
     link.href = payment.proofOfPaymentImageUrl;
     link.target = "_blank";
     link.rel = "noopener noreferrer";
     link.textContent = "View proof";
-    link.style.cssText = "display: inline-block; margin-bottom: var(--bn-space-2); font-size: var(--bn-text-sm);";
-    body.appendChild(link);
+    link.style.cssText = "display: inline-block; font-size: var(--bn-text-sm);";
+    detailsCell.appendChild(link);
   }
+  detailsCell.dataset.label = detailsCell.childNodes.length ? "Details" : "";
+  row.appendChild(detailsCell);
 
+  const actionsCell = el("td");
+  actionsCell.dataset.label = "Actions";
   const actions = el("div", "loan-actions");
-  const approveBtn = el("button", "btn btn-accent");
+  const approveBtn = el("button", "btn btn-accent btn-sm");
   approveBtn.textContent = "Approve";
   approveBtn.addEventListener("click", () => approvePendingPayment(payment.paymentId));
-  const rejectBtn = el("button", "btn btn-danger");
+  const rejectBtn = el("button", "btn btn-danger btn-sm");
   rejectBtn.textContent = "Reject";
   rejectBtn.addEventListener("click", () => rejectPendingPayment(payment));
   actions.append(approveBtn, rejectBtn);
-  body.appendChild(actions);
+  actionsCell.appendChild(actions);
+  row.appendChild(actionsCell);
 
-  card.appendChild(body);
-  return card;
+  return row;
 }
 
 async function approvePendingPayment(paymentId) {
@@ -526,26 +543,26 @@ function renderLoans() {
   container.textContent = "";
 
   if (filtered.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "empty-state";
-    const icon = document.createElement("div");
-    icon.className = "empty-state-icon";
-    icon.textContent = "💰";
-    const text = document.createElement("p");
-    text.className = "empty-state-text";
-    text.textContent = `No ${currentTab} loans found`;
-    empty.append(icon, text);
-    container.appendChild(empty);
+    container.appendChild(emptyTableRow(`No ${currentTab} loans found`, 10));
     return;
   }
 
-  filtered.forEach((loan) => container.appendChild(createLoanCard(loan)));
+  filtered.forEach((loan) => container.appendChild(createLoanRow(loan)));
 }
 
-function createLoanCard(loan) {
+/**
+ * Renders one loan as a <tr> for the .table.table-responsive component (same
+ * pattern as manage_payments_sql.js's createPaymentRow — pure-CSS desktop
+ * table / mobile card collapse). Carries every field createLoanCard() used
+ * to show: borrower+applied date, status badge, the four money figures, the
+ * approved/disbursed-only progress bar, action buttons that vary by status,
+ * and the conditional purpose/rejection-reason boxes folded into one
+ * optional "Details" cell that stays empty (data-label="") when neither
+ * applies.
+ */
+function createLoanRow(loan) {
   const borrower = members.find((m) => m.uid === loan.borrowerId) || {};
   const borrowerName = borrower.fullName || loan.borrowerName || "Unknown";
-  const initials = borrowerName.split(" ").map((n) => n[0]).filter(Boolean).join("").toUpperCase().substring(0, 2) || "??";
 
   const principal = numberOf(loan.approvedAmount ?? loan.principalAmount);
   const interest = numberOf(loan.totalInterest);
@@ -561,65 +578,48 @@ function createLoanCard(loan) {
       : loan.status === "rejected" ? "danger"
         : "warning";
 
-  const card = el("div", "loan-card");
+  const row = el("tr");
 
-  // Header
-  const header = el("div", "loan-card-header");
-  const borrowerWrap = el("div", "loan-borrower");
-  const avatar = el("div", "loan-borrower-avatar");
-  avatar.textContent = initials;
-  const infoWrap = el("div");
-  const nameEl = el("div", "loan-borrower-name");
-  nameEl.textContent = borrowerName;
-  const dateEl = el("div", "loan-borrower-date");
-  dateEl.textContent = `Applied: ${createdDate}`;
-  infoWrap.append(nameEl, dateEl);
-  borrowerWrap.append(avatar, infoWrap);
+  const borrowerCell = el("td");
+  borrowerCell.dataset.label = "Borrower";
+  borrowerCell.appendChild(borrowerIdentity(borrowerName));
+  row.appendChild(borrowerCell);
+
+  const appliedCell = el("td");
+  appliedCell.dataset.label = "Applied";
+  appliedCell.textContent = createdDate;
+  row.appendChild(appliedCell);
+
+  const statusCell = el("td");
+  statusCell.dataset.label = "Status";
   const statusBadge = el("span", `badge badge-${statusClass}`);
   statusBadge.textContent = loan.status;
-  header.append(borrowerWrap, statusBadge);
+  statusCell.appendChild(statusBadge);
+  row.appendChild(statusCell);
 
-  // Body
-  const body = el("div", "loan-card-body");
+  const principalCell = el("td", "cell-right");
+  principalCell.dataset.label = "Principal";
+  principalCell.textContent = formatCurrency(principal);
+  row.appendChild(principalCell);
 
-  if (loan.status === "pending" && loan.purpose) {
-    const bookingInfo = el("div");
-    bookingInfo.style.cssText = "background: var(--bn-accent-subtle); padding: var(--bn-space-3); border-radius: var(--bn-radius-md); margin-bottom: var(--bn-space-4);";
-    const label = el("div");
-    label.style.cssText = "font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;";
-    label.textContent = "Loan Request Details";
-    const purposeLine = el("div");
-    purposeLine.style.cssText = "font-size: var(--bn-text-xs); color: var(--bn-gray);";
-    purposeLine.textContent = `Purpose: ${loan.purpose}`;
-    const periodLine = el("div");
-    periodLine.style.cssText = "font-size: var(--bn-text-xs); color: var(--bn-gray);";
-    periodLine.textContent = `Repayment Period: ${loan.repaymentPeriod} month(s)`;
-    bookingInfo.append(label, purposeLine, periodLine);
-    body.appendChild(bookingInfo);
-  }
+  const interestCell = el("td", "cell-right");
+  interestCell.dataset.label = "Interest";
+  interestCell.textContent = formatCurrency(interest);
+  row.appendChild(interestCell);
 
-  if (loan.status === "rejected" && loan.rejectionReason) {
-    const rejectInfo = el("div");
-    rejectInfo.style.cssText = "background: #fee; padding: var(--bn-space-3); border-radius: var(--bn-radius-md); margin-bottom: var(--bn-space-4); border-left: 3px solid var(--bn-danger);";
-    const label = el("div");
-    label.style.cssText = "font-size: var(--bn-text-xs); color: var(--bn-danger); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;";
-    label.textContent = "Loan Rejected";
-    const reasonLine = el("div");
-    reasonLine.style.cssText = "font-size: var(--bn-text-sm); color: var(--bn-dark);";
-    reasonLine.textContent = `Reason: ${loan.rejectionReason}`;
-    rejectInfo.append(label, reasonLine);
-    body.appendChild(rejectInfo);
-  }
+  const repaidCell = el("td", "cell-right");
+  repaidCell.dataset.label = "Repaid";
+  repaidCell.textContent = formatCurrency(repaid);
+  repaidCell.style.color = "var(--bn-success)";
+  row.appendChild(repaidCell);
 
-  const grid = el("div", "loan-details-grid");
-  grid.append(
-    loanDetail(formatCurrency(principal), "Principal"),
-    loanDetail(formatCurrency(interest), "Interest"),
-    loanDetail(formatCurrency(repaid), "Repaid", "var(--bn-success)"),
-    loanDetail(formatCurrency(remaining), "Remaining", "var(--bn-danger)"),
-  );
-  body.appendChild(grid);
+  const remainingCell = el("td", "cell-right");
+  remainingCell.dataset.label = "Remaining";
+  remainingCell.textContent = formatCurrency(remaining);
+  remainingCell.style.color = "var(--bn-danger)";
+  row.appendChild(remainingCell);
 
+  const progressCell = el("td");
   if (loan.status === "approved" || loan.status === "disbursed") {
     const progress = el("div", "loan-progress");
     const bar = el("div", "loan-progress-bar");
@@ -631,50 +631,91 @@ function createLoanCard(loan) {
     percentSpan.textContent = `${progressPercent.toFixed(0)}% repaid`;
     textRow.appendChild(percentSpan);
     progress.append(bar, textRow);
-    body.appendChild(progress);
+    progressCell.appendChild(progress);
+    progressCell.dataset.label = "Progress";
+  } else {
+    progressCell.dataset.label = "";
   }
+  row.appendChild(progressCell);
 
+  const detailsCell = el("td");
+  if (loan.status === "pending" && loan.purpose) {
+    const bookingInfo = el("div");
+    bookingInfo.style.cssText = "background: var(--bn-accent-subtle); padding: var(--bn-space-3); border-radius: var(--bn-radius-md);";
+    const label = el("div");
+    label.style.cssText = "font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;";
+    label.textContent = "Loan Request Details";
+    const purposeLine = el("div");
+    purposeLine.style.cssText = "font-size: var(--bn-text-xs); color: var(--bn-gray);";
+    purposeLine.textContent = `Purpose: ${loan.purpose}`;
+    const periodLine = el("div");
+    periodLine.style.cssText = "font-size: var(--bn-text-xs); color: var(--bn-gray);";
+    periodLine.textContent = `Repayment Period: ${loan.repaymentPeriod} month(s)`;
+    bookingInfo.append(label, purposeLine, periodLine);
+    detailsCell.appendChild(bookingInfo);
+  }
+  if (loan.status === "rejected" && loan.rejectionReason) {
+    const rejectInfo = el("div");
+    rejectInfo.style.cssText = "background: #fee; padding: var(--bn-space-3); border-radius: var(--bn-radius-md); border-left: 3px solid var(--bn-danger);";
+    const label = el("div");
+    label.style.cssText = "font-size: var(--bn-text-xs); color: var(--bn-danger); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;";
+    label.textContent = "Loan Rejected";
+    const reasonLine = el("div");
+    reasonLine.style.cssText = "font-size: var(--bn-text-sm); color: var(--bn-dark);";
+    reasonLine.textContent = `Reason: ${loan.rejectionReason}`;
+    rejectInfo.append(label, reasonLine);
+    detailsCell.appendChild(rejectInfo);
+  }
+  detailsCell.dataset.label = detailsCell.childNodes.length ? "Details" : "";
+  row.appendChild(detailsCell);
+
+  const actionsCell = el("td");
+  actionsCell.dataset.label = "Actions";
   const actions = el("div", "loan-actions");
   if (loan.status === "pending") {
-    const approveBtn = el("button", "btn btn-accent");
+    const approveBtn = el("button", "btn btn-accent btn-sm");
     approveBtn.textContent = "Approve";
     approveBtn.addEventListener("click", () => approveLoan(loan.loanId));
-    const rejectBtn = el("button", "btn btn-danger");
+    const rejectBtn = el("button", "btn btn-danger btn-sm");
     rejectBtn.textContent = "Reject";
     rejectBtn.addEventListener("click", () => rejectLoan(loan.loanId));
     actions.append(approveBtn, rejectBtn);
   } else if (loan.status === "approved" || loan.status === "disbursed") {
-    const paymentBtn = el("button", "btn btn-accent");
+    const paymentBtn = el("button", "btn btn-accent btn-sm");
     paymentBtn.textContent = "Record Payment";
     paymentBtn.addEventListener("click", () => openRecordPaymentModal(loan.loanId));
-    const reminderBtn = el("button", "btn btn-secondary");
+    const reminderBtn = el("button", "btn btn-secondary btn-sm");
     reminderBtn.textContent = "Send Reminder";
     reminderBtn.addEventListener("click", () => openCommunicationsModal(loan.borrowerId));
-    const detailsBtn = el("button", "btn btn-ghost");
+    const detailsBtn = el("button", "btn btn-ghost btn-sm");
     detailsBtn.textContent = "View Details";
     detailsBtn.addEventListener("click", () => showLoanDetails(loan.loanId));
     actions.append(paymentBtn, reminderBtn, detailsBtn);
   } else {
-    const detailsBtn = el("button", "btn btn-ghost");
+    const detailsBtn = el("button", "btn btn-ghost btn-sm");
     detailsBtn.textContent = "View Details";
     detailsBtn.addEventListener("click", () => showLoanDetails(loan.loanId));
     actions.appendChild(detailsBtn);
   }
-  body.appendChild(actions);
+  actionsCell.appendChild(actions);
+  row.appendChild(actionsCell);
 
-  card.append(header, body);
-  return card;
+  return row;
 }
 
-function loanDetail(value, label, color) {
-  const wrap = el("div", "loan-detail");
-  const valueEl = el("div", "loan-detail-value");
-  valueEl.textContent = value;
-  if (color) valueEl.style.color = color;
-  const labelEl = el("div", "loan-detail-label");
-  labelEl.textContent = label;
-  wrap.append(valueEl, labelEl);
-  return wrap;
+/**
+ * Shared empty-state <tr> for both tables on this page — colspan varies per
+ * table (10 for the loan table, 7 for the pending-payment-review table).
+ */
+function emptyTableRow(text, colspan) {
+  const row = el("tr");
+  const cell = el("td");
+  cell.colSpan = colspan;
+  cell.dataset.label = "";
+  cell.style.cssText = "text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);";
+  cell.textContent = text;
+  row.appendChild(cell);
+  return row;
 }
 
 // ── Approve / reject ─────────────────────────────────────────────────────────
@@ -1428,6 +1469,25 @@ function el(tag, className) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   return node;
+}
+
+/**
+ * Small inline avatar+name for the Borrower table cell (.table-borrower /
+ * .table-borrower-avatar, styles/manage_loans.html-local). Denser stand-in
+ * for the card view's .loan-borrower-avatar, used in both the Loans table
+ * and the Pending Payments review table.
+ */
+function borrowerIdentity(name) {
+  const safeName = name || "Unknown";
+  const initials = safeName.split(" ").map((n) => n[0]).filter(Boolean).join("").toUpperCase().substring(0, 2) || "?";
+  const wrap = el("div", "table-borrower");
+  const avatar = el("span", "table-borrower-avatar");
+  avatar.textContent = initials;
+  avatar.setAttribute("aria-hidden", "true");
+  const nameEl = el("span", "table-borrower-name");
+  nameEl.textContent = safeName;
+  wrap.append(avatar, nameEl);
+  return wrap;
 }
 
 function numberOf(value) {

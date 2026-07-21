@@ -52,11 +52,23 @@
       <div class="content-section-header">
         <h2 class="content-section-title">Pending Registrations</h2>
       </div>
-      <div class="content-section-body" id="pendingList">
-        <div class="empty-state">
-          <div class="empty-state-icon">✅</div>
-          <p class="empty-state-text">No pending registrations</p>
-        </div>
+      <div class="table-container">
+        <table class="table table-responsive">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Status</th>
+              <th>Invited</th>
+              <th>Responded</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody id="pendingList">
+            <tr>
+              <td colspan="5" style="text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);">No pending registrations</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
     </div>
