@@ -142,7 +142,8 @@
       margin-bottom: var(--bn-space-4);
     }
 
-    .required-note span {
+    .required-note span,
+    .required-mark {
       color: var(--bn-danger);
     }
   </style>
@@ -173,13 +174,13 @@
           <h3 class="form-section-title">Personal Information</h3>
           
           <div class="form-group">
-            <label class="form-label">Full Name <span style="color: var(--bn-danger);">*</span></label>
+            <label class="form-label">Full Name <span class="required-mark">*</span></label>
             <input type="text" id="fullName" class="form-input" required placeholder="Your full name">
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Phone Number <span style="color: var(--bn-danger);">*</span></label>
+              <label class="form-label">Phone Number <span class="required-mark">*</span></label>
               <input type="tel" id="phone" class="form-input" required placeholder="+265 991 234 567">
             </div>
             <div class="form-group">
@@ -208,7 +209,7 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">Address <span style="color: var(--bn-danger);">*</span></label>
+            <label class="form-label">Address <span class="required-mark">*</span></label>
             <textarea id="address" class="form-textarea" rows="2" required placeholder="Your home address"></textarea>
           </div>
         </div>
@@ -219,7 +220,7 @@
           
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Career/Profession <span style="color: var(--bn-danger);">*</span></label>
+              <label class="form-label">Career/Profession <span class="required-mark">*</span></label>
               <input type="text" id="career" class="form-input" required placeholder="e.g., Teacher, Business Owner">
             </div>
             <div class="form-group">

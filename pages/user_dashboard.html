@@ -1809,9 +1809,22 @@
     .content-card {
       animation: fadeInUp 0.6s var(--bn-ease-out) 0.3s backwards;
     }
+
+    .arrears-summary-box {
+      background: var(--bn-danger-light);
+      border-left: 4px solid var(--bn-danger);
+      padding: var(--bn-space-5);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+    }
+
+    .table-empty-cell {
+      text-align: center;
+      padding: var(--bn-space-4);
+      color: var(--bn-gray);
+    }
   </style>
 </head>
-<body>
+<body data-nav-variant="user" data-nav-active-page="user_dashboard" data-nav-show-group-display="true" data-nav-show-view-toggle="true" data-nav-logo-link="../index.html">
   <!-- Hero Section -->
   <section class="hero-section">
     <div class="hero-container">
@@ -2457,7 +2470,7 @@
             </thead>
             <tbody id="allPaymentsTableBody">
               <tr>
-                <td colspan="3" style="text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);">Loading payments...</td>
+                <td colspan="3" class="table-empty-cell">Loading payments...</td>
               </tr>
             </tbody>
             <tfoot class="totals-gray">
@@ -2496,11 +2509,11 @@
       </div>
       <div class="modal-body" style="padding: 0;">
         <!-- Summary Section -->
-        <div style="background: linear-gradient(135deg, #fef2f2 0%, #fef5e7 100%); border-left: 4px solid #ef4444; padding: var(--bn-space-5); border-bottom: 1px solid var(--bn-gray-lighter);">
+        <div class="arrears-summary-box">
           <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--bn-space-4);">
             <div>
               <div style="font-size: var(--bn-text-xs); font-weight: 600; color: var(--bn-gray); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--bn-space-1);">Total Arrears</div>
-              <div id="arrearsTotal" style="font-size: var(--bn-text-2xl); font-weight: 800; color: #ef4444;">MWK 0</div>
+              <div id="arrearsTotal" style="font-size: var(--bn-text-2xl); font-weight: 800; color: var(--bn-danger);">MWK 0</div>
             </div>
             <div style="display: flex; gap: var(--bn-space-6); flex-wrap: wrap;">
               <div>
@@ -2565,25 +2578,8 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module">
-    import { initNav } from '../scripts/nav_sql.js';
-    initNav({ variant: 'user', activePage: 'user_dashboard', showGroupDisplay: true, showViewToggle: true, logoLink: '../index.html' });
-
-    // "Groups" quick action opens the nav's group-switcher dropdown
-    // (select_group.html is retired) rather than duplicating it here.
-    document.addEventListener('DOMContentLoaded', () => {
-      const viewGroupsBtn = document.getElementById('viewGroupsBtn');
-      if (viewGroupsBtn) {
-        viewGroupsBtn.addEventListener('click', () => {
-          const groupToggle = document.getElementById('currentGroupToggle');
-          if (groupToggle) {
-            groupToggle.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            groupToggle.click();
-          }
-        });
-      }
-    });
-  </script>
+  <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
+  <script type="module" src="../scripts/user-dashboard-view-groups.js?v=20260722"></script>
   <script type="module" src="../scripts/user_dashboard_sql.js?v=20260722"></script>
   <script src="../scripts/mobile-nav-active.js"></script>
 </body>

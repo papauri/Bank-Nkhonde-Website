@@ -514,7 +514,7 @@
     .toast-close:hover { opacity: 1; }
   </style>
 </head>
-<body>
+<body data-nav-variant="admin" data-nav-active-page="members" data-nav-page-title="Manage Members">
   <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
     <div class="dashboard-content">
@@ -842,10 +842,7 @@
 
   <script src="../scripts/dob-validation.js"></script>
   <script src="../scripts/modal-utils.js"></script>
-  <script type="module">
-    import { initNav } from '../scripts/nav_sql.js';
-    initNav({ variant: 'admin', activePage: 'members', pageTitle: 'Manage Members' });
-  </script>
+  <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/manage_members_new_sql.js?v=20260722"></script>
 </body>
 </html>

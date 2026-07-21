@@ -372,6 +372,30 @@
       padding: var(--bn-space-5);
     }
 
+    .message-recipient-box {
+      margin-bottom: var(--bn-space-4);
+      padding: var(--bn-space-3);
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-md);
+    }
+
+    .message-recipient-label {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray-400);
+      margin-bottom: 4px;
+    }
+
+    .message-recipient-name {
+      font-weight: 600;
+      color: var(--bn-gray-900);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: var(--bn-space-2);
+      justify-content: flex-end;
+    }
+
     /* SPA markup contract: admin-layout.css is not loaded on this page,
        so preserve the .page-content layout (pages.css) on the new wrapper. */
     #mainContent .dashboard-content {
@@ -389,7 +413,7 @@
     }
   </style>
 </head>
-<body class="user-page">
+<body class="user-page" data-nav-variant="user" data-nav-active-page="contacts">
   <!-- Page Header -->
   <header class="page-header">
     <div class="page-header-container">
@@ -465,21 +489,21 @@
       </div>
       <div class="modal-body">
         <form id="messageAdminForm">
-          <div style="margin-bottom: var(--bn-space-4); padding: var(--bn-space-3); background: var(--bn-gray-100); border-radius: var(--bn-radius-md);">
-            <div style="font-size: var(--bn-text-xs); color: var(--bn-gray-400); margin-bottom: 4px;">To</div>
-            <div id="messageAdminRecipient" style="font-weight: 600; color: var(--bn-gray-900);"></div>
+          <div class="message-recipient-box">
+            <div class="message-recipient-label">To</div>
+            <div id="messageAdminRecipient" class="message-recipient-name"></div>
           </div>
-          <div style="margin-bottom: var(--bn-space-4);">
-            <label for="messageAdminSubject" style="display: block; font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-gray-800); margin-bottom: var(--bn-space-2);">Subject</label>
-            <input type="text" id="messageAdminSubject" required style="width: 100%; padding: var(--bn-space-3); border: 1px solid var(--bn-gray-lighter); border-radius: var(--bn-radius-md); font-size: var(--bn-text-sm);" placeholder="Message subject">
+          <div class="form-group">
+            <label for="messageAdminSubject" class="form-label">Subject</label>
+            <input type="text" id="messageAdminSubject" class="form-input" required placeholder="Message subject">
           </div>
-          <div style="margin-bottom: var(--bn-space-4);">
-            <label for="messageAdminMessage" style="display: block; font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-gray-800); margin-bottom: var(--bn-space-2);">Message</label>
-            <textarea id="messageAdminMessage" required rows="6" style="width: 100%; padding: var(--bn-space-3); border: 1px solid var(--bn-gray-lighter); border-radius: var(--bn-radius-md); font-size: var(--bn-text-sm); resize: vertical; font-family: inherit;" placeholder="Type your message here..."></textarea>
+          <div class="form-group">
+            <label for="messageAdminMessage" class="form-label">Message</label>
+            <textarea id="messageAdminMessage" class="form-textarea" required rows="6" placeholder="Type your message here..."></textarea>
           </div>
-          <div style="display: flex; gap: var(--bn-space-2); justify-content: flex-end;">
-            <button type="button" onclick="closeMessageModal()" style="padding: var(--bn-space-2) var(--bn-space-4); border: 1px solid var(--bn-gray-lighter); background: var(--bn-white); color: var(--bn-gray-700); border-radius: var(--bn-radius-md); font-size: var(--bn-text-sm); font-weight: 500; cursor: pointer;">Cancel</button>
-            <button type="submit" style="padding: var(--bn-space-2) var(--bn-space-4); border: none; background: var(--bn-primary); color: var(--bn-white); border-radius: var(--bn-radius-md); font-size: var(--bn-text-sm); font-weight: 600; cursor: pointer;">Send Message</button>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeMessageModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary">Send Message</button>
           </div>
         </form>
       </div>
@@ -497,10 +521,7 @@
     </div>
   </div>
 
-  <script type="module">
-    import { initNav } from '../scripts/nav_sql.js';
-    initNav({ variant: 'user', activePage: 'contacts' });
-  </script>
+  <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/contacts_sql.js?v=20260722"></script>
   <script src="../scripts/mobile-nav-active.js"></script>
 </body>

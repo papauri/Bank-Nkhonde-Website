@@ -153,6 +153,89 @@ let routerStarted = false;
 let currentModule = null;
 
 /**
+ * Delay, in ms, before the in-content loading overlay is actually inserted
+ * into the DOM after showLoader() is called. A navigation that completes
+ * (fetch + stylesheet wait) faster than this never shows anything at all —
+ * only a slow navigation earns a visible loader, so fast swaps stay flicker-
+ * free. See showLoader()/hideLoader().
+ * @const {number}
+ */
+const LOADER_SHOW_DELAY_MS = 180;
+
+/** Pending setTimeout id for a not-yet-shown loader, or null. */
+let loaderShowTimer = null;
+
+/** The currently-inserted loader overlay element, or null if none is shown. */
+let loaderEl = null;
+
+/**
+ * Inject the loader's CSS once per document load. Scoped entirely to the
+ * `.bn-spa-loader-*` classes below — reuses existing --bn-* design tokens
+ * (falling back to literal values only if a token is somehow unset) rather
+ * than inventing new colors.
+ */
+function ensureLoaderStyles() {
+  if (document.getElementById("bn-spa-loader-style")) return;
+  const style = document.createElement("style");
+  style.id = "bn-spa-loader-style";
+  style.textContent =
+      ".bn-spa-loader-overlay{position:absolute;inset:0;display:flex;" +
+      "align-items:center;justify-content:center;" +
+      "background:var(--glass-bg, rgba(255, 255, 255, 0.72));z-index:20;" +
+      "animation:bn-spa-loader-fade-in .15s ease forwards;}" +
+      "@keyframes bn-spa-loader-fade-in{from{opacity:0;}to{opacity:1;}}" +
+      ".bn-spa-loader-spinner{width:36px;height:36px;border-radius:50%;" +
+      "border:3px solid var(--bn-gray-lighter, #E2E8F0);" +
+      "border-top-color:var(--bn-accent, #C9A227);" +
+      "animation:bn-spa-loader-spin .8s linear infinite;}" +
+      "@keyframes bn-spa-loader-spin{to{transform:rotate(360deg);}}";
+  document.head.appendChild(style);
+}
+
+/**
+ * Arm the in-content loading overlay against `container` (expected to be
+ * `#mainContent .dashboard-content`, i.e. the region navigateTo() is about
+ * to replace). Nothing is actually inserted until LOADER_SHOW_DELAY_MS
+ * elapses, so a fast navigation that calls hideLoader() before the timer
+ * fires never shows anything — no flash. Never touches the sidebar,
+ * topbar, or mobile nav; only ever appends inside `container` itself.
+ * @param {?Element} container The current .dashboard-content element.
+ */
+function showLoader(container) {
+  if (!container) return;
+  ensureLoaderStyles();
+  clearTimeout(loaderShowTimer);
+  loaderShowTimer = setTimeout(() => {
+    loaderShowTimer = null;
+    if (!container.isConnected) return;
+    if (window.getComputedStyle(container).position === "static") {
+      container.style.position = "relative";
+    }
+    const overlay = document.createElement("div");
+    overlay.className = "bn-spa-loader-overlay";
+    const spinner = document.createElement("div");
+    spinner.className = "bn-spa-loader-spinner";
+    overlay.appendChild(spinner);
+    container.appendChild(overlay);
+    loaderEl = overlay;
+  }, LOADER_SHOW_DELAY_MS);
+}
+
+/**
+ * Cancel any pending loader timer and remove the overlay if it was actually
+ * inserted. Safe to call unconditionally (e.g. even when the loader never
+ * fired because the navigation was fast).
+ */
+function hideLoader() {
+  clearTimeout(loaderShowTimer);
+  loaderShowTimer = null;
+  if (loaderEl && loaderEl.parentElement) {
+    loaderEl.parentElement.removeChild(loaderEl);
+  }
+  loaderEl = null;
+}
+
+/**
  * @param {string} pathname A location.pathname value.
  * @return {string} The final path segment (e.g. "manage_loans.html").
  */
@@ -398,6 +481,11 @@ async function navigateTo(href, opts = {}) {
   const config = PAGE_CONFIG[basename];
   if (!config) return false;
 
+  // Show the in-content loading overlay immediately (before the fetch even
+  // starts) so a slow navigation gets visual feedback right away. Delayed
+  // internally by showLoader() so a fast navigation never flickers one in.
+  showLoader(document.querySelector("#mainContent .dashboard-content"));
+
   let html;
   try {
     const res = await fetch(url.href, {credentials: "same-origin"});
@@ -439,6 +527,9 @@ async function navigateTo(href, opts = {}) {
   swapLocalStyles(doc);
   await waitForStylesheets(newlyAppendedLinks, STYLESHEET_LOAD_TIMEOUT_MS);
 
+  // The new content is about to become visible in the same spot the loader
+  // (if it ever actually showed) occupies — remove it right at the swap.
+  hideLoader();
   currentContent.replaceWith(newContent);
   if (doc.title) document.title = doc.title;
 

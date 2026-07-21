@@ -125,9 +125,15 @@
         grid-template-columns: 1fr;
       }
     }
+
+    .table-empty-cell {
+      text-align: center;
+      padding: var(--bn-space-4);
+      color: var(--bn-gray);
+    }
   </style>
 </head>
-<body>
+<body data-nav-variant="admin" data-nav-active-page="analytics" data-nav-page-title="Analytics">
   <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
     <div class="dashboard-content">
@@ -196,7 +202,7 @@
             </thead>
             <tbody id="memberPerformance">
               <tr>
-                <td colspan="5" style="text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);">Select a group to view member performance</td>
+                <td colspan="5" class="table-empty-cell">Select a group to view member performance</td>
               </tr>
             </tbody>
           </table>
@@ -216,26 +222,7 @@
     </div>
   </div>
 
-  <script>
-    // Animate chart bars on load
-    setTimeout(() => {
-      document.querySelectorAll('.chart-bar').forEach(bar => {
-        bar.classList.add('animated');
-      });
-    }, 500);
-
-    // Tab switching
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-      });
-    });
-  </script>
-  <script type="module">
-    import { initNav } from '../scripts/nav_sql.js';
-    initNav({ variant: 'admin', activePage: 'analytics', pageTitle: 'Analytics' });
-  </script>
+  <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/analytics_sql.js?v=20260722"></script>
 </body>
 </html>

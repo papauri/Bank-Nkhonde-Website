@@ -41,6 +41,131 @@
       outline-offset: 2px;
     }
 
+    .action-tabs {
+      display: flex;
+      gap: var(--bn-space-2);
+      margin-bottom: var(--bn-space-6);
+      padding: var(--bn-space-2);
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-full);
+      overflow-x: auto;
+    }
+
+    .content-section-header-flex {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--bn-space-2);
+    }
+
+    .loan-status-filter {
+      min-width: 180px;
+      max-width: 100%;
+    }
+
+    .content-section-spaced {
+      margin-top: var(--bn-space-6);
+    }
+
+    .payment-breakdown-box {
+      background: var(--bn-accent-subtle);
+      padding: var(--bn-space-4);
+      border-radius: var(--bn-radius-lg);
+      margin-bottom: var(--bn-space-4);
+      border-left: 3px solid var(--bn-accent);
+    }
+
+    .payment-breakdown-label {
+      font-size: var(--bn-text-xs);
+      font-weight: 600;
+      color: var(--bn-accent-dark);
+      margin-bottom: var(--bn-space-3);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .payment-breakdown-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: var(--bn-space-3);
+      margin-bottom: var(--bn-space-3);
+    }
+
+    .payment-breakdown-item-label {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      margin-bottom: 4px;
+    }
+
+    .payment-breakdown-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: var(--bn-space-3);
+      border-top: 1px solid var(--bn-gray-lighter);
+    }
+
+    .payment-breakdown-footer-right {
+      text-align: right;
+    }
+
+    .payment-summary-box {
+      background: var(--bn-gray-100);
+      padding: var(--bn-space-4);
+      border-radius: var(--bn-radius-lg);
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .payment-summary-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--bn-space-3);
+    }
+
+    .payment-summary-title {
+      font-size: var(--bn-text-xs);
+      font-weight: 600;
+      color: var(--bn-dark);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .payment-summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--bn-space-3);
+    }
+
+    .payment-summary-total {
+      margin-top: var(--bn-space-3);
+      padding-top: var(--bn-space-3);
+      border-top: 1px solid var(--bn-gray-lighter);
+    }
+
+    .table-empty-cell {
+      text-align: center;
+      padding: var(--bn-space-4);
+      color: var(--bn-gray);
+    }
+
+    .payment-value-lg {
+      font-size: var(--bn-text-lg);
+      font-weight: 700;
+    }
+
+    .payment-value-sm {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-dark);
+    }
+
+    .payment-value-md {
+      font-size: var(--bn-text-md);
+      font-weight: 700;
+    }
+
     /* SPA markup contract: admin-layout.css is not loaded on this page,
        so preserve the .page-content layout (pages.css) on the new wrapper. */
     #mainContent .dashboard-content {
@@ -58,7 +183,7 @@
     }
   </style>
 </head>
-<body class="user-page">
+<body class="user-page" data-nav-variant="user" data-nav-active-page="loan_payments">
   <!-- Page Header -->
   <header class="page-header">
     <div class="page-header-container">
@@ -88,7 +213,7 @@
   <main class="main-content" id="mainContent">
    <div class="dashboard-content">
     <!-- Loan Status Tabs -->
-    <div class="action-tabs" style="display: flex; gap: var(--bn-space-2); margin-bottom: var(--bn-space-6); padding: var(--bn-space-2); background: var(--bn-gray-100); border-radius: var(--bn-radius-full); overflow-x: auto;">
+    <div class="action-tabs">
       <button class="action-tab active" data-tab="pending">
         Pending Requests
       </button>
@@ -105,9 +230,9 @@
 
     <!-- Loans Section -->
     <section class="content-section">
-      <div class="content-section-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--bn-space-2);">
+      <div class="content-section-header content-section-header-flex">
         <h2 class="content-section-title" id="loansSectionTitle">My Loans</h2>
-        <select id="loanStatusFilter" class="form-select" style="min-width: 180px; max-width: 100%;">
+        <select id="loanStatusFilter" class="form-select loan-status-filter">
           <option value="all">All Loans</option>
           <option value="pending">Pending</option>
           <option value="approved">Approved</option>
@@ -130,7 +255,7 @@
           </thead>
           <tbody id="loansList">
             <tr>
-              <td colspan="7" style="text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);">Select a group to view your loans</td>
+              <td colspan="7" class="table-empty-cell">Select a group to view your loans</td>
             </tr>
           </tbody>
         </table>
@@ -138,7 +263,7 @@
     </section>
 
     <!-- Pending Payments Section -->
-    <section class="content-section" style="margin-top: var(--bn-space-6);">
+    <section class="content-section content-section-spaced">
       <div class="content-section-header">
         <h2 class="content-section-title">Pending Payments</h2>
         <span class="badge badge-warning" id="pendingPaymentsCount">0</span>
@@ -152,7 +277,7 @@
     </section>
 
     <!-- Payment History Section -->
-    <section class="content-section" style="margin-top: var(--bn-space-6);">
+    <section class="content-section content-section-spaced">
       <div class="content-section-header">
         <h2 class="content-section-title">Payment History (Approved)</h2>
       </div>
@@ -168,7 +293,7 @@
 
   <!-- Make Payment Modal -->
   <div class="modal-overlay hidden" id="paymentModal">
-    <div class="modal-content" style="max-width: 720px;">
+    <div class="modal-content modal-wide">
       <div class="modal-header">
         <h2 class="modal-title">Make Loan Payment</h2>
         <button class="modal-close" id="closePaymentModal" aria-label="Close">&times;</button>
@@ -180,55 +305,55 @@
             <label class="form-label">Loan Reference</label>
             <input type="text" id="loanReference" class="form-input" readonly>
           </div>
-          
+
           <!-- Next Payment Breakdown -->
-          <div id="nextPaymentBreakdown" style="background: var(--bn-accent-subtle); padding: var(--bn-space-4); border-radius: var(--bn-radius-lg); margin-bottom: var(--bn-space-4); border-left: 3px solid var(--bn-accent);">
-            <div style="font-size: var(--bn-text-xs); font-weight: 600; color: var(--bn-accent-dark); margin-bottom: var(--bn-space-3); text-transform: uppercase; letter-spacing: 0.05em;">📅 Next Payment Due</div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--bn-space-3); margin-bottom: var(--bn-space-3);">
+          <div id="nextPaymentBreakdown" class="payment-breakdown-box">
+            <div class="payment-breakdown-label">Next Payment Due</div>
+            <div class="payment-breakdown-grid">
               <div>
-                <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: 4px;">Principal</div>
-                <div style="font-size: var(--bn-text-lg); font-weight: 700; color: var(--bn-dark);" id="nextPaymentPrincipal">MWK 0</div>
+                <div class="payment-breakdown-item-label">Principal</div>
+                <div class="payment-value-lg" style="color: var(--bn-dark);" id="nextPaymentPrincipal">MWK 0</div>
               </div>
               <div>
-                <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: 4px;">Interest</div>
-                <div style="font-size: var(--bn-text-lg); font-weight: 700; color: var(--bn-warning);" id="nextPaymentInterest">MWK 0</div>
+                <div class="payment-breakdown-item-label">Interest</div>
+                <div class="payment-value-lg" style="color: var(--bn-warning);" id="nextPaymentInterest">MWK 0</div>
               </div>
               <div>
-                <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: 4px;">Total Due</div>
-                <div style="font-size: var(--bn-text-lg); font-weight: 700; color: var(--bn-accent);" id="nextPaymentTotal">MWK 0</div>
+                <div class="payment-breakdown-item-label">Total Due</div>
+                <div class="payment-value-lg" style="color: var(--bn-accent);" id="nextPaymentTotal">MWK 0</div>
               </div>
             </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: var(--bn-space-3); border-top: 1px solid var(--bn-gray-lighter);">
+            <div class="payment-breakdown-footer">
               <div>
-                <div style="font-size: var(--bn-text-xs); color: var(--bn-gray);">Due Date</div>
-                <div style="font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-dark);" id="nextPaymentDueDate">-</div>
+                <div class="payment-breakdown-item-label">Due Date</div>
+                <div class="payment-value-sm" id="nextPaymentDueDate">-</div>
               </div>
-              <div style="text-align: right;">
-                <div style="font-size: var(--bn-text-xs); color: var(--bn-gray);">Payment #</div>
-                <div style="font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-dark);" id="nextPaymentNumber">-</div>
+              <div class="payment-breakdown-footer-right">
+                <div class="payment-breakdown-item-label">Payment #</div>
+                <div class="payment-value-sm" id="nextPaymentNumber">-</div>
               </div>
             </div>
           </div>
-          
+
           <!-- Remaining Payments Summary -->
-          <div id="remainingPaymentsSummary" style="background: var(--bn-gray-100); padding: var(--bn-space-4); border-radius: var(--bn-radius-lg); margin-bottom: var(--bn-space-4);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--bn-space-3);">
-              <div style="font-size: var(--bn-text-xs); font-weight: 600; color: var(--bn-dark); text-transform: uppercase; letter-spacing: 0.05em;">📊 Loan Summary</div>
-              <span class="badge badge-info" id="remainingPaymentsCount" style="font-size: var(--bn-text-xs);">0 payments left</span>
+          <div id="remainingPaymentsSummary" class="payment-summary-box">
+            <div class="payment-summary-header">
+              <div class="payment-summary-title">Loan Summary</div>
+              <span class="badge badge-info" id="remainingPaymentsCount">0 payments left</span>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--bn-space-3);">
+            <div class="payment-summary-grid">
               <div>
-                <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: 4px;">Outstanding Balance</div>
-                <div style="font-size: var(--bn-text-md); font-weight: 700; color: var(--bn-danger);" id="outstandingBalance">MWK 0</div>
+                <div class="payment-breakdown-item-label">Outstanding Balance</div>
+                <div class="payment-value-md" style="color: var(--bn-danger);" id="outstandingBalance">MWK 0</div>
               </div>
               <div>
-                <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: 4px;">Total Paid</div>
-                <div style="font-size: var(--bn-text-md); font-weight: 700; color: var(--bn-success);" id="totalPaidAmount">MWK 0</div>
+                <div class="payment-breakdown-item-label">Total Paid</div>
+                <div class="payment-value-md" style="color: var(--bn-success);" id="totalPaidAmount">MWK 0</div>
               </div>
             </div>
-            <div style="margin-top: var(--bn-space-3); padding-top: var(--bn-space-3); border-top: 1px solid var(--bn-gray-lighter);">
-              <div style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: 4px;">Total Loan Amount</div>
-              <div style="font-size: var(--bn-text-md); font-weight: 700; color: var(--bn-dark);" id="totalLoanAmount">MWK 0</div>
+            <div class="payment-summary-total">
+              <div class="payment-breakdown-item-label">Total Loan Amount</div>
+              <div class="payment-value-md" style="color: var(--bn-dark);" id="totalLoanAmount">MWK 0</div>
             </div>
           </div>
           
@@ -298,10 +423,7 @@
     </div>
   </div>
 
-  <script type="module">
-    import { initNav } from '../scripts/nav_sql.js';
-    initNav({ variant: 'user', activePage: 'loan_payments' });
-  </script>
+  <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/loan_payments_sql.js?v=20260722"></script>
   <script src="../scripts/mobile-nav-active.js"></script>
 </body>

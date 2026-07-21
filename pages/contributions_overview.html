@@ -285,7 +285,7 @@
     }
   </style>
 </head>
-<body>
+<body data-nav-variant="admin" data-nav-active-page="contributions" data-nav-page-title="Contributions">
   <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
     <div class="dashboard-content">
@@ -382,10 +382,7 @@
     </div>
   </div>
 
-  <script type="module">
-    import { initNav } from '../scripts/nav_sql.js';
-    initNav({ variant: 'admin', activePage: 'contributions', pageTitle: 'Contributions' });
-  </script>
+  <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/contributions_overview_sql.js?v=20260722"></script>
 </body>
 </html>

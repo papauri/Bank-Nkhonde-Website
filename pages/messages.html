@@ -242,6 +242,24 @@
       white-space: pre-wrap;
     }
 
+    .content-section-header-flex {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--bn-space-2);
+    }
+
+    .message-header-actions {
+      display: flex;
+      gap: var(--bn-space-2);
+      align-items: center;
+    }
+
+    .action-tabs-mb {
+      margin-bottom: var(--bn-space-4);
+    }
+
     /* SPA markup contract: admin-layout.css is not loaded on this page,
        so preserve the .page-content layout (pages.css) on the new wrapper. */
     #mainContent .dashboard-content {
@@ -259,7 +277,7 @@
     }
   </style>
 </head>
-<body class="user-page">
+<body class="user-page" data-nav-variant="user" data-nav-active-page="messages">
   <!-- Page Header -->
   <header class="page-header">
     <div class="page-header-container">
@@ -289,16 +307,16 @@
   <main class="main-content" id="mainContent">
    <div class="dashboard-content">
     <section class="content-section">
-      <div class="content-section-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--bn-space-2);">
+      <div class="content-section-header content-section-header-flex">
         <h2 class="content-section-title">Your Messages</h2>
-        <div style="display: flex; gap: var(--bn-space-2); align-items: center;">
+        <div class="message-header-actions">
           <button class="btn btn-ghost btn-sm" id="showReadBtn" style="display: none;">Show Read</button>
           <button class="btn btn-ghost btn-sm" id="markAllReadBtn" style="display: none;">Mark All as Read</button>
         </div>
       </div>
-      
+
       <!-- Message Type Filters -->
-      <div class="action-tabs" style="margin-bottom: var(--bn-space-4);">
+      <div class="action-tabs action-tabs-mb">
         <button class="action-tab active" data-filter="all">All</button>
         <button class="action-tab" data-filter="unread">Unread</button>
         <button class="action-tab" data-filter="read">Read</button>
@@ -372,10 +390,7 @@
     </div>
   </div>
 
-  <script type="module">
-    import { initNav } from '../scripts/nav_sql.js';
-    initNav({ variant: 'user', activePage: 'messages' });
-  </script>
+  <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/messages_sql.js?v=20260722"></script>
 </body>
 </html>

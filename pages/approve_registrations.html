@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
 </head>
-<body>
+<body data-nav-variant="admin" data-nav-active-page="approvals" data-nav-page-title="Approvals">
   <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
     <div class="dashboard-content">
@@ -84,10 +84,7 @@
     </div>
   </div>
 
-  <script type="module">
-    import { initNav } from '../scripts/nav_sql.js';
-    initNav({ variant: 'admin', activePage: 'approvals', pageTitle: 'Approvals' });
-  </script>
+  <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/approve_registrations_sql.js?v=20260722"></script>
 </body>
 </html>

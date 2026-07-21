@@ -200,7 +200,7 @@
     }
   </style>
 </head>
-<body class="user-page">
+<body class="user-page" data-nav-variant="user" data-nav-active-page="user_analytics">
   <!-- Page Header -->
   <header class="page-header">
     <div class="page-header-container">
@@ -378,18 +378,8 @@
     </div>
   </div>
 
-  <script>
-    // Animate chart bars on load
-    setTimeout(() => {
-      document.querySelectorAll('.chart-bar').forEach(bar => {
-        bar.classList.add('animated');
-      });
-    }, 500);
-  </script>
-  <script type="module">
-    import { initNav } from '../scripts/nav_sql.js';
-    initNav({ variant: 'user', activePage: 'user_analytics' });
-  </script>
+  <script src="../scripts/analytics-chart-animate.js"></script>
+  <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/user_analytics_sql.js?v=20260722"></script>
   <script src="../scripts/mobile-nav-active.js"></script>
 </body>

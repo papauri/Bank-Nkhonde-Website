@@ -263,9 +263,60 @@
         grid-template-columns: 1fr;
       }
     }
+
+    .content-section-spaced {
+      margin-top: var(--bn-space-6);
+    }
+
+    .help-text {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      margin-top: var(--bn-space-2);
+      display: block;
+    }
+
+    .help-text-tight {
+      margin-top: var(--bn-space-1);
+    }
+
+    .section-title-danger {
+      color: var(--bn-danger);
+    }
+
+    .notification-toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+
+    .form-label-tight {
+      margin-bottom: 4px;
+    }
+
+    .section-select-full {
+      width: 100%;
+    }
+
+    .account-actions-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--bn-space-4);
+    }
+
+    .btn-danger-outline {
+      color: var(--bn-danger);
+      border-color: var(--bn-danger);
+    }
+
+    .help-text-base {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
+      margin-bottom: var(--bn-space-4);
+    }
   </style>
 </head>
-<body>
+<body data-nav-variant="admin" data-nav-active-page="settings" data-nav-page-title="Settings">
   <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
     <div class="dashboard-content">
@@ -326,7 +377,7 @@
                 <div class="form-group">
                   <label class="form-label">Date of Birth</label>
                   <input type="date" id="dateOfBirth" class="form-input">
-                  <span class="help-text" style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: var(--bn-space-1); display: block;">
+                  <span class="help-text help-text-tight">
                     You must be at least 18 years old
                   </span>
                 </div>
@@ -463,7 +514,7 @@
         </div>
       </section>
 
-      <section class="content-section" style="margin-top: var(--bn-space-6);">
+      <section class="content-section content-section-spaced">
         <div class="content-section-header">
           <h2 class="content-section-title">Change Password</h2>
         </div>
@@ -500,7 +551,7 @@
           <form id="bankAccountForm">
             <div class="form-section">
               <h4 class="form-section-title">Banking Information</h4>
-              <p style="font-size: var(--bn-text-sm); color: var(--bn-gray); margin-bottom: var(--bn-space-4);">
+              <p class="help-text-base">
                 Provide your bank account details for payment processing. Admins can view this information for disbursements.
               </p>
               <div class="form-row">
@@ -544,7 +595,7 @@
         </div>
       </section>
 
-      <section class="content-section" style="margin-top: var(--bn-space-6);">
+      <section class="content-section content-section-spaced">
         <div class="content-section-header">
           <h2 class="content-section-title">Preferences</h2>
         </div>
@@ -553,13 +604,13 @@
             <h4 class="form-section-title">Display Settings</h4>
             <div class="form-group">
               <label class="form-label">Currency</label>
-              <select class="form-select" id="currencySelector" style="width: 100%;">
+              <select class="form-select section-select-full" id="currencySelector">
                 <option value="MWK" selected>MWK - Malawi Kwacha</option>
                 <option value="USD">USD - US Dollar</option>
                 <option value="ZAR">ZAR - South African Rand</option>
                 <option value="GBP">GBP - British Pound</option>
               </select>
-              <p style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: var(--bn-space-2);">
+              <p class="help-text">
                 Choose your preferred currency for displaying amounts throughout the application.
               </p>
             </div>
@@ -569,11 +620,11 @@
             <h4 class="form-section-title">Notification Settings</h4>
             
             <!-- Push Notifications Toggle -->
-            <div class="form-group" style="margin-bottom: var(--bn-space-4);">
-              <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+            <div class="form-group">
+              <label class="notification-toggle-row">
                 <div>
-                  <div class="form-label" style="margin-bottom: 4px;">Push Notifications</div>
-                  <p style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin: 0;">
+                  <div class="form-label form-label-tight">Push Notifications</div>
+                  <p class="help-text" style="margin-top: 0;">
                     Receive notifications even when the app is closed
                   </p>
                 </div>
@@ -585,11 +636,11 @@
             </div>
 
             <!-- Sound Notifications Toggle -->
-            <div class="form-group" style="margin-bottom: var(--bn-space-4);">
-              <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+            <div class="form-group">
+              <label class="notification-toggle-row">
                 <div>
-                  <div class="form-label" style="margin-bottom: 4px;">Sound Notifications</div>
-                  <p style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin: 0;">
+                  <div class="form-label form-label-tight">Sound Notifications</div>
+                  <p class="help-text" style="margin-top: 0;">
                     Play a sound when you receive notifications
                   </p>
                 </div>
@@ -601,23 +652,23 @@
             </div>
 
             <!-- Sound Type Selection -->
-            <div class="form-group" id="soundTypeGroup" style="margin-bottom: var(--bn-space-4);">
+            <div class="form-group" id="soundTypeGroup">
               <label class="form-label">Sound Type</label>
-              <select class="form-select" id="soundTypeSelector" style="width: 100%;">
+              <select class="form-select section-select-full" id="soundTypeSelector">
                 <option value="chime">Chime</option>
                 <option value="bell">Bell</option>
                 <option value="notification">Notification</option>
               </select>
-              <button class="btn btn-ghost btn-sm" id="testSoundBtn" style="margin-top: var(--bn-space-2); width: 100%;">
-                🔊 Test Sound
+              <button class="btn btn-ghost btn-sm btn-block" id="testSoundBtn" style="margin-top: var(--bn-space-2);">
+                Test Sound
               </button>
             </div>
 
             <!-- Sound Volume -->
             <div class="form-group" id="soundVolumeGroup">
               <label class="form-label">Sound Volume: <span id="volumeValue">70</span>%</label>
-              <input type="range" id="soundVolumeSlider" min="0" max="100" value="70" class="form-range" style="width: 100%;">
-              <p style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: var(--bn-space-2);">
+              <input type="range" id="soundVolumeSlider" min="0" max="100" value="70" class="form-range section-select-full">
+              <p class="help-text">
                 Adjust the volume of notification sounds
               </p>
             </div>
@@ -626,12 +677,12 @@
         </div>
       </section>
       
-      <section class="content-section" style="margin-top: var(--bn-space-6);">
+      <section class="content-section content-section-spaced">
         <div class="content-section-header">
           <h2 class="content-section-title">Account Actions</h2>
         </div>
         <div class="content-section-body">
-          <div style="display: flex; flex-direction: column; gap: var(--bn-space-4);">
+          <div class="account-actions-list">
             <button class="btn btn-ghost btn-block" id="resendVerificationBtn">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
@@ -651,15 +702,15 @@
         </div>
       </section>
 
-      <section class="content-section" style="margin-top: var(--bn-space-6);">
+      <section class="content-section content-section-spaced">
         <div class="content-section-header">
-          <h2 class="content-section-title" style="color: var(--bn-danger);">Danger Zone</h2>
+          <h2 class="content-section-title section-title-danger">Danger Zone</h2>
         </div>
         <div class="content-section-body">
-          <p style="font-size: var(--bn-text-sm); color: var(--bn-gray); margin-bottom: var(--bn-space-4);">
+          <p class="help-text-base">
             Once you delete your account, there is no going back. Please be certain.
           </p>
-          <button class="btn btn-ghost btn-block" style="color: var(--bn-danger); border-color: var(--bn-danger);" id="deleteAccountBtn" disabled>
+          <button class="btn btn-ghost btn-block btn-danger-outline" id="deleteAccountBtn" disabled>
             Delete Account (Contact Admin)
           </button>
         </div>
@@ -678,10 +729,7 @@
 
   <script src="../scripts/modal-utils.js"></script>
   <script src="../scripts/dob-validation.js"></script>
-  <script type="module">
-    import { initNav } from '../scripts/nav_sql.js';
-    initNav({ variant: 'admin', activePage: 'settings', pageTitle: 'Settings' });
-  </script>
+  <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/settings_sql.js?v=20260722"></script>
 </body>
 </html>

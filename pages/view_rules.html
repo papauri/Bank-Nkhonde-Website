@@ -145,7 +145,7 @@
     }
   </style>
 </head>
-<body class="user-page">
+<body class="user-page" data-nav-variant="user" data-nav-active-page="view_rules">
   <!-- Page Header -->
   <header class="page-header">
     <div class="page-header-container">
@@ -273,10 +273,7 @@
     </div>
   </div>
 
-  <script type="module">
-    import { initNav } from '../scripts/nav_sql.js';
-    initNav({ variant: 'user', activePage: 'view_rules' });
-  </script>
+  <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/view_rules_sql.js?v=20260722"></script>
   <script src="../scripts/mobile-nav-active.js"></script>
 </body>

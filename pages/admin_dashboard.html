@@ -942,22 +942,8 @@
       color: var(--bn-gray);
     }
 
-    /* Empty State */
-    .empty-state {
-      text-align: center;
-      padding: var(--bn-space-12) var(--bn-space-6);
-    }
-
-    .empty-state-icon {
-      font-size: 48px;
-      margin-bottom: var(--bn-space-4);
-      opacity: 0.4;
-    }
-
-    .empty-state-text {
-      font-size: var(--bn-text-sm);
-      color: var(--bn-gray);
-    }
+    /* Empty state styling (.empty-state / .empty-state-icon / .empty-state-text)
+       is inherited from design-system.css for consistency with other pages. */
 
     /* Due Payments Cards */
     .due-payment-card {
@@ -1492,7 +1478,7 @@
     }
   </style>
 </head>
-<body>
+<body data-nav-variant="admin" data-nav-active-page="dashboard" data-nav-page-title="Dashboard">
   <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
 
   <main class="main-content" id="mainContent">
@@ -1916,51 +1902,8 @@
   </style>
 
   <!-- Scripts -->
-  <script>
-    // Animate chart bars on load
-    setTimeout(() => {
-      document.querySelectorAll('.chart-bar').forEach(bar => {
-        bar.classList.add('animated');
-      });
-    }, 500);
-
-    // Demo alert
-    function addSystemAlert(title, type = 'success') {
-      const container = document.getElementById('systemAlerts');
-      const icons = {
-        success: '✓',
-        warning: '⚠',
-        danger: '✕',
-        info: 'ℹ'
-      };
-
-      const alert = document.createElement('div');
-      alert.className = `alert-item ${type}`;
-      alert.innerHTML = `
-        <div class="alert-icon">${icons[type]}</div>
-        <div class="alert-content">
-          <div class="alert-title">${title}</div>
-          <div class="alert-time">Just now</div>
-        </div>
-        <button class="alert-close" onclick="this.parentElement.remove()">×</button>
-      `;
-
-      container.insertBefore(alert, container.firstChild);
-
-      // Auto-remove after 10 seconds
-      setTimeout(() => {
-        if (alert.parentElement) {
-          alert.style.opacity = '0';
-          alert.style.transform = 'translateX(100%)';
-          setTimeout(() => alert.remove(), 300);
-        }
-      }, 10000);
-    }
-  </script>
-  <script type="module">
-    import { initNav } from '../scripts/nav_sql.js';
-    initNav({ variant: 'admin', activePage: 'dashboard', pageTitle: 'Dashboard' });
-  </script>
+  <script src="../scripts/admin-dashboard-demo.js"></script>
+  <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/admin_dashboard_sql.js?v=20260722"></script>
 </body>
 </html>
