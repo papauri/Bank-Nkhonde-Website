@@ -376,10 +376,28 @@
 
     .nav-mobile-toggle {
       display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 0;
+      width: 44px;
+      height: 44px;
       background: none;
       border: none;
       cursor: pointer;
       padding: var(--bn-space-2);
+    }
+
+    .nav-mobile-toggle.is-active span:nth-child(1) {
+      transform: translateY(12px) rotate(45deg);
+    }
+
+    .nav-mobile-toggle.is-active span:nth-child(2) {
+      opacity: 0;
+    }
+
+    .nav-mobile-toggle.is-active span:nth-child(3) {
+      transform: translateY(-12px) rotate(-45deg);
     }
 
     .nav-mobile-toggle span {
@@ -393,6 +411,12 @@
 
     .nav.scrolled .nav-mobile-toggle span {
       background: var(--bn-dark);
+    }
+
+    /* Keep the toggle clear of the fixed notification bell (top-right,
+       signed-in only) at every width the toggle is visible (<=1024px). */
+    .nav-cta:has(.nav-cta-user:not(.hidden)) + .nav-mobile-toggle {
+      margin-right: 70px;
     }
 
     /* ============================================
@@ -1233,20 +1257,34 @@
 
       .nav-links {
         display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0;
+        background: var(--bn-white);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        padding: var(--bn-space-4) var(--bn-space-5);
+      }
+
+      .nav-links.is-open {
+        display: flex;
+      }
+
+      .nav-links .nav-link {
+        color: var(--bn-dark);
+        width: 100%;
+        padding: var(--bn-space-3) 0;
       }
 
       .nav-mobile-toggle {
-        display: none !important;
+        display: flex;
       }
 
       .nav-cta {
         gap: var(--bn-space-3);
-      }
-
-      /* Reserve space for the fixed notification bell (signed-in only) in the
-         769-1024px gap that the 768px/640px queries below don't cover */
-      .nav-cta:has(.nav-cta-user:not(.hidden)) {
-        margin-right: 70px;
       }
 
       /* Hero Tablet */
@@ -1324,10 +1362,6 @@
 
       .nav-cta {
         gap: var(--bn-space-3);
-      }
-
-      .nav-cta:has(.nav-cta-user:not(.hidden)) {
-        margin-right: 70px; /* Add space for notification bell (signed-in only) */
       }
 
       .nav-cta-guest,
@@ -1504,10 +1538,6 @@
 
       .nav-cta {
         gap: var(--bn-space-3);
-      }
-
-      .nav-cta:has(.nav-cta-user:not(.hidden)) {
-        margin-right: 70px; /* Add space for notification bell (signed-in only) */
       }
 
       .nav-cta-guest,
@@ -1842,7 +1872,7 @@
         <span class="nav-logo-text">Bank Nkhonde</span>
       </a>
 
-      <div class="nav-links">
+      <div class="nav-links" id="navLinks">
         <a href="#features" class="nav-link">Features</a>
         <a href="#security" class="nav-link">Security</a>
         <a href="#about" class="nav-link">About</a>
@@ -1882,6 +1912,12 @@
           </button>
         </div>
       </div>
+
+      <button type="button" class="nav-mobile-toggle" id="navMobileToggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="navLinks">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
 
     </div>
   </nav>
@@ -2515,6 +2551,23 @@
       const notificationBtn = document.getElementById('indexNotificationBtn');
       const logoutBtn = document.getElementById('logoutBtn');
       const navSignOutMobile = document.getElementById('navSignOutMobile');
+
+      const navMobileToggle = document.getElementById('navMobileToggle');
+      const navLinks = document.getElementById('navLinks');
+      if (navMobileToggle && navLinks) {
+        navMobileToggle.addEventListener('click', () => {
+          const isOpen = navLinks.classList.toggle('is-open');
+          navMobileToggle.classList.toggle('is-active', isOpen);
+          navMobileToggle.setAttribute('aria-expanded', String(isOpen));
+        });
+        navLinks.querySelectorAll('.nav-link').forEach((link) => {
+          link.addEventListener('click', () => {
+            navLinks.classList.remove('is-open');
+            navMobileToggle.classList.remove('is-active');
+            navMobileToggle.setAttribute('aria-expanded', 'false');
+          });
+        });
+      }
 
       let user = null;
       try {

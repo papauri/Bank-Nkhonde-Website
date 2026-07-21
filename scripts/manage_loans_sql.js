@@ -486,16 +486,6 @@ function renderLoans() {
     case "pending":
       filtered = loans.filter((l) => l.status === "pending");
       break;
-    case "approved":
-      // No standalone disbursement step on this system — loans.approve prices
-      // and schedules in one call, so nothing sits in an "awaiting
-      // disbursement" state. Kept for markup compatibility; always empty.
-      filtered = [];
-      break;
-    case "disbursed":
-      // No endpoint ever sets status = 'disbursed'; structurally empty.
-      filtered = loans.filter((l) => l.status === "disbursed");
-      break;
     case "active":
       filtered = loans.filter((l) => l.status === "approved" || l.status === "disbursed");
       break;
@@ -506,9 +496,23 @@ function renderLoans() {
       filtered = loans.filter((l) => l.status === "rejected");
       break;
     case "overdue":
-      // list_loans does not return a due date usable here; loans.get would be
-      // needed per loan to read the schedule. Left empty rather than guessed.
-      filtered = [];
+      // No dueDate/schedule field at the list level, so maturity is derived
+      // client-side from approvedAt + repaymentPeriod (months). Balance
+      // comparison reuses numberOf() — no money arithmetic is performed here.
+      filtered = loans.filter((l) => {
+        if (l.status !== "approved" && l.status !== "disbursed") return false;
+        if (numberOf(l.remainingBalance) <= 0) return false;
+        if (!l.approvedAt) return false;
+        const start = new Date(l.approvedAt);
+        if (isNaN(start.getTime())) return false;
+        const months = parseInt(l.repaymentPeriod, 10) || 0;
+        const targetMonth = start.getMonth() + months;
+        const targetFirst = new Date(start.getFullYear(), targetMonth, 1);
+        const daysInTargetMonth = new Date(targetFirst.getFullYear(), targetFirst.getMonth() + 1, 0).getDate();
+        const maturity = new Date(targetFirst);
+        maturity.setDate(Math.min(start.getDate(), daysInTargetMonth));
+        return maturity.getTime() < Date.now();
+      });
       break;
     default:
       filtered = loans;

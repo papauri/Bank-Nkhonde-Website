@@ -228,6 +228,13 @@ function shouldIntercept(anchor) {
 const LOCAL_STYLE_ATTR = "data-spa-page-style";
 
 /**
+ * Hard cap, in ms, on how long a navigation waits for newly-appended
+ * stylesheet <link>s to load before revealing the swapped-in content
+ * regardless. Keeps a 404 or a slow CDN from hanging navigation.
+ */
+const STYLESHEET_LOAD_TIMEOUT_MS = 1800;
+
+/**
  * Selector for page-local <style> elements outside the swapped
  * .dashboard-content region: <head>'s own <style> blocks, plus any <style>
  * that is a *direct* child of <body> (e.g. a modal/overlay block placed
@@ -269,6 +276,9 @@ function tagExistingLocalStyles() {
  * @param {Document} targetDoc Parsed document for the destination page.
  * @param {string} baseHref Absolute URL the target document was fetched
  *     from, used to resolve any relative href on its <link> tags.
+ * @return {!Array<!HTMLLinkElement>} The <link> elements newly appended by
+ *     this call (empty when the target page's stylesheets were all already
+ *     present in the live <head>).
  */
 function syncStylesheetLinks(targetDoc, baseHref) {
   const existingHrefs = new Set(
@@ -276,6 +286,7 @@ function syncStylesheetLinks(targetDoc, baseHref) {
           .map((link) => link.href),
   );
 
+  const newlyAppended = [];
   const targetLinks = targetDoc.head.querySelectorAll("link[rel~=\"stylesheet\"]");
   targetLinks.forEach((link) => {
     const rawHref = link.getAttribute("href");
@@ -293,6 +304,47 @@ function syncStylesheetLinks(targetDoc, baseHref) {
     newLink.setAttribute("href", rawHref);
     document.head.appendChild(newLink);
     existingHrefs.add(absoluteHref);
+    newlyAppended.push(newLink);
+  });
+  return newlyAppended;
+}
+
+/**
+ * Resolve once every given <link> has either fired 'load' or 'error', or a
+ * bounded timeout elapses — whichever comes first. A stylesheet that 404s
+ * or a slow CDN must never hang navigation, so the timeout always wins over
+ * a stalled listener.
+ * @param {!Array<!HTMLLinkElement>} links Newly-appended <link> elements to
+ *     wait on. An empty array resolves immediately with no delay.
+ * @param {number} timeoutMs Hard cap, in ms, after which the reveal
+ *     proceeds regardless of any link still pending.
+ * @return {!Promise<void>}
+ */
+function waitForStylesheets(links, timeoutMs) {
+  if (!links.length) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    let remaining = links.length;
+    let settled = false;
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve();
+    };
+
+    const onSettle = () => {
+      remaining -= 1;
+      if (remaining <= 0) finish();
+    };
+
+    links.forEach((link) => {
+      link.addEventListener("load", onSettle, {once: true});
+      link.addEventListener("error", onSettle, {once: true});
+    });
+
+    const timer = setTimeout(finish, timeoutMs);
   });
 }
 
@@ -378,9 +430,14 @@ async function navigateTo(href, opts = {}) {
 
   // Head CSS sync: additively bring in any stylesheet <link> the target
   // page needs but the live document hasn't loaded yet, then replace the
-  // outgoing page's local <style> block(s) with the target's.
-  syncStylesheetLinks(doc, url.href);
+  // outgoing page's local <style> block(s) with the target's. The content
+  // reveal is held until the newly-appended stylesheets have loaded (or a
+  // bounded timeout elapses) so the swapped-in page never flashes
+  // unstyled — repeat navigations that add zero new links resolve with no
+  // delay.
+  const newlyAppendedLinks = syncStylesheetLinks(doc, url.href);
   swapLocalStyles(doc);
+  await waitForStylesheets(newlyAppendedLinks, STYLESHEET_LOAD_TIMEOUT_MS);
 
   currentContent.replaceWith(newContent);
   if (doc.title) document.title = doc.title;

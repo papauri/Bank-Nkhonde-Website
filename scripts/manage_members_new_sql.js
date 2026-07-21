@@ -203,7 +203,7 @@ function filterMembers() {
   if (currentFilter === "admin") {
     filtered = filtered.filter((m) => m.role === "admin" || m.role === "senior_admin" || m.role === "treasurer");
   } else if (currentFilter === "member") {
-    filtered = filtered.filter((m) => m.status !== "suspended");
+    filtered = filtered.filter((m) => m.role === "member" && m.status !== "suspended");
   }
 
   if (searchTerm) {
