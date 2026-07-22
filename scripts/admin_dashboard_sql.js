@@ -145,10 +145,11 @@ async function loadDashboardAfterGroupSelection() {
   const groupId = currentGroup.groupId;
 
   const failedSections = [];
-  const [payments, loans, members] = await Promise.all([
+  const [payments, loans, members, groupArrears] = await Promise.all([
     safeGet("payments.list", { groupId }, "payments", failedSections),
     safeGet("loans.list", { groupId }, "loans", failedSections),
     safeGet("members.list", { groupId }, "members", failedSections),
+    safeGet("payments.groupArrears", { groupId }, "arrears", failedSections),
   ]);
 
   // A 403 on an admin endpoint means a plain member reached this page by URL.
@@ -163,6 +164,11 @@ async function loadDashboardAfterGroupSelection() {
     payments && payments.summary && typeof payments.summary === "object"
       ? payments.summary
       : null;
+  // Group-wide arrears derived from OBLIGATIONS (unpaid seed/monthly/service +
+  // penalties across all active members), not just recorded payment rows — so
+  // an obligation a member never recorded is still counted. Server-computed.
+  groupData.groupArrears =
+    groupArrears && groupArrears.totalArrears != null ? groupArrears : null;
   groupData.loans = loans && Array.isArray(loans.loans) ? loans.loans : [];
   groupData.members =
     members && Array.isArray(members.members) ? members.members : [];
@@ -287,10 +293,16 @@ function renderDashboardStats() {
   );
   setText("activeLoans", String(activeLoansCount));
   setText("pendingApprovals", String(pendingPayments + pendingLoans));
-  setText(
-    "totalArrears",
-    formatCurrency(summary.totalArrears != null ? summary.totalArrears : "0.00"),
-  );
+  // Arrears = the GROUP-WIDE obligation arrears + penalties (from
+  // payments.groupArrears — counts unpaid obligations with no payment row too),
+  // falling back to the recorded-row summary only if that endpoint failed.
+  const arrearsValue =
+    groupData.groupArrears && groupData.groupArrears.totalArrears != null
+      ? groupData.groupArrears.totalArrears
+      : summary.totalArrears != null
+        ? summary.totalArrears
+        : "0.00";
+  setText("totalArrears", formatCurrency(arrearsValue));
 }
 
 /* ------------------------------------------------------------------ *

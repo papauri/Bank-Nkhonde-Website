@@ -941,6 +941,129 @@ if (!function_exists('my_obligations')) {
     }
 }
 
+if (!function_exists('group_arrears_summary')) {
+    /**
+     * GET payments.groupArrears — the WHOLE GROUP's outstanding obligations:
+     * total contribution arrears (unpaid seed money + monthly contributions +
+     * service fee) plus outstanding penalties, summed across every ACTIVE member.
+     *
+     * ADMIN-EQUIVALENT ONLY. Computed server-side in integer minor units, reusing
+     * the exact same per-obligation math as my_obligations() (payment_rule_amount
+     * / payment_settled / payment_due_date / payment_penalty_or_501), so the group
+     * total reconciles with the sum of each member's own dashboard.
+     *
+     * WHY THIS EXISTS: the admin dashboard's "Arrears" tile previously summed only
+     * the `arrears` column of RECORDED payment rows (payments.list summary). An
+     * obligation a member simply never paid has no row, so it was invisible — the
+     * tile wrongly showed ~0 while the group was genuinely owed large sums. This
+     * derives arrears from the obligations (rules − verified paid), exactly like
+     * the member view, so unrecorded unpaid months are counted.
+     */
+    function group_arrears_summary(): void
+    {
+        $groupId = (string) ($_GET['groupId'] ?? '');
+        if ($groupId === '') {
+            json_error('groupId is required.', 422);
+        }
+
+        require_role($groupId, PAYMENT_ADMIN_ROLES);
+
+        $year = (int) date('Y');
+        if (isset($_GET['year']) && $_GET['year'] !== '') {
+            $year = (int) $_GET['year'];
+            if ($year < 2000 || $year > 2100) {
+                json_error('Invalid year.', 422);
+            }
+        }
+
+        $pdo = getDbConnection();
+        $rules = payment_fetch_rules($pdo, $groupId);
+
+        // Active members only — a suspended/inactive member's obligations are not
+        // the group's live receivable for the dashboard glance.
+        $memStmt = $pdo->prepare(
+            "SELECT uid FROM members WHERE groupId = :groupId AND status = 'active'"
+        );
+        $memStmt->execute([':groupId' => $groupId]);
+        $uids = array_column($memStmt->fetchAll(), 'uid');
+
+        $seedDueMinor = payment_rule_amount_minor($rules, 'seed_money');
+        $monthlyDueMinor = payment_rule_amount_minor($rules, 'monthly_contribution');
+        $feeRequired = (int) ($rules['serviceFeeRequired'] ?? 0) === 1;
+        $feeDueMinor = $feeRequired ? payment_rule_amount_minor($rules, 'service_fee') : null;
+
+        $seedDueDate = payment_due_date($rules, 'seed_money', null, $year);
+        $feeDueDate = $feeRequired ? payment_due_date($rules, 'service_fee', null, $year) : null;
+
+        $arrearsMinor = 0;
+        $penaltyMinor = 0;
+
+        foreach ($uids as $uid) {
+            // Seed money.
+            if ($seedDueMinor !== null) {
+                $paid = payment_settled_minor($pdo, $groupId, $uid, 'seed_money');
+                $a = max(0, $seedDueMinor - $paid);
+                $arrearsMinor += $a;
+                $row = payment_fetch_row($pdo, $groupId, $uid, 'seed_money', $year, null);
+                $pen = payment_penalty_or_501(
+                    $rules,
+                    $seedDueDate,
+                    $a,
+                    $row === null ? null : (string) $row['paymentId']
+                );
+                $penaltyMinor += money_to_minor($pen['amountOutstanding']);
+            }
+
+            // Monthly contributions, month by month.
+            if ($monthlyDueMinor !== null) {
+                foreach (PAYMENT_MONTHS as $month) {
+                    $paid = payment_settled_minor(
+                        $pdo,
+                        $groupId,
+                        $uid,
+                        'monthly_contribution',
+                        $year,
+                        $month
+                    );
+                    $a = max(0, $monthlyDueMinor - $paid);
+                    $arrearsMinor += $a;
+                    $dueDate = payment_due_date($rules, 'monthly_contribution', $month, $year);
+                    $row = payment_fetch_row($pdo, $groupId, $uid, 'monthly_contribution', $year, $month);
+                    $pen = payment_penalty_or_501(
+                        $rules,
+                        $dueDate,
+                        $a,
+                        $row === null ? null : (string) $row['paymentId']
+                    );
+                    $penaltyMinor += money_to_minor($pen['amountOutstanding']);
+                }
+            }
+
+            // Service fee.
+            if ($feeRequired && $feeDueMinor !== null) {
+                $paid = payment_settled_minor($pdo, $groupId, $uid, 'service_fee', $year);
+                $a = max(0, $feeDueMinor - $paid);
+                $arrearsMinor += $a;
+                $row = payment_fetch_row($pdo, $groupId, $uid, 'service_fee', $year, null);
+                $pen = payment_penalty_or_501(
+                    $rules,
+                    $feeDueDate,
+                    $a,
+                    $row === null ? null : (string) $row['paymentId']
+                );
+                $penaltyMinor += money_to_minor($pen['amountOutstanding']);
+            }
+        }
+
+        json_response([
+            'arrears' => money_from_minor($arrearsMinor),
+            'penaltyAccrued' => money_from_minor($penaltyMinor),
+            'totalArrears' => money_from_minor($arrearsMinor + $penaltyMinor),
+            'memberCount' => count($uids),
+        ]);
+    }
+}
+
 if (!function_exists('record_payment')) {
     /**
      * POST payments.record — log an offline payment as a PENDING claim.

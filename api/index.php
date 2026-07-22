@@ -83,6 +83,7 @@ const ROUTES = [
     'payments.approve'     => ['POST', 'approve_payment'],
     'payments.reject'      => ['POST', 'reject_payment'],
     'payments.waivePenalty' => ['POST', 'waive_contribution_penalty'],
+    'payments.groupArrears' => ['GET', 'group_arrears_summary'],
 
     'rules.get'    => ['GET', 'get_rules'],
     'rules.update' => ['POST', 'update_rules'],
