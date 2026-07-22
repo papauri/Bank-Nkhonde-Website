@@ -757,6 +757,136 @@ if (!function_exists('list_payments')) {
     }
 }
 
+if (!function_exists('payment_obligations_summary_minor')) {
+    /**
+     * Pure summation over already-computed obligation detail (seed money,
+     * each month, service fee) into totals in integer minor units.
+     *
+     * Extracted out of my_obligations() so the same totals math can be reused
+     * by member_arrears_penalties_minor() below (loans.php's eligibility
+     * check needs the identical arrears/penalty totals a member sees on
+     * payments.obligations) without duplicating the arithmetic in two places.
+     *
+     * Each detail row's 'amountPaid'/'arrears'/penalty 'amountOutstanding' is a
+     * formatted decimal string (money_from_minor of an int already computed by
+     * the caller); round-tripping it through money_to_minor here is an
+     * identity operation, not new arithmetic.
+     */
+    function payment_obligations_summary_minor(array $seed, array $months, ?array $serviceFee): array
+    {
+        $contributedMinor = money_to_minor(trim((string) $seed['amountPaid']));
+        $arrearsMinor = money_to_minor(trim((string) $seed['arrears']));
+        $penaltyAccruedMinor = money_to_minor(trim((string) $seed['penalty']['amountOutstanding']));
+
+        foreach ($months as $monthRow) {
+            $contributedMinor += money_to_minor(trim((string) $monthRow['amountPaid']));
+            $arrearsMinor += money_to_minor(trim((string) $monthRow['arrears']));
+            $penaltyAccruedMinor += money_to_minor(trim((string) $monthRow['penalty']['amountOutstanding']));
+        }
+
+        if ($serviceFee !== null) {
+            $contributedMinor += money_to_minor(trim((string) $serviceFee['amountPaid']));
+            $arrearsMinor += money_to_minor(trim((string) $serviceFee['arrears']));
+            $penaltyAccruedMinor += money_to_minor(trim((string) $serviceFee['penalty']['amountOutstanding']));
+        }
+
+        return [
+            'contributedMinor' => $contributedMinor,
+            'arrearsMinor' => $arrearsMinor,
+            'penaltyAccruedMinor' => $penaltyAccruedMinor,
+        ];
+    }
+}
+
+if (!function_exists('member_arrears_penalties_minor')) {
+    /**
+     * A member's outstanding contribution arrears + accrued penalties, in
+     * integer minor units, for the CURRENT year — the same figures
+     * my_obligations() shows that member under payments.obligations, computed
+     * from the same primitives (payment_rule_amount_minor, payment_settled_minor,
+     * payment_due_date, payment_penalty_or_501) so the two can never disagree.
+     *
+     * Used by loans.php's loan eligibility gate/preview — a member's loan
+     * standing depends on whether they are current on contributions.
+     *
+     * @return array{arrearsMinor: int, penaltiesMinor: int}
+     */
+    function member_arrears_penalties_minor(string $groupId, string $uid): array
+    {
+        $pdo = getDbConnection();
+        $rules = payment_fetch_rules($pdo, $groupId);
+        $year = (int) date('Y');
+
+        // --- Seed money. ---
+        $seedDueMinor = payment_rule_amount_minor($rules, 'seed_money');
+        $seedPaidMinor = payment_settled_minor($pdo, $groupId, $uid, 'seed_money');
+        $seedArrearsMinor = $seedDueMinor === null ? 0 : max(0, $seedDueMinor - $seedPaidMinor);
+        $seedDueDate = payment_due_date($rules, 'seed_money', null, $year);
+        $seedRow = payment_fetch_row($pdo, $groupId, $uid, 'seed_money', $year, null);
+
+        $seed = [
+            'amountPaid' => money_from_minor($seedPaidMinor),
+            'arrears' => money_from_minor($seedArrearsMinor),
+            'penalty' => payment_penalty_or_501(
+                $rules,
+                $seedDueDate,
+                $seedArrearsMinor,
+                $seedRow === null ? null : (string) $seedRow['paymentId']
+            ),
+        ];
+
+        // --- Monthly contributions. ---
+        $monthlyDueMinor = payment_rule_amount_minor($rules, 'monthly_contribution');
+        $months = [];
+
+        foreach (PAYMENT_MONTHS as $month) {
+            $paidMinor = payment_settled_minor($pdo, $groupId, $uid, 'monthly_contribution', $year, $month);
+            $arrearsMinor = $monthlyDueMinor === null ? 0 : max(0, $monthlyDueMinor - $paidMinor);
+            $dueDate = payment_due_date($rules, 'monthly_contribution', $month, $year);
+            $row = payment_fetch_row($pdo, $groupId, $uid, 'monthly_contribution', $year, $month);
+
+            $months[] = [
+                'amountPaid' => money_from_minor($paidMinor),
+                'arrears' => money_from_minor($arrearsMinor),
+                'penalty' => payment_penalty_or_501(
+                    $rules,
+                    $dueDate,
+                    $arrearsMinor,
+                    $row === null ? null : (string) $row['paymentId']
+                ),
+            ];
+        }
+
+        // --- Service fee. ---
+        $serviceFee = null;
+        if ((int) ($rules['serviceFeeRequired'] ?? 0) === 1) {
+            $feeDueMinor = payment_rule_amount_minor($rules, 'service_fee');
+            $feePaidMinor = payment_settled_minor($pdo, $groupId, $uid, 'service_fee', $year);
+            $feeArrearsMinor = $feeDueMinor === null ? 0 : max(0, $feeDueMinor - $feePaidMinor);
+            $feeDueDate = payment_due_date($rules, 'service_fee', null, $year);
+            $feeRow = payment_fetch_row($pdo, $groupId, $uid, 'service_fee', $year, null);
+
+            $serviceFee = [
+                'amountPaid' => money_from_minor($feePaidMinor),
+                'arrears' => money_from_minor($feeArrearsMinor),
+                'penalty' => payment_penalty_or_501(
+                    $rules,
+                    $feeDueDate,
+                    $feeArrearsMinor,
+                    $feeRow === null ? null : (string) $feeRow['paymentId']
+                ),
+            ];
+        }
+
+        $summary = payment_obligations_summary_minor($seed, $months, $serviceFee);
+
+        return [
+            'arrearsMinor' => $summary['arrearsMinor'],
+            'penaltiesMinor' => $summary['penaltyAccruedMinor'],
+        ];
+    }
+}
+
 if (!function_exists('my_obligations')) {
     /**
      * GET payments.obligations — "what do I owe, right now".
@@ -900,22 +1030,15 @@ if (!function_exists('my_obligations')) {
 
         // Summary — sums of the SAME per-item figures already computed above
         // (seed money, every month, service fee). No re-fetch, no new query.
-        $contributedMinor = $seedPaidMinor;
-        $arrearsMinor = $seedArrearsMinor;
         // amountOutstanding, not amountAccrued: a waived/paid penalty must not
         // keep inflating this summary once it has been settled (same reasoning
-        // as list_payments' summary, above).
-        $penaltyAccruedMinor = money_to_minor(trim((string) $seed['penalty']['amountOutstanding']));
-        foreach ($months as $monthRow) {
-            $contributedMinor += money_to_minor(trim((string) $monthRow['amountPaid']));
-            $arrearsMinor += money_to_minor(trim((string) $monthRow['arrears']));
-            $penaltyAccruedMinor += money_to_minor(trim((string) $monthRow['penalty']['amountOutstanding']));
-        }
-        if ($serviceFee !== null) {
-            $contributedMinor += money_to_minor(trim((string) $serviceFee['amountPaid']));
-            $arrearsMinor += money_to_minor(trim((string) $serviceFee['arrears']));
-            $penaltyAccruedMinor += money_to_minor(trim((string) $serviceFee['penalty']['amountOutstanding']));
-        }
+        // as list_payments' summary, above). Extracted into
+        // payment_obligations_summary_minor() so member_arrears_penalties_minor()
+        // can reuse the identical totals math.
+        $obligationsSummary = payment_obligations_summary_minor($seed, $months, $serviceFee);
+        $contributedMinor = $obligationsSummary['contributedMinor'];
+        $arrearsMinor = $obligationsSummary['arrearsMinor'];
+        $penaltyAccruedMinor = $obligationsSummary['penaltyAccruedMinor'];
 
         json_response([
             'year' => $year,

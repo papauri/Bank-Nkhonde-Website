@@ -30,6 +30,7 @@ const RULES_SELECT_COLUMNS = 'groupId, '
     . 'cycleDurationStartDate, cycleDurationEndDate, cycleDurationMonths, cycleDurationAutoRenew, '
     . 'loanRulesMaxLoanAmount, loanRulesMinCycleLoanAmount, loanRulesMaxActiveLoansByMember, '
     . 'loanRulesRequireCollateral, loanRulesMinRepaymentMonths, loanRulesMaxRepaymentMonths, '
+    . 'requireArrearsClearedBeforeLoan, requirePenaltiesClearedBeforeLoan, '
     . 'forcedLoansEnabled, forcedLoansMethod, forcedLoansPercentageOfHighest';
 
 if (!function_exists('rules_select_row')) {
@@ -321,6 +322,38 @@ if (!function_exists('update_rules')) {
                     'loanRulesMinCycleLoanAmount'
                 );
             }
+        }
+
+        if (array_key_exists('loanRulesMaxActiveLoansByMember', $body)) {
+            $maxActive = rules_nonneg_int(
+                $body['loanRulesMaxActiveLoansByMember'],
+                'loanRulesMaxActiveLoansByMember'
+            );
+            if ($maxActive < 1) {
+                json_error('loanRulesMaxActiveLoansByMember must be at least 1.', 422);
+            }
+            $updates[] = 'loanRulesMaxActiveLoansByMember = :loanRulesMaxActiveLoansByMember';
+            $params[':loanRulesMaxActiveLoansByMember'] = $maxActive;
+        }
+
+        if (array_key_exists('requireArrearsClearedBeforeLoan', $body)) {
+            $value = $body['requireArrearsClearedBeforeLoan'];
+            $bool = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($bool === null) {
+                json_error('requireArrearsClearedBeforeLoan must be a boolean value.', 422);
+            }
+            $updates[] = 'requireArrearsClearedBeforeLoan = :requireArrearsClearedBeforeLoan';
+            $params[':requireArrearsClearedBeforeLoan'] = $bool ? 1 : 0;
+        }
+
+        if (array_key_exists('requirePenaltiesClearedBeforeLoan', $body)) {
+            $value = $body['requirePenaltiesClearedBeforeLoan'];
+            $bool = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($bool === null) {
+                json_error('requirePenaltiesClearedBeforeLoan must be a boolean value.', 422);
+            }
+            $updates[] = 'requirePenaltiesClearedBeforeLoan = :requirePenaltiesClearedBeforeLoan';
+            $params[':requirePenaltiesClearedBeforeLoan'] = $bool ? 1 : 0;
         }
 
         if (array_key_exists('shareOutPenalties', $body)) {

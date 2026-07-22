@@ -502,7 +502,8 @@
     .hero-stat:focus-visible,
     .action-btn:focus-visible,
     #calendarPrevMonth:focus-visible,
-    #calendarNextMonth:focus-visible {
+    #calendarNextMonth:focus-visible,
+    .calendar-day:focus-visible {
       outline: 2px solid var(--bn-accent);
       outline-offset: 2px;
     }
@@ -823,6 +824,7 @@
 
     .calendar-day {
       aspect-ratio: 1;
+      min-height: 44px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -863,6 +865,64 @@
 
     .calendar-day.has-event {
       position: relative;
+    }
+
+    /* Selected state adds a ring only — it must never fall back to the
+       same gradient fill as .today, or a selected-but-not-today cell would
+       read as "today" by mistake. When a day is both today and selected,
+       the ring layers on top of today's existing gradient fill. */
+    .calendar-day.selected {
+      font-weight: 700;
+      box-shadow: inset 0 0 0 2px var(--bn-accent);
+    }
+
+    .calendar-day-details {
+      margin-top: var(--bn-space-4);
+      padding: var(--bn-space-3);
+      border: 1px solid var(--bn-gray-100);
+      border-radius: var(--bn-radius-md);
+    }
+
+    .calendar-day-details-date {
+      font-size: var(--bn-text-base);
+      font-weight: 700;
+      color: var(--bn-dark);
+      margin: 0 0 var(--bn-space-3) 0;
+    }
+
+    .calendar-day-details-row {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+      padding: var(--bn-space-2) 0;
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
+    }
+
+    .calendar-day-details-row:not(:last-child) {
+      border-bottom: 1px solid var(--bn-gray-100);
+    }
+
+    .calendar-day-details-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .calendar-day-details-status {
+      font-weight: 600;
+      margin-left: auto;
+    }
+
+    /* Match the severity colors already used for overdue/paid states
+       elsewhere on this page (arrears total, upcoming-payment items). */
+    .calendar-day-details-row:has(.calendar-event-note.overdue) .calendar-day-details-status {
+      color: var(--bn-danger-dark);
+    }
+
+    .calendar-day-details-row:has(.calendar-event-note.approved) .calendar-day-details-status {
+      color: var(--bn-success-dark);
     }
 
     .calendar-day.has-event::after {
@@ -954,7 +1014,7 @@
       /* Calendar Days - simple, clean design */
       .calendar-day {
         aspect-ratio: 1 !important;
-        min-height: auto !important;
+        min-height: 44px !important;
         padding: 0 !important;
         background: transparent !important;
         border: none !important;
@@ -1039,7 +1099,18 @@
         -webkit-tap-highlight-color: rgba(4, 120, 87, 0.2) !important;
         touch-action: manipulation !important;
       }
-      
+
+      /* Calendar Day Details Mobile */
+      .calendar-day-details {
+        margin-top: var(--bn-space-3) !important;
+        padding: var(--bn-space-2) !important;
+      }
+
+      .calendar-day-details-row {
+        flex-wrap: wrap !important;
+        row-gap: 2px !important;
+      }
+
       /* Calendar Legend Mobile */
       .calendar-legend {
         font-size: 10px !important;
@@ -2033,6 +2104,9 @@
         </div>
         <div id="paymentCalendar" style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;"></div>
         <div id="paymentLegend" style="margin-top: var(--bn-space-4);"></div>
+        <div id="calendarDayDetails" class="calendar-day-details">
+          <p class="empty-state-text" id="calendarDayDetailsPlaceholder">Tap a highlighted day to see payment details</p>
+        </div>
       </div>
     </div>
 
@@ -2067,6 +2141,7 @@
       </div>
       <div class="modal-body">
         <form id="loanRequestForm">
+          <div id="loanStandingPanel"></div>
           <div class="form-group">
             <label class="form-label">Select Group *</label>
             <select id="loanGroup" class="form-select" required>

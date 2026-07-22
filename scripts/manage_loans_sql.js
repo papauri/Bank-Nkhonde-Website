@@ -938,6 +938,7 @@ const LOAN_SETTINGS_FIELD_MAP = [
   ["loanPenaltyRate", "loanPenaltyDailyAmount"],
   ["minLoanAmount", "loanRulesMinCycleLoanAmount"],
   ["maxLoanAmount", "loanRulesMaxLoanAmount"],
+  ["maxActiveLoans", "loanRulesMaxActiveLoansByMember"],
 ];
 
 async function openLoanSettingsModal() {
@@ -963,6 +964,15 @@ async function openLoanSettingsModal() {
     }
   });
 
+  const arrearsToggle = document.getElementById("requireArrearsClearedBeforeLoan");
+  if (arrearsToggle) {
+    arrearsToggle.checked = !!Number(groupRules.requireArrearsClearedBeforeLoan);
+  }
+  const penaltiesToggle = document.getElementById("requirePenaltiesClearedBeforeLoan");
+  if (penaltiesToggle) {
+    penaltiesToggle.checked = !!Number(groupRules.requirePenaltiesClearedBeforeLoan);
+  }
+
   showModal("loanSettingsModal");
 }
 
@@ -984,6 +994,21 @@ async function handleSaveLoanSettings(e) {
       changed = true;
     }
   });
+
+  const arrearsToggle = document.getElementById("requireArrearsClearedBeforeLoan");
+  if (arrearsToggle) {
+    const arrearsValue = arrearsToggle.checked;
+    const arrearsOriginal = !!Number(groupRules ? groupRules.requireArrearsClearedBeforeLoan : 0);
+    payload.requireArrearsClearedBeforeLoan = arrearsValue;
+    if (!groupRules || arrearsValue !== arrearsOriginal) changed = true;
+  }
+  const penaltiesToggle = document.getElementById("requirePenaltiesClearedBeforeLoan");
+  if (penaltiesToggle) {
+    const penaltiesValue = penaltiesToggle.checked;
+    const penaltiesOriginal = !!Number(groupRules ? groupRules.requirePenaltiesClearedBeforeLoan : 0);
+    payload.requirePenaltiesClearedBeforeLoan = penaltiesValue;
+    if (!groupRules || penaltiesValue !== penaltiesOriginal) changed = true;
+  }
 
   if (!changed) {
     showToast("No changes to save", "info");

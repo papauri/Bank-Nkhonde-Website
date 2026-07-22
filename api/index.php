@@ -68,6 +68,7 @@ const ROUTES = [
     'loans.approve' => ['POST', 'approve_loan'],
     'loans.reject'  => ['POST', 'reject_loan'],
     'loans.force'   => ['POST', 'force_loan'],
+    'loans.eligibility' => ['GET', 'loan_eligibility_endpoint'],
 
     'repayments.balance' => ['GET', 'loan_balance'],
     'repayments.record'  => ['POST', 'record_repayment'],

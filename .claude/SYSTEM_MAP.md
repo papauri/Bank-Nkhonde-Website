@@ -193,6 +193,313 @@ Five navigation-related scripts and two stylesheets handle DOM injection, mobile
 |---|---|---|---|---|---|
 | User top nav (desktop) + mobile menu (injected) | loan_payments, contacts, group_page, messages, user_analytics, view_rules | `shared-top-nav.js` | NO (relies on `window.auth` set externally) | Checked by page script | Exports `window.initTopNav(options)`. Creates `.top-nav`, `.mobile-menu-overlay`, `.mobile-menu`. Configurable: showGroupDisplay, showViewToggle, logoLink. Exposes `window.closeMobileMenu()`, `window.handleMobileLogout()`. |
 | User nav state + mobile menu toggle + modal scroll lock | loan_payments, contacts, group_page, messages, user_analytics, view_rules | `unified-navigation.js` | YES (dynamic import of `auth`, `signOut`) | Checked by page script | Auto-initializes on DOMContentLoaded. Exports `initializeUnifiedNavigation()`. Handles mobile menu open/close, modal `.active` state, logout button handlers. Exposes `window.handleMobileNavLogout`, `window.handleSwitchToAdmin`, `window.closeMobileMenu`. |
+
+---
+
+## Loan eligibility surface (cycle 90 scout)
+
+### 1. `request_loan()` flow: inputs → validation → INSERT status
+
+**Signature:** `request_loan(): void` at api/handlers/loans.php:238–369
+
+**Inputs read:**
+- `body['groupId']` (required)
+- `body['principalAmount']` (required; normalised to decimal string via `loan_money_input_to_string()` → `money_to_minor()`)
+- `body['repaymentPeriod']` (required; int months)
+- `body['purpose']` (required; trimmed string)
+- Optional: `body['collateral']`, `body['guarantorName']`, `body['guarantorPhone']`, `body['guarantorRelationship']`
+
+**Authorization:**
+- Line 247: `require_role($groupId, ['member', 'admin', 'senior_admin', 'treasurer'])` — a plain member may request their own loan
+
+**Current validation/eligibility checks:**
+1. Line 254–260: principal > 0, purpose not empty
+2. Line 273–275: principal does not exceed group's `loanRulesMaxLoanAmount` (if set)
+3. Line 278–285: repaymentPeriod is between `loanRulesMinRepaymentMonths` and `loanRulesMaxRepaymentMonths` (fallback: 1–3 months)
+4. Line 287–298: active loan count check — member's existing loans in statuses `['pending', 'approved', 'disbursed']` must be < `loanRulesMaxActiveLoansByMember`
+5. Line 302–307: borrower profile (users table) must exist
+
+**No eligibility check for:**
+- Seed money status (`seedMoneyPaid`)
+- Monthly contributions current (`monthlyContributionsCurrent`)
+- Existing arrears or penalties
+
+**INSERT statement:** Lines 324–365
+- **Status on creation:** `'pending'` (line 333)
+- **Initial financial fields:** `totalInterest='0.00'`, `totalRepayment='0.00'`, `monthlyPayment='0.00'`, `amountRepaid='0.00'`, `remainingBalance='0.00'`, `penaltiesCharged='0.00'` (lines 354–364)
+- Interest is NOT computed at request time; priced only at approval
+
+---
+
+### 2. Loan interest/schedule math: function and active-loan constants
+
+**Function signature:** `compute_loan_schedule(string $principal, int $period, array $rates): array` in api/lib/money.php:107–214
+
+**Entry points:**
+- Called by `approve_loan()` at line 430 (loans.php)
+- Called by `force_loan()` at line 659 (loans.php)
+
+**Returns:** `['totalInterest' => string, 'totalRepayment' => string, 'monthlyPayment' => string, 'schedule' => array<{month:int, interestRate:string, principalDue:string, interestDue:string, totalDue:string}>]`
+
+**Method:** Reduced-balance, verbatim port of Firebase implementation. Equal principal, interest charged on exact reducing balance per month. Interest rounded to 2dp each month, final instalment absorbs rounding remainder.
+
+**Rate defaults** (money.php:16–19):
+- `LOAN_DEFAULT_RATE_MONTH1 = '10'`
+- `LOAN_DEFAULT_RATE_MONTH2 = '7'`
+- `LOAN_DEFAULT_RATE_MONTH3 = '5'`
+
+**Active-loan statuses constant** (loans.php:27):
+- `const LOAN_ACTIVE_STATUSES = ['pending', 'approved', 'disbursed'];`
+- Used to count active loans against the per-member cap (line 291)
+- Used in `list_loans()` summary (line 189) to tally active principal
+
+---
+
+### 3. Arrears/penalty helpers: signatures and return shapes
+
+**`my_obligations(): void`** (payments.php:760–942)
+- Returns member's obligations (seed, monthly, service fee) with per-item penalty computed on read
+- Query params: `groupId`, optional `uid` (admin-only override), optional `year`
+- Response: seed/monthly/service fee objects + member standing flags (`seedMoneyPaid`, `monthlyContributionsCurrent`, `eligibleForLoan`) + summary (`contributed`, `arrears`, `penaltyAccrued`)
+
+**`group_arrears_summary(): void`** (payments.php:944–1065)
+- ADMIN-ONLY. Computes total group obligation (all active members) from rules − verified paid, across all contribution types + penalties
+- Query params: `groupId`, optional `year`
+- Response: `['arrears' => string (money), 'penaltyAccrued' => string, 'totalArrears' => string, 'memberCount' => int]`
+
+**`payment_rule_amount_minor(?array $rules, string $paymentType): ?int`** (payments.php:400–434)
+- Returns what ONE payment TYPE costs (e.g. seed_money, monthly_contribution, service_fee) in minor units, from group_rules
+- Returns `null` if unconfigured
+- Maps paymentType → column: `'seed_money'` → `seedMoneyAmount`, `'monthly_contribution'` → `monthlyContributionAmount`, `'service_fee'` → `serviceFeeAmount`
+
+**`payment_settled_minor(PDO, groupId, uid, paymentType, ?year, ?month): int`** (payments.php:485–532)
+- Sum of VERIFIED (approved/completed) payments on ONE obligation, in minor units
+- Returns 0 if no rows or no verified rows
+- Summed row-wise in minor units (never SQL SUM) to avoid float coercion
+
+**`payment_penalty_or_501(?array $rules, ?string $dueDate, int $arrearsMinor, ?string $paymentId = null): array`** (payments.php:283–302)
+- Wrapper around `compute_contribution_penalty()` that maps RuntimeException to 501 (unimplemented penalty type)
+- Returns: `['dailyAmount' => string, 'gracePeriodDays' => int, 'firstChargeableDay' => ?string, 'daysCharged' => int, 'amountAccrued' => string, 'amountSettled' => string, 'amountOutstanding' => string, 'dueDate' => ?string, 'asOf' => string]`
+
+**`compute_contribution_penalty(?array $rules, ?string $dueDate, int $arrearsMinor, ?string $paymentId = null, ?string $asOf = null): array`** (payments.php:164–281)
+- Computes live (growing) penalty on a contribution obligation; throws RuntimeException if percentage penalties (unimplemented) or config broken
+- Zero when: no rules, no arrears, no dueDate, or inside grace period
+- Penalty accrues fixed MWK/day after grace period while arrears > 0
+- Already-settled amounts (paid/waived) netted from `penalty_settlements` table, paymentId-scoped
+- **Never persisted as running total; re-derived on every read**
+
+**All penalty helpers use minor units (int) internally; conversion to/from money happens at boundaries only**
+
+---
+
+### 4. Money helpers: exact signatures
+
+**`money_to_minor(string $amount): int`** (money.php:21–44)
+- Parse decimal money string into integer minor units (100 = 1.00)
+- Accepts only: non-negative decimal with at most 2 fractional digits, 1–13 integer digits
+- Throws InvalidArgumentException on any other format (scientific notation, third decimal, floats-in-disguise, negatives)
+
+**`money_from_minor(int $minor): string`** (money.php:47–59)
+- Render minor units as decimal string with exactly 2 decimals (e.g. `123` → `"1.23"`)
+- Computed via integer division, never `number_format()` on a float
+
+**`money_rate_to_hundredths(string $rate): int`** (money.php:61–82)
+- Parse percentage rate (e.g. `"10.00"`) into integer hundredths (10.00% → 1000)
+- Same validation as money_to_minor: at most 2 decimals, 1–3 integer digits
+
+---
+
+### 5. Live `group_rules` columns: from DESCRIBE
+
+**All columns (sorted by functional area):**
+
+**Identity:**
+- `groupId` (PK or FK; unique per group)
+
+**Seed money:**
+- `seedMoneyAmount` DECIMAL(15,2)
+- `seedMoneyDueDate` DATETIME NULL
+- `seedMoneyRequired` TINYINT(1)
+- `seedMoneyAllowPartialPayment` TINYINT(1)
+- `seedMoneyMaxPaymentMonths` INT NULL
+- `seedMoneyMustBeFullyPaid` TINYINT(1)
+
+**Monthly contribution:**
+- `monthlyContributionAmount` DECIMAL(15,2)
+- `monthlyContributionRequired` TINYINT(1)
+- `monthlyContributionDayOfMonth` INT NULL
+- `monthlyContributionAllowPartialPayment` TINYINT(1)
+
+**Service fee:**
+- `serviceFeeAmount` DECIMAL(15,2) NULL
+- `serviceFeeRequired` TINYINT(1)
+- `serviceFeeDueDate` DATETIME NULL
+- `serviceFeePerCycle` TINYINT(1) NULL
+- `serviceFeeNonRefundable` TINYINT(1) NULL
+- `serviceFeeDescription` TEXT NULL
+
+**Loan interest (rates):**
+- `loanInterestRateMonth1` DECIMAL(5,2)
+- `loanInterestRateMonth2` DECIMAL(5,2)
+- `loanInterestRateMonth3` DECIMAL(5,2)
+- `loanInterestCalculationMethod` ENUM('reduced_balance', 'flat_rate')
+- `loanInterestMaxRepaymentMonths` INT
+
+**Loan penalties:**
+- `loanPenaltyRate` DECIMAL(5,2)
+- `loanPenaltyType` ENUM('percentage', 'fixed')
+- `loanPenaltyGracePeriodDays` INT
+- `loanPenaltyDailyAmount` DECIMAL(15,2)
+
+**Contribution penalties:**
+- `contributionPenaltyDailyRate` DECIMAL(5,2)
+- `contributionPenaltyMonthlyRate` DECIMAL(5,2)
+- `contributionPenaltyType` ENUM('percentage', 'fixed')
+- `contributionPenaltyGracePeriodDays` INT
+- `contributionPenaltyDailyAmount` DECIMAL(15,2)
+- `shareOutPenalties` TINYINT(1)
+
+**Cycle:**
+- `cycleDurationStartDate` DATETIME
+- `cycleDurationEndDate` DATETIME NULL
+- `cycleDurationMonths` INT
+- `cycleDurationAutoRenew` TINYINT(1)
+
+**Loan limits (the "loanRules" prefix):**
+- `loanRulesMaxLoanAmount` DECIMAL(15,2)
+- `loanRulesMinCycleLoanAmount` DECIMAL(15,2) NULL
+- `loanRulesMaxActiveLoansByMember` INT ← **already enforced in request_loan() at line 287**
+- `loanRulesRequireCollateral` TINYINT(1)
+- `loanRulesMinRepaymentMonths` INT
+- `loanRulesMaxRepaymentMonths` INT
+
+**Forced loans:**
+- `forcedLoansEnabled` TINYINT(1)
+- `forcedLoansMethod` ENUM('fixed_amount', 'percentage_of_highest')
+- `forcedLoansPercentageOfHighest` DECIMAL(5,2) NULL
+
+### Writable whitelist in `update_rules()`: lines 192–368
+
+**Literal column fragments that `update_rules()` accepts:**
+- `seedMoneyAmount` (line 192)
+- `monthlyContributionAmount` (line 197)
+- `monthlyContributionDayOfMonth` (line 205)
+- `serviceFeeAmount` (line 214)
+- `loanInterestRateMonth1` (line 219)
+- `loanInterestRateMonth2` (line 227)
+- `loanInterestRateMonth3` (line 235)
+- `loanPenaltyType` (line 256)
+- `contributionPenaltyType` (line 265)
+- `loanPenaltyDailyAmount` (line 274)
+- `contributionPenaltyDailyAmount` (line 282)
+- `loanPenaltyGracePeriodDays` (line 290)
+- `contributionPenaltyGracePeriodDays` (line 298)
+- `loanRulesMaxLoanAmount` (line 306)
+- `loanRulesMinCycleLoanAmount` (line 314)
+- `shareOutPenalties` (line 326)
+- `forcedLoansEnabled` (line 336)
+- `forcedLoansMethod` (line 346)
+- `forcedLoansPercentageOfHighest` (line 358)
+
+**NOT writable via API (absent from whitelist):**
+- Any seed-money columns except amount
+- Service fee `perCycle`, `nonRefundable`, `description`
+- Loan interest `calculationMethod`, `maxRepaymentMonths`
+- Any loan penalty grace period or daily amount (rates only writable)
+- Contribution penalty rates
+- Cycle columns
+- `loanRulesMaxActiveLoansByMember` (read-only; controlled by admin settings elsewhere, if at all)
+- `loanRulesRequireCollateral` (read-only)
+
+### `get_rules()` returns all RULES_SELECT_COLUMNS to any group member (line 142–159)
+
+---
+
+### 6. Live `loans` table columns: from SYSTEM_MAP + code attestation
+
+**Confirmed present (from loans.php queries and inserts):**
+- `loanId` VARCHAR(128) PK
+- `groupId` FK
+- `loanNumber` VARCHAR(50) (e.g. 'LN-0001', per-group sequence)
+- `borrowerId` FK→users
+- `borrowerName` VARCHAR(255) (denormalised from users.fullName)
+- `borrowerEmail` VARCHAR(255) (denormalised from users.email)
+- `principalAmount` DECIMAL(15,2)
+- `approvedAmount` DECIMAL(15,2) NULL
+- `status` ENUM('pending', 'approved', 'rejected', 'disbursed', 'completed', 'defaulted')
+- `repaymentPeriod` INT (1–3 months typically)
+- `interestRateMonth1`, `interestRateMonth2`, `interestRateMonth3` DECIMAL(5,2) (snapshotted rates)
+- `totalInterest` DECIMAL(15,2)
+- `totalRepayment` DECIMAL(15,2)
+- `monthlyPayment` DECIMAL(15,2)
+- `disbursedAmount` DECIMAL(15,2)
+- `disbursedAt` DATETIME NULL
+- `disbursedBy` FK NULL
+- `disbursementMethod` ENUM (cash, bank_transfer, mobile_money) NULL
+- `requestedAt` DATETIME
+- `approvedBy` FK NULL
+- `approvedAt` DATETIME NULL
+- `rejectedBy` FK NULL
+- `rejectedAt` DATETIME NULL
+- `rejectionReason` TEXT NULL
+- `purpose` TEXT
+- `collateral` TEXT NULL
+- `guarantorName` VARCHAR(255) NULL
+- `guarantorPhone` VARCHAR(20) NULL
+- `guarantorRelationship` VARCHAR(100) NULL
+- `isForced` TINYINT(1) (0 = normal request, 1 = forced by admin; see force_loan() lines 683, 690)
+- `forcedBy` FK NULL (uid of the admin who forced it)
+- `forcedReason` TEXT NULL (why forced)
+- `amountRepaid` DECIMAL(15,2)
+- `remainingBalance` DECIMAL(15,2)
+- `penaltiesCharged` DECIMAL(15,2)
+- `createdAt` DATETIME
+- `updatedAt` DATETIME
+- `completedAt` DATETIME NULL
+
+---
+
+### 7. Do the four proposed eligibility toggle columns already exist?
+
+**Answer: NO — none of the four proposed toggles exist in group_rules.**
+
+**What DOES exist:**
+- **`loanRulesMaxActiveLoansByMember` INT** (already enforced in request_loan:287)
+- **Member-level flags in members table** (re-derived on payment approval): `seedMoneyPaid` (TINYINT), `monthlyContributionsCurrent` (TINYINT), `eligibleForLoan` (TINYINT) — re-derived by `payment_recompute_member_flags()` at payments.php:615–673
+
+**Proposed columns (none yet exist):**
+1. `allowMultipleActiveLoans` — to relax the per-member cap
+2. `maxActiveLoansPerMember` — alternative to above; rename or clarify `loanRulesMaxActiveLoansByMember`
+3. `requireArrearsClearedBeforeLoan` — NOT YET ENFORCED; payments.php has no gate for this
+4. `requirePenaltiesClearedBeforeLoan` — NOT YET ENFORCED; payments.php has no gate for this
+
+---
+
+### 8. api/index.php routes: loans.* and rules.*
+
+**Loan routes** (lines 65–70):
+- Line 65: `'loans.list' => ['GET', 'list_loans']`
+- Line 66: `'loans.get' => ['GET', 'get_loan']`
+- Line 67: `'loans.request' => ['POST', 'request_loan']`
+- Line 68: `'loans.approve' => ['POST', 'approve_loan']`
+- Line 69: `'loans.reject' => ['POST', 'reject_loan']`
+- Line 70: `'loans.force' => ['POST', 'force_loan']`
+
+**Rules routes** (lines 88–89):
+- Line 88: `'rules.get' => ['GET', 'get_rules']`
+- Line 89: `'rules.update' => ['POST', 'update_rules']`
+
+---
+
+### GAPS
+
+- **No eligibility check for arrears/penalties before loan request.** The feature G2 (enforce arrears gate) and G3 (enforce penalties gate) require new handlers or gates in request_loan().
+- **No toggle to allow/disallow multiple active loans.** The per-member cap is fixed; no admin override exists yet.
+- **No 'isForced' / 'forcedBy' audit in list_loans().** Force status not returned to clients (not in SELECT at line 156).
+
+### DEAD
+
+None. All four handlers (loans, rules, payments, money) are in active use.
 | User dashboard nav (with group display + admin toggle) | user_dashboard | `shared-top-nav.js` (only) | NO | Checked by user_dashboard.js | Same as above, initialized with `showGroupDisplay: true, showViewToggle: true`. No `unified-navigation.js` loaded. |
 | Admin sidebar + topbar + mobile bottom nav + SPA navigation | admin_dashboard, analytics, manage_loans, manage_payments, manage_members, contributions_overview, interest_penalties, financial_reports, broadcast_notifications, manage_rules, seed_money_overview, approve_registrations, settings | `admin-layout.js` | YES (onAuthStateChanged, getDoc, signOut) | `onAuthStateChanged` in layout (redirects to login if no user) | Full SPA router: intercepts nav clicks, fetches pages, swaps only `.dashboard-content`, keeps sidebar/topbar persistent. Exports `initAdminLayout(options)`, `showToast()`. Manages user profile, group name, currency selector. Injects sidebar, topbar, mobile nav into DOM. |
 | Persistent sidebar (planned, not deployed) | — | `shared-sidebar.js` | YES (onAuthStateChanged, getDoc, signOut) | `onAuthStateChanged` | DEAD: not imported by any .html page. Exports `initializeSharedSidebar(isAdmin)`. Creates sidebar, loads user data, sets up event listeners. Injects mobile menu button on mobile. Styles in inline `<style>` (not in separate CSS file). |

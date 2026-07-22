@@ -723,6 +723,27 @@
               </div>
             </div>
           </div>
+          <div class="form-section">
+            <h4 style="font-size: var(--bn-text-sm); font-weight: 700; color: var(--bn-gray); text-transform: uppercase; margin-bottom: var(--bn-space-4);">Loan Eligibility</h4>
+            <div class="form-group">
+              <label class="form-label">Max active loans per member</label>
+              <input type="number" class="form-input" id="maxActiveLoans" min="1" step="1">
+            </div>
+            <div class="form-group" style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="form-label" style="margin: 0;">Require arrears cleared before a new loan</label>
+              <label class="switch" style="position: relative; display: inline-block; width: 48px; height: 24px;">
+                <input type="checkbox" id="requireArrearsClearedBeforeLoan" style="opacity: 0; width: 0; height: 0;">
+                <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px;"></span>
+              </label>
+            </div>
+            <div class="form-group" style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="form-label" style="margin: 0;">Require penalties cleared before a new loan</label>
+              <label class="switch" style="position: relative; display: inline-block; width: 48px; height: 24px;">
+                <input type="checkbox" id="requirePenaltiesClearedBeforeLoan" style="opacity: 0; width: 0; height: 0;">
+                <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px;"></span>
+              </label>
+            </div>
+          </div>
         </form>
       </div>
       <div class="modal-footer">

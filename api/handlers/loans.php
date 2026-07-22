@@ -17,6 +17,10 @@ require_once __DIR__ . '/../lib/http.php';
 require_once __DIR__ . '/../lib/session.php';
 require_once __DIR__ . '/../lib/money.php';
 require_once __DIR__ . '/../../config/database.php';
+// member_arrears_penalties_minor() — the loan eligibility gate/preview needs
+// a member's contribution arrears/penalty standing, computed the same way
+// payments.obligations shows it to that member.
+require_once __DIR__ . '/payments.php';
 
 // Fallbacks used only when a group has no group_rules row at all.
 const LOAN_FALLBACK_MIN_MONTHS = 1;
@@ -87,7 +91,8 @@ if (!function_exists('loan_fetch_group_rules')) {
             'SELECT loanInterestRateMonth1, loanInterestRateMonth2, loanInterestRateMonth3, '
             . 'loanInterestCalculationMethod, loanRulesMaxLoanAmount, '
             . 'loanRulesMaxActiveLoansByMember, loanRulesMinRepaymentMonths, '
-            . 'loanRulesMaxRepaymentMonths '
+            . 'loanRulesMaxRepaymentMonths, requireArrearsClearedBeforeLoan, '
+            . 'requirePenaltiesClearedBeforeLoan '
             . 'FROM group_rules WHERE groupId = :groupId LIMIT 1'
         );
         $stmt->execute([':groupId' => $groupId]);
@@ -284,17 +289,12 @@ if (!function_exists('request_loan')) {
             );
         }
 
-        $maxActive = (int) ($rules['loanRulesMaxActiveLoansByMember'] ?? LOAN_FALLBACK_MAX_ACTIVE_LOANS);
-        $activeStmt = $pdo->prepare(
-            'SELECT COUNT(*) AS n FROM loans '
-            . 'WHERE groupId = :groupId AND borrowerId = :uid '
-            . "AND status IN ('pending', 'approved', 'disbursed')"
-        );
-        $activeStmt->execute([':groupId' => $groupId, ':uid' => $caller['uid']]);
-        $activeCount = (int) $activeStmt->fetch()['n'];
-
-        if ($activeCount >= $maxActive) {
-            json_error('You already have the maximum number of active loans allowed.', 409);
+        // Single source of truth shared with loans.eligibility (loan_eligibility_endpoint)
+        // — the modal preview and this server-side gate can never disagree.
+        $standing = loan_member_standing($pdo, $groupId, (string) $caller['uid']);
+        $eligibility = loan_eligibility_check($rules, $standing);
+        if (!$eligibility['eligible']) {
+            json_error(implode(' ', $eligibility['reasons']), 409);
         }
 
         // Denormalised borrower identity comes from the users table, never from
@@ -365,6 +365,192 @@ if (!function_exists('request_loan')) {
         ]);
 
         json_response(['loan' => loan_fetch_row($pdo, $loanId)], 201);
+    }
+}
+
+if (!function_exists('loan_member_standing')) {
+    /**
+     * A member's current loan standing within a group: active loans, how much
+     * of them remains outstanding, and outstanding contribution
+     * arrears/penalties (via member_arrears_penalties_minor(), the same figures
+     * payments.obligations shows that member).
+     *
+     * Used by both request_loan() (the server-side gate) and
+     * loan_eligibility_endpoint() (loans.eligibility, the read-only preview) so
+     * the two can never disagree.
+     */
+    function loan_member_standing(PDO $pdo, string $groupId, string $uid): array
+    {
+        $stmt = $pdo->prepare(
+            'SELECT loanNumber, status, remainingBalance FROM loans '
+            . 'WHERE groupId = :groupId AND borrowerId = :uid '
+            . "AND status IN ('" . implode("', '", LOAN_ACTIVE_STATUSES) . "') "
+            . 'ORDER BY requestedAt DESC'
+        );
+        $stmt->execute([':groupId' => $groupId, ':uid' => $uid]);
+        $activeLoans = $stmt->fetchAll();
+
+        $totalRemainingMinor = 0;
+        foreach ($activeLoans as $loan) {
+            $totalRemainingMinor += money_to_minor(trim((string) $loan['remainingBalance']));
+        }
+
+        $arrearsPenalties = member_arrears_penalties_minor($groupId, $uid);
+
+        return [
+            'activeLoans' => $activeLoans,
+            'activeLoanCount' => count($activeLoans),
+            'totalRemainingMinor' => $totalRemainingMinor,
+            'arrearsMinor' => $arrearsPenalties['arrearsMinor'],
+            'penaltiesMinor' => $arrearsPenalties['penaltiesMinor'],
+        ];
+    }
+}
+
+if (!function_exists('loan_eligibility_check')) {
+    /**
+     * The eligibility verdict for a NEW loan request — the single source of
+     * truth enforced server-side by request_loan() AND surfaced read-only by
+     * loan_eligibility_endpoint() (loans.eligibility), so a member's preview can
+     * never promise something the gate then refuses.
+     *
+     * NOT applied to force_loan(): a forced loan is an admin override by
+     * design (see force_loan()'s docblock) and intentionally bypasses these
+     * member-standing gates.
+     *
+     * @param array|null $rules   group_rules row (or null — group_rules absent
+     *                            falls back to LOAN_FALLBACK_MAX_ACTIVE_LOANS
+     *                            and no arrears/penalty requirement).
+     * @param array      $standing loan_member_standing() output.
+     * @return array{eligible: bool, reasons: string[]}
+     */
+    function loan_eligibility_check(?array $rules, array $standing): array
+    {
+        $reasons = [];
+
+        $maxActive = (int) ($rules['loanRulesMaxActiveLoansByMember'] ?? LOAN_FALLBACK_MAX_ACTIVE_LOANS);
+        if ((int) $standing['activeLoanCount'] >= $maxActive) {
+            $reasons[] = 'You already have the maximum number of active loans allowed.';
+        }
+
+        $requireArrearsCleared = (int) ($rules['requireArrearsClearedBeforeLoan'] ?? 0) === 1;
+        if ($requireArrearsCleared && (int) $standing['arrearsMinor'] > 0) {
+            $reasons[] = 'Outstanding arrears of '
+                . money_from_minor((int) $standing['arrearsMinor']) . ' must be cleared before requesting a loan.';
+        }
+
+        $requirePenaltiesCleared = (int) ($rules['requirePenaltiesClearedBeforeLoan'] ?? 0) === 1;
+        if ($requirePenaltiesCleared && (int) $standing['penaltiesMinor'] > 0) {
+            $reasons[] = 'Outstanding penalties of '
+                . money_from_minor((int) $standing['penaltiesMinor']) . ' must be cleared before requesting a loan.';
+        }
+
+        return [
+            'eligible' => empty($reasons),
+            'reasons' => $reasons,
+        ];
+    }
+}
+
+if (!function_exists('loan_eligibility_endpoint')) {
+    /**
+     * GET loans.eligibility — a member's own loan standing and eligibility
+     * verdict, computed via the SAME loan_eligibility_check() request_loan()
+     * enforces, so this preview can never promise a loan the gate then refuses.
+     *
+     * Member-scoped: a caller only ever sees their OWN standing — mirrors how
+     * request_loan() derives the requester from the session, never the body.
+     */
+    function loan_eligibility_endpoint(): void
+    {
+        $groupId = (string) ($_GET['groupId'] ?? '');
+        if ($groupId === '') {
+            json_error('groupId is required.', 422);
+        }
+
+        $caller = require_role($groupId, ['member', 'admin', 'senior_admin', 'treasurer']);
+
+        $pdo = getDbConnection();
+        $rules = loan_fetch_group_rules($pdo, $groupId);
+
+        $standing = loan_member_standing($pdo, $groupId, (string) $caller['uid']);
+        $eligibility = loan_eligibility_check($rules, $standing);
+
+        $activeLoans = [];
+        foreach ($standing['activeLoans'] as $loan) {
+            $activeLoans[] = [
+                'loanNumber' => $loan['loanNumber'],
+                'status' => $loan['status'],
+                'remainingBalance' => money_from_minor(money_to_minor(trim((string) $loan['remainingBalance']))),
+            ];
+        }
+
+        $response = [
+            'activeLoans' => $activeLoans,
+            'activeLoanCount' => $standing['activeLoanCount'],
+            'totalRemaining' => money_from_minor((int) $standing['totalRemainingMinor']),
+            'arrears' => money_from_minor((int) $standing['arrearsMinor']),
+            'penalties' => money_from_minor((int) $standing['penaltiesMinor']),
+            'maxActiveLoans' => (int) ($rules['loanRulesMaxActiveLoansByMember'] ?? LOAN_FALLBACK_MAX_ACTIVE_LOANS),
+            'requireArrearsCleared' => (int) ($rules['requireArrearsClearedBeforeLoan'] ?? 0) === 1,
+            'requirePenaltiesCleared' => (int) ($rules['requirePenaltiesClearedBeforeLoan'] ?? 0) === 1,
+            'eligible' => $eligibility['eligible'],
+            'reasons' => $eligibility['reasons'],
+        ];
+
+        // Optional schedule preview: never let a bad/absent principal or
+        // repaymentPeriod 500 — validated the same way request_loan() validates
+        // them, just tolerant of absence since this is a read-only preview.
+        $principalRaw = $_GET['principal'] ?? null;
+        $periodRaw = $_GET['repaymentPeriod'] ?? null;
+        if ($principalRaw !== null && $principalRaw !== '' && $periodRaw !== null && $periodRaw !== '') {
+            try {
+                $previewPrincipalMinor = money_to_minor(trim((string) $principalRaw));
+                $previewPeriod = (int) $periodRaw;
+
+                // Same bounds request_loan() enforces (loans.php ~283-290):
+                // clamp the preview into range rather than let an
+                // out-of-range repaymentPeriod reach compute_loan_schedule(),
+                // which loops 1..$period with no internal cap
+                // (money.php:159) — an unbounded period is an unbounded
+                // loop/payload.
+                $previewMinMonths = (int) ($rules['loanRulesMinRepaymentMonths'] ?? LOAN_FALLBACK_MIN_MONTHS);
+                $previewMaxMonths = (int) ($rules['loanRulesMaxRepaymentMonths'] ?? LOAN_FALLBACK_MAX_MONTHS);
+                if ($previewPeriod > $previewMaxMonths) {
+                    $previewPeriod = $previewMaxMonths;
+                } elseif ($previewPeriod > 0 && $previewPeriod < $previewMinMonths) {
+                    $previewPeriod = $previewMinMonths;
+                }
+
+                // Same principal cap request_loan() enforces (loans.php
+                // ~278-281) — a preview principal can't exceed the group
+                // max either.
+                $previewMaxAmount = $rules['loanRulesMaxLoanAmount'] ?? null;
+                if ($previewMaxAmount !== null && $previewMaxAmount !== ''
+                    && $previewPrincipalMinor > money_to_minor((string) $previewMaxAmount)
+                ) {
+                    $previewPrincipalMinor = money_to_minor((string) $previewMaxAmount);
+                }
+
+                if ($previewPrincipalMinor > 0 && $previewPeriod > 0) {
+                    loan_guard_calculation_method($rules);
+                    $rates = loan_resolve_rates([], $rules);
+                    $computed = compute_loan_schedule(money_from_minor($previewPrincipalMinor), $previewPeriod, $rates);
+
+                    $response['preview'] = [
+                        'totalInterest' => $computed['totalInterest'],
+                        'totalRepayment' => $computed['totalRepayment'],
+                        'monthlyPayment' => $computed['monthlyPayment'],
+                        'schedule' => $computed['schedule'],
+                    ];
+                }
+            } catch (InvalidArgumentException $e) {
+                // Bad preview input — omit the preview rather than fail the
+                // whole eligibility read.
+            }
+        }
+
+        json_response($response);
     }
 }
 

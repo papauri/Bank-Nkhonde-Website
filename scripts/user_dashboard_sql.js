@@ -54,6 +54,7 @@ let sessionTimer = null;
 // without re-fetching.
 let calendarViewMonth = null;
 let calendarEventsMap = new Map();
+let selectedCalendarDayKey = null;
 
 export async function init() {
   wireStaticHandlers();
@@ -1135,12 +1136,122 @@ function renderCalendarGrid(monthDate, eventsByDate) {
         eventsWrap.appendChild(dot);
       }
       cell.appendChild(eventsWrap);
+
+      // Only days with events are interactive — tap/click or keyboard
+      // activation reveals the day's agenda in the on-screen details
+      // panel (#calendarDayDetails). This replaces reliance on the dot's
+      // `title` tooltip, which never fires on touch devices.
+      cell.setAttribute("tabindex", "0");
+      cell.setAttribute("role", "button");
+      cell.setAttribute(
+        "aria-label",
+        `${cellDate.toLocaleDateString("en-US", { month: "long", day: "numeric" })}, ` +
+          `${dayEvents.length} payment event${dayEvents.length === 1 ? "" : "s"} — view details`,
+      );
+      if (dateKey(cellDate) === selectedCalendarDayKey) {
+        cell.classList.add("selected");
+      }
+
+      cell.addEventListener("click", () => {
+        selectCalendarDay(cell, grid, cellDate, dayEvents);
+      });
+      // Guard mirrors the existing #activeLoansStat pattern: only fire
+      // when the event target is the cell itself (not a nested child),
+      // and only for Enter/Space.
+      cell.addEventListener("keydown", (e) => {
+        if ((e.key === "Enter" || e.key === " ") && e.target === cell) {
+          e.preventDefault();
+          selectCalendarDay(cell, grid, cellDate, dayEvents);
+        }
+      });
     }
 
     grid.appendChild(cell);
   }
 
   container.appendChild(grid);
+}
+
+/**
+ * Mark `cell` as the sole selected day within `grid` and populate the
+ * details panel with its events.
+ * @param {HTMLElement} cell
+ * @param {HTMLElement} grid
+ * @param {Date} cellDate
+ * @param {Array<Object>} dayEvents
+ */
+function selectCalendarDay(cell, grid, cellDate, dayEvents) {
+  grid
+    .querySelectorAll(".calendar-day.selected")
+    .forEach((el) => el.classList.remove("selected"));
+  cell.classList.add("selected");
+  selectedCalendarDayKey = dateKey(cellDate);
+  renderCalendarDayDetails(cellDate, dayEvents);
+}
+
+/**
+ * Render the click/tap-revealed agenda for a single calendar day into
+ * #calendarDayDetails — the on-screen replacement for the dot's native
+ * `title` tooltip, which works identically on touch and desktop.
+ * @param {Date} cellDate
+ * @param {Array<Object>} dayEvents
+ */
+function renderCalendarDayDetails(cellDate, dayEvents) {
+  const panel = document.getElementById("calendarDayDetails");
+  if (!panel) return;
+
+  panel.replaceChildren();
+
+  const dateEl = document.createElement("p");
+  dateEl.className = "calendar-day-details-date";
+  dateEl.textContent = cellDate.toLocaleDateString("en-US", {
+    weekday: "short",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  panel.appendChild(dateEl);
+
+  for (const ev of dayEvents) {
+    const row = document.createElement("div");
+    row.className = "calendar-day-details-row";
+
+    const dot = document.createElement("span");
+    dot.className = ev.overdue
+      ? "calendar-day-details-dot calendar-event-note overdue"
+      : ev.paid
+        ? `calendar-day-details-dot calendar-event-note approved ${ev.type}`
+        : `calendar-day-details-dot calendar-event-note ${ev.type}`;
+    row.appendChild(dot);
+
+    const label = document.createElement("span");
+    label.textContent = ev.label;
+    row.appendChild(label);
+
+    const status = document.createElement("span");
+    status.className = "calendar-day-details-status";
+    status.textContent = ev.overdue ? "Overdue" : ev.paid ? "Paid" : "Upcoming";
+    row.appendChild(status);
+
+    panel.appendChild(row);
+  }
+}
+
+/**
+ * Reset #calendarDayDetails to its placeholder state and clear the
+ * selected-day marker — used on month navigation so a stale day's
+ * details don't linger after the grid changes.
+ */
+function clearCalendarDayDetails() {
+  selectedCalendarDayKey = null;
+  const panel = document.getElementById("calendarDayDetails");
+  if (!panel) return;
+  panel.replaceChildren();
+  const placeholder = document.createElement("p");
+  placeholder.className = "empty-state-text";
+  placeholder.id = "calendarDayDetailsPlaceholder";
+  placeholder.textContent = "Tap a highlighted day to see payment details";
+  panel.appendChild(placeholder);
 }
 
 /**
@@ -1155,6 +1266,7 @@ function shiftCalendarMonth(delta) {
     calendarViewMonth.getMonth() + delta,
     1,
   );
+  clearCalendarDayDetails();
   renderCalendarGrid(calendarViewMonth, calendarEventsMap);
 }
 
@@ -1561,6 +1673,12 @@ function wireStaticHandlers() {
   document
     .getElementById("loanRequestForm")
     ?.addEventListener("submit", handleLoanSubmit);
+  document
+    .getElementById("loanAmount")
+    ?.addEventListener("input", updateLoanPreview);
+  document
+    .getElementById("loanRepaymentPeriod")
+    ?.addEventListener("change", updateLoanPreview);
 
   // "Payment Details" opens the all-verified-payments modal (the modal + its
   // renderer existed but nothing opened it).
@@ -2082,13 +2200,19 @@ const LOAN_MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
+// Tracks whether the member's own loans.eligibility check passed for the
+// group currently open in the loan-request modal. A UX guard only — the
+// server re-checks eligibility on submit regardless of this flag.
+let loanEligible = true;
+let loanPreviewDebounceId = null;
+
 /**
  * Open the loan-request modal, populating the group select with the member's
  * current group and the target-month select with calendar months (that field
  * is `required` in the markup but empty; the server ignores its value — it is
  * the member's intended loaning cycle per the rulebook).
  */
-function openLoanModal() {
+async function openLoanModal() {
   const modal = document.getElementById("loanModal");
   const form = document.getElementById("loanRequestForm");
   if (!modal) return;
@@ -2115,8 +2239,247 @@ function openLoanModal() {
     }
   }
 
+  resetLoanCalculationSummary();
+
   modal.classList.remove("hidden");
   modal.style.display = "flex";
+
+  await loadLoanStanding();
+}
+
+/** Reset the calc-summary spans to their zero state (server-priced only). */
+function resetLoanCalculationSummary() {
+  const principalEl = document.getElementById("loanPrincipalDisplay");
+  const interestEl = document.getElementById("loanInterestDisplay");
+  const totalEl = document.getElementById("loanTotalDisplay");
+  if (principalEl) principalEl.textContent = "MWK 0";
+  if (interestEl) interestEl.textContent = "MWK 0";
+  if (totalEl) totalEl.textContent = "MWK 0";
+}
+
+/**
+ * Fetch the member's own loans.eligibility standing for the group open in the
+ * modal and render it. Never throws out of the caller — a fetch hiccup should
+ * not block the modal, since the server still enforces eligibility on submit.
+ */
+async function loadLoanStanding() {
+  const panel = document.getElementById("loanStandingPanel");
+  if (!panel) return;
+
+  const groupId = currentGroup && currentGroup.groupId;
+  loanEligible = true;
+  setLoanSubmitDisabled(false);
+
+  if (!groupId) {
+    panel.replaceChildren();
+    return;
+  }
+
+  panel.replaceChildren();
+  const checking = document.createElement("p");
+  checking.style.fontSize = "12px";
+  checking.style.color = "var(--bn-gray)";
+  checking.textContent = "Checking your standing…";
+  panel.appendChild(checking);
+
+  try {
+    const elig = await apiGet("loans.eligibility", { groupId });
+    renderLoanStanding(elig);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      redirectToLogin();
+      return;
+    }
+    panel.replaceChildren();
+    const note = document.createElement("p");
+    note.style.fontSize = "12px";
+    note.style.color = "var(--bn-gray)";
+    note.textContent = "Couldn't load standing.";
+    panel.appendChild(note);
+  }
+}
+
+/** Enable/disable the loan-request submit button. */
+function setLoanSubmitDisabled(disabled) {
+  const submitBtn = document.querySelector(
+    "#loanRequestForm button[type=submit]",
+  );
+  if (submitBtn) submitBtn.disabled = disabled;
+}
+
+/**
+ * Render the member's loan standing (active loans, arrears, penalties) into
+ * #loanStandingPanel, and disable submit with reasons listed when ineligible.
+ * Built with createElement/textContent only — no innerHTML in this file.
+ */
+function renderLoanStanding(elig) {
+  const panel = document.getElementById("loanStandingPanel");
+  if (!panel) return;
+  panel.replaceChildren();
+
+  const wrap = document.createElement("div");
+  wrap.style.background = "var(--bn-gray-100)";
+  wrap.style.padding = "var(--bn-space-4)";
+  wrap.style.borderRadius = "var(--bn-radius-lg)";
+  wrap.style.marginBottom = "var(--bn-space-4)";
+
+  const heading = document.createElement("p");
+  heading.style.fontWeight = "600";
+  heading.style.marginBottom = "var(--bn-space-2)";
+  heading.textContent = "Your standing";
+  wrap.appendChild(heading);
+
+  const activeLoanCount = Number(elig?.activeLoanCount || 0);
+  const activeRow = document.createElement("div");
+  activeRow.style.display = "flex";
+  activeRow.style.justifyContent = "space-between";
+  const activeLabel = document.createElement("span");
+  activeLabel.style.color = "var(--bn-gray)";
+  activeLabel.textContent = "Active loans:";
+  const activeValue = document.createElement("span");
+  activeValue.style.fontWeight = "600";
+  activeValue.textContent = String(activeLoanCount);
+  activeRow.appendChild(activeLabel);
+  activeRow.appendChild(activeValue);
+  wrap.appendChild(activeRow);
+
+  if (activeLoanCount > 0 && Array.isArray(elig.activeLoans)) {
+    const list = document.createElement("ul");
+    list.style.margin = "var(--bn-space-2) 0";
+    list.style.paddingLeft = "18px";
+    list.style.fontSize = "12px";
+    for (const loan of elig.activeLoans) {
+      const li = document.createElement("li");
+      li.textContent =
+        `${loan.loanNumber} — balance ${formatCurrency(loan.remainingBalance)} ` +
+        `(${loan.status})`;
+      list.appendChild(li);
+    }
+    wrap.appendChild(list);
+  }
+
+  const arrearsRow = document.createElement("div");
+  arrearsRow.style.display = "flex";
+  arrearsRow.style.justifyContent = "space-between";
+  const arrearsLabel = document.createElement("span");
+  arrearsLabel.style.color = "var(--bn-gray)";
+  arrearsLabel.textContent = "Outstanding arrears:";
+  const arrearsValue = document.createElement("span");
+  arrearsValue.style.fontWeight = "600";
+  arrearsValue.textContent = elig?.arrears != null ? formatCurrency(elig.arrears) : "MWK 0";
+  arrearsRow.appendChild(arrearsLabel);
+  arrearsRow.appendChild(arrearsValue);
+  wrap.appendChild(arrearsRow);
+
+  const penaltiesRow = document.createElement("div");
+  penaltiesRow.style.display = "flex";
+  penaltiesRow.style.justifyContent = "space-between";
+  const penaltiesLabel = document.createElement("span");
+  penaltiesLabel.style.color = "var(--bn-gray)";
+  penaltiesLabel.textContent = "Penalties:";
+  const penaltiesValue = document.createElement("span");
+  penaltiesValue.style.fontWeight = "600";
+  penaltiesValue.textContent = elig?.penalties != null ? formatCurrency(elig.penalties) : "MWK 0";
+  penaltiesRow.appendChild(penaltiesLabel);
+  penaltiesRow.appendChild(penaltiesValue);
+  wrap.appendChild(penaltiesRow);
+
+  panel.appendChild(wrap);
+
+  if (!elig?.eligible) {
+    const warning = document.createElement("div");
+    warning.style.background = "var(--bn-danger)";
+    warning.style.opacity = "0.9";
+    warning.style.color = "#fff";
+    warning.style.padding = "var(--bn-space-3)";
+    warning.style.borderRadius = "var(--bn-radius-lg)";
+    warning.style.marginBottom = "var(--bn-space-4)";
+    warning.style.fontSize = "13px";
+
+    const reasons = Array.isArray(elig?.reasons) ? elig.reasons : [];
+    if (reasons.length === 0) {
+      warning.textContent = "You are not eligible for a new loan right now.";
+    } else {
+      const list = document.createElement("ul");
+      list.style.margin = "0";
+      list.style.paddingLeft = "18px";
+      for (const reason of reasons) {
+        const li = document.createElement("li");
+        li.textContent = reason;
+        list.appendChild(li);
+      }
+      warning.appendChild(list);
+    }
+    panel.appendChild(warning);
+
+    loanEligible = false;
+    setLoanSubmitDisabled(true);
+  } else {
+    loanEligible = true;
+    setLoanSubmitDisabled(false);
+  }
+}
+
+/**
+ * Debounced server-priced loan preview. No client-side interest math — the
+ * principal/period the member is typing are sent to loans.eligibility, which
+ * returns a formatted schedule preview; the calc-summary spans just display
+ * the server's strings.
+ */
+function updateLoanPreview() {
+  if (loanPreviewDebounceId) clearTimeout(loanPreviewDebounceId);
+  loanPreviewDebounceId = setTimeout(fetchLoanPreview, 400);
+}
+
+async function fetchLoanPreview() {
+  const groupId =
+    document.getElementById("loanGroup")?.value ||
+    (currentGroup && currentGroup.groupId) ||
+    "";
+  const principalAmount = document.getElementById("loanAmount")?.value || "";
+  const repaymentPeriod =
+    document.getElementById("loanRepaymentPeriod")?.value || "";
+
+  if (!groupId || !principalAmount || Number(principalAmount) <= 0 ||
+      !repaymentPeriod) {
+    resetLoanCalculationSummary();
+    return;
+  }
+
+  try {
+    const elig = await apiGet("loans.eligibility", {
+      groupId,
+      principal: principalAmount,
+      repaymentPeriod,
+    });
+    const preview = elig?.preview;
+    const principalEl = document.getElementById("loanPrincipalDisplay");
+    const interestEl = document.getElementById("loanInterestDisplay");
+    const totalEl = document.getElementById("loanTotalDisplay");
+
+    if (preview) {
+      if (principalEl) {
+        principalEl.textContent =
+          preview.principal ?? formatCurrency(Number(principalAmount));
+      }
+      if (interestEl) {
+        interestEl.textContent =
+          preview.totalInterest != null ? formatCurrency(preview.totalInterest) : "MWK 0";
+      }
+      if (totalEl) {
+        totalEl.textContent =
+          preview.totalRepayment != null ? formatCurrency(preview.totalRepayment) : "MWK 0";
+      }
+    } else {
+      resetLoanCalculationSummary();
+    }
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      redirectToLogin();
+      return;
+    }
+    resetLoanCalculationSummary();
+  }
 }
 
 function closeLoanModal() {
@@ -2132,6 +2495,13 @@ function closeLoanModal() {
  */
 async function handleLoanSubmit(event) {
   event.preventDefault();
+
+  if (loanEligible === false) {
+    return showToast(
+      "You are not currently eligible for a new loan.",
+      "danger",
+    );
+  }
 
   const groupId =
     document.getElementById("loanGroup")?.value ||
