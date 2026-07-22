@@ -18,7 +18,7 @@
       width: 64px;
       height: 64px;
       border-radius: var(--bn-radius-full);
-      background: rgba(255, 255, 255, 0.15);
+      background: var(--bn-gradient-primary);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -27,7 +27,7 @@
       color: var(--bn-white);
       flex-shrink: 0;
       overflow: hidden;
-      border: 3px solid rgba(255, 255, 255, 0.3);
+      border: none;
     }
 
     .member-avatar img {
@@ -44,7 +44,7 @@
     .member-name {
       font-size: var(--bn-text-lg);
       font-weight: 700;
-      color: var(--bn-white);
+      color: var(--bn-dark);
       margin-bottom: var(--bn-space-1);
     }
 
@@ -65,8 +65,8 @@
     }
 
     .member-role.member {
-      background: rgba(255, 255, 255, 0.2);
-      color: var(--bn-white);
+      background: var(--bn-gray-100);
+      color: var(--bn-gray-700);
     }
 
     .member-card-body {

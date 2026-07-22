@@ -21,6 +21,39 @@
       gap: var(--bn-space-3);
     }
 
+    /* Initial loading placeholder inside #messagesList (before data.js has
+       rendered anything). Reuses the shared .spinner/.loading-text markup,
+       but that pair is authored for the dark full-viewport .spinner-overlay
+       (white ring + white text) — invisible on this light card. Re-styled
+       here for a light background, following the same approach as the
+       "CONTENT-SCOPED LOADER" block in design-system.css (light-context
+       override of the same base classes), scaled down since this is an
+       inline in-list indicator rather than a full-page takeover. Also
+       centered explicitly: #messagesList is a flex column, so without
+       align-self these block children stretch/left-align instead of
+       centering. */
+    #messagesList > .spinner {
+      align-self: center;
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--bn-gray-lighter);
+      border-top-color: var(--bn-accent);
+      margin: var(--bn-space-6) auto var(--bn-space-3);
+    }
+
+    #messagesList > .loading-text {
+      align-self: center;
+      color: var(--bn-gray);
+      text-align: center;
+      margin: 0 0 var(--bn-space-6);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #messagesList > .spinner {
+        animation: bn-coin-pulse 1.8s ease-in-out infinite;
+      }
+    }
+
     .message-item {
       background: var(--bn-white);
       border-radius: var(--bn-radius-lg);
@@ -336,10 +369,8 @@
       </div>
       <div class="content-section-body">
         <div class="messages-list" id="messagesList">
-          <div class="empty-state">
-            <div class="empty-state-icon">📬</div>
-            <p class="empty-state-text">Loading messages...</p>
-          </div>
+          <div class="spinner"></div>
+          <p class="loading-text">Loading messages…</p>
         </div>
       </div>
     </section>

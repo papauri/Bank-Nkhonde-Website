@@ -258,3 +258,20 @@ Five navigation-related scripts and two stylesheets handle DOM injection, mobile
 - **`shared-sidebar.js`** (550 lines) — not imported by any .html file. Documented in SHARED_NAV_GUIDE.md under "Shared Sidebar Component" but that guide refers to `shared-top-nav.js`, not shared-sidebar. Referenced only in BUILD_PLAN.md phase 2 ("collapse navigation cluster"). Can be deleted.
 - **`hamburger.js`** (6 lines) — not imported by any .html file. Simple toggle function, superseded by unified-navigation.js. Can be deleted.
 - **Duplicate CSS in user pages.** The 6 user pages load BOTH `unified-mobile-nav.css` directly *and* `design-system.css` (which imports unified-mobile-nav.css). This is a CSS include duplication, not a missing file. No harm (cascade deduplicates), but unnecessary. Recommendation: remove explicit link to unified-mobile-nav.css from the 6 pages.
+
+## Dark-on-light contrast sweep (cycle 81)
+
+Read-only sweep of all 21 pages' inline `<style>` blocks for white text / translucent-white borders/backgrounds rendered on a LIGHT surface (the bug class fixed in cycles 76/77/80). Run by the coordinator directly (the scout dispatch hit a session limit). Method: `grep` for `bn-white`/`rgba(255,255,255,…)`/`#fff` across all inline style blocks, then read each `color:`/`border:` hit's selector + its parent surface.
+
+### HIT — real bug (FIXED this cycle)
+- **`pages/manage_members.html`** — `.member-avatar` (:17-31), `.member-name` (:44-49), `.member-role.member` (:67-70). All three render inside `<td>` table cells (created by `createMemberRow`, `manage_members_new_sql.js:285-309`) after the cycle-71 card→table conversion. The table row background is `var(--bn-white)` (`design-system.css:771`), but these rules kept the DARK-card-era colors: `.member-name { color: var(--bn-white) }` = invisible member names on white rows; `.member-avatar { background: rgba(255,255,255,0.15); color: var(--bn-white) }` = near-invisible initials-avatar; `.member-role.member { background: rgba(255,255,255,0.2); color: var(--bn-white) }` = invisible "MEMBER" badge. Only admins (gold badge, dark text) and members with an uploaded photo showed correctly. **Fixed:** avatar → `var(--bn-gradient-primary)` navy bg + `border:none` (matching the other tables' avatars, see OK list below); name → `color: var(--bn-dark)`; member badge → `background: var(--bn-gray-100); color: var(--bn-gray-700)`.
+
+### OK — genuinely dark surface (white-on-dark is correct, NOT a bug)
+- `admin_dashboard.html` / `user_dashboard.html` — all `.sidebar-*`, `.top-nav-*`, `.mobile-menu-*`, `.hero-*`, `.topbar-avatar`, `.*-avatar`, `[data-payment-filter].active` white text sits on the navy sidebar, navy top-nav, the navy hero section, gradient/accent-filled avatar circles, or a navy-filled active tab.
+- `accept_invitation.html` / `complete_profile.html` / `admin_registration.html` / `settings.html` — `.invitation-header`/`.profile-header`/`.registration-*`/`.profile-picture-section` white text sits on a `--bn-gradient-primary` navy hero. (`settings.html`'s `.profile-picture-section` confirmed `background: var(--bn-gradient-primary)`.)
+- `manage_loans.html` `.loan-borrower-avatar`/`.table-borrower-avatar`, `manage_payments.html` `.payment-avatar` — `background: var(--bn-gradient-primary)` navy circles, white initials correct. **These are the consistency reference the manage_members fix now matches.**
+- `manage_rules.html` `.rules-tab.active`, `manage_members.html` `.member-role.admin` (gold bg, dark text — correct), `.toast` (dark bg) — all correct-context.
+- All `background: var(--bn-white)` hits (the large majority) are white CARD surfaces, not white-on-white text — not in scope for this pattern.
+
+### Note (out of scope, not a contrast bug)
+- `manage_members.html` `.member-avatar` is 64px — large for a table row (the cycle-71 note had manage_loans use a ~26px table avatar). A size-down would be consistency polish, not a correctness fix; left alone this cycle.
