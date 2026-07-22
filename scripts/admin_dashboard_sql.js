@@ -529,26 +529,6 @@ function createPieChart(title, segments, total, centerLabel, isCount = false) {
  * ------------------------------------------------------------------ */
 
 /**
- * One stat cell inside a group card.
- * @param {string} value
- * @param {string} label
- * @return {HTMLElement}
- */
-function buildGroupStat(value, label) {
-  const wrap = document.createElement("div");
-  wrap.className = "group-stat-item";
-  const v = document.createElement("div");
-  v.className = "group-stat-value";
-  v.textContent = value;
-  const l = document.createElement("div");
-  l.className = "group-stat-label";
-  l.textContent = label;
-  wrap.appendChild(v);
-  wrap.appendChild(l);
-  return wrap;
-}
-
-/**
  * Switch the selected group and reload the dashboard.
  * @param {string} groupId
  */
@@ -1294,14 +1274,6 @@ function setupEventListeners() {
       e.stopPropagation();
     });
   }
-  document.addEventListener("click", (e) => {
-    const userMenu = document.getElementById("userMenuDropdown");
-    const su = document.getElementById("sidebarUser");
-    if (userMenu && su && !su.contains(e.target) && !userMenu.contains(e.target)) {
-      userMenu.classList.remove("show");
-    }
-  });
-
   const statOverlay = document.getElementById("statModalOverlay");
   statOverlay?.addEventListener("click", (e) => {
     if (e.target === statOverlay) closeStatModal();

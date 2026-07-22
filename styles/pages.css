@@ -442,10 +442,17 @@ body {
   margin-bottom: var(--bn-space-3);
 }
 
+.info-card-header .badge {
+  flex-shrink: 0;
+}
+
 .info-card-title {
   font-size: var(--bn-text-sm);
   font-weight: 600;
   color: var(--bn-dark);
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .info-card-value {
@@ -454,6 +461,8 @@ body {
   color: var(--bn-dark);
   font-feature-settings: 'tnum' 1;
   letter-spacing: var(--bn-tracking-tight);
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .info-card-footer {

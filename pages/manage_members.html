@@ -14,36 +14,6 @@
   <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
-    /* Premium Member Cards */
-    .members-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-      gap: var(--bn-space-5);
-    }
-
-    .member-card {
-      background: var(--bn-white);
-      border-radius: var(--bn-radius-xl);
-      border: 1px solid var(--bn-gray-lighter);
-      overflow: hidden;
-      transition: all var(--bn-transition-base);
-      position: relative;
-    }
-
-    .member-card:hover {
-      border-color: var(--bn-accent);
-      box-shadow: var(--bn-shadow-lg);
-      transform: translateY(-2px);
-    }
-
-    .member-card-header {
-      background: var(--bn-gradient-primary);
-      padding: var(--bn-space-5);
-      display: flex;
-      align-items: center;
-      gap: var(--bn-space-4);
-    }
-
     .member-avatar {
       width: 64px;
       height: 64px;
@@ -421,10 +391,6 @@
       .form-row {
         grid-template-columns: 1fr;
         gap: var(--bn-space-4);
-      }
-
-      .members-grid {
-        grid-template-columns: 1fr;
       }
 
       .member-details-grid {

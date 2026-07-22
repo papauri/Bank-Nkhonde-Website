@@ -622,10 +622,20 @@
       justify-content: space-between;
     }
 
+    .content-card-header > a,
+    .content-card-header > select,
+    .content-card-header > button,
+    .content-card-header > div {
+      flex-shrink: 0;
+    }
+
     .content-card-title {
       font-size: var(--bn-text-lg);
       font-weight: 700;
       color: var(--bn-dark);
+      min-width: 0;
+      overflow-wrap: break-word;
+      word-break: break-word;
     }
 
     .content-card-body {

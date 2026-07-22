@@ -761,18 +761,3 @@ p {
   transform: translateY(0);
 }
 
-.toast.success {
-  border-left: 4px solid var(--bn-success);
-}
-
-.toast.error {
-  border-left: 4px solid var(--bn-danger);
-}
-
-.toast.warning {
-  border-left: 4px solid var(--bn-warning);
-}
-
-.toast.info {
-  border-left: 4px solid var(--bn-info);
-}
