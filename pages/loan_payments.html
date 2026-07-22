@@ -212,6 +212,13 @@
   <!-- Page Content -->
   <main class="main-content" id="mainContent">
    <div class="dashboard-content">
+    <!-- Loading Overlay -->
+    <div class="spinner-overlay hidden" id="spinner">
+      <div class="spinner-content">
+        <div class="spinner"></div>
+        <p class="loading-text">Loading...</p>
+      </div>
+    </div>
     <!-- Loan Status Tabs -->
     <div class="action-tabs">
       <button class="action-tab active" data-tab="pending">
@@ -414,14 +421,6 @@
 
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
-
-  <!-- Loading Overlay -->
-  <div class="spinner-overlay hidden" id="spinner">
-    <div class="spinner-content">
-      <div class="spinner"></div>
-      <p class="loading-text">Loading...</p>
-    </div>
-  </div>
 
   <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/loan_payments_sql.js?v=20260722"></script>

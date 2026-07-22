@@ -337,6 +337,13 @@
   <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
     <div class="dashboard-content">
+      <!-- Loading Overlay -->
+      <div class="spinner-overlay hidden" id="spinner">
+        <div class="spinner-content">
+          <div class="spinner"></div>
+          <p class="loading-text">Loading...</p>
+        </div>
+      </div>
 
       <div class="page-group-selector">
         <select id="groupSelector">
@@ -843,14 +850,6 @@
   </div>
 
 
-
-  <!-- Loading Overlay -->
-  <div class="spinner-overlay hidden" id="spinner">
-    <div class="spinner-content">
-      <div class="spinner"></div>
-      <p class="loading-text">Loading...</p>
-    </div>
-  </div>
 
   <script src="../scripts/modal-utils.js"></script>
   <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>

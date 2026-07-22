@@ -320,6 +320,13 @@
   <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
     <div class="dashboard-content">
+      <!-- Loading Spinner -->
+      <div class="spinner-overlay hidden" id="spinner">
+        <div class="spinner-content">
+          <div class="spinner"></div>
+          <p class="loading-text">Saving...</p>
+        </div>
+      </div>
 
     <!-- Profile Picture Section -->
     <div class="profile-picture-section">
@@ -718,14 +725,6 @@
     </div>
     </div>
   </main>
-
-  <!-- Loading Spinner -->
-  <div class="spinner-overlay hidden" id="spinner">
-    <div class="spinner-content">
-      <div class="spinner"></div>
-      <p class="loading-text">Saving...</p>
-    </div>
-  </div>
 
   <script src="../scripts/modal-utils.js"></script>
   <script src="../scripts/dob-validation.js"></script>

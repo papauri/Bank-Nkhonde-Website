@@ -72,6 +72,14 @@
       margin-top: var(--bn-space-6);
     }
 
+    .rules-container {
+      transition: box-shadow var(--bn-transition-base);
+    }
+
+    .rules-container:hover {
+      box-shadow: var(--bn-shadow-xl);
+    }
+
     .rules-stat-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -82,6 +90,14 @@
       padding: var(--bn-space-4);
       background: var(--bn-gray-100);
       border-radius: var(--bn-radius-lg);
+      border: 1px solid transparent;
+      transition: all var(--bn-transition-base);
+    }
+
+    .rules-stat-card:hover {
+      background: var(--bn-white);
+      border-color: var(--bn-accent);
+      box-shadow: var(--bn-shadow-md);
     }
 
     .rules-stat-label {
@@ -168,6 +184,13 @@
   <!-- Page Content -->
   <main class="main-content" id="mainContent">
    <div class="dashboard-content">
+    <!-- Loading Overlay -->
+    <div class="spinner-overlay hidden" id="spinner">
+      <div class="spinner-content">
+        <div class="spinner"></div>
+        <p class="loading-text">Loading rules...</p>
+      </div>
+    </div>
     <!-- Text Rules Section -->
     <div class="rules-container" id="textRulesContainer" style="display: none;">
       <div class="rules-header">
@@ -264,14 +287,6 @@
       <span>Sign Out</span>
     </button>
   </nav>
-
-  <!-- Loading Overlay -->
-  <div class="spinner-overlay hidden" id="spinner">
-    <div class="spinner-content">
-      <div class="spinner"></div>
-      <p class="loading-text">Loading rules...</p>
-    </div>
-  </div>
 
   <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/view_rules_sql.js?v=20260722"></script>

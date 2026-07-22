@@ -1039,6 +1039,140 @@ table.data-table tbody tr:last-child td {
   font-weight: 500;
 }
 
+/* ============================================
+   CONTENT-SCOPED LOADER (dashboard/SPA navigation)
+   ============================================
+   Every dashboard page toggles the SAME #spinner/.spinner-overlay markup
+   (via showSpinner()) while its own data loads — including on every SPA
+   in-app navigation, since each page's init() re-runs after a content swap.
+   The base .spinner-overlay rules above are position:fixed/full-viewport,
+   which is correct for the 3 standalone pages that have no dashboard shell
+   (accept_invitation/admin_registration/complete_profile — no sidebar to
+   cover, so left untouched) but WRONG once a sidebar exists: a fixed,
+   dark-navy full-screen overlay dims the sidebar too on every page switch.
+   This block re-scopes + redesigns the SAME element whenever it is nested
+   inside .dashboard-content (every SPA-converted admin/user page places its
+   #spinner there) — zero JS or markup-id changes needed, showSpinner()
+   still just toggles .hidden on the same element. */
+.dashboard-content > .spinner-overlay {
+  position: absolute;
+  background: var(--glass-bg);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: inherit;
+}
+
+/* Glass panel rather than an opaque white card — keeps this in the same
+   visual family as the SPA-router's own navigation loader (glass, no
+   solid card), while the border + tighter shadow still separate this
+   "content is loading" state from that lighter transient nav overlay. */
+.dashboard-content > .spinner-overlay .spinner-content {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--bn-radius-2xl);
+  box-shadow: var(--bn-shadow-lg);
+  padding: var(--bn-space-8) var(--bn-space-10);
+  perspective: 280px;
+  animation: bn-loader-pop 0.3s var(--bn-ease-out);
+}
+
+@keyframes bn-loader-pop {
+  from { opacity: 0; transform: scale(0.92) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* The "coin" — a stylised spinning Kwacha coin replaces the plain ring
+   spinner, but ONLY for the content-scoped variant; the full-viewport
+   overlay above keeps its original plain ring, untouched.
+   Thickness/rim is suggested with inset highlight+shadow (top rim catches
+   light, bottom rim is in shadow); both the outer glow and the rim
+   contrast are dialled down at the 90/270deg points, where the coin is
+   edge-on and would naturally throw less light and a thinner shadow. */
+.dashboard-content > .spinner-overlay .spinner {
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 50%;
+  background: var(--bn-gradient-accent);
+  box-shadow: var(--bn-shadow-glow), var(--bn-shadow-md),
+    inset 0 3px 4px rgba(255, 255, 255, 0.35),
+    inset 0 -4px 6px rgba(10, 22, 40, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-style: preserve-3d;
+  animation: bn-coin-flip 1.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+.dashboard-content > .spinner-overlay .spinner::after {
+  content: "K";
+  font-family: var(--bn-font-sans);
+  font-weight: 800;
+  font-size: 22px;
+  color: var(--bn-primary);
+  letter-spacing: -0.02em;
+  animation: bn-coin-face 1.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+@keyframes bn-coin-flip {
+  0%, 100% {
+    transform: rotateY(0deg) scaleX(1);
+    box-shadow: var(--bn-shadow-glow), var(--bn-shadow-md),
+      inset 0 3px 4px rgba(255, 255, 255, 0.35),
+      inset 0 -4px 6px rgba(10, 22, 40, 0.18);
+  }
+  25% {
+    transform: rotateY(90deg) scaleX(0.82);
+    box-shadow: 0 0 20px rgba(201, 162, 39, 0.08), var(--bn-shadow-sm),
+      inset 0 1px 2px rgba(255, 255, 255, 0.2),
+      inset 0 -2px 3px rgba(10, 22, 40, 0.12);
+  }
+  50% {
+    transform: rotateY(180deg) scaleX(1);
+    box-shadow: var(--bn-shadow-glow), var(--bn-shadow-md),
+      inset 0 3px 4px rgba(255, 255, 255, 0.35),
+      inset 0 -4px 6px rgba(10, 22, 40, 0.18);
+  }
+  75% {
+    transform: rotateY(270deg) scaleX(0.82);
+    box-shadow: 0 0 20px rgba(201, 162, 39, 0.08), var(--bn-shadow-sm),
+      inset 0 1px 2px rgba(255, 255, 255, 0.2),
+      inset 0 -2px 3px rgba(10, 22, 40, 0.12);
+  }
+}
+
+/* The "K" glyph foreshortens and dims in sync with the coin edge-on
+   points, instead of just riding the same flat rotation as the coin body
+   — a flat letterform staying full-opacity through the "edge" frames is
+   what read as a squish rather than a flip. */
+@keyframes bn-coin-face {
+  0%, 50%, 100% { opacity: 1; transform: scaleX(1); }
+  25%, 75% { opacity: 0.25; transform: scaleX(0.3); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-content > .spinner-overlay .spinner,
+  .dashboard-content > .spinner-overlay .spinner::after {
+    animation: bn-coin-pulse 1.8s ease-in-out infinite;
+  }
+}
+
+@keyframes bn-coin-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.dashboard-content > .spinner-overlay .loading-text {
+  color: var(--bn-primary);
+  opacity: 0.85;
+  font-weight: 600;
+  font-size: var(--bn-text-sm);
+  letter-spacing: var(--bn-tracking-wide);
+  margin-top: var(--bn-space-3);
+}
+
 /* Skeleton loading */
 .skeleton {
   background: linear-gradient(90deg, var(--bn-gray-100) 25%, var(--bn-gray-lighter) 50%, var(--bn-gray-100) 75%);

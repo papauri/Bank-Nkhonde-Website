@@ -66,6 +66,13 @@
   <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
     <div class="dashboard-content">
+      <!-- Loading Overlay -->
+      <div class="spinner-overlay hidden" id="spinner">
+        <div class="spinner-content">
+          <div class="spinner"></div>
+          <p class="loading-text">Loading seed money data...</p>
+        </div>
+      </div>
 
       <div class="page-group-selector">
         <select id="groupSelector">
@@ -127,15 +134,6 @@
     </div>
   </main>
 
-
-
-  <!-- Loading Overlay -->
-  <div class="spinner-overlay hidden" id="spinner">
-    <div class="spinner-content">
-      <div class="spinner"></div>
-      <p class="loading-text">Loading seed money data...</p>
-    </div>
-  </div>
 
   <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/seed_money_overview_sql.js?v=20260722"></script>

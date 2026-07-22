@@ -214,6 +214,13 @@
   <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
     <div class="dashboard-content">
+      <!-- Loading Overlay -->
+      <div class="spinner-overlay hidden" id="spinner">
+        <div class="spinner-content">
+          <div class="spinner"></div>
+          <p class="loading-text">Loading data...</p>
+        </div>
+      </div>
 
       <button class="page-back-btn" aria-label="Go back">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -295,14 +302,6 @@
   </main>
 
 
-
-  <!-- Loading Overlay -->
-  <div class="spinner-overlay hidden" id="spinner">
-    <div class="spinner-content">
-      <div class="spinner"></div>
-      <p class="loading-text">Loading data...</p>
-    </div>
-  </div>
 
   <!-- Edit Rates Modal -->
   <div class="modal-overlay hidden" id="editModal">

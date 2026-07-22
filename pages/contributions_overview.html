@@ -289,6 +289,13 @@
   <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
     <div class="dashboard-content">
+      <!-- Loading Overlay -->
+      <div class="spinner-overlay hidden" id="spinner">
+        <div class="spinner-content">
+          <div class="spinner"></div>
+          <p class="loading-text">Loading contributions...</p>
+        </div>
+      </div>
 
       <div class="page-content-toolbar">
         <button class="page-back-btn" aria-label="Go back">
@@ -373,14 +380,6 @@
   </main>
 
 
-
-  <!-- Loading Overlay -->
-  <div class="spinner-overlay hidden" id="spinner">
-    <div class="spinner-content">
-      <div class="spinner"></div>
-      <p class="loading-text">Loading contributions...</p>
-    </div>
-  </div>
 
   <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/contributions_overview_sql.js?v=20260722"></script>

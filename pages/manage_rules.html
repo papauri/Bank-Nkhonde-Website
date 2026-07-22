@@ -297,6 +297,13 @@
   <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
     <div class="dashboard-content">
+      <!-- Loading Overlay -->
+      <div class="spinner-overlay hidden" id="spinner">
+        <div class="spinner-content">
+          <div class="spinner"></div>
+          <p class="loading-text">Processing...</p>
+        </div>
+      </div>
     <!-- Tabs -->
     <div class="rules-tabs">
       <button class="rules-tab active" data-tab="text">
@@ -484,14 +491,6 @@
     </div>
   </main>
 
-
-  <!-- Loading Overlay -->
-  <div class="spinner-overlay hidden" id="spinner">
-    <div class="spinner-content">
-      <div class="spinner"></div>
-      <p class="loading-text">Processing...</p>
-    </div>
-  </div>
 
   <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/manage_rules_sql.js?v=20260722"></script>

@@ -227,6 +227,11 @@ body {
   border: 1px solid var(--bn-gray-lighter);
   margin-bottom: var(--bn-space-6);
   overflow: hidden;
+  transition: box-shadow var(--bn-transition-base), border-color var(--bn-transition-base);
+}
+
+.content-section:hover {
+  box-shadow: var(--bn-shadow-xl);
 }
 
 .content-section-header {
@@ -448,6 +453,7 @@ body {
   font-weight: 800;
   color: var(--bn-dark);
   font-feature-settings: 'tnum' 1;
+  letter-spacing: var(--bn-tracking-tight);
 }
 
 .info-card-footer {

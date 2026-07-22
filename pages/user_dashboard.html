@@ -1882,6 +1882,13 @@
   <!-- Main Content -->
   <main class="main-content" id="mainContent">
    <div class="dashboard-content">
+    <!-- Loading Overlay -->
+    <div class="spinner-overlay hidden" id="spinner">
+      <div class="spinner-content">
+        <div class="spinner"></div>
+        <p class="loading-text">Loading dashboard...</p>
+      </div>
+    </div>
     <div class="content-grid">
       <!-- Quick Actions Card -->
       <div class="content-card">
@@ -2199,14 +2206,6 @@
 
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
-
-  <!-- Loading Overlay -->
-  <div class="spinner-overlay hidden" id="spinner">
-    <div class="spinner-content">
-      <div class="spinner"></div>
-      <p class="loading-text">Loading dashboard...</p>
-    </div>
-  </div>
 
   <!-- Group Selection Overlay -->
   <div class="group-selection-overlay hidden" id="groupSelectionOverlay" style="display: none;">

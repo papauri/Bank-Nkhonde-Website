@@ -326,6 +326,13 @@
   <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
     <div class="dashboard-content">
+      <!-- Loading Overlay -->
+      <div class="spinner-overlay hidden" id="spinner">
+        <div class="spinner-content">
+          <div class="spinner"></div>
+          <p class="loading-text">Loading...</p>
+        </div>
+      </div>
 
       <div class="page-group-selector">
         <select id="groupSelector">
@@ -838,14 +845,6 @@ Thank you for your cooperation.</textarea>
         <button type="button" class="btn btn-ghost" id="cancelSendReminders">Cancel</button>
         <button type="submit" form="sendRemindersForm" class="btn btn-accent">Send Reminders</button>
       </div>
-    </div>
-  </div>
-
-  <!-- Loading Overlay -->
-  <div class="spinner-overlay hidden" id="spinner">
-    <div class="spinner-content">
-      <div class="spinner"></div>
-      <p class="loading-text">Loading...</p>
     </div>
   </div>
 

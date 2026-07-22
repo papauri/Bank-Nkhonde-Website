@@ -23,10 +23,8 @@
     }
 
     .stat-card {
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
       border-radius: var(--bn-radius-xl);
       padding: var(--bn-space-5);
       text-align: center;
@@ -37,7 +35,7 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      box-shadow: var(--bn-shadow-sm);
     }
 
     .stat-card::before {
@@ -54,8 +52,8 @@
 
     .stat-card:hover {
       transform: translateY(-4px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-      border-color: rgba(255, 255, 255, 0.2);
+      box-shadow: var(--bn-shadow-lg);
+      border-color: var(--bn-accent);
     }
 
     .stat-card:hover::before {
@@ -86,7 +84,7 @@
 
     .stat-label {
       font-size: var(--bn-text-xs);
-      color: rgba(255, 255, 255, 0.65);
+      color: var(--bn-gray);
       text-transform: uppercase;
       letter-spacing: 0.05em;
       font-weight: 600;
@@ -247,6 +245,13 @@
   <!-- Page Content -->
   <main class="main-content" id="mainContent">
    <div class="dashboard-content">
+    <!-- Loading Overlay -->
+    <div class="spinner-overlay hidden" id="spinner">
+      <div class="spinner-content">
+        <div class="spinner"></div>
+        <p class="loading-text">Loading analytics...</p>
+      </div>
+    </div>
     <!-- User Overview Stats -->
     <section class="content-section">
       <div class="content-section-header">
@@ -369,14 +374,6 @@
 
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
-
-  <!-- Loading Overlay -->
-  <div class="spinner-overlay hidden" id="spinner">
-    <div class="spinner-content">
-      <div class="spinner"></div>
-      <p class="loading-text">Loading analytics...</p>
-    </div>
-  </div>
 
   <script src="../scripts/analytics-chart-animate.js"></script>
   <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
