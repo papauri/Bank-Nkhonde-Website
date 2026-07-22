@@ -1708,10 +1708,12 @@ function wireStaticHandlers() {
         e.target.value === "monthly_contribution" ? "block" : "none";
     }
     updateAdvancedPaymentVisibility();
+    updatePaymentDueInfo();
   });
-  document
-    .getElementById("paymentMonth")
-    ?.addEventListener("change", updateAdvancedPaymentVisibility);
+  document.getElementById("paymentMonth")?.addEventListener("change", () => {
+    updateAdvancedPaymentVisibility();
+    updatePaymentDueInfo();
+  });
   document
     .getElementById("paymentUploadForm")
     ?.addEventListener("submit", handlePaymentSubmit);
@@ -2014,6 +2016,7 @@ function openPaymentModal(prefill) {
   }
 
   updateAdvancedPaymentVisibility();
+  updatePaymentDueInfo();
 
   modal.classList.remove("hidden");
   modal.style.display = "flex";
@@ -2059,6 +2062,105 @@ function isFutureContributionMonth(month) {
   if (!obl) return false;
   const due = parseServerDate(obl.dueDate);
   return due ? due > startOfToday() : false;
+}
+
+/**
+ * Look up the obligation object matching the payment modal's current
+ * type/month selection, reusing the same window.__dashboardData.obligations
+ * shape read everywhere else in this file (no extra API call).
+ * @param {Object} ob obligations payload
+ * @param {string} type server paymentType enum (seed_money / monthly_contribution / service_fee)
+ * @param {string} month month name, only relevant for monthly_contribution
+ * @return {Object|null}
+ */
+function findObligationForPaymentModal(ob, type, month) {
+  if (type === "seed_money") return ob.seedMoney || null;
+  if (type === "service_fee") return ob.serviceFee || null;
+  if (type === "monthly_contribution") {
+    const months = (ob.monthlyContributions && ob.monthlyContributions.months) || [];
+    return months.find((m) => m.month === month) || null;
+  }
+  return null;
+}
+
+/** Build one muted hint/status line for the payment-due-info panel. */
+function buildDueInfoHint(text) {
+  const hint = document.createElement("div");
+  hint.className = "payment-due-hint";
+  hint.textContent = text;
+  return hint;
+}
+
+/** Build one labelled amount line for the payment-due-info panel. */
+function buildDueInfoRow(text, className) {
+  const row = document.createElement("div");
+  row.className = className || "payment-due-row";
+  row.textContent = text;
+  return row;
+}
+
+/**
+ * Populate #paymentDueInfo with what's due/paid/outstanding for the payment
+ * modal's current type + month selection, straight from
+ * window.__dashboardData.obligations (no new API call, no client money math
+ * beyond the existing arrears+penalty minor-unit sum already used elsewhere in
+ * this file). Also offers to prefill an empty #paymentAmount with the known
+ * outstanding amount, without ever overwriting a value the user typed.
+ */
+function updatePaymentDueInfo() {
+  const panel = document.getElementById("paymentDueInfo");
+  if (!panel) return;
+  panel.replaceChildren();
+
+  const data = window.__dashboardData;
+  const ob = data && data.obligations;
+  if (!ob) return;
+
+  const type = document.getElementById("paymentType")?.value || "";
+  if (!type) return;
+  const month = document.getElementById("paymentMonth")?.value || "";
+
+  if (type === "monthly_contribution" && !month) {
+    panel.appendChild(buildDueInfoHint("Select a month to see what's due"));
+    return;
+  }
+
+  const obl = findObligationForPaymentModal(ob, type, month);
+  const typeLabel =
+    type === "seed_money"
+      ? "seed money"
+      : type === "service_fee"
+        ? "service fee"
+        : "monthly contribution";
+
+  if (!obl || obl.configured === false) {
+    panel.appendChild(buildDueInfoHint(`No ${typeLabel} due`));
+    return;
+  }
+
+  panel.appendChild(buildDueInfoRow(`Amount due: ${formatCurrency(obl.totalAmount)}`));
+  panel.appendChild(buildDueInfoRow(`Already paid: ${formatCurrency(obl.amountPaid)}`));
+  panel.appendChild(
+    buildDueInfoRow(
+      `Outstanding: ${formatCurrency(obl.arrears)}`,
+      "payment-due-row payment-due-outstanding",
+    ),
+  );
+
+  const summary = ob.summary || {};
+  const totalOutstandingMinor = toMinor(summary.arrears) + toMinor(summary.penaltyAccrued);
+  panel.appendChild(
+    buildDueInfoRow(
+      `Total outstanding across all obligations: ${formatCurrency(fromMinor(totalOutstandingMinor))}`,
+      "payment-due-hint",
+    ),
+  );
+
+  const amountInput = document.getElementById("paymentAmount");
+  const outstandingMinor = toMinor(obl.arrears);
+  if (amountInput && !amountInput.value && outstandingMinor > 0) {
+    amountInput.value = cleanAmount(obl.arrears);
+  }
 }
 
 /**

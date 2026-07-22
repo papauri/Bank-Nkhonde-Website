@@ -30,6 +30,7 @@ require_once __DIR__ . '/handlers/dashboard.php';
 require_once __DIR__ . '/handlers/files.php';
 require_once __DIR__ . '/handlers/invitations.php';
 require_once __DIR__ . '/handlers/exports.php';
+require_once __DIR__ . '/handlers/statement.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -86,6 +87,8 @@ const ROUTES = [
     'payments.waivePenalty' => ['POST', 'waive_contribution_penalty'],
     'payments.groupArrears' => ['GET', 'group_arrears_summary'],
 
+    'statement.get' => ['GET', 'get_statement'],
+
     'rules.get'    => ['GET', 'get_rules'],
     'rules.update' => ['POST', 'update_rules'],
 
@@ -132,6 +135,7 @@ const ROUTES = [
     'exports.loans'    => ['GET', 'export_loans'],
     'exports.members'  => ['GET', 'export_members'],
     'exports.report'   => ['GET', 'export_report'],
+    'exports.statement' => ['GET', 'export_statement'],
 ];
 
 try {

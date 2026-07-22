@@ -345,6 +345,31 @@
         </div>
       </div>
     </section>
+
+    <!-- My Account Statement -->
+    <section class="content-section" id="statementSection">
+      <div class="content-section-header">
+        <h2 class="content-section-title">My Account Statement</h2>
+        <p class="content-section-subtitle">Contributions, loan account, and penalties ledgers</p>
+      </div>
+      <div class="content-section-body">
+        <div style="display:flex; flex-wrap:wrap; gap: var(--bn-space-3); align-items:center; justify-content:space-between; margin-bottom: var(--bn-space-4);">
+          <select id="statementYearFilter" class="form-select" style="width:auto; min-width:140px;">
+            <option value="">All years</option>
+          </select>
+          <button type="button" class="btn btn-secondary" id="statementExportBtn">Export to Excel</button>
+        </div>
+
+        <h3 class="content-section-title" style="font-size: var(--bn-text-base); margin-bottom: var(--bn-space-2);">Contributions</h3>
+        <div id="statementContributions"></div>
+
+        <h3 class="content-section-title" style="font-size: var(--bn-text-base); margin: var(--bn-space-5) 0 var(--bn-space-2);">Loan Account</h3>
+        <div id="statementLoanAccount"></div>
+
+        <h3 class="content-section-title" style="font-size: var(--bn-text-base); margin: var(--bn-space-5) 0 var(--bn-space-2);">Penalties</h3>
+        <div id="statementPenalties"></div>
+      </div>
+    </section>
    </div>
   </main>
 

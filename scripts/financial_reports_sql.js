@@ -81,6 +81,11 @@ const outstandingLoansEl = () => document.getElementById("outstandingLoans");
 const detailedReportEl = () => document.getElementById("detailedReport");
 const exportBtn = () => document.getElementById("exportBtn");
 const spinner = () => document.getElementById("spinner");
+const statementMemberSelectEl = () => document.getElementById("statementMemberSelect");
+const statementExportBtnEl = () => document.getElementById("statementExportBtn");
+const statementContributionsEl = () => document.getElementById("statementContributions");
+const statementLoanAccountEl = () => document.getElementById("statementLoanAccount");
+const statementPenaltiesEl = () => document.getElementById("statementPenalties");
 
 /**
  * Router-compatible entry point. Body is identical to the former
@@ -127,6 +132,26 @@ function setupEventListeners() {
       return;
     }
     downloadExport("exports.report", {groupId: currentGroupId});
+  });
+
+  // Admin per-member Account Statement: uses the members array already loaded
+  // by loadMembers() for this group — populateStatementMemberSelect() fills
+  // #statementMemberSelect from that same `members` module var.
+  statementMemberSelectEl()?.addEventListener("change", (e) => {
+    loadMemberStatement(e.target.value);
+  });
+
+  statementExportBtnEl()?.addEventListener("click", () => {
+    if (!currentGroupId) {
+      showToast("Select a group first", "info");
+      return;
+    }
+    const uid = statementMemberSelectEl()?.value;
+    if (!uid) {
+      showToast("Select a member first", "info");
+      return;
+    }
+    downloadExport("exports.statement", {groupId: currentGroupId, uid});
   });
 
   // Monthly/Quarterly/Annual tabs: no distinct data source exists yet (see
@@ -201,6 +226,7 @@ async function loadReportData() {
 
     renderSummaryTiles();
     renderDetailedReport();
+    populateStatementMemberSelect();
   } catch (error) {
     handleApiError(error, "Failed to load report data");
   } finally {
@@ -472,6 +498,194 @@ function loanSummarySection() {
   table.appendChild(tbody);
   section.appendChild(table);
   return section;
+}
+
+// ── Admin per-member Account Statement ─────────────────────────────────────
+/**
+ * Fills #statementMemberSelect from the module-level `members` array
+ * (already loaded by loadMembers() for the current group — see line ~213)
+ * and resets the picker + ledger sections whenever the group changes.
+ */
+function populateStatementMemberSelect() {
+  const select = statementMemberSelectEl();
+  if (!select) return;
+  select.textContent = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Select a member…";
+  select.appendChild(placeholder);
+
+  members.forEach((member) => {
+    const option = document.createElement("option");
+    option.value = member.uid;
+    option.textContent = member.fullName || "Unknown";
+    select.appendChild(option);
+  });
+  select.value = "";
+  clearStatementSections();
+}
+
+function clearStatementSections() {
+  [statementContributionsEl(), statementLoanAccountEl(), statementPenaltiesEl()].forEach((container) => {
+    if (!container) return;
+    container.textContent = "";
+    container.appendChild(emptyState("📄", "Select a member to view their statement"));
+  });
+}
+
+async function loadMemberStatement(uid) {
+  if (!currentGroupId || !uid) {
+    clearStatementSections();
+    return;
+  }
+  showSpinner(true);
+  try {
+    const data = await apiGet("statement.get", {groupId: currentGroupId, uid});
+    renderContributionsLedger(data?.contributions);
+    renderLoanAccountLedger(data?.loanAccount);
+    renderPenaltiesLedger(data?.penalties);
+  } catch (error) {
+    clearStatementSections();
+    handleApiError(error, "Failed to load member statement");
+  } finally {
+    showSpinner(false);
+  }
+}
+
+function buildLedgerTable(headers) {
+  const wrapper = el("div", "table-container");
+  const table = el("table", "table table-responsive");
+  const thead = el("thead");
+  const headRow = el("tr");
+  headers.forEach((h) => {
+    const th = el("th");
+    th.textContent = h;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  const tbody = el("tbody");
+  table.append(thead, tbody);
+  wrapper.appendChild(table);
+  return {wrapper, tbody};
+}
+
+function ledgerCell(label, text) {
+  const td = el("td");
+  td.setAttribute("data-label", label);
+  td.textContent = text;
+  return td;
+}
+
+function renderContributionsLedger(contributions) {
+  const container = statementContributionsEl();
+  if (!container) return;
+  container.textContent = "";
+
+  const lines = Array.isArray(contributions?.lines) ? contributions.lines : [];
+  const {wrapper, tbody} = buildLedgerTable(["Date", "Type", "Description", "Amount", "Running Balance"]);
+
+  if (lines.length === 0) {
+    const row = el("tr");
+    const td = ledgerCell("Status", "No entries");
+    td.colSpan = 5;
+    row.appendChild(td);
+    tbody.appendChild(row);
+  } else {
+    lines.forEach((line) => {
+      const row = el("tr");
+      row.appendChild(ledgerCell("Date", formatDateLabel(line.date)));
+      row.appendChild(ledgerCell("Type", line.type || ""));
+      row.appendChild(ledgerCell("Description", line.description || ""));
+      row.appendChild(ledgerCell("Amount", formatCurrency(line.amount)));
+      row.appendChild(ledgerCell("Running Balance", formatCurrency(line.runningBalance)));
+      tbody.appendChild(row);
+    });
+    const footerRow = el("tr");
+    const labelCell = ledgerCell("Total", "Total");
+    labelCell.colSpan = 3;
+    footerRow.appendChild(labelCell);
+    footerRow.appendChild(ledgerCell("Amount", ""));
+    footerRow.appendChild(ledgerCell("Running Balance", formatCurrency(contributions?.total)));
+    tbody.appendChild(footerRow);
+  }
+
+  container.appendChild(wrapper);
+}
+
+function renderLoanAccountLedger(loanAccount) {
+  const container = statementLoanAccountEl();
+  if (!container) return;
+  container.textContent = "";
+
+  const lines = Array.isArray(loanAccount?.lines) ? loanAccount.lines : [];
+  const {wrapper, tbody} = buildLedgerTable(["Date", "Event", "Loan", "Amount", "Running Outstanding"]);
+
+  if (lines.length === 0) {
+    const row = el("tr");
+    const td = ledgerCell("Status", "No entries");
+    td.colSpan = 5;
+    row.appendChild(td);
+    tbody.appendChild(row);
+  } else {
+    lines.forEach((line) => {
+      const row = el("tr");
+      row.appendChild(ledgerCell("Date", formatDateLabel(line.date)));
+      row.appendChild(ledgerCell("Event", line.event || ""));
+      row.appendChild(ledgerCell("Loan", line.loanNumber || ""));
+      row.appendChild(ledgerCell("Amount", formatCurrency(line.amount)));
+      row.appendChild(ledgerCell("Running Outstanding", formatCurrency(line.runningOutstanding)));
+      tbody.appendChild(row);
+    });
+    const footerRow = el("tr");
+    const labelCell = ledgerCell("Outstanding", "Outstanding");
+    labelCell.colSpan = 4;
+    footerRow.appendChild(labelCell);
+    footerRow.appendChild(ledgerCell("Running Outstanding", formatCurrency(loanAccount?.outstanding)));
+    tbody.appendChild(footerRow);
+  }
+
+  container.appendChild(wrapper);
+}
+
+function renderPenaltiesLedger(penalties) {
+  const container = statementPenaltiesEl();
+  if (!container) return;
+  container.textContent = "";
+
+  const lines = Array.isArray(penalties?.lines) ? penalties.lines : [];
+  const {wrapper, tbody} = buildLedgerTable(["Date", "Event", "Amount", "Context"]);
+
+  if (lines.length === 0) {
+    const row = el("tr");
+    const td = ledgerCell("Status", "No entries");
+    td.colSpan = 4;
+    row.appendChild(td);
+    tbody.appendChild(row);
+  } else {
+    lines.forEach((line) => {
+      const row = el("tr");
+      row.appendChild(ledgerCell("Date", formatDateLabel(line.date)));
+      row.appendChild(ledgerCell("Event", line.event || ""));
+      row.appendChild(ledgerCell("Amount", formatCurrency(line.amount)));
+      row.appendChild(ledgerCell("Context", line.context || ""));
+      tbody.appendChild(row);
+    });
+    const footerRow = el("tr");
+    footerRow.appendChild(ledgerCell("Charged", `Charged: ${formatCurrency(penalties?.totalCharged)}`));
+    footerRow.appendChild(ledgerCell("Waived", `Waived: ${formatCurrency(penalties?.totalWaived)}`));
+    footerRow.appendChild(ledgerCell("Net", `Net: ${formatCurrency(penalties?.net)}`));
+    const spacer = ledgerCell("", "");
+    footerRow.appendChild(spacer);
+    tbody.appendChild(footerRow);
+  }
+
+  container.appendChild(wrapper);
+}
+
+function formatDateLabel(value) {
+  if (!value) return "N/A";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString();
 }
 
 function moneyCell(label, amount, cssClass) {

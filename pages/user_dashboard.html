@@ -1326,6 +1326,62 @@
       font-weight: 500;
     }
 
+    /* Payment modal - what's due panel */
+    .payment-due-info {
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-space-3) var(--bn-space-4);
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .payment-due-info:empty {
+      display: none;
+    }
+
+    .payment-due-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--bn-space-3);
+      font-size: var(--bn-text-sm);
+      padding: var(--bn-space-1) 0;
+    }
+
+    .payment-due-row span:first-child {
+      color: var(--bn-gray);
+    }
+
+    .payment-due-row span:last-child {
+      font-weight: 600;
+      color: var(--bn-dark);
+    }
+
+    .payment-due-outstanding {
+      border-top: 1px solid var(--bn-gray-lighter);
+      margin-top: var(--bn-space-1);
+      padding-top: var(--bn-space-2);
+      font-size: var(--bn-text-base);
+      color: var(--bn-danger);
+    }
+
+    .payment-due-outstanding span:first-child {
+      color: var(--bn-danger);
+      font-weight: 600;
+    }
+
+    .payment-due-outstanding span:last-child {
+      color: var(--bn-danger);
+      font-weight: 700;
+      font-size: var(--bn-text-lg);
+    }
+
+    .payment-due-hint {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      font-style: italic;
+      text-align: center;
+    }
+
     /* Groups Section */
     .groups-grid {
       display: grid;
@@ -2266,6 +2322,7 @@
               <option value="December">December</option>
             </select>
           </div>
+          <div id="paymentDueInfo" class="payment-due-info"></div>
           <div class="form-group">
             <label class="form-label">Amount Paid (MWK) *</label>
             <input type="number" id="paymentAmount" class="form-input" placeholder="Enter amount" required min="1" step="1">

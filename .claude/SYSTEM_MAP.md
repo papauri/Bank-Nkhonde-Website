@@ -196,6 +196,176 @@ Five navigation-related scripts and two stylesheets handle DOM injection, mobile
 
 ---
 
+## Account-statement ledger sources (cycle 92 scout)
+
+**Scope:** Map the exact as-built data sources for a member account-statement endpoint (payments, repayments, loans, penalties, exports pattern).
+
+**Real schema corrections:**
+The Firestore-era model at lines 110–124 (payments_seed_money/monthly/service_fee, loan_payments, penalty_settlements) reflects the as-built SQL exactly. Tables confirmed to exist:
+- **Single `payments` table** with `paymentType` ENUM discriminator (NOT three separate tables).
+- **`loan_payments` table** (repayments ledger, distinct from contributions).
+- **`penalty_settlements` table** (audit trail for waived/paid penalties on either payments or loans).
+
+### 1. PAYMENTS table — Settlement date & Status
+
+| Column | Type | Notes |
+|---|---|---|
+| paymentId | VARCHAR(128) PK | Unique per payment claim |
+| groupId | FK | required |
+| uid | FK→users | the member who owes |
+| paymentType | ENUM | 'seed_money', 'monthly_contribution', 'service_fee' (const PAYMENT_TYPES, line 35) |
+| year | INT | fiscal year |
+| month | ENUM NULL | January…December; NULL for seed_money & service_fee |
+| totalAmount | MONEY | the obligation (from group_rules, never client-supplied) |
+| amountPaid | MONEY | verified cash received |
+| arrears | MONEY | outstanding balance |
+| approvalStatus | ENUM | **'pending', 'approved', 'rejected', 'completed'** → settled values: `['approved', 'completed']` (PAYMENT_SETTLED_STATUSES, line 48) |
+| **approvedAt** | DATETIME | **THE settlement date** — set by approve_payment when status moves to approved/completed (line 1482) |
+| paidAt | DATETIME | set to NOW() when payment first recorded (line 1356); does NOT indicate approval |
+| createdAt/updatedAt | DATETIME | audit |
+| proofOfPaymentImageUrl / ...UploadedAt / ...VerifiedBy / ...VerifiedAt | TEXT/DATETIME | proof metadata |
+| approvedBy / rejectedBy / rejectedAt / rejectionReason | FK/DATETIME/TEXT | audit |
+| paymentMethod | ENUM | 'cash', 'bank_transfer', 'mobile_money' |
+| notes / recordedManually / isAdvancedPayment | TEXT/TINYINT | optional claims data |
+
+**For a statement, query:** `SELECT * FROM payments WHERE groupId = ? AND uid = ? AND approvalStatus IN ('approved', 'completed') ORDER BY approvedAt DESC`
+
+### 2. REPAYMENTS (loan_payments table)
+
+| Column | Type | Notes |
+|---|---|---|
+| paymentId | VARCHAR(128) PK | Unique per repayment |
+| loanId | FK→loans | the loan being repaid |
+| groupId / uid / userName | FK/TEXT | denormalised borrower identity |
+| amount / principalPortion / interestPortion / penaltyPortion | MONEY | split as computed at record_repayment (line 350) |
+| scheduledMonth / scheduledAmount | INT/MONEY | which monthly instalment is being paid against |
+| status | ENUM | **'pending', 'approved', 'rejected'** → settled: 'approved' (implied; only approved payments move the ledger, line 412) |
+| approvedAt | DATETIME | set when approve_repayment succeeds (line 464) |
+| paidAt | DATETIME | set to NOW() at record time (line 367) |
+| createdAt | DATETIME | insertion timestamp |
+| proofOfPaymentImageUrl / proofOfPaymentUploadedAt | TEXT/DATETIME | proof metadata |
+| rejectedBy / rejectedAt / rejectionReason | FK/DATETIME/TEXT | audit for rejected repayments |
+| paymentMethod / notes | ENUM/TEXT | optional details |
+
+**Table confirmed to exist:** line 360 (INSERT INTO loan_payments). Handlers: `record_repayment` (270), `approve_repayment` (412), `reject_repayment` (631), `my_repayments` (728), `waive_penalty` (766), `loan_balance` (237), `pending_repayments` (692).
+
+**For a statement, query:** `SELECT * FROM loan_payments WHERE groupId = ? AND uid = ? AND status = 'approved' ORDER BY approvedAt DESC` (matching the settled-payment pattern in payments).
+
+### 3. PENALTY_SETTLEMENTS table
+
+| Column | Type | Notes |
+|---|---|---|
+| groupId / uid | FK | member charged |
+| loanId | FK→loans NULL | one or the other (loan penalty XOR payment penalty) |
+| paymentId | FK→payments NULL | payment obligation charged |
+| accruedFrom / accruedTo | DATE | date range penalty accrued over |
+| daysCharged | INT | whole-day count |
+| dailyAmount / amountAccrued | MONEY | what was charged per day, total accrued |
+| amountPaid / amountWaived | MONEY | settlement split (one or both > 0) |
+| **status** | ENUM | **'paid'**, **'waived'**, **'partial'** (partial = payment cleared only part of outstanding; line 597 repayments.php) |
+| waivedReason | TEXT NULL | reason for waiver (senior_admin only, line 758) |
+| settledBy / settledAt | FK/DATETIME | who and when |
+| createdAt | DATETIME | row insertion |
+
+**Charged vs waived distinction:**
+- `status = 'waived'` + `amountWaived > 0` → forgiven (senior_admin only, lines 758–823 in repayments.php).
+- `status = 'paid'` + `amountPaid > 0` → paid off.
+- `status = 'partial'` → paid but still outstanding (line 597).
+
+**Reads:** payment penalty computation at payments.php:255; loan penalty computation at repayments.php:254.
+**Writes:** payment penalty waiver (payments.php:362–382); loan penalty settlement (repayments.php:575–600); loan penalty waiver (repayments.php:795–815).
+
+### 4. LOANS table — Date columns available
+
+**For statement:** `requestedAt`, `approvedAt`, `disbursedAt`.
+
+| Column | Notes |
+|---|---|
+| requestedAt | DATETIME — when member/admin originated the loan (NOW() at line 335) |
+| approvedAt | DATETIME — set when approve_loan succeeds (line 651 via NOW()) |
+| disbursedAt | DATETIME NULL — NOT set by current code; disbursement is a future feature |
+| principalAmount / approvedAmount / disbursedAmount | MONEY — requested, approved, actually disbursed |
+| amountRepaid / remainingBalance | MONEY — ledger state after repayment approval |
+| penaltiesCharged | MONEY — sum of settled penalties on this loan (from penalty_settlements where loanId = ?) |
+
+**Returned by loan_fetch_row** (line 62–72 loans.php): includes requestedAt, approvedAt, approvedBy, disbursedAt, disbursedBy, completedAt, plus amount/penalty totals.
+
+### 5. ADMIN UID OVERRIDE guard (payments.php my_obligations ~920–932)
+
+**Exact code:**
+```php
+$uid = (string) $caller['uid'];
+$requested = $_GET['uid'] ?? null;
+if (is_string($requested) && trim($requested) !== '' && trim($requested) !== (string) $caller['uid']) {
+    if (!in_array((string) $caller['role'], PAYMENT_ADMIN_ROLES, true)) {
+        json_error('You may only view your own obligations.', 403);
+    }
+    $uid = trim($requested);
+    if (payment_fetch_member($pdo, $groupId, $uid) === null) {
+        json_error('That member is not in this group.', 404);
+    }
+}
+```
+
+**Admin roles:** `PAYMENT_ADMIN_ROLES = ['admin', 'senior_admin', 'treasurer']` (line 51).
+
+### 6. EXPORTS helper pattern (exports.php) + routing (index.php)
+
+**Helpers for a statement CSV endpoint:**
+
+| Function | Line | Purpose |
+|---|---|---|
+| `export_require_group_id()` | 44–53 | Extract & validate groupId from query string |
+| `require_role($groupId, EXPORT_ADMIN_ROLES)` | 137 etc. | Gate: admin/senior_admin/treasurer only |
+| `export_csv_headers(string $name, string $groupId)` | 72–85 | Override JSON header; set Content-Type & filename |
+| `export_csv_cell($value)` | 87–117 | Formula-injection guard (prefix `=+-@` with `'`) |
+| `export_csv_row($out, array $row)` | 119–125 | fputcsv with export_csv_cell on every cell |
+| Constant: `EXPORT_ADMIN_ROLES` | 34 | `['admin', 'senior_admin', 'treasurer']` |
+
+**Pattern for `exports.statement`:**
+```php
+function export_statement(): void {
+    $groupId = export_require_group_id();
+    $year = export_optional_year();  // line 55–70: bounded validation
+    require_role($groupId, EXPORT_ADMIN_ROLES);
+    $pdo = getDbConnection();
+    // Build SQL: SELECT from payments/loan_payments/loans with WHERE groupId/year filters
+    export_csv_headers('statement', $groupId);  // sets filename + headers
+    $out = fopen('php://output', 'w');
+    export_csv_row($out, ['uid', 'fullName', 'paymentType', 'amount', 'status', 'settledAt', ...]);
+    while (($row = $stmt->fetch()) !== false) {
+        export_csv_row($out, [$row['uid'], $row['fullName'], ...]);  // all cells guarded vs formula injection
+    }
+    fclose($out);
+    exit;
+}
+```
+
+**Route table location (api/index.php):** lines 43–135 (ROUTES constant).
+Add route: `'exports.statement' => ['GET', 'export_statement']` (after line 134).
+
+### 7. money.php minor-unit helpers
+
+| Function | Line | Signature |
+|---|---|---|
+| `money_to_minor` | 32 | `function money_to_minor(string $amount): int` — parse "1000.00" → 100000 |
+| `money_from_minor` | 52 | `function money_from_minor(int $minor): string` — render 100000 → "1000.00" |
+
+**Never use floats:** all currency arithmetic stays in minor units (tambala/cents).
+
+### Summary for statement endpoint
+
+| Data source | Table | Settlement column | Status filter | Query scope |
+|---|---|---|---|---|
+| Contributions | payments | approvedAt | WHERE approvalStatus IN ('approved', 'completed') | Same group + member |
+| Loan repayments | loan_payments | approvedAt | WHERE status = 'approved' | Same group + borrower |
+| Penalties paid/waived | penalty_settlements | settledAt | (all — status tells story) | Scoped by loanId OR paymentId |
+| Loan lifecycle dates | loans | approvedAt (or requestedAt/disbursedAt) | (all — status tells story) | Same group + borrower |
+
+**Authorization:** Caller must have admin/senior_admin/treasurer role in the group; statement view is admin-only. A member sees only their own statement; admins may export any member's (via optional `?uid=` parameter, guarded like payments.obligations lines 920–932).
+
+---
+
 ## Loan eligibility surface (cycle 90 scout)
 
 ### 1. `request_loan()` flow: inputs → validation → INSERT status
@@ -582,3 +752,40 @@ Read-only sweep of all 21 pages' inline `<style>` blocks for white text / transl
 
 ### Note (out of scope, not a contrast bug)
 - `manage_members.html` `.member-avatar` is 64px — large for a table row (the cycle-71 note had manage_loans use a ~26px table avatar). A size-down would be consistency polish, not a correctness fix; left alone this cycle.
+
+---
+
+## Admin loan-approval UI surface (cycle 91 scout)
+
+**Scope:** `pages/manage_loans.html` + `scripts/manage_loans_sql.js` only. Established exact rendering function, DOM container, apiPost target, field names, and createElement pattern for a follow-on brief to inject borrower standing panel into approval flow.
+
+### Current approval flow
+
+| Element | Value | Notes |
+|---|---|---|
+| **Render function** | `createLoanRow(loan)` at line 577 | Creates one `<tr>` for loans table. Borrower uid available as `loan.borrowerId` (line 578); borrower name as `loan.borrowerName` or resolved from `members` array. |
+| **Borrower identity available at** | Lines 578–579 | `const borrower = members.find((m) => m.uid === loan.borrowerId) \|\| {}; const borrowerName = borrower.fullName \|\| loan.borrowerName \|\| "Unknown";` |
+| **Pending loan approval action** | Inline row button, NOT modal | Line 689–696: `if (loan.status === "pending") { approveBtn.addEventListener("click", () => approveLoan(loan.loanId)); }` Approval is triggered by inline button in the table row, not via a modal dialog. |
+| **Actions cell container** | `#loansContainer` `<tbody id="loansContainer">` (HTML line 555) | Each loan rendered as `<tr>` appended to this container. |
+| **API endpoint for approval** | `loans.approve` POST at line 739 | `await apiPost("loans.approve", {loanId});` — no standing panel is fetched before approval in current code. |
+| **Loans list endpoint** | `loans.list` GET at line 310 | `await apiGet("loans.list", {groupId: selectedGroupId});` Returns array of loans; each loan carries `borrowerId` field (used to filter at line 554: `filtered.filter((l) => l.borrowerId === borrowerFilter)`) |
+| **How loans carry borrower uid** | Field: `loan.borrowerId` | Example: line 554 borrower filter uses `l.borrowerId`. |
+| **createElement + textContent example** | Line 1519–1530 (`borrowerIdentity()` helper) | `const wrap = el("div", "table-borrower"); const avatar = el("span", "table-borrower-avatar"); avatar.textContent = initials; const nameEl = el("span", "table-borrower-name"); nameEl.textContent = safeName; wrap.append(avatar, nameEl);` All data is set via `.textContent` or DOM builders, never innerHTML. |
+| **Second example: pending payment row** | Line 367–428 (`createPendingPaymentRow()`) | Line 372: `borrowerCell.appendChild(borrowerIdentity(payment.userName \|\| "Unknown"));` — same pattern. Line 382: `amountCell.textContent = formatCurrency(payment.amount);` showing currency usage. |
+
+### Summary for next brief
+
+**To add borrower standing panel to the approve button:**
+1. When admin clicks "Approve" button for a pending loan (line 692), fetch the borrower's standing via `loans.eligibility` GET with `?uid=<borrowerId>` (admin override, being added this cycle).
+2. Render a standing panel into the modal using createElement/textContent only (never innerHTML with loan data).
+3. The standing panel should show: `activeLoans`, `activeLoanCount`, `totalRemaining`, `arrears`, `penalties`, `maxActiveLoans`, `eligible`, `reasons` (response fields per context brief).
+4. Inject this panel into a modal OR prepend it to the existing approve-button interaction (clarify in next dispatch).
+5. Both `manage_loans.html` (line 540–561 loans table) and `manage_loans_sql.js` (line 577 render function) are the only files to touch for UI wiring; API changes are backend-only.
+
+### GAPS
+
+None. All rendering, field names, API endpoints, and createElement patterns are documented in live code.
+
+### DEAD
+
+None in scope.

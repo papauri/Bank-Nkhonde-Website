@@ -693,7 +693,9 @@ function createLoanRow(loan) {
     const rejectBtn = el("button", "btn btn-danger btn-sm");
     rejectBtn.textContent = "Reject";
     rejectBtn.addEventListener("click", () => rejectLoan(loan.loanId));
-    actions.append(approveBtn, rejectBtn);
+    const standingBtn = el("button", "btn btn-ghost btn-sm");
+    standingBtn.textContent = "Borrower standing";
+    actions.append(approveBtn, rejectBtn, standingBtn);
   } else if (loan.status === "approved" || loan.status === "disbursed") {
     const paymentBtn = el("button", "btn btn-accent btn-sm");
     paymentBtn.textContent = "Record Payment";
@@ -714,7 +716,121 @@ function createLoanRow(loan) {
   actionsCell.appendChild(actions);
   row.appendChild(actionsCell);
 
-  return row;
+  if (loan.status !== "pending") {
+    return row;
+  }
+
+  // Pending-only "Borrower standing" panel: a full-width detail row under
+  // the loan row, toggled by the standingBtn wired above. Fetched lazily on
+  // first click and cached (via panelBody.dataset.loaded) so re-toggling
+  // never re-fetches.
+  const standingRow = el("tr", "loan-standing-row");
+  standingRow.hidden = true;
+  const standingCell = el("td");
+  standingCell.dataset.label = "";
+  standingCell.colSpan = 10;
+  const panelBody = el("div", "loan-standing-panel");
+  standingCell.appendChild(panelBody);
+  standingRow.appendChild(standingCell);
+
+  const standingBtn = actions.querySelector("button.btn-ghost");
+  if (standingBtn) {
+    standingBtn.addEventListener("click", () => toggleBorrowerStanding(loan, standingRow, panelBody));
+  }
+
+  const fragment = document.createDocumentFragment();
+  fragment.append(row, standingRow);
+  return fragment;
+}
+
+/**
+ * Shows/hides the borrower-standing panel for a pending loan row. Fetches
+ * `loans.eligibility?groupId&uid=borrowerId` (admin override) once and caches
+ * the rendered panel; subsequent clicks just toggle visibility. Never throws
+ * out of the click handler — network/API errors render an inline message.
+ */
+async function toggleBorrowerStanding(loan, standingRow, panelBody) {
+  if (panelBody.dataset.loaded === "true") {
+    standingRow.hidden = !standingRow.hidden;
+    return;
+  }
+
+  standingRow.hidden = false;
+  panelBody.textContent = "";
+  const loadingMsg = el("div", "loan-standing-loading");
+  loadingMsg.textContent = "Loading…";
+  panelBody.appendChild(loadingMsg);
+
+  try {
+    const standing = await apiGet("loans.eligibility", {
+      groupId: selectedGroupId,
+      uid: loan.borrowerId,
+    });
+    renderBorrowerStanding(panelBody, standing);
+    panelBody.dataset.loaded = "true";
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      redirectToLogin();
+      return;
+    }
+    showToast("Couldn't load borrower standing", "error");
+    panelBody.textContent = "";
+    const failMsg = el("div", "loan-standing-error");
+    failMsg.textContent = "Couldn't load standing";
+    panelBody.appendChild(failMsg);
+  }
+}
+
+/**
+ * Renders the fetched loans.eligibility payload into panelBody using
+ * createElement/textContent only (never innerHTML — the payload includes
+ * server-composed reason strings).
+ */
+function renderBorrowerStanding(panelBody, standing) {
+  panelBody.textContent = "";
+
+  const activeLoans = Array.isArray(standing.activeLoans) ? standing.activeLoans : [];
+  const activeCountLine = el("div", "loan-standing-line");
+  activeCountLine.textContent = `Active loans: ${standing.activeLoanCount ?? activeLoans.length}`;
+  panelBody.appendChild(activeCountLine);
+
+  if (activeLoans.length > 0) {
+    const list = el("ul", "loan-standing-list");
+    activeLoans.forEach((activeLoan) => {
+      const item = el("li");
+      item.textContent = `${activeLoan.loanNumber} — ${formatCurrency(activeLoan.remainingBalance)} (${activeLoan.status})`;
+      list.appendChild(item);
+    });
+    panelBody.appendChild(list);
+  }
+
+  const arrearsLine = el("div", "loan-standing-line");
+  arrearsLine.textContent = `Outstanding arrears: ${formatCurrency(standing.arrears)}`;
+  panelBody.appendChild(arrearsLine);
+
+  const penaltiesLine = el("div", "loan-standing-line");
+  penaltiesLine.textContent = `Penalties: ${formatCurrency(standing.penalties)}`;
+  panelBody.appendChild(penaltiesLine);
+
+  if (standing.eligible) {
+    const eligibleNote = el("div", "loan-standing-eligible");
+    eligibleNote.textContent = "Eligible";
+    panelBody.appendChild(eligibleNote);
+  } else {
+    const warningBox = el("div", "loan-standing-warning");
+    const warningTitle = el("div", "loan-standing-warning-title");
+    warningTitle.textContent = "Not self-eligible";
+    warningBox.appendChild(warningTitle);
+    const reasons = Array.isArray(standing.reasons) ? standing.reasons : [];
+    const reasonList = el("ul", "loan-standing-reason-list");
+    reasons.forEach((reason) => {
+      const item = el("li");
+      item.textContent = reason;
+      reasonList.appendChild(item);
+    });
+    warningBox.appendChild(reasonList);
+    panelBody.appendChild(warningBox);
+  }
 }
 
 /**

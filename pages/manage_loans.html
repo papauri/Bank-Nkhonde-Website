@@ -331,6 +331,89 @@
         grid-template-columns: 1fr;
       }
     }
+
+    /* Borrower standing panel — collapsible detail row under a pending
+       loan, nested-card treatment consistent with .loan-detail above. */
+    .loan-standing-row td {
+      padding: 0;
+      border-bottom: 1px solid var(--bn-gray-lighter);
+    }
+
+    .loan-standing-panel {
+      background: var(--bn-gray-50, #f9fafb);
+      border-left: 3px solid var(--bn-accent);
+      border-radius: var(--bn-radius-md);
+      padding: var(--bn-space-4);
+      margin: var(--bn-space-3);
+      max-width: 100%;
+      overflow-wrap: break-word;
+    }
+
+    .loan-standing-line {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-dark);
+      padding: var(--bn-space-1) 0;
+    }
+
+    .loan-standing-line + .loan-standing-line {
+      border-top: 1px solid var(--bn-gray-lighter);
+    }
+
+    .loan-standing-list,
+    .loan-standing-reason-list {
+      margin: var(--bn-space-2) 0 0;
+      padding-left: var(--bn-space-5);
+      font-size: var(--bn-text-sm);
+      line-height: 1.6;
+      color: var(--bn-dark);
+    }
+
+    .loan-standing-list li,
+    .loan-standing-reason-list li {
+      margin-bottom: var(--bn-space-1);
+    }
+
+    .loan-standing-eligible {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+      margin-top: var(--bn-space-3);
+      padding: var(--bn-space-2) var(--bn-space-3);
+      background: var(--bn-success-light);
+      color: var(--bn-success-dark);
+      border-radius: var(--bn-radius-md);
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+    }
+
+    .loan-standing-warning {
+      margin-top: var(--bn-space-3);
+      padding: var(--bn-space-3) var(--bn-space-4);
+      background: var(--bn-danger-light);
+      border: 1px solid var(--bn-danger);
+      border-radius: var(--bn-radius-md);
+    }
+
+    .loan-standing-warning-title {
+      font-weight: 700;
+      color: var(--bn-danger-dark);
+      font-size: var(--bn-text-sm);
+    }
+
+    .loan-standing-loading,
+    .loan-standing-error {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
+      font-style: italic;
+    }
+
+    @media (max-width: 768px) {
+      .loan-standing-panel {
+        margin: var(--bn-space-2);
+        padding: var(--bn-space-3);
+      }
+    }
   </style>
 </head>
 <body data-nav-variant="admin" data-nav-active-page="loans" data-nav-page-title="Manage Loans">

@@ -473,7 +473,25 @@ if (!function_exists('loan_eligibility_endpoint')) {
         $pdo = getDbConnection();
         $rules = loan_fetch_group_rules($pdo, $groupId);
 
-        $standing = loan_member_standing($pdo, $groupId, (string) $caller['uid']);
+        // Defaults to the CALLER's own standing. An admin/senior_admin/treasurer
+        // reviewing a member's loan standing needs to see THAT member's figures,
+        // so an explicit uid is honoured — but ONLY for an admin-equivalent role.
+        // A plain member passing someone else's uid is silently ignored (never
+        // error-leaked) and simply gets their own standing back.
+        $requestedUid = trim((string) ($_GET['uid'] ?? ''));
+        $isAdmin = in_array((string) $caller['role'], ['admin', 'senior_admin', 'treasurer'], true);
+        $targetUid = ($requestedUid !== '' && $isAdmin) ? $requestedUid : (string) $caller['uid'];
+
+        if ($requestedUid !== '' && $isAdmin) {
+            // The uid must be a real member of THIS group — never an arbitrary uid.
+            $memberStmt = $pdo->prepare('SELECT uid FROM members WHERE groupId = :groupId AND uid = :uid LIMIT 1');
+            $memberStmt->execute([':groupId' => $groupId, ':uid' => $targetUid]);
+            if ($memberStmt->fetch() === false) {
+                json_error('That member is not in this group.', 404);
+            }
+        }
+
+        $standing = loan_member_standing($pdo, $groupId, $targetUid);
         $eligibility = loan_eligibility_check($rules, $standing);
 
         $activeLoans = [];
