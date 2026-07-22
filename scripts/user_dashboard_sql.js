@@ -26,7 +26,7 @@
  * rather than silently doing nothing. See the report for the named gaps.
  */
 
-import { requireSession, apiGet, logout, ApiError, redirectToLogin, listMyGroups } from "./api.js";
+import { requireSession, apiGet, apiPost, logout, ApiError, redirectToLogin, listMyGroups } from "./api.js";
 import { formatCurrency } from "./utils_financial.js";
 
 // Admin-equivalent roles: decide the admin toggle and the admin-switch button.
@@ -638,12 +638,41 @@ function buildUpcomingRow(item) {
     badge.textContent = "Upcoming";
   }
 
+  const payBtn = document.createElement("button");
+  payBtn.type = "button";
+  payBtn.className = "btn btn-accent btn-sm";
+  payBtn.textContent = "Pay";
+  payBtn.addEventListener("click", () =>
+    openPaymentModal({
+      paymentType: serverPaymentType(item.type),
+      month: item.type === "Monthly Contribution" ? item.month : undefined,
+      amount: cleanAmount(item.amountStr),
+    }),
+  );
+
   right.appendChild(amount);
   right.appendChild(badge);
+  right.appendChild(payBtn);
 
   row.appendChild(left);
   row.appendChild(right);
   return row;
+}
+
+/**
+ * Map an obligation's display label to the server paymentType enum the
+ * payments.record endpoint accepts.
+ */
+function serverPaymentType(label) {
+  if (label === "Seed Money") return "seed_money";
+  if (label === "Monthly Contribution") return "monthly_contribution";
+  if (label === "Service Fee") return "service_fee";
+  return "";
+}
+
+/** Strip any formatting so a number input can accept the pre-filled amount. */
+function cleanAmount(value) {
+  return String(value == null ? "" : value).replace(/[^0-9.]/g, "");
 }
 
 /**
@@ -858,7 +887,7 @@ function openArrearsModal() {
   const table = document.createElement("table");
   table.className = "table";
   const thead = document.createElement("thead");
-  thead.appendChild(makeRow(["Type", "Due", "Arrears"], "th"));
+  thead.appendChild(makeRow(["Type", "Due", "Arrears", "Action"], "th"));
   table.appendChild(thead);
 
   const tbody = document.createElement("tbody");
@@ -869,6 +898,24 @@ function openArrearsModal() {
     tr.appendChild(makeCell(`${item.type} (${item.month})`, "Type"));
     tr.appendChild(makeCell(formatDate(item.due), "Due"));
     tr.appendChild(makeCell(formatCurrency(item.amountStr), "Arrears"));
+
+    const actionTd = document.createElement("td");
+    actionTd.setAttribute("data-label", "Action");
+    const payBtn = document.createElement("button");
+    payBtn.type = "button";
+    payBtn.className = "btn btn-accent btn-sm";
+    payBtn.textContent = "Pay";
+    payBtn.addEventListener("click", () => {
+      hideArrearsModal();
+      openPaymentModal({
+        paymentType: serverPaymentType(item.type),
+        month: item.type === "Monthly Contribution" ? item.month : undefined,
+        amount: cleanAmount(item.amountStr),
+      });
+    });
+    actionTd.appendChild(payBtn);
+    tr.appendChild(actionTd);
+
     tbody.appendChild(tr);
   }
   table.appendChild(tbody);
@@ -1046,18 +1093,52 @@ function wireStaticHandlers() {
   // than dead-ending silently.
   document
     .getElementById("requestLoanBtn")
-    ?.addEventListener("click", () =>
-      showToast(
-        "Requesting a new loan isn't available online yet — please contact your group admin.",
-        "info",
-      ),
-    );
+    ?.addEventListener("click", () => openLoanModal());
+
+  // Loan-request modal wiring (loans.request). Members may book a loan per the
+  // group rulebook; the request lands PENDING for admin approval.
+  document
+    .getElementById("closeLoanModal")
+    ?.addEventListener("click", closeLoanModal);
+  const loanModalEl = document.getElementById("loanModal");
+  loanModalEl?.addEventListener("click", (e) => {
+    if (e.target === loanModalEl) closeLoanModal();
+  });
+  document
+    .getElementById("loanRequestForm")
+    ?.addEventListener("submit", handleLoanSubmit);
+
+  // "Payment Details" opens the all-verified-payments modal (the modal + its
+  // renderer existed but nothing opened it).
+  document
+    .getElementById("viewPaymentDetailsBtn")
+    ?.addEventListener("click", () => showAllPaymentsModal());
   // Repayment / proof-of-payment upload IS live — on loan_payments.html.
   document
     .getElementById("uploadPaymentBtn")
-    ?.addEventListener("click", () => {
-      window.location.href = "loan_payments.html";
-    });
+    ?.addEventListener("click", () => openPaymentModal());
+
+  // Contribution-payment modal wiring (seed money / monthly contribution /
+  // service fee + proof upload → payments.record). The member pays their own
+  // obligation; the server defaults targetUid to the caller.
+  document
+    .getElementById("closePaymentModal")
+    ?.addEventListener("click", closePaymentModal);
+  const paymentModalEl = document.getElementById("paymentModal");
+  paymentModalEl?.addEventListener("click", (e) => {
+    if (e.target === paymentModalEl) closePaymentModal();
+  });
+  // Show the Month selector only for a monthly contribution.
+  document.getElementById("paymentType")?.addEventListener("change", (e) => {
+    const monthGroup = document.getElementById("paymentMonthGroup");
+    if (monthGroup) {
+      monthGroup.style.display =
+        e.target.value === "monthly_contribution" ? "block" : "none";
+    }
+  });
+  document
+    .getElementById("paymentUploadForm")
+    ?.addEventListener("submit", handlePaymentSubmit);
 
   // Idle-timeout reset on interaction. These are WINDOW-level listeners, so
   // unlike every other listener in this function (attached to elements that
@@ -1317,6 +1398,304 @@ function daysText(item) {
  * @param {string} message
  * @param {string} type
  */
+/* ── Contribution payment: modal → files.upload → payments.record ──────────── */
+
+/**
+ * Open the contribution-payment modal, pre-populating the group select with the
+ * member's current group. `prefill` (optional, from a per-obligation Pay button)
+ * can pre-select {paymentType, month, amount}.
+ */
+function openPaymentModal(prefill) {
+  const modal = document.getElementById("paymentModal");
+  const form = document.getElementById("paymentUploadForm");
+  if (!modal) return;
+  if (form) form.reset();
+
+  const groupSelect = document.getElementById("paymentGroup");
+  if (groupSelect && currentGroup && currentGroup.groupId) {
+    groupSelect.replaceChildren();
+    const opt = document.createElement("option");
+    opt.value = currentGroup.groupId;
+    opt.textContent = currentGroup.groupName || "Current group";
+    groupSelect.appendChild(opt);
+    groupSelect.value = currentGroup.groupId;
+  }
+
+  const typeSelect = document.getElementById("paymentType");
+  const monthGroup = document.getElementById("paymentMonthGroup");
+  const monthSelect = document.getElementById("paymentMonth");
+  const amountInput = document.getElementById("paymentAmount");
+  if (prefill && typeSelect) {
+    if (prefill.paymentType) typeSelect.value = prefill.paymentType;
+    if (monthGroup) {
+      monthGroup.style.display =
+        prefill.paymentType === "monthly_contribution" ? "block" : "none";
+    }
+    if (prefill.month && monthSelect) monthSelect.value = prefill.month;
+    if (prefill.amount != null && amountInput) amountInput.value = prefill.amount;
+  } else if (monthGroup) {
+    monthGroup.style.display = "none";
+  }
+
+  modal.classList.remove("hidden");
+  modal.style.display = "flex";
+}
+
+function closePaymentModal() {
+  const modal = document.getElementById("paymentModal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.style.display = "none";
+}
+
+/**
+ * Submit a contribution payment: upload the proof, then record the payment as a
+ * PENDING claim for admin approval. No money math here — the member's entered
+ * amount is sent as-is; the server owns everything else.
+ */
+async function handlePaymentSubmit(event) {
+  event.preventDefault();
+
+  const groupId =
+    document.getElementById("paymentGroup")?.value ||
+    (currentGroup && currentGroup.groupId) ||
+    "";
+  const paymentType = document.getElementById("paymentType")?.value || "";
+  const month = document.getElementById("paymentMonth")?.value || "";
+  const amount = document.getElementById("paymentAmount")?.value || "";
+  const method = document.getElementById("paymentMethod")?.value || "";
+  const notes = document.getElementById("paymentNotes")?.value || "";
+  const isAdvance =
+    document.getElementById("isAdvancedPayment")?.checked || false;
+  const proofFile = document.getElementById("paymentProof")?.files?.[0] || null;
+
+  if (!groupId) return showToast("No group selected.", "danger");
+  if (!paymentType) return showToast("Please choose a payment type.", "danger");
+  if (paymentType === "monthly_contribution" && !month) {
+    return showToast("Please choose the month this contribution is for.", "danger");
+  }
+  if (!amount || Number(amount) <= 0) {
+    return showToast("Please enter a valid amount.", "danger");
+  }
+  if (!method) return showToast("Please choose a payment method.", "danger");
+  if (!proofFile) {
+    return showToast("Please attach your proof of payment.", "danger");
+  }
+
+  const submitBtn = document.querySelector(
+    "#paymentUploadForm button[type=submit]",
+  );
+  if (submitBtn) submitBtn.disabled = true;
+
+  try {
+    const proofUrl = await uploadProof(proofFile, groupId);
+
+    const payload = {
+      groupId,
+      paymentType,
+      amount,
+      paymentMethod: method,
+      proofOfPaymentImageUrl: proofUrl,
+      proofOfPaymentFileName: proofFile.name,
+      proofOfPaymentFileSize: proofFile.size,
+    };
+    if (paymentType === "monthly_contribution") {
+      payload.month = month;
+      payload.isAdvancedPayment = isAdvance;
+    }
+    if (notes.trim()) payload.notes = notes.trim();
+
+    await apiPost("payments.record", payload);
+
+    closePaymentModal();
+    document.getElementById("paymentUploadForm")?.reset();
+    showToast("Payment submitted — awaiting admin approval.", "success");
+
+    if (currentGroup && currentGroup.groupId) {
+      await loadDashboard(currentGroup.groupId);
+    }
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      redirectToLogin();
+      return;
+    }
+    const msg =
+      error instanceof ApiError && error.message
+        ? error.message
+        : "Failed to submit payment. Please try again.";
+    showToast(msg, "danger");
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+  }
+}
+
+/**
+ * POST a proof file to files.upload (multipart) and return the stored URL.
+ * Mirrors api.js: same-origin credentials, defensive JSON parse, ApiError out.
+ * files.upload responds with the standard {ok, data:{url,...}} envelope, so the
+ * url is read from body.data.url (with a flat-shape fallback for safety).
+ */
+async function uploadProof(file, groupId) {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("groupId", groupId);
+
+  let response;
+  try {
+    response = await fetch("/api/index.php?action=files.upload", {
+      method: "POST",
+      credentials: "same-origin",
+      body: form, // no Content-Type — the browser sets the multipart boundary
+    });
+  } catch (networkError) {
+    throw new ApiError(
+      "Unable to reach the server. Check your connection.",
+      0,
+      null,
+    );
+  }
+
+  const raw = await response.text();
+  let body = null;
+  try {
+    body = raw ? JSON.parse(raw) : null;
+  } catch (parseError) {
+    throw new ApiError("Unexpected server response", response.status, null);
+  }
+
+  if (!response.ok) {
+    const message =
+      (body && (body.message || body.error)) || "Upload failed.";
+    throw new ApiError(message, response.status, body);
+  }
+
+  const url = (body && body.data && body.data.url) || (body && body.url);
+  if (!url) {
+    throw new ApiError(
+      "Upload did not return a file URL.",
+      response.status,
+      body,
+    );
+  }
+  return url;
+}
+
+/* ── Loan request: modal → loans.request ──────────────────────────────────── */
+
+const LOAN_MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+/**
+ * Open the loan-request modal, populating the group select with the member's
+ * current group and the target-month select with calendar months (that field
+ * is `required` in the markup but empty; the server ignores its value — it is
+ * the member's intended loaning cycle per the rulebook).
+ */
+function openLoanModal() {
+  const modal = document.getElementById("loanModal");
+  const form = document.getElementById("loanRequestForm");
+  if (!modal) return;
+  if (form) form.reset();
+
+  const groupSelect = document.getElementById("loanGroup");
+  if (groupSelect && currentGroup && currentGroup.groupId) {
+    groupSelect.replaceChildren();
+    const opt = document.createElement("option");
+    opt.value = currentGroup.groupId;
+    opt.textContent = currentGroup.groupName || "Current group";
+    groupSelect.appendChild(opt);
+    groupSelect.value = currentGroup.groupId;
+  }
+
+  const monthSelect = document.getElementById("loanTargetMonth");
+  if (monthSelect) {
+    monthSelect.replaceChildren();
+    for (const m of LOAN_MONTHS) {
+      const o = document.createElement("option");
+      o.value = m;
+      o.textContent = m;
+      monthSelect.appendChild(o);
+    }
+  }
+
+  modal.classList.remove("hidden");
+  modal.style.display = "flex";
+}
+
+function closeLoanModal() {
+  const modal = document.getElementById("loanModal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.style.display = "none";
+}
+
+/**
+ * Submit a loan request. No money math here — the member's requested principal +
+ * period go to the server, which prices, schedules and (on approval) disburses.
+ */
+async function handleLoanSubmit(event) {
+  event.preventDefault();
+
+  const groupId =
+    document.getElementById("loanGroup")?.value ||
+    (currentGroup && currentGroup.groupId) ||
+    "";
+  const principalAmount = document.getElementById("loanAmount")?.value || "";
+  const repaymentPeriod =
+    document.getElementById("loanRepaymentPeriod")?.value || "";
+  const purposeSel = document.getElementById("loanPurpose")?.value || "";
+  const description = document.getElementById("loanDescription")?.value || "";
+
+  if (!groupId) return showToast("No group selected.", "danger");
+  if (!principalAmount || Number(principalAmount) <= 0) {
+    return showToast("Please enter a valid loan amount.", "danger");
+  }
+  if (!repaymentPeriod) {
+    return showToast("Please choose a repayment period.", "danger");
+  }
+  if (!purposeSel) return showToast("Please choose a loan purpose.", "danger");
+
+  const purpose = description.trim()
+    ? `${purposeSel} - ${description.trim()}`
+    : purposeSel;
+
+  const submitBtn = document.querySelector(
+    "#loanRequestForm button[type=submit]",
+  );
+  if (submitBtn) submitBtn.disabled = true;
+
+  try {
+    await apiPost("loans.request", {
+      groupId,
+      principalAmount,
+      repaymentPeriod: Number(repaymentPeriod),
+      purpose,
+    });
+
+    closeLoanModal();
+    document.getElementById("loanRequestForm")?.reset();
+    showToast("Loan request submitted — awaiting admin approval.", "success");
+
+    if (currentGroup && currentGroup.groupId) {
+      await loadDashboard(currentGroup.groupId);
+    }
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      redirectToLogin();
+      return;
+    }
+    const msg =
+      error instanceof ApiError && error.message
+        ? error.message
+        : "Failed to submit loan request. Please try again.";
+    showToast(msg, "danger");
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+  }
+}
+
 function showToast(message, type = "info") {
   const container = document.getElementById("toastContainer");
   if (!container) return;

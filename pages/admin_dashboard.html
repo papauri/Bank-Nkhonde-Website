@@ -1506,6 +1506,26 @@
         <!-- Alerts will be dynamically inserted here -->
       </div>
 
+      <!-- Stats Grid - Compact single row -->
+      <div class="stats-grid" style="margin-bottom: var(--bn-space-6);">
+        <button class="stat-card clickable" onclick="navigateToStatPage('collections')">
+          <div class="stat-value" id="totalCollections">MWK 0</div>
+          <div class="stat-label">Collections</div>
+        </button>
+        <button class="stat-card clickable" onclick="navigateToStatPage('loans')">
+          <div class="stat-value" id="activeLoans">0</div>
+          <div class="stat-label">Active Loans</div>
+        </button>
+        <button class="stat-card clickable" onclick="navigateToStatPage('pending')">
+          <div class="stat-value" id="pendingApprovals">0</div>
+          <div class="stat-label">Pending</div>
+        </button>
+        <button class="stat-card clickable" onclick="navigateToStatPage('arrears')">
+          <div class="stat-value" id="totalArrears">MWK 0</div>
+          <div class="stat-label">Arrears</div>
+        </button>
+      </div>
+
       <!-- Quick Actions -->
       <div class="content-card" style="margin-bottom: var(--bn-space-6);">
         <div class="content-card-header">
@@ -1566,26 +1586,6 @@
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- Stats Grid - Compact single row -->
-      <div class="stats-grid">
-        <button class="stat-card clickable" onclick="navigateToStatPage('collections')">
-          <div class="stat-value" id="totalCollections">MWK 0</div>
-          <div class="stat-label">Collections</div>
-        </button>
-        <button class="stat-card clickable" onclick="navigateToStatPage('loans')">
-          <div class="stat-value" id="activeLoans">0</div>
-          <div class="stat-label">Active Loans</div>
-        </button>
-        <button class="stat-card clickable" onclick="navigateToStatPage('pending')">
-          <div class="stat-value" id="pendingApprovals">0</div>
-          <div class="stat-label">Pending</div>
-        </button>
-        <button class="stat-card clickable" onclick="navigateToStatPage('arrears')">
-          <div class="stat-value" id="totalArrears">MWK 0</div>
-          <div class="stat-label">Arrears</div>
-        </button>
       </div>
 
       <!-- Content Grid -->

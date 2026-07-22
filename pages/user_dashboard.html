@@ -1899,7 +1899,63 @@
         <p class="loading-text">Loading dashboard...</p>
       </div>
     </div>
-    <div class="content-grid">
+    <!-- Upcoming Payments -->
+    <div class="content-card" style="margin-bottom: var(--bn-space-6);">
+      <div class="content-card-header">
+        <h2 class="content-card-title">Upcoming Payments</h2>
+      </div>
+      <div class="content-card-body" id="upcomingPayments">
+        <div class="empty-state">
+          <div class="empty-state-icon">📅</div>
+          <p class="empty-state-text">No upcoming payments</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payment Calendar -->
+    <div class="content-card" style="margin-bottom: var(--bn-space-6);">
+      <div class="content-card-header" style="padding: var(--bn-space-3) var(--bn-space-4); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--bn-space-2);">
+        <h2 class="content-card-title" style="font-size: var(--bn-text-base); margin: 0;">Payment Calendar</h2>
+        <div style="display: flex; gap: var(--bn-space-1); align-items: center;">
+          <button class="btn btn-ghost btn-sm" id="calendarPrevMonth" aria-label="Previous month" style="padding: 4px 8px; font-size: 12px; min-width: 44px; min-height: 44px;">&lt;</button>
+          <span id="calendarMonthYear" style="font-weight: 600; min-width: 120px; text-align: center; font-size: var(--bn-text-sm);"></span>
+          <button class="btn btn-ghost btn-sm" id="calendarNextMonth" aria-label="Next month" style="padding: 4px 8px; font-size: 12px; min-width: 44px; min-height: 44px;">&gt;</button>
+        </div>
+      </div>
+      <div class="content-card-body" style="padding: var(--bn-space-4);">
+        <!-- Calendar Legend -->
+        <div class="calendar-legend" style="display: flex; flex-wrap: wrap; gap: var(--bn-space-2); margin-bottom: var(--bn-space-3); padding: var(--bn-space-2); background: var(--bn-gray-50); border-radius: var(--bn-radius-md); font-size: var(--bn-text-xs);">
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <div class="calendar-event-note monthly" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px;"></div>
+            <span>Monthly</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <div class="calendar-event-note seed" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px;"></div>
+            <span>Seed Money</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <div class="calendar-event-note servicefee" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px;"></div>
+            <span>Service Fee</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <div class="calendar-event-note loan" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px;"></div>
+            <span>Loan</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <div class="calendar-event-note overdue" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px;"></div>
+            <span>Overdue</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <div class="calendar-event-note approved monthly" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px; opacity: 0.75;"></div>
+            <span>Paid</span>
+          </div>
+        </div>
+        <div id="paymentCalendar" style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;"></div>
+        <div id="paymentLegend" style="margin-top: var(--bn-space-4);"></div>
+      </div>
+    </div>
+
+    <div class="content-grid" style="margin-bottom: var(--bn-space-6);">
       <!-- Quick Actions Card -->
       <div class="content-card">
         <div class="content-card-header">
@@ -1954,62 +2010,6 @@
               <p class="empty-state-text">No notifications</p>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Payment Calendar -->
-    <div class="content-card" style="margin-bottom: var(--bn-space-6);">
-      <div class="content-card-header" style="padding: var(--bn-space-3) var(--bn-space-4); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--bn-space-2);">
-        <h2 class="content-card-title" style="font-size: var(--bn-text-base); margin: 0;">Payment Calendar</h2>
-        <div style="display: flex; gap: var(--bn-space-1); align-items: center;">
-          <button class="btn btn-ghost btn-sm" id="calendarPrevMonth" aria-label="Previous month" style="padding: 4px 8px; font-size: 12px; min-width: 44px; min-height: 44px;">&lt;</button>
-          <span id="calendarMonthYear" style="font-weight: 600; min-width: 120px; text-align: center; font-size: var(--bn-text-sm);"></span>
-          <button class="btn btn-ghost btn-sm" id="calendarNextMonth" aria-label="Next month" style="padding: 4px 8px; font-size: 12px; min-width: 44px; min-height: 44px;">&gt;</button>
-        </div>
-      </div>
-      <div class="content-card-body" style="padding: var(--bn-space-4);">
-        <!-- Calendar Legend -->
-        <div class="calendar-legend" style="display: flex; flex-wrap: wrap; gap: var(--bn-space-2); margin-bottom: var(--bn-space-3); padding: var(--bn-space-2); background: var(--bn-gray-50); border-radius: var(--bn-radius-md); font-size: var(--bn-text-xs);">
-          <div style="display: flex; align-items: center; gap: 4px;">
-            <div class="calendar-event-note monthly" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px;"></div>
-            <span>Monthly</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 4px;">
-            <div class="calendar-event-note seed" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px;"></div>
-            <span>Seed Money</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 4px;">
-            <div class="calendar-event-note servicefee" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px;"></div>
-            <span>Service Fee</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 4px;">
-            <div class="calendar-event-note loan" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px;"></div>
-            <span>Loan</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 4px;">
-            <div class="calendar-event-note overdue" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px;"></div>
-            <span>Overdue</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 4px;">
-            <div class="calendar-event-note approved monthly" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px; opacity: 0.75;"></div>
-            <span>Paid</span>
-          </div>
-        </div>
-        <div id="paymentCalendar" style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;"></div>
-        <div id="paymentLegend" style="margin-top: var(--bn-space-4);"></div>
-      </div>
-    </div>
-
-    <!-- Upcoming Payments -->
-    <div class="content-card" style="margin-bottom: var(--bn-space-6);">
-      <div class="content-card-header">
-        <h2 class="content-card-title">Upcoming Payments</h2>
-      </div>
-      <div class="content-card-body" id="upcomingPayments">
-        <div class="empty-state">
-          <div class="empty-state-icon">📅</div>
-          <p class="empty-state-text">No upcoming payments</p>
         </div>
       </div>
     </div>
@@ -2121,22 +2121,46 @@
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">Payment Type</label>
+            <label class="form-label">Payment Type *</label>
             <select id="paymentType" class="form-select" required>
               <option value="">Select type...</option>
               <option value="seed_money">Seed Money</option>
               <option value="monthly_contribution">Monthly Contribution</option>
-              <option value="loan_repayment">Loan Repayment</option>
-              <option value="penalty">Penalty Payment</option>
+              <option value="service_fee">Service Fee</option>
+            </select>
+            <small style="color: var(--bn-gray); font-size: var(--bn-text-xs); display: block; margin-top: 4px;">
+              Paying back a loan? Use the <a href="loan_payments.html" style="color: var(--bn-accent); font-weight: 600;">Loan Payments</a> page instead.
+            </small>
+          </div>
+          <div class="form-group" id="paymentMonthGroup" style="display: none;">
+            <label class="form-label">Month *</label>
+            <select id="paymentMonth" class="form-select">
+              <option value="">Select month...</option>
+              <option value="January">January</option>
+              <option value="February">February</option>
+              <option value="March">March</option>
+              <option value="April">April</option>
+              <option value="May">May</option>
+              <option value="June">June</option>
+              <option value="July">July</option>
+              <option value="August">August</option>
+              <option value="September">September</option>
+              <option value="October">October</option>
+              <option value="November">November</option>
+              <option value="December">December</option>
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">Amount Paid (MWK)</label>
-            <input type="number" id="paymentAmount" class="form-input" placeholder="Enter amount" required min="1">
+            <label class="form-label">Amount Paid (MWK) *</label>
+            <input type="number" id="paymentAmount" class="form-input" placeholder="Enter amount" required min="1" step="1">
           </div>
           <div class="form-group">
-            <label class="form-label">Payment Date</label>
-            <input type="date" id="paymentDate" class="form-input" required>
+            <label class="form-label" for="paymentMethod">Payment Method *</label>
+            <select id="paymentMethod" class="form-select" required>
+              <option value="cash">Cash</option>
+              <option value="bank_transfer">Bank Transfer</option>
+              <option value="mobile_money">Mobile Money</option>
+            </select>
           </div>
           <div class="form-group">
             <label style="display: flex; align-items: center; gap: var(--bn-space-2); cursor: pointer;">
@@ -2148,8 +2172,12 @@
             </small>
           </div>
           <div class="form-group">
-            <label class="form-label">Proof of Payment</label>
+            <label class="form-label">Proof of Payment *</label>
             <input type="file" id="paymentProof" class="form-input" accept="image/*,.pdf" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes (Optional)</label>
+            <textarea id="paymentNotes" class="form-textarea" rows="2" placeholder="Any additional notes..."></textarea>
           </div>
           <button type="submit" class="btn btn-accent btn-block btn-lg">Submit Payment</button>
         </form>

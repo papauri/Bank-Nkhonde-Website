@@ -46,3 +46,6 @@ functions/*.log
 uploads/proofs/*
 !uploads/proofs/.htaccess
 !uploads/proofs/index.html
+# Playwright MCP browser-test artifacts (page snapshots .yml, console logs,
+# and saved .md snapshots) — throwaway verification output, never commit.
+.playwright-mcp/

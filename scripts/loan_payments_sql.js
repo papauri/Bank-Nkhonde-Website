@@ -563,10 +563,13 @@ async function uploadProof(file, groupId) {
     const message = (body && (body.message || body.error)) || "Upload failed.";
     throw new ApiError(message, response.status, body);
   }
-  if (!body || !body.url) {
+  // files.upload responds with the standard {ok, data:{url,...}} envelope, so
+  // the url is at body.data.url (a flat body.url fallback kept for safety).
+  const url = (body && body.data && body.data.url) || (body && body.url);
+  if (!url) {
     throw new ApiError("Upload did not return a file URL.", response.status, body);
   }
-  return body.url;
+  return url;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

@@ -310,9 +310,13 @@ if (!function_exists('request_loan')) {
 
         $loanId = bin2hex(random_bytes(16));
 
-        // Human-facing sequence number. Not unique-constrained in the schema; a
-        // concurrent double-request could collide on the display number only —
-        // the loanId PK stays unique.
+        // Human-facing sequence number, per group (LN-0001 restarts in each
+        // group). Unique PER GROUP via the uq_loans_group_loanNumber(groupId,
+        // loanNumber) index applied to the DB (2026-07-22; the original schema
+        // had a GLOBAL unique on loanNumber alone, which collided across groups
+        // and 500'd the second group's first loan). A concurrent double-request
+        // within one group could still collide on the display number; the
+        // loanId PK stays unique regardless.
         $seqStmt = $pdo->prepare('SELECT COUNT(*) AS n FROM loans WHERE groupId = :groupId');
         $seqStmt->execute([':groupId' => $groupId]);
         $loanNumber = 'LN-' . str_pad((string) ((int) $seqStmt->fetch()['n'] + 1), 4, '0', STR_PAD_LEFT);

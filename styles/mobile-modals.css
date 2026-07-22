@@ -203,6 +203,30 @@
   table-layout: fixed !important;
 }
 
+/* Responsive tables inside a modal: let them COLLAPSE INTO CARDS (like page
+   tables do at <=768px) instead of the cramped horizontal-scroll table above.
+   The generic .modal-content table rules force display:table on rows, which
+   would otherwise defeat the .table-responsive card layout from
+   design-system.css — these overrides re-assert the card collapse for
+   responsive tables only, so each record reads as a clean bordered card. */
+@media (max-width: 768px) {
+  .modal-content .table-responsive,
+  .modal-content .table-responsive tbody {
+    display: block !important;
+    overflow-x: visible !important;
+  }
+
+  .modal-content .table-responsive thead {
+    display: none !important;
+  }
+
+  .modal-content .table-responsive tr {
+    display: block !important;
+    width: 100% !important;
+    table-layout: auto !important;
+  }
+}
+
 /* Lists in Modals */
 .modal-content ul,
 .modal-content ol {
