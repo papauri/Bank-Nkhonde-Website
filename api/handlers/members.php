@@ -8,6 +8,7 @@
 
 require_once __DIR__ . '/../lib/http.php';
 require_once __DIR__ . '/../lib/session.php';
+require_once __DIR__ . '/../lib/membership.php';
 require_once __DIR__ . '/../../config/database.php';
 
 if (!function_exists('list_members')) {
@@ -107,6 +108,11 @@ if (!function_exists('add_member')) {
         if ($existsStmt->fetch() !== false) {
             json_error('This user is already a member of the group.', 409);
         }
+
+        // Money Masters rulebook: a group is capped at 30 members. Checked after
+        // the duplicate guard so re-adding an existing member reports "already a
+        // member", not "group full".
+        assert_group_has_capacity($pdo, $groupId);
 
         try {
             $insertStmt = $pdo->prepare(
@@ -539,6 +545,10 @@ if (!function_exists('create_member')) {
         $passwordHash = hash_password($temporaryPassword);
 
         $pdo = getDbConnection();
+
+        // Money Masters rulebook: a group is capped at 30 members. Checked before
+        // the transaction so a full group never even creates the new user row.
+        assert_group_has_capacity($pdo, $groupId);
 
         $pdo->beginTransaction();
         try {

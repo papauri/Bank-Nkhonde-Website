@@ -10,6 +10,7 @@
 
 require_once __DIR__ . '/../lib/http.php';
 require_once __DIR__ . '/../lib/session.php';
+require_once __DIR__ . '/../lib/membership.php';
 require_once __DIR__ . '/../../config/database.php';
 
 if (!function_exists('invitation_select_row')) {
@@ -50,6 +51,10 @@ if (!function_exists('insert_member_from_user')) {
      */
     function insert_member_from_user(PDO $pdo, string $groupId, array $userRow, ?string $invitedBy): void
     {
+        // Money Masters rulebook: a group is capped at 30 members. Enforced on
+        // every join path — here it covers both invite-accept and code-redeem.
+        assert_group_has_capacity($pdo, $groupId);
+
         $insertStmt = $pdo->prepare(
             'INSERT INTO members '
             . '(groupId, uid, fullName, email, role, status, joinedAt, invitedBy, '
