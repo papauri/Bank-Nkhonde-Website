@@ -550,9 +550,41 @@ function renderUpcomingPayments(ob) {
     return;
   }
 
-  for (const item of items.slice(0, 10)) {
-    container.appendChild(buildUpcomingRow(item));
+  container.appendChild(buildUpcomingTable(items.slice(0, 10)));
+}
+
+/**
+ * Build a responsive obligations table (real table on desktop, cards on mobile
+ * via .table-responsive + data-label). Shared by the dashboard section and the
+ * "Upcoming Payments" modal.
+ * @param {Array<Object>} items
+ * @return {HTMLElement} the .table-container wrapper
+ */
+function buildUpcomingTable(items) {
+  const wrap = document.createElement("div");
+  wrap.className = "table-container";
+
+  const table = document.createElement("table");
+  table.className = "table table-responsive";
+
+  const thead = document.createElement("thead");
+  const htr = document.createElement("tr");
+  for (const h of ["Payment", "Due Date", "Amount", "Status", "Action"]) {
+    const th = document.createElement("th");
+    th.textContent = h;
+    htr.appendChild(th);
   }
+  thead.appendChild(htr);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const item of items) {
+    tbody.appendChild(createUpcomingTableRow(item));
+  }
+  table.appendChild(tbody);
+
+  wrap.appendChild(table);
+  return wrap;
 }
 
 /**
@@ -597,35 +629,27 @@ function upcomingObligationItems(ob, windowDays) {
  * @param {Object} item
  * @return {HTMLElement}
  */
-function buildUpcomingRow(item) {
-  const row = document.createElement("div");
-  row.className = "list-item";
+function createUpcomingTableRow(item) {
+  const tr = document.createElement("tr");
 
-  const left = document.createElement("div");
-  left.style.flex = "1";
+  const nameTd = document.createElement("td");
+  nameTd.setAttribute("data-label", "Payment");
+  nameTd.textContent = `${item.type} - ${item.month}`;
+  tr.appendChild(nameTd);
 
-  const title = document.createElement("div");
-  title.className = "list-item-title";
-  title.textContent = `${item.type} - ${item.month}`;
+  const dueTd = document.createElement("td");
+  dueTd.setAttribute("data-label", "Due Date");
+  dueTd.textContent = `${formatDate(item.due)} • ${daysText(item)}`;
+  tr.appendChild(dueTd);
 
-  const subtitle = document.createElement("div");
-  subtitle.className = "list-item-subtitle";
-  subtitle.textContent = `${formatDate(item.due)} • ${daysText(item)}`;
+  const amtTd = document.createElement("td");
+  amtTd.setAttribute("data-label", "Amount");
+  amtTd.className = "cell-right";
+  amtTd.textContent = formatCurrency(item.amountStr);
+  tr.appendChild(amtTd);
 
-  left.appendChild(title);
-  left.appendChild(subtitle);
-
-  const right = document.createElement("div");
-  right.style.display = "flex";
-  right.style.flexDirection = "column";
-  right.style.alignItems = "flex-end";
-  right.style.gap = "var(--bn-space-2)";
-
-  const amount = document.createElement("div");
-  amount.style.fontWeight = "700";
-  amount.style.color = "var(--bn-dark)";
-  amount.textContent = formatCurrency(item.amountStr);
-
+  const statusTd = document.createElement("td");
+  statusTd.setAttribute("data-label", "Status");
   const badge = document.createElement("span");
   if (item.overdue) {
     badge.className = "badge badge-danger";
@@ -637,7 +661,11 @@ function buildUpcomingRow(item) {
     badge.className = "badge badge-info";
     badge.textContent = "Upcoming";
   }
+  statusTd.appendChild(badge);
+  tr.appendChild(statusTd);
 
+  const actionTd = document.createElement("td");
+  actionTd.setAttribute("data-label", "Action");
   const payBtn = document.createElement("button");
   payBtn.type = "button";
   payBtn.className = "btn btn-accent btn-sm";
@@ -649,14 +677,10 @@ function buildUpcomingRow(item) {
       amount: cleanAmount(item.amountStr),
     }),
   );
+  actionTd.appendChild(payBtn);
+  tr.appendChild(actionTd);
 
-  right.appendChild(amount);
-  right.appendChild(badge);
-  right.appendChild(payBtn);
-
-  row.appendChild(left);
-  row.appendChild(right);
-  return row;
+  return tr;
 }
 
 /**
@@ -1000,7 +1024,7 @@ function openUpcomingPaymentsModal() {
       buildEmptyState("\u{1F4C5}", "No upcoming payments for the next year"),
     );
   } else {
-    for (const item of items) list.appendChild(buildUpcomingRow(item));
+    list.appendChild(buildUpcomingTable(items));
   }
 
   if (window.openModal) {
@@ -1135,7 +1159,11 @@ function wireStaticHandlers() {
       monthGroup.style.display =
         e.target.value === "monthly_contribution" ? "block" : "none";
     }
+    updateAdvancedPaymentVisibility();
   });
+  document
+    .getElementById("paymentMonth")
+    ?.addEventListener("change", updateAdvancedPaymentVisibility);
   document
     .getElementById("paymentUploadForm")
     ?.addEventListener("submit", handlePaymentSubmit);
@@ -1437,6 +1465,8 @@ function openPaymentModal(prefill) {
     monthGroup.style.display = "none";
   }
 
+  updateAdvancedPaymentVisibility();
+
   modal.classList.remove("hidden");
   modal.style.display = "flex";
 }
@@ -1446,6 +1476,41 @@ function closePaymentModal() {
   if (!modal) return;
   modal.classList.add("hidden");
   modal.style.display = "none";
+}
+
+/**
+ * Advanced payment = paying a monthly contribution for a month whose due date
+ * has NOT yet arrived (paying ahead). It is NOT valid for a payment that is
+ * already due or overdue, so the "Advanced Payment" checkbox is shown ONLY when
+ * the selected month is genuinely in the future; otherwise it is hidden and
+ * force-unchecked (a due/overdue payment can never be an advance).
+ */
+function updateAdvancedPaymentVisibility() {
+  const group = document.getElementById("advancedPaymentGroup");
+  const checkbox = document.getElementById("isAdvancedPayment");
+  if (!group) return;
+  const type = document.getElementById("paymentType")?.value || "";
+  const month = document.getElementById("paymentMonth")?.value || "";
+  const show = type === "monthly_contribution" && isFutureContributionMonth(month);
+  group.style.display = show ? "block" : "none";
+  if (!show && checkbox) checkbox.checked = false;
+}
+
+/**
+ * True only when the given month's monthly-contribution obligation has a due
+ * date strictly in the future — the one case where paying it is an advance.
+ */
+function isFutureContributionMonth(month) {
+  if (!month) return false;
+  const data = window.__dashboardData;
+  const months =
+    data && data.obligations && data.obligations.monthlyContributions
+      ? data.obligations.monthlyContributions.months || []
+      : [];
+  const obl = months.find((m) => m.month === month);
+  if (!obl) return false;
+  const due = parseServerDate(obl.dueDate);
+  return due ? due > startOfToday() : false;
 }
 
 /**

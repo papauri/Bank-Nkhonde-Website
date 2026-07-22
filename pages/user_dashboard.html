@@ -2162,13 +2162,13 @@
               <option value="mobile_money">Mobile Money</option>
             </select>
           </div>
-          <div class="form-group">
+          <div class="form-group" id="advancedPaymentGroup" style="display: none;">
             <label style="display: flex; align-items: center; gap: var(--bn-space-2); cursor: pointer;">
               <input type="checkbox" id="isAdvancedPayment" style="width: 18px; height: 18px; cursor: pointer;">
               <span style="font-weight: 600;">This is an Advanced Payment</span>
             </label>
             <small style="color: var(--bn-gray); font-size: var(--bn-text-xs); display: block; margin-top: 4px; margin-left: 26px;">
-              Advanced payments allow paying for future months/cycles. These require admin approval before calculations are updated.
+              Advanced payments are for paying a FUTURE month that is not yet due. Not available for a payment that is already due or overdue. Requires admin approval before calculations update.
             </small>
           </div>
           <div class="form-group">
