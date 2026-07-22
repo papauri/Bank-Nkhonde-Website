@@ -367,8 +367,12 @@ function renderCollectionTrends() {
     chartHTML += createPieChart(
       "Payment Type Breakdown",
       [
-        { label: "Seed Money", value: seedMinor, color: "#10B981" },
-        { label: "Monthly Contributions", value: monthlyMinor, color: "#3B82F6" },
+        { label: "Seed Money", value: seedMinor, color: "var(--bn-success)" },
+        {
+          label: "Monthly Contributions",
+          value: monthlyMinor,
+          color: "var(--bn-info)",
+        },
       ],
       typeTotal,
       "Total Collections",
@@ -380,8 +384,8 @@ function renderCollectionTrends() {
     chartHTML += createPieChart(
       "Collections vs Arrears",
       [
-        { label: "Collections", value: approvedMinor, color: "#10B981" },
-        { label: "Arrears", value: arrearsMinor, color: "#EF4444" },
+        { label: "Collections", value: approvedMinor, color: "var(--bn-success)" },
+        { label: "Arrears", value: arrearsMinor, color: "var(--bn-danger)" },
       ],
       financialTotal,
       "Financial Health",
@@ -400,11 +404,15 @@ function renderCollectionTrends() {
     chartHTML += createPieChart(
       "Member Participation",
       [
-        { label: "Active Members", value: membersWithPayments, color: "#10B981" },
+        {
+          label: "Active Members",
+          value: membersWithPayments,
+          color: "var(--bn-success)",
+        },
         {
           label: "Inactive Members",
           value: totalMembers - membersWithPayments,
-          color: "#9CA3AF",
+          color: "var(--bn-gray-400)",
         },
       ],
       totalMembers,
@@ -418,8 +426,8 @@ function renderCollectionTrends() {
     chartHTML += createPieChart(
       "Income Sources",
       [
-        { label: "Contributions", value: typeTotal, color: "#3B82F6" },
-        { label: "Loan Interest", value: interestMinor, color: "#8B5CF6" },
+        { label: "Contributions", value: typeTotal, color: "var(--bn-info)" },
+        { label: "Loan Interest", value: interestMinor, color: "var(--bn-accent)" },
       ],
       incomeTotal,
       "Total Income",
@@ -459,46 +467,40 @@ function renderCollectionTrends() {
  * @return {string}
  */
 function createPieChart(title, segments, total, centerLabel, isCount = false) {
-  const radius = 80;
   const centerX = 120;
   const centerY = 120;
+  const radius = 80;
+  const strokeWidth = 32;
+  const circumference = 2 * Math.PI * radius;
 
   let segmentsHTML = "";
   let legendHTML = "";
-  let currentAngle = -90;
+  let cumulativeLength = 0;
 
   const valid = segments
     .filter((s) => (s.value || 0) > 0)
     .map((s) => ({ ...s, percentage: total > 0 ? (s.value / total) * 100 : 0 }));
 
+  // Background track ring so the donut hole and unfilled arc read clearly
+  // even before/without segments animating in.
+  segmentsHTML +=
+    `<circle class="pie-chart-track" cx="${centerX}" cy="${centerY}" r="${radius}" ` +
+    `fill="none" stroke="var(--bn-gray-100)" stroke-width="${strokeWidth}" />`;
+
   valid.forEach((segment) => {
     const percentage = Math.min(segment.percentage || 0, 100);
     if (percentage <= 0) return;
 
-    const angle = (percentage / 100) * 360;
-    const startAngle = currentAngle;
-    const endAngle = currentAngle + angle;
-    currentAngle += angle;
-
-    const startRad = (startAngle * Math.PI) / 180;
-    const endRad = (endAngle * Math.PI) / 180;
-    const x1 = centerX + radius * Math.cos(startRad);
-    const y1 = centerY + radius * Math.sin(startRad);
-    const x2 = centerX + radius * Math.cos(endRad);
-    const y2 = centerY + radius * Math.sin(endRad);
-    const largeArcFlag = angle > 180 ? 1 : 0;
-
-    const pathData = [
-      `M ${centerX} ${centerY}`,
-      `L ${x1} ${y1}`,
-      `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
-      "Z",
-    ].join(" ");
+    const arcLength = (percentage / 100) * circumference;
+    const dashArray = `${arcLength} ${circumference - arcLength}`;
+    const dashOffset = -cumulativeLength;
+    cumulativeLength += arcLength;
 
     segmentsHTML +=
-      `<path class="pie-chart-segment" d="${pathData}" fill="${segment.color}" ` +
-      `stroke="var(--bn-white)" stroke-width="2" ` +
-      `data-percentage="${percentage.toFixed(1)}" ` +
+      `<circle class="pie-chart-segment" cx="${centerX}" cy="${centerY}" r="${radius}" ` +
+      `fill="none" stroke="${segment.color}" stroke-width="${strokeWidth}" ` +
+      `stroke-dasharray="${dashArray}" stroke-dashoffset="${dashOffset}" ` +
+      `stroke-linecap="butt" data-percentage="${percentage.toFixed(1)}" ` +
       `style="opacity: 0; transition: opacity 0.8s ease;" />`;
 
     const displayValue = isCount
@@ -525,7 +527,9 @@ function createPieChart(title, segments, total, centerLabel, isCount = false) {
     `<div class="pie-chart-container">` +
     `<div class="pie-chart-title">${escapeStatic(title)}</div>` +
     `<div class="pie-chart-wrapper">` +
-    `<svg class="pie-chart-svg" viewBox="0 0 240 240" style="opacity: 0; transition: opacity 0.5s ease; width: 100%; height: 100%;">${segmentsHTML}</svg>` +
+    `<svg class="pie-chart-svg" viewBox="0 0 240 240" style="opacity: 0; transition: opacity 0.5s ease; width: 100%; height: 100%;">` +
+    `<g transform="rotate(-90 ${centerX} ${centerY})">${segmentsHTML}</g>` +
+    `</svg>` +
     `<div class="pie-chart-center">` +
     `<div class="pie-chart-center-value">${centerDisplay}</div>` +
     `<div class="pie-chart-center-label">${escapeStatic(centerLabel)}</div>` +

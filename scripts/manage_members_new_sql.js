@@ -40,6 +40,7 @@ import {
   listMyGroups,
   ApiError,
   redirectToLogin,
+  downloadExport,
 } from "./api.js";
 
 // ── Global state ────────────────────────────────────────────────────────────
@@ -92,6 +93,14 @@ function setupEventListeners() {
       }
     });
   }
+
+  document.getElementById("exportCsvBtn")?.addEventListener("click", () => {
+    if (!selectedGroupId) {
+      showToast("Select a group first", "info");
+      return;
+    }
+    downloadExport("exports.members", {groupId: selectedGroupId});
+  });
 
   document.getElementById("addMemberBtn")?.addEventListener("click", openAddMemberModal);
   document.getElementById("addMemberForm")?.addEventListener("submit", handleAddMember);

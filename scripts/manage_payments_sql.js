@@ -61,6 +61,7 @@ import {
   listMyGroups,
   ApiError,
   redirectToLogin,
+  downloadExport,
 } from "./api.js";
 import { formatCurrency } from "./utils_financial.js";
 
@@ -122,6 +123,14 @@ function setupEventListeners() {
   // via optional chaining until a real refresh control is added to the page.
   document.getElementById("refreshBtn")?.addEventListener("click", async () => {
     if (selectedGroupId) await loadGroupData();
+  });
+
+  document.getElementById("exportCsvBtn")?.addEventListener("click", () => {
+    if (!selectedGroupId) {
+      showToast("Select a group first", "info");
+      return;
+    }
+    downloadExport("exports.payments", {groupId: selectedGroupId});
   });
 
   document.getElementById("recordPaymentBtn")?.addEventListener("click", () => openRecordPaymentModal());

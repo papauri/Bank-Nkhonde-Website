@@ -592,7 +592,7 @@
        ============================================ */
     .main-content {
       max-width: 1200px;
-      margin: 0 auto;
+      margin: var(--bn-space-8) auto 0;
       padding: 0 var(--bn-space-6);
       position: relative;
     }
@@ -679,6 +679,39 @@
       color: var(--bn-dark);
       text-align: center;
       transition: color var(--bn-transition-fast);
+    }
+
+    /* Quick Actions inside the dark hero band — light-on-dark treatment,
+       modeled on .hero-stat's rgba(255,255,255,...) pattern. */
+    .hero-quick-actions {
+      margin-top: var(--bn-space-6);
+    }
+
+    .hero-quick-actions-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.6);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: var(--bn-space-2);
+    }
+
+    .hero-section .quick-actions .action-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .hero-section .quick-actions .action-btn:hover {
+      background: var(--bn-accent);
+      border-color: var(--bn-accent);
+    }
+
+    .hero-section .quick-actions .action-label {
+      color: var(--bn-white);
+    }
+
+    .hero-section .quick-actions .action-btn:hover .action-label {
+      color: var(--bn-dark);
     }
 
     /* Notifications - Dashboard List */
@@ -891,6 +924,13 @@
 
     .calendar-event-note.overdue {
       background: #ef4444;
+    }
+
+    /* "Paid" dots — same type color, plus a white ring so "paid" reads as a
+       shape difference (not just a subtle opacity dip), matching the
+       legend's ".approved.monthly" swatch. */
+    .calendar-event-note.approved {
+      box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.9);
     }
 
     @media (max-width: 640px) {
@@ -1546,6 +1586,7 @@
       }
 
       .main-content {
+        margin-top: var(--bn-space-5);
         padding: 0 var(--bn-space-4);
         width: 100%;
         max-width: 100%;
@@ -1884,6 +1925,40 @@
           <div class="hero-stat-label">Contributed</div>
         </button>
       </div>
+
+      <!-- Quick Actions (moved into the hero band) -->
+      <div class="hero-quick-actions">
+        <div class="hero-quick-actions-label">Quick Actions</div>
+        <div class="quick-actions">
+          <button class="action-btn" id="requestLoanBtn">
+            <span class="action-label">Request Loan</span>
+          </button>
+          <button class="action-btn" id="uploadPaymentBtn">
+            <span class="action-label">Upload Payment</span>
+          </button>
+          <button class="action-btn" id="upcomingPaymentsBtn">
+            <span class="action-label">Upcoming Payments</span>
+          </button>
+          <button class="action-btn" id="viewPaymentDetailsBtn">
+            <span class="action-label">Payment Details</span>
+          </button>
+          <a href="contacts.html" class="action-btn" id="viewMembersBtn">
+            <span class="action-label">Members</span>
+          </a>
+          <a href="view_rules.html" class="action-btn" id="viewRulesBtn">
+            <span class="action-label">Rules</span>
+          </a>
+          <a href="user_analytics.html" class="action-btn">
+            <span class="action-label">Analytics</span>
+          </a>
+          <button type="button" class="action-btn" id="viewGroupsBtn">
+            <span class="action-label">Groups</span>
+          </button>
+          <a href="settings.html" class="action-btn">
+            <span class="action-label">Settings</span>
+          </a>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -1908,6 +1983,14 @@
           <p class="empty-state-text">No upcoming payments</p>
         </div>
       </div>
+    </div>
+
+    <!-- Contributions: Paid vs Outstanding -->
+    <div class="content-card" style="margin-bottom: var(--bn-space-6);">
+      <div class="content-card-header">
+        <h2 class="content-card-title">Contributions: Paid vs Outstanding</h2>
+      </div>
+      <div class="content-card-body" id="contributionChart"></div>
     </div>
 
     <!-- Payment Calendar -->
@@ -1944,7 +2027,7 @@
             <span>Overdue</span>
           </div>
           <div style="display: flex; align-items: center; gap: 4px;">
-            <div class="calendar-event-note approved monthly" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px; opacity: 0.75;"></div>
+            <div class="calendar-event-note approved monthly" style="width: 12px; height: 12px; padding: 0; margin: 0; border-radius: 2px; min-height: 12px;"></div>
             <span>Paid</span>
           </div>
         </div>
@@ -1953,60 +2036,20 @@
       </div>
     </div>
 
-    <div class="content-grid" style="margin-bottom: var(--bn-space-6);">
-      <!-- Quick Actions Card -->
-      <div class="content-card">
-        <div class="content-card-header">
-          <h2 class="content-card-title">Quick Actions</h2>
-        </div>
-        <div class="content-card-body">
-          <div class="quick-actions">
-            <button class="action-btn" id="requestLoanBtn">
-              <span class="action-label">Request Loan</span>
-            </button>
-            <button class="action-btn" id="uploadPaymentBtn">
-              <span class="action-label">Upload Payment</span>
-            </button>
-            <button class="action-btn" id="upcomingPaymentsBtn">
-              <span class="action-label">Upcoming Payments</span>
-            </button>
-            <button class="action-btn" id="viewPaymentDetailsBtn">
-              <span class="action-label">Payment Details</span>
-            </button>
-            <a href="contacts.html" class="action-btn" id="viewMembersBtn">
-              <span class="action-label">Members</span>
-            </a>
-            <a href="view_rules.html" class="action-btn" id="viewRulesBtn">
-              <span class="action-label">Rules</span>
-            </a>
-            <a href="user_analytics.html" class="action-btn">
-              <span class="action-label">Analytics</span>
-            </a>
-            <button type="button" class="action-btn" id="viewGroupsBtn">
-              <span class="action-label">Groups</span>
-            </button>
-            <a href="settings.html" class="action-btn">
-              <span class="action-label">Settings</span>
-            </a>
-          </div>
+    <!-- Notifications Card -->
+    <div class="content-card" style="margin-bottom: var(--bn-space-6);">
+      <div class="content-card-header">
+        <h2 class="content-card-title">Notifications</h2>
+        <div style="display: flex; align-items: center; gap: var(--bn-space-2);">
+          <span class="badge badge-danger hidden" id="unreadBadge">0</span>
+          <a href="messages.html" class="btn btn-ghost btn-sm">View All</a>
         </div>
       </div>
-
-      <!-- Notifications Card -->
-      <div class="content-card">
-        <div class="content-card-header">
-          <h2 class="content-card-title">Notifications</h2>
-          <div style="display: flex; align-items: center; gap: var(--bn-space-2);">
-            <span class="badge badge-danger hidden" id="unreadBadge">0</span>
-            <a href="messages.html" class="btn btn-ghost btn-sm">View All</a>
-          </div>
-        </div>
-        <div class="content-card-body">
-          <div class="notification-list" id="notificationsList">
-            <div class="empty-state">
-              <div class="empty-state-icon">📬</div>
-              <p class="empty-state-text">No notifications</p>
-            </div>
+      <div class="content-card-body">
+        <div class="notification-list" id="notificationsList">
+          <div class="empty-state">
+            <div class="empty-state-icon">📬</div>
+            <p class="empty-state-text">No notifications</p>
           </div>
         </div>
       </div>

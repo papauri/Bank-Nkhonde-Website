@@ -156,6 +156,31 @@ export async function apiPost(action, body = {}) {
 }
 
 /**
+ * Trigger a same-origin file download (CSV export) via GET, so the browser
+ * handles the `Content-Disposition: attachment` response itself. This does
+ * NOT use fetch/request — those unwrap JSON and would corrupt a CSV body.
+ * The session cookie flows automatically because the URL is same-origin.
+ * @param {string} action Export action name, e.g. "exports.payments".
+ * @param {Object<string,*>} [params] Extra query-string parameters.
+ * @return {void}
+ */
+export function downloadExport(action, params = {}) {
+  const query = new URLSearchParams({action});
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") {
+      query.append(key, String(value));
+    }
+  }
+  const url = `${API_BASE}?${query.toString()}`;
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+/**
  * Sign in. The server returns a generic 401 for both a wrong password and an
  * unknown email — deliberately, so callers cannot enumerate registered emails.
  * Surface ONE generic message on 401; never two.

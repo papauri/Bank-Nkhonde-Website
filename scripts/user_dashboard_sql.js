@@ -49,6 +49,12 @@ let currentGroup = null;
 let isAdmin = false;
 let sessionTimer = null;
 
+// Payment Calendar state: the month currently in view, and the last-built
+// event map (date-key -> array of event descriptors) so prev/next re-render
+// without re-fetching.
+let calendarViewMonth = null;
+let calendarEventsMap = new Map();
+
 export async function init() {
   wireStaticHandlers();
   loadUserDashboardEntry();
@@ -413,6 +419,7 @@ async function loadDashboard(groupId) {
   renderNextMonthlyPayment(obligationRows);
   renderUpcomingPayments(obligationRows);
   renderActiveLoans(loanRows);
+  await renderPaymentCalendar(obligationRows, loanRows);
 
   // Kept so the arrears / all-payments modals can render without re-fetching.
   window.__dashboardData = {
@@ -498,6 +505,161 @@ function renderFinancialOverview(ob, payments, loans) {
     count.textContent = String(active);
     activeEl.appendChild(count);
   }
+
+  renderContributionChart(ob);
+}
+
+/**
+ * "Contributions: Paid vs Outstanding" donut, built entirely with
+ * createElementNS/createElement + textContent (no innerHTML, matching this
+ * file's convention). Reads the same server-computed summary used above —
+ * no extra API call.
+ * @param {Object} ob
+ */
+function renderContributionChart(ob) {
+  const container = document.getElementById("contributionChart");
+  if (!container) return;
+  container.replaceChildren();
+
+  const summary = (ob && ob.summary) || {};
+  const paidMinor = toMinor(summary.contributed);
+  const outstandingMinor = toMinor(summary.arrears) + toMinor(summary.penaltyAccrued);
+  const totalMinor = paidMinor + outstandingMinor;
+
+  if (totalMinor <= 0) {
+    container.appendChild(buildEmptyState("📊", "No contribution data yet"));
+    return;
+  }
+
+  const pctPaid = Math.round((paidMinor / totalMinor) * 100);
+
+  const centerX = 120;
+  const centerY = 120;
+  const radius = 80;
+  const strokeWidth = 32;
+  const circumference = 2 * Math.PI * radius;
+  const SVG_NS = "http://www.w3.org/2000/svg";
+
+  const wrapper = document.createElement("div");
+  wrapper.style.position = "relative";
+  wrapper.style.width = "100%";
+  wrapper.style.maxWidth = "240px";
+  wrapper.style.margin = "0 auto";
+
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("class", "pie-chart-svg");
+  svg.setAttribute("viewBox", "0 0 240 240");
+  svg.style.width = "100%";
+  svg.style.height = "auto";
+
+  const group = document.createElementNS(SVG_NS, "g");
+  group.setAttribute("transform", `rotate(-90 ${centerX} ${centerY})`);
+
+  const track = document.createElementNS(SVG_NS, "circle");
+  track.setAttribute("cx", String(centerX));
+  track.setAttribute("cy", String(centerY));
+  track.setAttribute("r", String(radius));
+  track.setAttribute("fill", "none");
+  track.setAttribute("stroke", "var(--bn-gray-100)");
+  track.setAttribute("stroke-width", String(strokeWidth));
+  group.appendChild(track);
+
+  const segments = [
+    { value: paidMinor, color: "var(--bn-success)", label: "Paid" },
+    { value: outstandingMinor, color: "var(--bn-danger)", label: "Outstanding" },
+  ].filter((s) => s.value > 0);
+
+  let cumulativeLength = 0;
+  segments.forEach((segment) => {
+    const percentage = (segment.value / totalMinor) * 100;
+    const arcLength = (percentage / 100) * circumference;
+    const dashOffset = -cumulativeLength;
+    cumulativeLength += arcLength;
+
+    const seg = document.createElementNS(SVG_NS, "circle");
+    seg.setAttribute("class", "pie-chart-segment");
+    seg.setAttribute("cx", String(centerX));
+    seg.setAttribute("cy", String(centerY));
+    seg.setAttribute("r", String(radius));
+    seg.setAttribute("fill", "none");
+    seg.setAttribute("stroke", segment.color);
+    seg.setAttribute("stroke-width", String(strokeWidth));
+    seg.setAttribute("stroke-dasharray", `${arcLength} ${circumference - arcLength}`);
+    seg.setAttribute("stroke-dashoffset", String(dashOffset));
+    seg.setAttribute("stroke-linecap", "butt");
+    group.appendChild(seg);
+  });
+
+  svg.appendChild(group);
+  wrapper.appendChild(svg);
+
+  const center = document.createElement("div");
+  center.style.position = "absolute";
+  center.style.top = "50%";
+  center.style.left = "50%";
+  center.style.transform = "translate(-50%, -50%)";
+  center.style.textAlign = "center";
+
+  const bigNumber = document.createElement("div");
+  bigNumber.style.fontWeight = "700";
+  bigNumber.style.fontSize = "var(--bn-text-2xl, 1.5rem)";
+  bigNumber.textContent = `${pctPaid}%`;
+
+  const subLabel = document.createElement("div");
+  subLabel.style.fontSize = "var(--bn-text-sm)";
+  subLabel.style.color = "var(--bn-gray-700)";
+  subLabel.textContent = "Paid";
+
+  center.appendChild(bigNumber);
+  center.appendChild(subLabel);
+  wrapper.appendChild(center);
+
+  container.appendChild(wrapper);
+
+  // Legend
+  const legend = document.createElement("div");
+  legend.style.marginTop = "var(--bn-space-4)";
+
+  const legendRows = [
+    { color: "var(--bn-success)", label: "Paid", minor: paidMinor },
+    { color: "var(--bn-danger)", label: "Outstanding", minor: outstandingMinor },
+  ];
+
+  legendRows.forEach((row) => {
+    const rowEl = document.createElement("div");
+    rowEl.style.display = "flex";
+    rowEl.style.alignItems = "center";
+    rowEl.style.justifyContent = "space-between";
+    rowEl.style.padding = "var(--bn-space-1) 0";
+
+    const left = document.createElement("span");
+    left.style.display = "flex";
+    left.style.alignItems = "center";
+    left.style.gap = "var(--bn-space-2)";
+
+    const dot = document.createElement("span");
+    dot.style.display = "inline-block";
+    dot.style.width = "10px";
+    dot.style.height = "10px";
+    dot.style.borderRadius = "50%";
+    dot.style.background = row.color;
+
+    const labelText = document.createElement("span");
+    labelText.textContent = row.label;
+
+    left.appendChild(dot);
+    left.appendChild(labelText);
+
+    const amount = document.createElement("span");
+    amount.style.fontWeight = "600";
+    amount.textContent = formatCurrency(fromMinor(row.minor));
+
+    rowEl.appendChild(left);
+    rowEl.appendChild(amount);
+    legend.appendChild(rowEl);
+  });
+
+  container.appendChild(legend);
 }
 
 /**
@@ -792,6 +954,243 @@ function isLoanDue(loan) {
   const maturity = new Date(targetFirst);
   maturity.setDate(Math.min(start.getDate(), daysInTargetMonth));
   return maturity.getTime() < Date.now();
+}
+
+/* ------------------------------------------------------------------ *
+ * Payment Calendar — read-only visualization of due dates, sourced from
+ * the same obligationRows already fetched in loadDashboard(), plus one
+ * loans.get fetch per the caller's own active loan (for its repayment
+ * schedule dates, which loans.list does not include).
+ * ------------------------------------------------------------------ */
+
+/**
+ * Fetch the repayment schedule for each of the caller's own active
+ * (approved/disbursed) loans. Best-effort: a single loan's fetch failing
+ * does not block the calendar from rendering the rest of its events.
+ * @param {Array<Object>} loans
+ * @return {Promise<Array<Object>>} flattened schedule rows across all loans
+ */
+async function fetchActiveLoanSchedules(loans) {
+  const active = loans.filter((l) => isActiveLoan(l.status));
+  const schedules = [];
+  await Promise.all(
+    active.map(async (loan) => {
+      if (!loan.loanId) return;
+      try {
+        const data = await apiGet("loans.get", { loanId: loan.loanId });
+        const rows =
+          data && Array.isArray(data.schedule) ? data.schedule : [];
+        schedules.push(...rows);
+      } catch (error) {
+        console.error("Failed to load loan schedule for calendar:", error);
+      }
+    }),
+  );
+  return schedules;
+}
+
+/**
+ * Build a Map of "YYYY-MM-DD" -> array of {type, overdue, paid, label} event
+ * descriptors from the obligation rows and loan schedule rows.
+ * @param {Object} ob obligations payload
+ * @param {Array<Object>} loanSchedules flattened loans.get schedule rows
+ * @return {Map<string, Array<Object>>}
+ */
+function buildCalendarEvents(ob, loanSchedules) {
+  const map = new Map();
+  const today = startOfToday();
+
+  const add = (date, type, overdue, paid, label) => {
+    if (!date) return;
+    const key = dateKey(date);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push({ type, overdue, paid, label });
+  };
+
+  const considerObligation = (type, label, obl) => {
+    if (!obl) return;
+    const due = parseServerDate(obl.dueDate);
+    if (!due) return;
+    const arrears = toMinor(obl.arrears);
+    const overdue = due < today && arrears > 0;
+    const paid = arrears <= 0 && due <= today;
+    add(due, type, overdue, paid, `${label} • ${formatCurrency(pickOwedString(obl))}`);
+  };
+
+  if (ob.seedMoney && ob.seedMoney.configured) {
+    considerObligation("seed", "Seed Money", ob.seedMoney);
+  }
+  for (const m of monthsOf(ob)) {
+    considerObligation("monthly", `Monthly Contribution - ${m.month}`, m);
+  }
+  if (ob.serviceFee) considerObligation("servicefee", "Service Fee", ob.serviceFee);
+
+  for (const row of loanSchedules) {
+    const due = parseServerDate(row.dueDate);
+    if (!due) continue;
+    const overdue = row.status === "overdue";
+    const paid = row.status === "paid";
+    add(
+      due,
+      "loan",
+      overdue,
+      paid,
+      `Loan payment • ${formatCurrency(row.totalDue)}`,
+    );
+  }
+
+  return map;
+}
+
+/**
+ * Fetch the calendar's event data and render the currently-viewed month
+ * (defaulting to the real current month on first load).
+ * @param {Object} obligationRows
+ * @param {Array<Object>} loanRows
+ */
+async function renderPaymentCalendar(obligationRows, loanRows) {
+  const schedules = await fetchActiveLoanSchedules(loanRows);
+  calendarEventsMap = buildCalendarEvents(obligationRows, schedules);
+  if (!calendarViewMonth) calendarViewMonth = startOfMonth(new Date());
+  renderCalendarGrid(calendarViewMonth, calendarEventsMap);
+}
+
+/**
+ * Build and render the 7-column month grid for `monthDate` into
+ * #paymentCalendar, using the existing .calendar/.calendar-day/etc CSS
+ * contract. Read-only — no create/edit/delete affordances.
+ * @param {Date} monthDate any date within the month to render
+ * @param {Map<string, Array<Object>>} eventsByDate
+ */
+function renderCalendarGrid(monthDate, eventsByDate) {
+  const container = document.getElementById("paymentCalendar");
+  if (!container) return;
+
+  setText(
+    "calendarMonthYear",
+    monthDate.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+  );
+
+  container.replaceChildren();
+
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const today = startOfToday();
+
+  const header = document.createElement("div");
+  header.className = "calendar-header";
+  for (const d of ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]) {
+    const nameEl = document.createElement("div");
+    nameEl.className = "calendar-day-name";
+    nameEl.textContent = d;
+    header.appendChild(nameEl);
+  }
+  container.appendChild(header);
+
+  const grid = document.createElement("div");
+  grid.className = "calendar";
+
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+  const totalCells = Math.ceil((firstWeekday + daysInMonth) / 7) * 7;
+
+  for (let i = 0; i < totalCells; i++) {
+    const dayNum = i - firstWeekday + 1;
+    let cellDate;
+    let otherMonth = false;
+    if (dayNum < 1) {
+      cellDate = new Date(year, month - 1, daysInPrevMonth + dayNum);
+      otherMonth = true;
+    } else if (dayNum > daysInMonth) {
+      cellDate = new Date(year, month + 1, dayNum - daysInMonth);
+      otherMonth = true;
+    } else {
+      cellDate = new Date(year, month, dayNum);
+    }
+
+    const cell = document.createElement("div");
+    cell.className = "calendar-day";
+    if (otherMonth) cell.classList.add("other-month");
+    if (isSameDay(cellDate, today)) cell.classList.add("today");
+
+    const numberEl = document.createElement("div");
+    numberEl.className = "calendar-day-number";
+    numberEl.textContent = String(cellDate.getDate());
+    cell.appendChild(numberEl);
+
+    const dayEvents = eventsByDate.get(dateKey(cellDate));
+    if (dayEvents && dayEvents.length) {
+      cell.classList.add("has-event");
+      const eventsWrap = document.createElement("div");
+      eventsWrap.className = "calendar-day-events";
+      for (const ev of dayEvents) {
+        const dot = document.createElement("span");
+        dot.className = ev.overdue
+          ? "calendar-event-note overdue"
+          : ev.paid
+            ? `calendar-event-note approved ${ev.type}`
+            : `calendar-event-note ${ev.type}`;
+        dot.title = ev.label;
+        eventsWrap.appendChild(dot);
+      }
+      cell.appendChild(eventsWrap);
+    }
+
+    grid.appendChild(cell);
+  }
+
+  container.appendChild(grid);
+}
+
+/**
+ * Move the calendar's in-view month by `delta` months and re-render using
+ * the already-fetched event map (no re-fetch on navigation).
+ * @param {number} delta
+ */
+function shiftCalendarMonth(delta) {
+  if (!calendarViewMonth) calendarViewMonth = startOfMonth(new Date());
+  calendarViewMonth = new Date(
+    calendarViewMonth.getFullYear(),
+    calendarViewMonth.getMonth() + delta,
+    1,
+  );
+  renderCalendarGrid(calendarViewMonth, calendarEventsMap);
+}
+
+/**
+ * Midnight on the first of the month containing `date`.
+ * @param {Date} date
+ * @return {Date}
+ */
+function startOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+/**
+ * Whether two dates fall on the same calendar day (ignoring time).
+ * @param {Date} a
+ * @param {Date} b
+ * @return {boolean}
+ */
+function isSameDay(a, b) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+/**
+ * Local "YYYY-MM-DD" key for a date, used to bucket calendar events by day.
+ * @param {Date} date
+ * @return {string}
+ */
+function dateKey(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 /* ------------------------------------------------------------------ *
@@ -1132,6 +1531,15 @@ function wireStaticHandlers() {
         modal.classList.remove("active");
       }
     });
+
+  // Payment Calendar month navigation — re-renders from the already-fetched
+  // event map, no re-fetch on prev/next.
+  document
+    .getElementById("calendarPrevMonth")
+    ?.addEventListener("click", () => shiftCalendarMonth(-1));
+  document
+    .getElementById("calendarNextMonth")
+    ?.addEventListener("click", () => shiftCalendarMonth(1));
 
   // No member-initiated "request a new loan" flow exists anywhere in the
   // ported app yet (grepped loans.request across scripts/*_sql.js — the only

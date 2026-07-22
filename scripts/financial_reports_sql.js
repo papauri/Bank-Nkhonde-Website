@@ -30,14 +30,15 @@
  *                           disbursed; outstanding balances = remainingBalance,
  *                           both server-computed, summed here only.
  *
+ * EXPORT: #exportBtn triggers a server-generated CSV via the
+ * exports.report GET endpoint (downloadExport() in api.js — anchor-click
+ * browser download, no client-side CSV composition, no innerHTML).
+ *
  * DEFERRED (toast + reported, never invented):
  *   - PDF export (the original built a print window from client-composed
  *     HTML strings using innerHTML with server-sourced names/amounts — that
- *     pattern is exactly the XSS risk this port must not carry over, and
- *     there is no reports.export/download endpoint to redirect to instead).
- *   - Excel/CSV export (same reasoning — no export endpoint exists; the
- *     original built the CSV entirely client-side from Firestore data with
- *     no server involvement at all).
+ *     pattern is exactly the XSS risk this port must not carry over; the
+ *     CSV export above is the only export endpoint that exists today).
  *   - Emailing a report to members (no reports.email / mail-merge endpoint).
  *   - Scheduled/automated monthly reports (no scheduling endpoint).
  *   - Quarterly/Annual tab granularity — the original had no distinct data
@@ -45,7 +46,7 @@
  *     payments.list date-range parameter beyond the existing `year` filter.
  */
 
-import {apiGet, requireSession, listMyGroups, ApiError, redirectToLogin} from "./api.js";
+import {apiGet, requireSession, listMyGroups, ApiError, redirectToLogin, downloadExport} from "./api.js";
 import { formatCurrency } from "./utils_financial.js";
 
 const REPORT_ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
@@ -117,13 +118,15 @@ function setupEventListeners() {
     }
   });
 
-  // No export endpoint exists yet — see DEFERRED note in the file header.
-  // Never re-implement the original's client-composed-HTML print/CSV flow;
-  // that pattern is the exact XSS risk this port must not carry over.
   // #downloadBtn does not exist in pages/financial_reports.html — the real
-  // "Download PDF" control is #exportBtn, wired below.
+  // control is #exportBtn, wired here to the server-generated CSV
+  // (exports.report) via downloadExport() — no client-side CSV composition.
   exportBtn()?.addEventListener("click", () => {
-    showToast("Report export is not available yet — it needs a reports.export endpoint.", "info");
+    if (!currentGroupId) {
+      showToast("Select a group first", "info");
+      return;
+    }
+    downloadExport("exports.report", {groupId: currentGroupId});
   });
 
   // Monthly/Quarterly/Annual tabs: no distinct data source exists yet (see
@@ -318,7 +321,6 @@ function renderDetailedReport() {
   container.appendChild(reportHeader());
   container.appendChild(memberContributionsSection());
   container.appendChild(loanSummarySection());
-  container.appendChild(exportNotice());
 }
 
 function reportHeader() {
@@ -470,13 +472,6 @@ function loanSummarySection() {
   table.appendChild(tbody);
   section.appendChild(table);
   return section;
-}
-
-function exportNotice() {
-  const note = document.createElement("p");
-  note.className = "cell-muted";
-  note.textContent = "PDF/Excel export is not available yet.";
-  return note;
 }
 
 function moneyCell(label, amount, cssClass) {
