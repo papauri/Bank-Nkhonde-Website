@@ -1753,6 +1753,26 @@ The owner's experience is exact: the page LOOKS complete but the SQL migration n
 
 Files: `pages/user_dashboard.html` (advanced-group id + hidden default), `scripts/user_dashboard_sql.js` (both fixes). `node --check` clean; ids unique; tag balance 146/146. Test data (`[REVIEW TEST - safe to delete] Layout Group` + member) created for the live check and then deleted from the DB.
 
+## CYCLE 88 (2026-07-22) — OWNER: "thoroughly review the user dashboard — why is some info not pulling, like the member-in-a-group / accounting stats." Reviewed every hero stat against ground-truth data live in a real browser.
+
+**ROOT CAUSE of the "member in a group" gap:** the **"Group Members" hero stat (`#totalMembers`) was NEVER populated** — grep confirmed ZERO JS references to that id, and the dashboard's data-load (`payments.obligations` + `payments.list` + `loans.list`) never fetched `members.list` at all. So the count sat at the hardcoded markup value "0" forever.
+
+**FIX:** added `members.list` to the dashboard's `Promise.all` load and a new `renderGroupMembers(members)` that writes the real count into `#totalMembers`'s count span (counting members whose status ≠ 'inactive' — i.e. still in the group — preserving the "Members" badge beside it). `members.list` is gated to any member, so a plain member may read it.
+
+**VERIFIED LIVE (real browser, group of admin + 3 members, M1 given one APPROVED July contribution + one active forced loan):** every hero stat now pulls correctly —
+- Group Members: **"4 Members"** (was 0) ✓
+- Loans: **1** with details "Received MWK 30,000.00 / Balance MWK 30,000.00" ✓
+- Contributed: **MWK 10,000.00** (the approved payment — verified money only) ✓
+- Pending: MWK 0.00 (the claim was approved) ✓
+- Arrears: MWK 453,000.00 (seed + unpaid months + penalties, net of the paid month) ✓
+- Next Payment: MWK 10,000.00 on Jan 31 ✓
+- Upcoming Payments table + Pay buttons render ✓
+`members.list` reliability checked (5/5 sequential + 5/5 concurrent = 200); a single earlier 500 was a transient `php -S` blip under heavy multi-request test load, not a code bug.
+
+**Minor remaining (NOT fixed — low priority, needs a backend change):** the multi-group chooser overlay's per-group member count uses `group.statistics.totalMembers`, which `groups.mine` doesn't return, so it shows 0 there. Only appears when a member belongs to multiple groups and must pick one; the main dashboard stat is fixed. Fixing it would need `groups.mine` to return a per-group member count (an N+1 today).
+
+Files: `scripts/user_dashboard_sql.js` (uncommitted). Test data (`[STAT TEST - safe to delete] Accounting Group` + 3 members) deleted from the DB after the check.
+
 ## FUTURE IDEAS (not in scope)
 
 Logged, NOT in the active backlog. Requires the owner's explicit approval to promote into "PROJECT COMPLETE WHEN". `build-planner` files things here instead of silently queuing them.

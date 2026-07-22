@@ -392,10 +392,11 @@ async function loadDashboard(groupId) {
   // Reset per-load so switching groups can surface a fresh warning too.
   fetchFailureWarned = false;
 
-  const [obligations, payments, loans] = await Promise.all([
+  const [obligations, payments, loans, members] = await Promise.all([
     safeGet("payments.obligations", { groupId }),
     safeGet("payments.list", { groupId }),
     safeGet("loans.list", { groupId }),
+    safeGet("members.list", { groupId }),
   ]);
 
   const obligationRows = obligations || emptyObligations();
@@ -403,8 +404,12 @@ async function loadDashboard(groupId) {
     ? payments.payments
     : [];
   const loanRows = loans && Array.isArray(loans.loans) ? loans.loans : [];
+  const memberRows = members && Array.isArray(members.members)
+    ? members.members
+    : [];
 
   renderFinancialOverview(obligationRows, paymentRows, loanRows);
+  renderGroupMembers(memberRows);
   renderNextMonthlyPayment(obligationRows);
   renderUpcomingPayments(obligationRows);
   renderActiveLoans(loanRows);
@@ -493,6 +498,23 @@ function renderFinancialOverview(ob, payments, loans) {
     count.textContent = String(active);
     activeEl.appendChild(count);
   }
+}
+
+/**
+ * "Group Members" hero stat. members.list returns the group roster (any member
+ * may read it); count those still in the group (active or suspended — an
+ * 'inactive'/removed member has left and no longer occupies a slot). Updates
+ * only the count span, preserving the "Members" badge beside it.
+ */
+function renderGroupMembers(members) {
+  const el = document.getElementById("totalMembers");
+  if (!el) return;
+  const countSpan = el.querySelector("span");
+  if (!countSpan) return;
+  const count = Array.isArray(members)
+    ? members.filter((m) => String(m.status) !== "inactive").length
+    : 0;
+  countSpan.textContent = String(count);
 }
 
 /**
