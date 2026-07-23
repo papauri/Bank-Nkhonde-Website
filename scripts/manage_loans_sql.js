@@ -166,6 +166,7 @@ function setupEventListeners() {
   document.getElementById("recordPaymentBtn")?.addEventListener("click", () => openRecordPaymentModal());
   document.getElementById("loanSettingsBtn")?.addEventListener("click", openLoanSettingsModal);
   document.getElementById("communicationsBtn")?.addEventListener("click", () => openCommunicationsModal());
+  document.getElementById("acctPeriodFilter")?.addEventListener("change", renderAccountantSummary);
   document.getElementById("configForcedLoansBtn")?.addEventListener("click", openForcedLoansConfigModal);
 
   setupModalCloseHandlers("newLoanModal", "closeNewLoanModal", "cancelNewLoan");
@@ -270,6 +271,7 @@ async function loadGroupData() {
     await loadGroupRules();
     await loadPendingRepayments();
     updateStats();
+    renderAccountantSummary();
     renderLoans();
   } catch (error) {
     handleApiError(error, "Failed to load group data");
@@ -505,6 +507,183 @@ function updateStats() {
   if (disbursedEl) disbursedEl.textContent = formatCurrency(totalDisbursed);
   const outstandingEl = totalOutstandingEl();
   if (outstandingEl) outstandingEl.textContent = formatCurrency(totalOutstanding);
+}
+
+// ── Accounting summary (status banner + period totals + follow-up list) ──────
+// A loan whose principal has been paid out and which is now past its derived
+// maturity (approvedAt + repaymentPeriod months) with a balance still owing —
+// the same maturity rule the "Overdue" tab uses.
+function isLoanOverdue(l) {
+  if (l.status !== "approved" && l.status !== "disbursed") return false;
+  if (numberOf(l.remainingBalance) <= 0) return false;
+  if (!l.approvedAt) return false;
+  const start = new Date(l.approvedAt);
+  if (Number.isNaN(start.getTime())) return false;
+  const months = parseInt(l.repaymentPeriod, 10) || 0;
+  const targetFirst = new Date(start.getFullYear(), start.getMonth() + months, 1);
+  const daysInTargetMonth = new Date(targetFirst.getFullYear(), targetFirst.getMonth() + 1, 0).getDate();
+  const maturity = new Date(targetFirst);
+  maturity.setDate(Math.min(start.getDate(), daysInTargetMonth));
+  return maturity.getTime() < Date.now();
+}
+
+// Whether a loan's disbursement date falls in the selected reporting period.
+// Relative periods (month/quarter/year) are scoped to the current calendar
+// year; q1–q4 pick a specific quarter of it.
+function inAcctPeriod(dateStr, period) {
+  if (period === "all") return true;
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  if (d.getFullYear() !== now.getFullYear()) return false;
+  const m = d.getMonth();
+  switch (period) {
+    case "month": return m === now.getMonth();
+    case "quarter": return Math.floor(m / 3) === Math.floor(now.getMonth() / 3);
+    case "year": return true;
+    case "q1": return m <= 2;
+    case "q2": return m >= 3 && m <= 5;
+    case "q3": return m >= 6 && m <= 8;
+    case "q4": return m >= 9;
+    default: return true;
+  }
+}
+
+function acctTotalTile(label, value, cls) {
+  const tile = document.createElement("div");
+  tile.className = "acct-total";
+  const l = document.createElement("div");
+  l.className = "acct-total-label";
+  l.textContent = label;
+  const v = document.createElement("div");
+  v.className = "acct-total-value" + (cls ? " " + cls : "");
+  v.textContent = value;
+  tile.append(l, v);
+  return tile;
+}
+
+function loanBorrowerName(borrowerId) {
+  return members.find((m) => m.uid === borrowerId)?.fullName || "Unknown";
+}
+
+function renderAccountantSummary() {
+  const section = document.getElementById("accountantSummary");
+  if (!section) return;
+  if (!loans.length && !members.length) {
+    section.style.display = "none";
+    return;
+  }
+  section.style.display = "";
+
+  const period = document.getElementById("acctPeriodFilter")?.value || "all";
+
+  // Period totals — principal disbursed within the selected period.
+  const DISBURSED_STATUSES = new Set(["approved", "disbursed", "completed"]);
+  let disbursed = 0;
+  let disbursedCount = 0;
+  loans.forEach((l) => {
+    if (!DISBURSED_STATUSES.has(String(l.status))) return;
+    if (!inAcctPeriod(l.disbursedAt || l.approvedAt || l.createdAt, period)) return;
+    disbursed += numberOf(l.approvedAmount ?? l.principalAmount);
+    disbursedCount += 1;
+  });
+
+  // Current standing (not period-scoped): active loans + outstanding balance.
+  let outstanding = 0;
+  let activeCount = 0;
+  loans.forEach((l) => {
+    if (l.status === "approved" || l.status === "disbursed") {
+      activeCount += 1;
+      outstanding += numberOf(l.remainingBalance);
+    }
+  });
+
+  // Overdue loans → who to follow up on, by borrower, ranked most-owing first.
+  const byBorrower = new Map();
+  loans.filter(isLoanOverdue).forEach((l) => {
+    const amt = numberOf(l.remainingBalance);
+    byBorrower.set(l.borrowerId, (byBorrower.get(l.borrowerId) || 0) + amt);
+  });
+  const followups = Array.from(byBorrower.entries())
+    .map(([id, amt]) => ({ id, amt, name: loanBorrowerName(id) }))
+    .sort((a, b) => b.amt - a.amt);
+  const overdueTotal = followups.reduce((s, f) => s + f.amt, 0);
+
+  // Status banner.
+  const banner = document.getElementById("acctStatusBanner");
+  if (banner) {
+    banner.textContent = "";
+    const b = document.createElement("div");
+    if (followups.length === 0) {
+      b.className = "acct-banner caught-up";
+      b.textContent = "✓ All caught up — no overdue loans";
+    } else {
+      b.className = "acct-banner follow-up";
+      b.textContent =
+        `⚠ ${followups.length} borrower${followups.length === 1 ? "" : "s"} to follow up · ` +
+        `${formatCurrency(overdueTotal)} overdue`;
+    }
+    banner.appendChild(b);
+  }
+
+  // Period totals tiles.
+  const totals = document.getElementById("acctTotals");
+  if (totals) {
+    totals.textContent = "";
+    totals.append(
+      acctTotalTile("Disbursed", formatCurrency(disbursed), "pos"),
+      acctTotalTile("Loans disbursed", String(disbursedCount), ""),
+      acctTotalTile("Active loans", String(activeCount), ""),
+      acctTotalTile("Outstanding", formatCurrency(outstanding), outstanding > 0 ? "neg" : ""),
+    );
+  }
+
+  // Follow-up list.
+  const fu = document.getElementById("acctFollowups");
+  if (fu) {
+    fu.textContent = "";
+    if (followups.length > 0) {
+      const head = document.createElement("div");
+      head.className = "acct-followups-head";
+      const h = document.createElement("span");
+      h.textContent = "Who to follow up on (overdue)";
+      const remindAll = document.createElement("button");
+      remindAll.type = "button";
+      remindAll.className = "btn btn-accent btn-sm";
+      remindAll.textContent = "Send reminders";
+      remindAll.addEventListener("click", () => openCommunicationsModal());
+      head.append(h, remindAll);
+      fu.appendChild(head);
+
+      const list = document.createElement("div");
+      list.className = "acct-followups-list";
+      followups.slice(0, 8).forEach((f) => {
+        const row = document.createElement("div");
+        row.className = "acct-followup-row";
+        const name = document.createElement("span");
+        name.className = "acct-followup-name";
+        name.textContent = f.name;
+        const amt = document.createElement("span");
+        amt.className = "acct-followup-amt";
+        amt.textContent = formatCurrency(f.amt);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn btn-ghost btn-sm";
+        btn.textContent = "Remind";
+        btn.addEventListener("click", () => openCommunicationsModal(f.id));
+        row.append(name, amt, btn);
+        list.appendChild(row);
+      });
+      fu.appendChild(list);
+
+      if (followups.length > 8) {
+        const more = document.createElement("div");
+        more.className = "acct-followup-more";
+        more.textContent = `+${followups.length - 8} more overdue`;
+        fu.appendChild(more);
+      }
+    }
+  }
 }
 
 // ── Render loans ─────────────────────────────────────────────────────────────

@@ -299,29 +299,166 @@
       outline: 2px solid var(--bn-accent);
       outline-offset: 2px;
     }
+    /* Compact popover anchored to the top-right, just under the "i" toggle.
+       Click-toggle ONLY (no hover/focus reveal) so a second click closes it
+       completely and it never re-appears on hover. */
     .stat-card-popover {
       position: absolute;
-      top: calc(100% + var(--bn-space-2));
-      left: 0;
-      right: 0;
+      top: calc(var(--bn-space-2) + 40px);
+      right: var(--bn-space-2);
+      left: auto;
       z-index: var(--z-dropdown);
       display: none;
+      width: max-content;
+      max-width: min(260px, calc(100vw - var(--bn-space-8)));
       background: var(--bn-white);
+      color: var(--bn-gray-700);
       border: 1px solid var(--bn-gray-lighter);
       border-radius: var(--bn-radius-md);
-      box-shadow: 0 4px 16px rgba(10, 22, 40, 0.18);
+      box-shadow: 0 6px 20px rgba(10, 22, 40, 0.20);
       padding: var(--bn-space-3) var(--bn-space-4);
       text-align: left;
+      font-size: var(--bn-text-sm);
+      line-height: 1.5;
     }
-    .page-stat:hover .stat-card-popover,
-    .page-stat:focus-within .stat-card-popover,
-    .breakdown-card:hover .stat-card-popover,
-    .breakdown-card:focus-within .stat-card-popover,
     .stat-card-popover.open {
       display: block;
     }
     .stat-card-popover:empty {
       display: none;
+    }
+
+    /* Monthly financial trend — KPI summary + axis/gridlines + grouped bars. */
+    .fin-kpis {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--bn-space-6);
+      margin: var(--bn-space-2) 0 var(--bn-space-5);
+      padding-bottom: var(--bn-space-4);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+    }
+    .fin-kpi {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .fin-kpi-label {
+      font-size: var(--bn-text-xs);
+      font-weight: 600;
+      color: var(--bn-gray);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .fin-kpi-value {
+      font-size: var(--bn-text-xl);
+      font-weight: 800;
+      color: var(--bn-dark);
+    }
+    .fin-kpi-value.pos {
+      color: var(--bn-success-dark, var(--bn-success));
+    }
+    .fin-kpi-value.neg {
+      color: var(--bn-danger-dark, var(--bn-danger));
+    }
+
+    .fin-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--bn-space-4);
+      margin-bottom: var(--bn-space-4);
+    }
+    .fin-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray-700);
+    }
+    .fin-legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .fin-legend-dot.collected {
+      background: var(--bn-success);
+    }
+    .fin-legend-dot.disbursed {
+      background: var(--bn-info);
+    }
+
+    .fin-plot {
+      display: flex;
+      gap: var(--bn-space-3);
+    }
+    .fin-yaxis {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 220px;
+      flex-shrink: 0;
+      min-width: 52px;
+      text-align: right;
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+    .fin-scroll {
+      flex: 1;
+      min-width: 0;
+      overflow-x: auto;
+      padding-bottom: var(--bn-space-1);
+    }
+    .fin-plot-area {
+      position: relative;
+      min-width: 100%;
+      width: max-content;
+    }
+    .fin-gridline {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: var(--bn-gray-lighter);
+    }
+    .fin-bars {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--bn-space-2);
+    }
+    .fin-month {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1 0 auto;
+      min-width: 34px;
+    }
+    .fin-month-bars {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 3px;
+      width: 100%;
+    }
+    .fin-bar {
+      width: 14px;
+      max-width: 44%;
+      min-height: 2px;
+      border-radius: var(--bn-radius-sm) var(--bn-radius-sm) 0 0;
+      transition: height 0.4s ease;
+    }
+    .fin-bar.collected {
+      background: var(--bn-success);
+    }
+    .fin-bar.disbursed {
+      background: var(--bn-info);
+    }
+    .fin-month-label {
+      margin-top: var(--bn-space-2);
+      font-size: var(--bn-text-xs);
+      font-weight: 600;
+      color: var(--bn-gray);
     }
   </style>
 </head>

@@ -358,43 +358,107 @@ function renderMonthlyTrendChart() {
       if (idx >= 0 && idx <= currentMonth) monthly[idx].disbursed += numberOf(l.principalAmount ?? l.approvedAmount);
     });
 
-  const maxValue = Math.max(1000, ...monthly.map((m) => Math.max(m.collected, m.disbursed)));
+  const totalCollected = monthly.reduce((s, m) => s + m.collected, 0);
+  const totalDisbursed = monthly.reduce((s, m) => s + m.disbursed, 0);
+  const net = totalCollected - totalDisbursed;
 
   const card = el("div", "content-section-body");
   const title = el("h3");
   title.textContent = "Monthly Contributions Collected vs Loans Disbursed";
   card.appendChild(title);
 
-  const bars = el("div", "monthly-trend-bars");
-  bars.style.cssText = "display:flex; align-items:flex-end; gap:8px; height:200px;";
+  if (totalCollected === 0 && totalDisbursed === 0) {
+    card.appendChild(emptyState("📊", "No contributions or disbursements recorded yet"));
+    container.appendChild(card);
+    return;
+  }
 
-  monthly.forEach((m) => {
-    const columnWrap = el("div", "monthly-trend-column");
-    columnWrap.style.cssText = "flex:1; display:flex; flex-direction:column; align-items:center; height:100%;";
+  // Compact axis-tick formatter (major-unit numbers).
+  const shortMoney = (n) => {
+    if (n >= 1000000) return "MWK " + (n / 1000000).toFixed(n >= 10000000 ? 0 : 1) + "M";
+    if (n >= 1000) return "MWK " + (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k";
+    return "MWK " + Math.round(n);
+  };
 
-    const barPair = el("div");
-    barPair.style.cssText = "flex:1; display:flex; align-items:flex-end; gap:2px; width:100%;";
-
-    const collectedBar = el("div", "trend-bar trend-bar-collected");
-    const collectedHeight = (m.collected / maxValue) * 100;
-    collectedBar.style.cssText = `flex:1; height:${collectedHeight}%; background: var(--bn-success);`;
-    collectedBar.title = `Collected: ${formatCurrency(m.collected)}`;
-
-    const disbursedBar = el("div", "trend-bar trend-bar-disbursed");
-    const disbursedHeight = (m.disbursed / maxValue) * 100;
-    disbursedBar.style.cssText = `flex:1; height:${disbursedHeight}%; background: var(--bn-danger);`;
-    disbursedBar.title = `Disbursed: ${formatCurrency(m.disbursed)}`;
-
-    barPair.append(collectedBar, disbursedBar);
-
-    const label = el("div", "trend-bar-label");
-    label.textContent = m.month.slice(0, 3);
-
-    columnWrap.append(barPair, label);
-    bars.appendChild(columnWrap);
+  // KPI summary — the hard numbers an accountant reads first.
+  const kpis = el("div", "fin-kpis");
+  [
+    ["Total Collected", formatCurrency(totalCollected), "pos"],
+    ["Total Disbursed", formatCurrency(totalDisbursed), ""],
+    ["Net Flow", formatCurrency(net), net >= 0 ? "pos" : "neg"],
+  ].forEach(([label, value, cls]) => {
+    const kpi = el("div", "fin-kpi");
+    const l = el("span", "fin-kpi-label");
+    l.textContent = label;
+    const v = el("span", "fin-kpi-value" + (cls ? " " + cls : ""));
+    v.textContent = value;
+    kpi.append(l, v);
+    kpis.appendChild(kpi);
   });
+  card.appendChild(kpis);
 
-  card.appendChild(bars);
+  // Legend (two series → always shown, so identity is never colour-alone).
+  const legend = el("div", "fin-legend");
+  [
+    ["collected", "Contributions Collected"],
+    ["disbursed", "Loans Disbursed"],
+  ].forEach(([c, text]) => {
+    const item = el("span", "fin-legend-item");
+    const dot = el("span", "fin-legend-dot " + c);
+    const t = el("span");
+    t.textContent = text;
+    item.append(dot, t);
+    legend.appendChild(item);
+  });
+  card.appendChild(legend);
+
+  // Plot: a left value axis + horizontal gridlines behind grouped monthly bars.
+  const PLOT_H = 220;
+  const axisMax = Math.max(1000, ...monthly.map((m) => Math.max(m.collected, m.disbursed)));
+
+  const plot = el("div", "fin-plot");
+
+  const yaxis = el("div", "fin-yaxis");
+  for (let i = 0; i <= 3; i++) {
+    const tick = el("span");
+    tick.textContent = shortMoney(axisMax * (1 - i / 3));
+    yaxis.appendChild(tick);
+  }
+  plot.appendChild(yaxis);
+
+  const scroll = el("div", "fin-scroll");
+  const area = el("div", "fin-plot-area");
+  for (let i = 0; i <= 3; i++) {
+    const line = el("div", "fin-gridline");
+    line.style.top = `${(i / 3) * PLOT_H}px`;
+    area.appendChild(line);
+  }
+
+  const barsRow = el("div", "fin-bars");
+  monthly.forEach((m) => {
+    const col = el("div", "fin-month");
+    const pair = el("div", "fin-month-bars");
+    pair.style.height = `${PLOT_H}px`;
+
+    const cBar = el("div", "fin-bar collected");
+    cBar.style.height = `${Math.max((m.collected / axisMax) * 100, m.collected > 0 ? 2 : 0)}%`;
+    cBar.title = `Collected (${m.month}): ${formatCurrency(m.collected)}`;
+
+    const dBar = el("div", "fin-bar disbursed");
+    dBar.style.height = `${Math.max((m.disbursed / axisMax) * 100, m.disbursed > 0 ? 2 : 0)}%`;
+    dBar.title = `Disbursed (${m.month}): ${formatCurrency(m.disbursed)}`;
+
+    pair.append(cBar, dBar);
+    const lbl = el("div", "fin-month-label");
+    lbl.textContent = m.month.slice(0, 3);
+    col.append(pair, lbl);
+    barsRow.appendChild(col);
+  });
+  area.appendChild(barsRow);
+  scroll.appendChild(area);
+  plot.appendChild(scroll);
+  card.appendChild(plot);
+
   container.appendChild(card);
 }
 

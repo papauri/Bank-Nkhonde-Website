@@ -172,6 +172,7 @@ function setupEventListeners() {
   document.getElementById("filterByMember")?.addEventListener("change", renderCurrentTab);
   document.getElementById("filterByPaymentType")?.addEventListener("change", renderCurrentTab);
   document.getElementById("filterByMonth")?.addEventListener("change", renderCurrentTab);
+  document.getElementById("acctPeriodFilter")?.addEventListener("change", renderAccountantSummary);
   document.getElementById("clearFiltersBtn")?.addEventListener("click", () => {
     const memberFilter = document.getElementById("filterByMember");
     const typeFilter = document.getElementById("filterByPaymentType");
@@ -310,6 +311,7 @@ async function loadGroupData() {
     await loadPayments();
     await loadGroupRules();
     updateStats();
+    renderAccountantSummary();
     renderCurrentTab();
     renderPendingPreview();
   } catch (error) {
@@ -396,6 +398,153 @@ function updateStats() {
   setText("approvedCount", approved);
   setText("totalCollected", formatCurrency(totalCollected));
   setText("totalArrears", formatCurrency(totalArrears));
+}
+
+// ── Accounting summary (status banner + period totals + follow-up list) ──────
+// Whether a payment's actual date (paidAt, falling back to createdAt) falls in
+// the selected reporting period. Relative periods (month/quarter/year) are
+// scoped to the current calendar year; q1–q4 pick a specific quarter of it.
+function inAcctPeriod(dateStr, period) {
+  if (period === "all") return true;
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  if (d.getFullYear() !== now.getFullYear()) return false;
+  const m = d.getMonth();
+  switch (period) {
+    case "month": return m === now.getMonth();
+    case "quarter": return Math.floor(m / 3) === Math.floor(now.getMonth() / 3);
+    case "year": return true;
+    case "q1": return m <= 2;
+    case "q2": return m >= 3 && m <= 5;
+    case "q3": return m >= 6 && m <= 8;
+    case "q4": return m >= 9;
+    default: return true;
+  }
+}
+
+function acctTotalTile(label, value, cls) {
+  const tile = document.createElement("div");
+  tile.className = "acct-total";
+  const l = document.createElement("div");
+  l.className = "acct-total-label";
+  l.textContent = label;
+  const v = document.createElement("div");
+  v.className = "acct-total-value" + (cls ? " " + cls : "");
+  v.textContent = value;
+  tile.append(l, v);
+  return tile;
+}
+
+function renderAccountantSummary() {
+  const section = document.getElementById("accountantSummary");
+  if (!section) return;
+  if (!allPayments.length && !members.length) {
+    section.style.display = "none";
+    return;
+  }
+  section.style.display = "";
+
+  const period = document.getElementById("acctPeriodFilter")?.value || "all";
+
+  // Period totals — scoped to the selected reporting period by the real date.
+  let collected = 0;
+  let recorded = 0;
+  let pending = 0;
+  allPayments.forEach((p) => {
+    if (!inAcctPeriod(p.paidAt || p.createdAt, period)) return;
+    recorded += 1;
+    if (SETTLED_STATUSES.includes(p.approvalStatus)) collected += numberOf(p.amountPaid);
+    if (p.approvalStatus === "pending") pending += 1;
+  });
+
+  // Current arrears per member = the live receivable (not period-scoped): who
+  // is behind right now, ranked most-behind first.
+  const arrearsByMember = new Map();
+  allPayments.forEach((p) => {
+    const a = numberOf(p.arrears);
+    if (a > 0) arrearsByMember.set(p.uid, (arrearsByMember.get(p.uid) || 0) + a);
+  });
+  const followups = Array.from(arrearsByMember.entries())
+    .map(([uid, amt]) => ({ uid, amt, name: memberName(uid) }))
+    .sort((a, b) => b.amt - a.amt);
+  const totalArrears = followups.reduce((s, f) => s + f.amt, 0);
+
+  // Status banner.
+  const banner = document.getElementById("acctStatusBanner");
+  if (banner) {
+    banner.textContent = "";
+    const b = document.createElement("div");
+    if (followups.length === 0) {
+      b.className = "acct-banner caught-up";
+      b.textContent = "✓ All caught up — no outstanding arrears";
+    } else {
+      b.className = "acct-banner follow-up";
+      b.textContent =
+        `⚠ ${followups.length} member${followups.length === 1 ? "" : "s"} to follow up · ` +
+        `${formatCurrency(totalArrears)} outstanding`;
+    }
+    banner.appendChild(b);
+  }
+
+  // Period totals tiles.
+  const totals = document.getElementById("acctTotals");
+  if (totals) {
+    totals.textContent = "";
+    totals.append(
+      acctTotalTile("Collected", formatCurrency(collected), "pos"),
+      acctTotalTile("Payments recorded", String(recorded), ""),
+      acctTotalTile("Pending approval", String(pending), pending > 0 ? "warn" : ""),
+      acctTotalTile("Outstanding arrears", formatCurrency(totalArrears), totalArrears > 0 ? "neg" : ""),
+    );
+  }
+
+  // Follow-up list.
+  const fu = document.getElementById("acctFollowups");
+  if (fu) {
+    fu.textContent = "";
+    if (followups.length > 0) {
+      const head = document.createElement("div");
+      head.className = "acct-followups-head";
+      const h = document.createElement("span");
+      h.textContent = "Who to follow up on";
+      const remindAll = document.createElement("button");
+      remindAll.type = "button";
+      remindAll.className = "btn btn-accent btn-sm";
+      remindAll.textContent = "Send reminders";
+      remindAll.addEventListener("click", () => openSendRemindersModal());
+      head.append(h, remindAll);
+      fu.appendChild(head);
+
+      const list = document.createElement("div");
+      list.className = "acct-followups-list";
+      followups.slice(0, 8).forEach((f) => {
+        const row = document.createElement("div");
+        row.className = "acct-followup-row";
+        const name = document.createElement("span");
+        name.className = "acct-followup-name";
+        name.textContent = f.name;
+        const amt = document.createElement("span");
+        amt.className = "acct-followup-amt";
+        amt.textContent = formatCurrency(f.amt);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn btn-ghost btn-sm";
+        btn.textContent = "Remind";
+        btn.addEventListener("click", () => openSendRemindersModal());
+        row.append(name, amt, btn);
+        list.appendChild(row);
+      });
+      fu.appendChild(list);
+
+      if (followups.length > 8) {
+        const more = document.createElement("div");
+        more.className = "acct-followup-more";
+        more.textContent = `+${followups.length - 8} more with arrears`;
+        fu.appendChild(more);
+      }
+    }
+  }
 }
 
 // ── Tab rendering ────────────────────────────────────────────────────────────
