@@ -116,6 +116,11 @@
       outline-offset: 2px;
     }
 
+    .tab:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
     .monthly-trend-chart {
       margin-bottom: var(--bn-space-6);
     }
@@ -362,9 +367,9 @@
       <div class="content-section-header">
         <h2 class="content-section-title">Financial Trends</h2>
         <div class="tabs">
-          <button class="tab">Week</button>
+          <button class="tab" disabled title="Weekly view is not available yet">Week</button>
           <button class="tab active">Month</button>
-          <button class="tab">Year</button>
+          <button class="tab" disabled title="Yearly view is not available yet">Year</button>
         </div>
       </div>
       <div class="content-section-body" id="chartsContainer">

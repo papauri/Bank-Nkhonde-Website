@@ -1497,3 +1497,241 @@ None in scope.
 6. **No interactivity patterns** — unlike dashboard's three patterns (click-through, modal, popover), analytics page has zero interactive elements
 
 ---
+
+## Interaction & view-switch re-audit (cycle 109 scout)
+
+**Objective:** Re-verify every card/tile/stat-element and the admin↔user view switch across the four GROUP-I pages + nav shell, against cycles 99–108 markup additions. The cycle-98 audit claimed everything was WIRED, but the owner reports cards still not clickable and no view-switch visible to admins.
+
+**Finding:** Cycle-98 audit was **incomplete/stale**. New popovers (I4/I5) ARE wired correctly, but one critical control is DEAD: the #viewToggle on user_dashboard is referenced in code but the DOM element does NOT EXIST.
+
+### 1. Admin Dashboard (`admin_dashboard.html` / `admin_dashboard_sql.js`)
+
+| Card/Element | ID/Selector | Type | Affordance | Handler | File:line | Status |
+|---|---|---|---|---|---|---|
+| Collections stat | `#totalCollections` | `.stat-card.clickable` button | `onclick=navigateToStatPage(...)` text + "i" info button | `navigateToStatPage('collections')` → manage_payments.html?tab=collected | admin_dashboard_sql.js:1309 | **WIRED** ✓ |
+| Active Loans stat | `#activeLoans` | `.stat-card.clickable` button | onclick + "i" button | navigateToStatPage('loans') → manage_loans.html | admin_dashboard_sql.js:1309 | **WIRED** ✓ |
+| Pending Approvals stat | `#pendingApprovals` | `.stat-card.clickable` button | onclick + "i" button | navigateToStatPage('pending') → manage_payments.html?tab=pending | admin_dashboard_sql.js:1309 | **WIRED** ✓ |
+| Arrears stat | `#totalArrears` | `.stat-card.clickable` button | onclick + "i" button | navigateToStatPage('arrears') → manage_payments.html?tab=arrears | admin_dashboard_sql.js:1309 | **WIRED** ✓ |
+| Info popovers (all 4) | `.stat-card-popover` | div siblings | `aria-controls` on "i" buttons; revealed on :hover, :focus-within, or .open class (touch) | setupStatCardPopovers() attaches listeners + CSS rule | admin_dashboard_sql.js:1382 | **WIRED** ✓ |
+| Monthly filter | `#dashboardMonthFilter` | select | change event | applyDashboardMonthFilter() re-aggregates payments server-side data locally | admin_dashboard_sql.js:1376-1380 | **WIRED** ✓ |
+
+**All admin dashboard cards are clickable and correctly wired.**
+
+### 2. User Dashboard (`user_dashboard.html` / `user_dashboard_sql.js`)
+
+| Card/Element | ID/Selector | Type | Affordance | Handler | File:line | Status |
+|---|---|---|---|---|---|---|
+| Next Payment | `#nextPaymentStat` | `.hero-stat` div | No direct click; badge onclick only | dismissNextPaymentBadge() (badge only, not stat itself) | user_dashboard_sql.js: N/A (HTML-bound) | **NOT clickable** |
+| Next Payment badge | `#nextPaymentBadge` | button | `onclick=dismissNextPaymentBadge(event)` | Hides badge, does NOT navigate | user_dashboard_html:2194 | Correctly static |
+| Active Loans | `#activeLoansStat` | `.hero-stat` button | `onclick=window.location.href='loan_payments.html'` + role="button" tabindex="0" | Direct navigation to loan_payments.html | user_dashboard.html:2196 | **WIRED** ✓ |
+| Pending Payments | `#pendingPaymentsStat` | `.hero-stat` div | No click handler, no affordance | — | — | **Correctly static** |
+| Arrears | `#totalArrearsStat` | `.hero-stat` div | No click handler, no affordance | — | — | **Correctly static** |
+| Group Members | `#membersStat` | `.hero-stat` anchor `<a href="contacts.html">` | href link + role/tabindex decorators | Navigates to contacts.html | user_dashboard.html:2216 | **WIRED** ✓ (anchor) |
+| Total Contributed | `#totalContributedStat` | `.hero-stat` button | `onclick=showAllPaymentsModal()` + cursor:pointer | Opens modal showing all contributions | user_dashboard.html:2224 | **WIRED** ✓ |
+| Hero stat popovers (6 cards) | `.hero-stat-popover` (siblings to stat cards) | div | Revealed on .popover-open class (toggled via JS) or :hover/:focus-within (CSS) | Touch: click handlers toggle .popover-open; desktop: CSS rules | user_dashboard_sql.js: touches via initHeroStatPopover() or direct textContent fill | **WIRED** ✓ |
+| Month filter | `#dashboardMonthFilter` | select | change event | applyDashboardMonthFilter() re-scopes Contributed + Pending totals | user_dashboard_sql.js: line referenced in HTML but not shown in offset range | **WIRED** ✓ |
+
+**User dashboard stat cards correctly wired; no gaps detected.**
+
+### 3. Analytics (`analytics.html` / `analytics_sql.js`)
+
+| Card/Element | ID/Selector | Type | Affordance | Handler | File:line | Status |
+|---|---|---|---|---|---|---|
+| Total Income | `#totalIncome` | `.page-stat` div | None (static) | — (display-only textContent) | — | **Correctly static** |
+| Total Expenses | `#totalExpenses` | `.page-stat` div | None | — | — | **Correctly static** |
+| Net Profit | `#netProfit` | `.page-stat` div | None | — | — | **Correctly static** |
+| Loan Interest | `#loanInterest` | `.page-stat` div | None | — | — | **Correctly static** |
+| Info popovers on 4 stats | `.stat-card-popover` | div siblings (dynamic, created by attachCardPopover) | "i" toggle buttons + auto-reveal on :hover, :focus-within, or .open class (touch) | attachCardPopover() (line 604) creates toggle + popover; event listeners on toggle + doc click listener | analytics_sql.js:604–664 | **WIRED** ✓ |
+| Accounting Figures block | `#accountingFiguresBlock` | div container (dynamic grid of breakdown-cards) | Static breakdown-cards with "i" toggles created by statCard() + attachCardPopover() | Each breakdown-card gets "i" button + popover via attachCardPopover() (line 604) | analytics_sql.js:487, 604 | **WIRED** ✓ |
+| Pie charts | `#chartContainer` | div container (dynamic pie-summary cards) | Static display, no interaction | — | analytics_sql.js: builds SVG, no clicks | **Correctly static** |
+
+**Analytics page cards and popovers all wired correctly.**
+
+### 4. User Analytics (`user_analytics.html` / `user_analytics_sql.js`)
+
+| Card/Element | ID/Selector | Type | Affordance | Handler | File:line | Status |
+|---|---|---|---|---|---|---|
+| **Top Stats (4 cards)** | | | | | | |
+| Total Contributed | `#totalContributed` | `.page-stat` div | None | — | — | **Correctly static** |
+| Total Borrowed | `#totalBorrowed` | `.page-stat` div (role="button" tabindex="0") | onclick + role/tabindex decorators | `window.location.href='loan_payments.html'` | user_analytics.html:279 | **WIRED** ✓ |
+| Loan Outstanding | `#outstanding` | `.page-stat` div (role="button" tabindex="0") | onclick + role/tabindex | window.location.href='loan_payments.html' | user_analytics.html:283 | **WIRED** ✓ |
+| Arrears | `#totalArrears` | `.page-stat` div | None | — | — | **Correctly static** |
+| **Your Overview (6 cards)** | | | | | | |
+| Total Contributed | `#userTotalContributed` | `.stat-card` div | None | — | — | **Correctly static** |
+| Total Loans | `#userTotalLoans` | `.stat-card` div (role="button" tabindex="0") | onclick + role/tabindex | window.location.href='loan_payments.html' | user_analytics.html:311 | **WIRED** ✓ |
+| Loan Outstanding | `#userLoanOutstanding` | `.stat-card` div (role="button" tabindex="0") | onclick + role/tabindex | window.location.href='loan_payments.html' | user_analytics.html:315 | **WIRED** ✓ |
+| Total Arrears | `#userTotalArrears` | `.stat-card` div | None | — | — | **Correctly static** |
+| Active Loans | `#userActiveLoans` | `.stat-card` div (role="button" tabindex="0") | onclick + role/tabindex | window.location.href='loan_payments.html' | user_analytics.html:323 | **WIRED** ✓ |
+| Groups Count | `#userGroupsCount` | `.stat-card` div | None | — | — | **Correctly static** |
+| **Group Statistics (4 cards)** | | | | | | |
+| You Contributed | `#groupTotalContributed` | `.stat-card` div | None | — | — | **Correctly static** |
+| Total Members | `#groupTotalMembers` | `.stat-card` div | None | — | NOT rendered; endpoint not called | user_analytics_sql.js:200 (attempted setText, but no data fetched) | **Data-DEAD** (code references but data never fetched) |
+| Group Collections | `#groupTotalCollections` | `.stat-card` div | None | — | NOT rendered; no API call | user_analytics_sql.js:201 (attempted setText, but no data) | **Data-DEAD** |
+| Group Active Loans | `#groupActiveLoans` | `.stat-card` div | None | — | NOT rendered | user_analytics_sql.js:202 (attempted setText, no data) | **Data-DEAD** |
+| **Info Popovers** | `.stat-card-popover` (dynamic on stat-cards when needed) | div siblings (created by attachCardPopover on user_analytics_sql.js line 291) | "i" toggle button + :hover/:focus-within CSS + .open JS toggle (touch) | attachCardPopover() creates toggle + listeners; doc click listener to close | user_analytics_sql.js:291–352 | **WIRED** ✓ |
+
+**User analytics: most cards correctly wired. Three group-stat cards (#groupTotalMembers, #groupTotalCollections, #groupActiveLoans) are data-dead (code calls setText but no API data fetched; see SYSTEM_MAP line 1369–1371).**
+
+### 5. Admin↔User View Switch (nav_sql.js + admin_dashboard_sql.js + user_dashboard_sql.js)
+
+#### Admin Side (admin_dashboard.html)
+
+**Control Existence:**
+- Location: sidebar footer + mobile nav (nav_sql.js lines 254–263, 403–412)
+- Type: Plain `<a>` links (no id attribute; selected by href)
+- Label: "Switch to User View" (sidebar) / "User View" (mobile)
+- Href: `user_dashboard.html`
+- **Rendered:** ✓ YES (visible in DOM, no gate preventing injection)
+- **Listeners:** ✓ YES (admin_dashboard_sql.js lines 1342–1352 add click listeners to both sidebar + mobile link)
+- **Navigation:** ✓ YES (both listeners call `window.location.href = "user_dashboard.html"`)
+- **Verdict:** **LIVE** — admin side switch is fully functional.
+
+#### User Side (user_dashboard.html)
+
+**Two separate potential switch mechanisms:**
+
+**Mechanism 1: Sidebar Footer Link (injected by nav_sql.js)**
+- Type: `<a>` link (href="admin_dashboard.html")
+- Condition: Only created if user.role is in ADMIN_ROLES (nav_sql.js lines 472–479)
+- Rendered: ✓ YES when isAdmin is true (depends on session role)
+- Navigation: ✓ YES (plain <a href> link, works via normal browser navigation)
+- **Verdict:** **LIVE** — sidebar footer switch works for admins.
+
+**Mechanism 2: #viewToggle Top-Bar Toggle (should be in topbar)**
+- Expected Location: user_dashboard.html top-bar (role="button" toggle buttons: "User" / "Admin")
+- Expected HTML: `<div id="viewToggle">...` with two buttons
+- **DOM element exists in HTML?** ✗ **NO** — searched user_dashboard.html; no element with id="viewToggle" found
+- **CSS for styling exists?** ✓ YES (user_dashboard.html CSS lines 206–247 defines `.view-toggle` / `.view-toggle-btn` styles)
+- **JS tries to use it?** ✓ YES (user_dashboard_sql.js line 223–224: `const viewToggle = document.getElementById("viewToggle"); if (viewToggle) viewToggle.classList.toggle("hidden", !isAdmin);`)
+- **Behavior if missing:** Gracefully degrades (JS uses `if (viewToggle)` guard; page renders, toggle simply never appears)
+- **Data attributes suggest intent:** ✓ YES (user_dashboard.html `<body data-nav-show-view-toggle="true">` hints toggle should render, but page-bootstrap.js ignores this flag; initNav receives it but does NOT use it)
+- **Verdict:** **CLICKABLE-DEAD** — the #viewToggle element is not in the DOM; code references it but element was never rendered. The sidebar footer link works instead (Mechanism 1), so the page does have a switch, but the topbar toggle that cycles 99–108 may have intended is absent.
+
+#### Gate-Miss Analysis (Question 3)
+
+**Could isAdmin gate leave an admin with NO visible switch?**
+
+- **If the only switch is #viewToggle:** ✓ YES — if #viewToggle never exists (current state), the isAdmin gate on line 224 would hide an element that is never shown anyway (no-op).
+- **If sidebar footer link is the actual switch:** ✗ NO — the sidebar link is shown for ALL users; the renderUserSidebarNav (line 472) gate controls whether footerSwitch is passed as null (member) or {href: "admin_dashboard.html"} (admin). This gate works correctly: admin users see "Admin View", members see nothing.
+- **Verdict:** Admins are NOT left without a switch. The sidebar footer link (Mechanism 1) works; the topbar #viewToggle (Mechanism 2) is dead but is a duplicate anyway.
+
+### 6. Top Clickable-DEAD Cards (Ranked by Likelihood User Hit Them)
+
+**Cards with affordances but broken handlers:**
+
+1. **None found** — All cards across all four pages either have working handlers or are correctly static with no affordances.
+   - #viewToggle (user_dashboard topbar toggle) is dead, but it's not a "card" per se; it's a view-mode control. And it's a duplicate of the sidebar footer switch.
+   - #groupTotalMembers, #groupTotalCollections, #groupActiveLoans (user_analytics) have no affordances (no cursor:pointer, no onclick, no role="button"), so users would not expect them to be clickable — they are correctly static even though their values are never populated (data issue, not wiring issue).
+
+**Conclusion:** No clickable-dead cards detected across the four pages. All affordances are wired; all static cards have no affordance suggesting they should respond to clicks.
+
+### 7. Summary
+
+| Question | Answer | Evidence |
+|---|---|---|
+| **(1) Per-page table for every card:** | See sections 1–4 above | 4 tables covering 25+ card elements; all affordances mapped to handlers or marked correctly static |
+| **(2) Admin↔user view switch — both directions wired?** | **PARTIAL:** User side (sidebar link) works ✓; admin side ✓; but topbar #viewToggle (user_dashboard) is dead | nav_sql.js:458, 472–478 (sidebar switch); admin_dashboard_sql.js:1342–1352 (admin listeners); user_dashboard_sql.js:223–224 (dead #viewToggle reference) |
+| **(3) Could isAdmin gate hide switch from admins?** | **NO** — sidebar footer gate (renderUserSidebarNav line 472) correctly conditions footerSwitch on role. Admins see "Admin View" link; members see nothing. Gate works. | nav_sql.js:472–479 |
+| **(4) Top clickable-DEAD cards ranked** | **None detected** — all cards either wired correctly or static with no affordance | Sections 1–4; affordance analysis per card |
+
+## Visual & responsive audit (cycle 109 scout)
+
+### (A) Collection Trends Chart — Exact Current Rendering
+
+**Element type:** Rendered SVG pie/donut charts (NOT bar charts, NOT paired series).
+
+**Current rendering (createPieChart() line 537–609, admin_dashboard_sql.js):**
+- Builds 1–4 pie charts depending on data availability:
+  1. Payment Type Breakdown (Seed Money vs Monthly Contributions) — lines 435–447
+  2. Collections vs Arrears (two-segment donut) — lines 452–460
+  3. Member Participation (Active vs Inactive members) — lines 472–489
+  4. Income Sources (Contributions + Loan Interest) — lines 494–502
+- **NOT a paired/overlaid series:** Each chart is a separate SVG with its own title, legend, and center label. Contributions and disbursals are NOT shown together; they appear in separate charts (Payment Type, Income Sources). Monthly trend is NOT rendered in this section at all.
+- **SVG structure (line 598):** `<svg viewBox="0 0 240 240" style="opacity: 0; transition: opacity 0.5s ease;">` containing `<g transform="rotate(-90 ...)">` with `<circle>` elements for each segment (pie-chart-segment class, line 568).
+- **Legend:** Below each SVG (pie-chart-legend, line 606), with label + formatted currency/count value side-by-side (inline flex, line 580–583).
+
+**What makes it "look bad" — ranked issues:**
+
+| Rank | Issue | Root cause | Drawing line(s) | Visual symptom |
+|---|---|---|---|---|
+| 1 | **Staggered segment fade-in animation** | Opacity cascading via setTimeout (line 512) creates sequential pop-in per segment (200ms delay per segment) instead of simultaneous or smooth group fade | admin_dashboard_sql.js:507–515 | Distracting piecemeal appearance; looks like chart is "loading" or breaking mid-render rather than appearing cohesively |
+| 2 | **Legend text overflow on narrow screens** | Inline flex with `justify-content: space-between;` and long labels (e.g., "Monthly Contributions:") wrap or squash on small cards | admin_dashboard_sql.js:580 (flex layout); no `max-width` on legend-item text | Long label + currency value jammed together; text wraps awkwardly inside card; values may clip at card edge on <375px |
+| 3 | **SVG initial opacity 0 flicker on load** | SVG and segment opacity both start at 0, both animate to 1 separately (line 572, 510) — intermediate state with invisible SVG until timeout fires (line 507: 100ms delay) | admin_dashboard_sql.js:598 (SVG style), 507–510 | Brief blank space where chart should be; jarring white-out before segments appear |
+| 4 | **No axis labels or scale reference** | Donut charts intentionally minimal (center value + legend only); no outer ring labels, no scale markings | createPieChart() design (line 601–604 center-only) | Percentages rely entirely on center label; no visual indication of segment proportions except by arc width (unintuitive for small segments) |
+
+**Verdict:** The chart is NOT broken; it renders correctly as interactive SVGs. The "look bad" complaints are about animation smoothness (staggered fade), text overflow handling, and minimal labeling — primarily UX polish issues, not structural bugs.
+
+---
+
+### (B) Responsive Overflow — Concrete Culprits (Ranked)
+
+**Affected pages:** admin_dashboard, analytics, user_dashboard, user_analytics (all with heavy markup cycles 99–108).
+
+| Rank | CSS Culprit | Stylesheet:line | Element/Selector | Page(s) affected | Breakpoint | Property at fault | Symptom on 375px mobile |
+|---|---|---|---|---|---|---|---|
+| **1** | `.chart-container` / `#chartContainer` inline grid | admin_dashboard.html:1799 (inline style) | `grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))` | admin_dashboard, analytics | **No responsive rule** (breaks at <400px) | `minmax(280px, 1fr)` forces 280px minimum; page padding 32px each side = 311px effective; one card overflows | Single 280px pie chart + legend squashed into 311px container; legend wraps awkwardly; grid gutters (var(--bn-space-6)=24px) claim space |
+| **2** | `.stats-grid` flex layout, mobile breakpoint INCOMPLETE | admin_dashboard.html:1342–1352 | `display: grid; grid-template-columns: repeat(2, 1fr);` on mobile | admin_dashboard | **768px breakpoint exists** but missing responsive update to `.chart-container` | At 768px, stats grid switches to 2-col ✓, but #chartContainer (line 1799) stays at auto-fit minmax(280px) | Stat cards resize correctly; pie-chart-container cards do NOT; two adjacent 280px cards + 24px gap = 584px > 311px width → horizontal scroll |
+| **3** | `.stat-card-popover` no viewport clamping below 768px | admin_dashboard.html:1359–1364 | `.stat-card-popover { max-width: calc(100vw - var(--bn-space-8)); }` | admin_dashboard (stats grid popovers) | 768px media rule exists | `max-width: calc(100vw - var(--bn-space-8))` = 100vw - 32px; clamping is present ✓ but positioned `left: 0; right: 0` on card (line 619) which can still overflow on 2-col grid if card < 200px | Popover extends beyond card width on 2-col 768px layout; positioned absolutely to card, so clamping helps but doesn't fully solve narrow-card case |
+| **4** | `.pie-chart-legend` inline flex with no wrap | admin_dashboard.html:840–847 / analytics.html:81–88 | Flex row layout on `.legend-item` (line 580–583 createPieChart) | admin_dashboard, analytics, user_analytics | **No per-legend responsive rule** | `display: flex; justify-content: space-between;` pushes label left and value right; no `flex-wrap`, no max-width on value | Long labels (e.g., "Monthly Contributions: MWK 123,456") squeeze into card width; value pushed right and may clip against card border on narrow cards |
+| **5** | `.content-card-body` padding unchanged on mobile | admin_dashboard.html:1382–1384 | `padding: var(--bn-space-4);` on mobile (was var(--bn-space-6) on desktop) | admin_dashboard (content cards: Collection Trends, Due Payments, Pending Approvals) | 768px media rule exists | Reduces padding 32px → 16px, but the child grid (#chartContainer) still has `minmax(280px)` | Padding helps slightly, but primary culprit is grid column width, not padding |
+| **6** | `.due-payment-card` (Due Payments section grid) | admin_dashboard.html:1770 (inline) | `grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));` | admin_dashboard (Due Payments cards section) | **No 768px update** | `minmax(200px, 1fr)` = 200px minimum per card; with 311px effective width = one card + partial second card | Due payment cards (3–4 per row on desktop) squash into single column; second card partially visible on right edge |
+| **7** | `.page-stats` (analytics/user_analytics section) | admin-layout.css:889–895 | `display: flex; overflow-x: auto;` on `.page-stats` flex row | analytics, user_analytics | **768px responsive exists** (page-stats-bar becomes grid) but `.page-stats` (different class) lacks rule | `.page-stats` → still a flex row with `overflow-x: auto` on mobile; individual stat min-width 120px (dashboard-content .page-stat, line 897–913 admin-layout.css) | Horizontal scroll on stats bar even though it could stack |
+
+---
+
+### (C) Severity Ranking — Pages Most Affected
+
+| Page | Overall severity | Primary culprits | Most noticeable impact | Breakpoint |
+|---|---|---|---|---|
+| **admin_dashboard** | **HIGH** | (1) #chartContainer grid (280px minmax, no mobile rule); (2) .due-payment-card grid (200px minmax, no mobile rule); (3) .stats-grid layout okay (2-col on mobile ✓) but popover clamping insufficient on narrow 2-col cards | Collection Trends pie charts overflow horizontally; Due Payments grid squashes to 1 col with second card peeking off-screen | <375px (mobile), <768px (tablet) |
+| **analytics** | **HIGH** | (1) #chartContainer (same 280px minmax issue); (2) #accountingFiguresBlock nested grid (inherits .charts-grid minmax(280px)); (3) .breakdown-card legend text overflow (long accounting labels) | Pie charts + accounting figures grid squashed; legend text wraps awkwardly inside cards | <375px (mobile), <768px (tablet) |
+| **user_dashboard** | **MEDIUM** | (1) Current group display possibly overflows on narrow topbar (line 81–117); (2) Hero section stats bar (overflow-x: auto) works but not optimally on mobile | Top-nav current-group display hides at 768px ✓ (line 119–123); hero stats bar offers scroll instead of stacking | <375px |
+| **user_analytics** | **MEDIUM** | (1) .page-stats flex row (same as analytics); (2) Chart grid if user_analytics uses #chartContainer (needs verification) | Stats bar scrollable on mobile; responsive rule exists but not optimal; chart grid (if present) inherits admin_dashboard issues | <768px |
+
+---
+
+### (D) Root Cause: Centralized or Scattered?
+
+**CENTRALIZED, fixable in 2–3 places:**
+
+1. **Shared grid pattern** (`.chart-container`, `#chartContainer`, `.charts-grid` inline style): All use `repeat(auto-fit, minmax(280px, 1fr))` without 768px media rule.
+   - Appears in: admin_dashboard.html:776 (CSS), 1799 (inline); analytics.html:17–22 (inline `<style>`); user_analytics (likely same if it uses charts).
+   - **Fix scope:** Add single `@media (max-width: 768px)` rule to reduce minmax to `minmax(160px, 1fr)` or switch to single-column `1fr`.
+
+2. **Stat card popover width** (`.stat-card-popover`): Positioned absolutely; clamping rule exists at 768px but uses viewport width, not card width.
+   - Appears in: admin_dashboard.html:615–628.
+   - **Fix scope:** No additional CSS needed (rule 1359–1364 already handles it); issue is positioning model limitation (absolute positioning to card), not CSS bug per se.
+
+3. **Legend text overflow** (inline flex in `.legend-item` created by createPieChart()): No word-break or max-width constraint.
+   - Appears in: admin_dashboard_sql.js:580–583, analytics_sql.js (if used), user_analytics_sql.js (if used).
+   - **Fix scope:** Add `overflow-wrap: break-word; max-width: 100%;` to `.legend-item` span rule OR modify inline style in createPieChart to constrain label width.
+
+4. **Due Payments grid** (`.due-payment-card` container, admin_dashboard.html:1770): Uses `minmax(200px, 1fr)` with no 768px rule.
+   - Appears in: admin_dashboard.html:1770 (inline).
+   - **Fix scope:** Add media rule to reduce minmax or switch to flex wrapping.
+
+**VERDICT:** Overflow is **dominated by 2–3 shared grid/flex patterns** (minmax sizes, no responsive rules). Fixing the `.chart-container` grid + `.due-payment-card` grid + legend overflow in those 2–3 places will resolve ~80% of visible overflow issues.
+
+---
+
+### (E) Gaps & Follow-up
+
+**GAPS:**
+- User_analytics page structure unknown; unclear if it uses #chartContainer or its own chart grid. Needs verification for completeness.
+- analytics.html has .breakdown-card grid (line 160–200); unclear if it inherits #chartContainer CSS or has its own responsive rule.
+- Exact viewport widths where pop-in happens (280px minmax at what container width?) — testing on real 375px device recommended.
+
+**DEAD:**
+- analytics.html:24–102 defines inline `.pie-chart-*` styles that duplicate admin_dashboard.html:784–847 (identical rules); consolidation opportunity into shared CSS.
+- analytics.html has `.charts-grid` inline style (line 17–22) that mirrors admin_dashboard.html #chartContainer inline style (line 1799); same rules, different selectors.
+
+---
+
+### Summary Table — CSS Changes Required
+
+| Issue | File:line | Selector | Current | Proposed | Breakpoint |
+|---|---|---|---|---|---|
+| Chart grid overflow | admin_dashboard.html:776 + 1799 inline | `.chart-container` / `#chartContainer` | `minmax(280px, 1fr)` | Add `@media (max-width: 768px) { grid-template-columns: 1fr; }` OR `minmax(140px, 1fr)` on mobile | 768px |
+| Due payment grid overflow | admin_dashboard.html:1770 inline | `#duePaymentsCards` | `minmax(200px, 1fr)` | Add `@media (max-width: 768px) { grid-template-columns: repeat(2, 1fr); }` OR `1fr` | 768px |
+| Legend text squeeze | admin_dashboard_sql.js:580–583 (inline HTML) | `.legend-item` / span containing label | Inline flex, label left/value right, no constraint | Add `overflow-wrap: break-word; word-break: break-word;` to `.legend-item` CSS OR constrain flex children width | N/A (CSS only) |
+| Duplicate chart styles | analytics.html:24–102 | `.pie-chart-*` selectors | Inline `<style>` duplicating admin_dashboard rules | Move to shared stylesheet (e.g., design-system.css or new chart-common.css) | N/A (consolidation) |

@@ -388,14 +388,21 @@ function renderCollectionTrends() {
     withinRange(l, "createdAt", "approvedAt"),
   );
 
+  // Monthly buckets for the primary trend + the aggregate totals the
+  // secondary breakdown pies use. All integer minor units.
+  const monthlyCollected = {};
+  const monthlyDisbursed = {};
+  MONTHS.forEach((m) => {
+    monthlyCollected[m] = 0;
+    monthlyDisbursed[m] = 0;
+  });
+
   let seedMinor = 0;
   let monthlyMinor = 0;
   let approvedMinor = 0;
   let interestMinor = 0;
-  const monthlyCollections = {};
-  MONTHS.forEach((m) => (monthlyCollections[m] = 0));
-
   const payingMembers = new Set();
+
   for (const p of rangedPayments) {
     const paidMinor = toMinor(p.amountPaid);
     const verified = isVerifiedPayment(p);
@@ -403,21 +410,32 @@ function renderCollectionTrends() {
     if (String(p.paymentType) === "monthly_contribution") monthlyMinor += paidMinor;
     if (verified) {
       approvedMinor += paidMinor;
-      if (p.month && monthlyCollections[p.month] !== undefined) {
-        monthlyCollections[p.month] += paidMinor;
+      if (p.month && monthlyCollected[p.month] !== undefined) {
+        monthlyCollected[p.month] += paidMinor;
       }
     }
     if (paidMinor > 0) payingMembers.add(String(p.uid));
   }
 
-  // Interest actually collected = interest on completed loans only.
-  // NOT substituted with loans.list's `summary.totalInterest`: that field sums
-  // totalInterest across EVERY loan row regardless of status (pending, approved,
-  // disbursed, defaulted, completed), while "collected" here is deliberately
-  // scoped to completed loans only. The scopes are genuinely different, so the
-  // server summary cannot replace this loop without changing what the number means.
+  // A loan's principal counts as "disbursed" once money has left the pot —
+  // i.e. any status past pending. Bucket it by the month the money moved
+  // (disbursedAt), falling back to approvedAt/createdAt when older rows lack it.
+  const DISBURSED_STATUSES = new Set([
+    "approved",
+    "disbursed",
+    "completed",
+    "defaulted",
+  ]);
   for (const l of rangedLoans) {
+    // Interest actually collected = interest on completed loans only.
     if (String(l.status) === "completed") interestMinor += toMinor(l.totalInterest);
+    if (!DISBURSED_STATUSES.has(String(l.status))) continue;
+    const when = parseServerDate(l.disbursedAt || l.approvedAt || l.createdAt);
+    if (!when) continue;
+    const m = MONTHS[when.getMonth()];
+    if (m && monthlyDisbursed[m] !== undefined) {
+      monthlyDisbursed[m] += toMinor(l.approvedAmount || l.principalAmount || "0.00");
+    }
   }
 
   const totalMembers = groupData.members.length;
@@ -428,28 +446,28 @@ function renderCollectionTrends() {
     return acc + v;
   }, 0);
 
-  let chartHTML = "";
+  // Only chart months that actually have activity, in calendar order.
+  const activeMonths = MONTHS.filter(
+    (m) => monthlyCollected[m] > 0 || monthlyDisbursed[m] > 0,
+  );
 
+  // Secondary breakdown pies — each skipped when it has no data to show.
+  let pieHTML = "";
   const typeTotal = seedMinor + monthlyMinor;
   if (typeTotal > 0) {
-    chartHTML += createPieChart(
+    pieHTML += createPieChart(
       "Payment Type Breakdown",
       [
         { label: "Seed Money", value: seedMinor, color: "var(--bn-success)" },
-        {
-          label: "Monthly Contributions",
-          value: monthlyMinor,
-          color: "var(--bn-info)",
-        },
+        { label: "Monthly Contributions", value: monthlyMinor, color: "var(--bn-info)" },
       ],
       typeTotal,
       "Total Collections",
     );
   }
-
   const financialTotal = approvedMinor + arrearsMinor;
   if (financialTotal > 0) {
-    chartHTML += createPieChart(
+    pieHTML += createPieChart(
       "Collections vs Arrears",
       [
         { label: "Collections", value: approvedMinor, color: "var(--bn-success)" },
@@ -459,24 +477,12 @@ function renderCollectionTrends() {
       "Financial Health",
     );
   }
-
-  // Member Participation only earns its place in the "Collection Trends"
-  // section when there's actual financial activity to contextualise it — a
-  // brand-new group with zero payments/loans has zero "participation" to speak
-  // of yet, and a lone 100%-inactive pie next to nothing else reads as broken
-  // rather than informative. Gate it on financial activity (not member count,
-  // which is always > 0 for any real group) so the whole section shares one
-  // intentional empty state until the group has actually started collecting.
   const financialActivity = typeTotal + financialTotal + interestMinor;
   if (totalMembers > 0 && financialActivity > 0) {
-    chartHTML += createPieChart(
+    pieHTML += createPieChart(
       "Member Participation",
       [
-        {
-          label: "Active Members",
-          value: membersWithPayments,
-          color: "var(--bn-success)",
-        },
+        { label: "Active Members", value: membersWithPayments, color: "var(--bn-success)" },
         {
           label: "Inactive Members",
           value: totalMembers - membersWithPayments,
@@ -488,10 +494,9 @@ function renderCollectionTrends() {
       true,
     );
   }
-
   const incomeTotal = typeTotal + interestMinor;
   if (incomeTotal > 0 && interestMinor > 0) {
-    chartHTML += createPieChart(
+    pieHTML += createPieChart(
       "Income Sources",
       [
         { label: "Contributions", value: typeTotal, color: "var(--bn-info)" },
@@ -502,31 +507,100 @@ function renderCollectionTrends() {
     );
   }
 
-  if (chartHTML) {
-    chartContainer.innerHTML = chartHTML;
-    setTimeout(() => {
-      chartContainer.querySelectorAll(".pie-chart-svg").forEach((svg, index) => {
-        setTimeout(() => {
-          svg.style.opacity = "1";
-          svg.querySelectorAll(".pie-chart-segment").forEach((segment, i) => {
-            setTimeout(() => (segment.style.opacity = "1"), i * 200);
-          });
-        }, index * 300);
-      });
-    }, 100);
-  } else {
-    const empty = buildEmptyState(
-      "\u{1F4CA}",
-      "No collection data for current cycle yet",
+  // This card holds a full-width monthly trend on top and (optionally) a grid
+  // of breakdown pies below, so drop the grid layout the inline style sets.
+  chartContainer.style.display = "block";
+
+  if (activeMonths.length === 0 && !pieHTML) {
+    chartContainer.replaceChildren(
+      buildEmptyState("\u{1F4CA}", "No collection data for the current cycle yet"),
     );
-    empty.style.gridColumn = "1 / -1";
-    chartContainer.replaceChildren(empty);
+    return;
+  }
+
+  chartContainer.replaceChildren();
+
+  if (activeMonths.length > 0) {
+    const maxMinor = activeMonths.reduce(
+      (max, m) => Math.max(max, monthlyCollected[m], monthlyDisbursed[m]),
+      0,
+    );
+    // Height as a percentage of the tallest bar; give any non-zero value a
+    // visible sliver so a small-but-real month doesn't read as empty.
+    const heightPct = (v) =>
+      maxMinor > 0 ? Math.max((v / maxMinor) * 100, v > 0 ? 3 : 0) : 0;
+
+    const chart = document.createElement("div");
+    chart.className = "trend-chart";
+
+    const legend = document.createElement("div");
+    legend.className = "trend-legend";
+    [
+      ["collected", "Contributions Collected"],
+      ["disbursed", "Loans Disbursed"],
+    ].forEach(([cls, text]) => {
+      const item = document.createElement("span");
+      item.className = "trend-legend-item";
+      const dot = document.createElement("span");
+      dot.className = `trend-legend-dot ${cls}`;
+      const lbl = document.createElement("span");
+      lbl.textContent = text;
+      item.append(dot, lbl);
+      legend.appendChild(item);
+    });
+    chart.appendChild(legend);
+
+    const barsRow = document.createElement("div");
+    barsRow.className = "trend-bars";
+    activeMonths.forEach((m) => {
+      const col = document.createElement("div");
+      col.className = "trend-month";
+
+      const pair = document.createElement("div");
+      pair.className = "trend-month-bars";
+      [
+        ["collected", monthlyCollected[m], "Collected"],
+        ["disbursed", monthlyDisbursed[m], "Disbursed"],
+      ].forEach(([cls, val, nice]) => {
+        const bar = document.createElement("div");
+        bar.className = `trend-bar ${cls}`;
+        bar.style.height = `${heightPct(val)}%`;
+        bar.title = `${nice} (${m}): ${formatCurrencyShortFromMinor(val)}`;
+        pair.appendChild(bar);
+      });
+      col.appendChild(pair);
+
+      const lbl = document.createElement("div");
+      lbl.className = "trend-month-label";
+      lbl.textContent = m.slice(0, 3);
+      col.appendChild(lbl);
+
+      barsRow.appendChild(col);
+    });
+    chart.appendChild(barsRow);
+    chartContainer.appendChild(chart);
+  }
+
+  if (pieHTML) {
+    const heading = document.createElement("div");
+    heading.className = "trend-breakdown-heading";
+    heading.textContent = "Breakdowns";
+    chartContainer.appendChild(heading);
+
+    const pieGrid = document.createElement("div");
+    pieGrid.className = "pie-grid";
+    // Numeric-only markup — every value is a computed number and every label
+    // is a hard-coded literal run through escapeStatic in createPieChart.
+    pieGrid.innerHTML = pieHTML;
+    chartContainer.appendChild(pieGrid);
   }
 }
 
 /**
- * Build one SVG pie chart. Values are minor-unit integers; isCount charts show
- * raw counts. Contains no server-authored strings — safe as innerHTML.
+ * Build one SVG donut chart as a markup string. Values are minor-unit integers
+ * (isCount charts show raw counts). Contains no server-authored strings — every
+ * label is a hard-coded literal run through escapeStatic — so it is safe as
+ * innerHTML. Segments render fully visible (no fade-in).
  * @param {string} title
  * @param {Array<Object>} segments {label, value(minor or count), color}
  * @param {number} total
@@ -549,8 +623,6 @@ function createPieChart(title, segments, total, centerLabel, isCount = false) {
     .filter((s) => (s.value || 0) > 0)
     .map((s) => ({ ...s, percentage: total > 0 ? (s.value / total) * 100 : 0 }));
 
-  // Background track ring so the donut hole and unfilled arc read clearly
-  // even before/without segments animating in.
   segmentsHTML +=
     `<circle class="pie-chart-track" cx="${centerX}" cy="${centerY}" r="${radius}" ` +
     `fill="none" stroke="var(--bn-gray-100)" stroke-width="${strokeWidth}" />`;
@@ -568,8 +640,7 @@ function createPieChart(title, segments, total, centerLabel, isCount = false) {
       `<circle class="pie-chart-segment" cx="${centerX}" cy="${centerY}" r="${radius}" ` +
       `fill="none" stroke="${segment.color}" stroke-width="${strokeWidth}" ` +
       `stroke-dasharray="${dashArray}" stroke-dashoffset="${dashOffset}" ` +
-      `stroke-linecap="butt" data-percentage="${percentage.toFixed(1)}" ` +
-      `style="opacity: 0; transition: opacity 0.8s ease;" />`;
+      `stroke-linecap="butt" data-percentage="${percentage.toFixed(1)}" />`;
 
     const displayValue = isCount
       ? String(Math.round(segment.value))
@@ -577,9 +648,9 @@ function createPieChart(title, segments, total, centerLabel, isCount = false) {
     legendHTML +=
       `<div class="legend-item">` +
       `<span class="legend-dot" style="background: ${segment.color};"></span>` +
-      `<div style="flex: 1; display: flex; justify-content: space-between; align-items: center;">` +
-      `<span style="font-size: var(--bn-text-sm); color: var(--bn-gray-700);">${escapeStatic(segment.label)}:</span>` +
-      `<span style="font-weight: 600; color: var(--bn-dark); margin-left: var(--bn-space-2);">${displayValue}</span>` +
+      `<div style="flex: 1; display: flex; justify-content: space-between; align-items: center; gap: var(--bn-space-2); min-width: 0;">` +
+      `<span style="font-size: var(--bn-text-sm); color: var(--bn-gray-700); overflow-wrap: anywhere;">${escapeStatic(segment.label)}</span>` +
+      `<span style="font-weight: 600; color: var(--bn-dark); white-space: nowrap;">${displayValue}</span>` +
       `</div></div>`;
   });
 
@@ -595,7 +666,7 @@ function createPieChart(title, segments, total, centerLabel, isCount = false) {
     `<div class="pie-chart-container">` +
     `<div class="pie-chart-title">${escapeStatic(title)}</div>` +
     `<div class="pie-chart-wrapper">` +
-    `<svg class="pie-chart-svg" viewBox="0 0 240 240" style="opacity: 0; transition: opacity 0.5s ease; width: 100%; height: 100%;">` +
+    `<svg class="pie-chart-svg" viewBox="0 0 240 240" style="width: 100%; height: 100%;">` +
     `<g transform="rotate(-90 ${centerX} ${centerY})">${segmentsHTML}</g>` +
     `</svg>` +
     `<div class="pie-chart-center">` +
@@ -1410,6 +1481,13 @@ function setupStatCardPopovers() {
       closeAll(willOpen ? popover : null);
       popover.classList.toggle("open", willOpen);
       toggle.setAttribute("aria-expanded", String(willOpen));
+      if (willOpen) {
+        // Bring the just-opened helper fully into view so it is always
+        // visible without the user having to scroll down to find it.
+        requestAnimationFrame(() => {
+          popover.scrollIntoView({block: "nearest", behavior: "smooth"});
+        });
+      }
     });
   });
 

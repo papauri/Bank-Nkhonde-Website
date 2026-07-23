@@ -627,6 +627,13 @@ function attachCardPopover(cardEl, infoText, ariaLabel) {
     closeAllCardPopovers(willOpen ? popover : null);
     popover.classList.toggle("open", willOpen);
     toggle.setAttribute("aria-expanded", String(willOpen));
+    if (willOpen) {
+      // Bring the just-opened helper fully into view so it is always visible
+      // without the user having to scroll down to find it.
+      requestAnimationFrame(() => {
+        popover.scrollIntoView({block: "nearest", behavior: "smooth"});
+      });
+    }
   });
 
   toggle.addEventListener("keydown", (e) => {

@@ -2059,6 +2059,14 @@ function initHeroStatPopover(cardId, popoverId, opts = {}) {
   const setOpen = (open) => {
     card.classList.toggle("popover-open", open);
     card.setAttribute("aria-expanded", String(open));
+    if (open) {
+      // The helper renders below the card and can fall below the fold — bring
+      // it fully into view so it is always visible the moment it's opened,
+      // without the user having to scroll.
+      requestAnimationFrame(() => {
+        popover.scrollIntoView({block: "nearest", behavior: "smooth"});
+      });
+    }
   };
   card.setAttribute("aria-expanded", "false");
 

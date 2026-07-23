@@ -21,7 +21,7 @@
  * only — the server (require_role()) is the real gate.
  */
 
-import {getSession, logout as apiLogout} from "./api.js";
+import {getSession, logout as apiLogout, listMyGroups} from "./api.js";
 import {initSpaRouter} from "./spa-router.js?v=20260722";
 
 const LOGIN_URL = "../login.html";
@@ -462,21 +462,82 @@ function renderAdminNav(user, opts) {
 /**
  * Build and inject the user-sidebar shell (sidebar + topbar + mobile
  * bottom-nav) using USER_SIDEBAR_NAV_ITEMS. Shows an "Admin View" footer
- * switch link only when the session user's role is an admin role — the
- * server is the real gate on any admin page reached from it.
- * @param {Object} user Session user ({fullName, role, ...}).
+ * switch link only when the caller is an admin in AT LEAST ONE of their
+ * groups — the server is the real gate on any admin page reached from it.
+ *
+ * Role is PER-GROUP (members.role) and is NOT carried on the session `user`
+ * object, so we render the shell immediately without the switch, then
+ * asynchronously look up the caller's group roles and inject the link if
+ * they administer any group. This keeps the nav rendering instant instead of
+ * blocking it on a second network call.
+ * @param {Object} user Session user ({fullName, ...}).
  * @param {Object} opts {activePage, pageTitle}
  */
 function renderUserSidebarNav(user, opts) {
-  const role = user && user.role;
-  const footerSwitch = ADMIN_ROLES.includes(role) ?
-    {href: "admin_dashboard.html", label: "Admin View"} :
-    null;
   renderSidebarNav(user, opts, {
     navItems: USER_SIDEBAR_NAV_ITEMS,
     logoHref: "user_dashboard.html",
-    footerSwitch,
+    footerSwitch: null,
   });
+
+  listMyGroups()
+    .then((groups) => {
+      const isAdminSomewhere = Array.isArray(groups) &&
+        groups.some((g) => g && ADMIN_ROLES.includes(g.myRole));
+      if (isAdminSomewhere) injectAdminViewSwitch();
+    })
+    .catch(() => {
+      // A failed group lookup just means the switch link is omitted this
+      // load — the admin portal is still reachable directly by URL and every
+      // admin page re-checks the role server-side. Not fatal to the nav.
+    });
+}
+
+/**
+ * Insert the "Admin View" switch link into the already-rendered user-sidebar
+ * footer and mobile bottom-nav. Idempotent — a second call (e.g. an SPA
+ * re-render) is a no-op. Used only on the user shell, once the caller is
+ * confirmed to administer at least one group.
+ */
+function injectAdminViewSwitch() {
+  const href = "admin_dashboard.html";
+
+  const sidebarFooter = document.querySelector(".sidebar-footer");
+  if (
+    sidebarFooter &&
+    !sidebarFooter.querySelector('[data-nav="admin-switch"]')
+  ) {
+    const link = document.createElement("a");
+    link.href = href;
+    link.className = "sidebar-nav-item";
+    link.setAttribute("data-nav", "admin-switch");
+    link.title = "Admin View";
+    link.appendChild(svgIcon("switchUser"));
+    const span = document.createElement("span");
+    span.textContent = "Admin View";
+    link.appendChild(span);
+    // Match renderSidebarNav's footerSwitch position: above the user block.
+    sidebarFooter.insertBefore(
+      link,
+      sidebarFooter.querySelector(".sidebar-user")
+    );
+  }
+
+  const mobileItems = document.querySelector(".mobile-nav .mobile-nav-items");
+  if (
+    mobileItems &&
+    !mobileItems.querySelector('[data-nav="admin-switch"]')
+  ) {
+    const link = document.createElement("a");
+    link.href = href;
+    link.className = "mobile-nav-item";
+    link.setAttribute("data-nav", "admin-switch");
+    link.appendChild(svgIcon("switchUser", "20"));
+    const span = document.createElement("span");
+    span.textContent = "Admin";
+    link.appendChild(span);
+    mobileItems.appendChild(link);
+  }
 }
 
 /**
