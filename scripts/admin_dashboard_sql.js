@@ -195,6 +195,11 @@ async function loadDashboardAfterGroupSelection() {
   renderCollectionTrends();
   loadPendingApprovals();
   loadDuePayments();
+  // Re-scope the Collections tile to the month-filter's current selection
+  // (defaults to the current month — see setupEventListeners) now that
+  // groupData.payments is populated. Runs after renderDashboardStats so it
+  // overrides that function's server-summary (whole-group) figure.
+  applyDashboardMonthFilter();
 }
 
 /**
@@ -305,6 +310,42 @@ function renderDashboardStats() {
   setText("totalArrears", formatCurrency(arrearsValue));
 
   renderStatCardPopovers(pendingPayments, pendingLoans);
+}
+
+/**
+ * Re-scope the Collections stat tile ONLY to the #dashboardMonthFilter
+ * selection ("all" = whole current year, or a single month), re-aggregating
+ * groupData.payments client-side — no new fetch, no server call. Every other
+ * stat tile (Active Loans, Pending, Arrears) and the Collection Trends chart
+ * are left untouched by this function.
+ *
+ * Uses the SAME verified-row extraction as renderCollectionTrends
+ * (isVerifiedPayment + toMinor(p.amountPaid)) so this never introduces a new
+ * definition of "collected" or any float arithmetic.
+ */
+function applyDashboardMonthFilter() {
+  const select = document.getElementById("dashboardMonthFilter");
+  const scope = select ? select.value : "all";
+  const currentYear = new Date().getFullYear();
+
+  let collectedMinor = 0;
+  for (const p of groupData.payments) {
+    if (Number(p.year) !== currentYear) continue;
+    if (scope !== "all" && String(p.month) !== scope) continue;
+    if (!isVerifiedPayment(p)) continue;
+    collectedMinor += toMinor(p.amountPaid);
+  }
+
+  setText("totalCollections", formatCurrency(fromMinor(collectedMinor)));
+
+  const valueEl = document.getElementById("totalCollections");
+  const labelEl = valueEl ? valueEl.nextElementSibling : null;
+  if (labelEl) {
+    labelEl.textContent =
+      scope === "all"
+        ? `Collections — ${currentYear}`
+        : `Collections — ${scope.slice(0, 3)} ${currentYear}`;
+  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -1328,6 +1369,15 @@ function setupEventListeners() {
   document
     .getElementById("collectionTrendsRangeSelect")
     ?.addEventListener("change", () => renderCollectionTrends());
+
+  // Month/period filter — defaults to the current month; re-scopes ONLY the
+  // Collections stat tile (client-side re-aggregation of the cached payments
+  // list, see applyDashboardMonthFilter).
+  const monthFilter = document.getElementById("dashboardMonthFilter");
+  if (monthFilter) {
+    monthFilter.value = MONTHS[new Date().getMonth()];
+    monthFilter.addEventListener("change", applyDashboardMonthFilter);
+  }
 
   setupStatCardPopovers();
 }

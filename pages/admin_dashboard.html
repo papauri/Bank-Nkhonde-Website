@@ -686,6 +686,44 @@
       color: var(--bn-gray);
       text-transform: uppercase;
       letter-spacing: 0.05em;
+      /* Month filter lets #totalCollections' label read e.g. "Collections —
+         Jul 2026" — longer than the static labels this rule was written
+         for, so let it wrap onto a second line inside the card instead of
+         overflowing. */
+      overflow-wrap: break-word;
+    }
+
+    /* Month filter — re-scopes the Collections stat tile only; sits in the
+       light dashboard-content area, so it reuses the app's existing
+       filter-card idiom (.page-group-selector: white card, shadow-sm,
+       radius-lg) rather than inventing a new treatment. */
+    .dashboard-month-filter {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--bn-space-3);
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-space-3) var(--bn-space-4);
+      margin-bottom: var(--bn-space-3);
+      box-shadow: var(--bn-shadow-sm);
+    }
+
+    .dashboard-month-filter-label {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-gray-700);
+      white-space: nowrap;
+    }
+
+    .dashboard-month-filter select {
+      /* .form-select is 100%-width by default (built for stacked form
+         fields); size this one to its content like the Collection Trends
+         range select instead. */
+      width: auto;
+      min-width: 160px;
+      min-height: 44px;
     }
 
     /* Content Grid */
@@ -1617,6 +1655,27 @@
       <!-- System Alerts -->
       <div class="system-alerts" id="systemAlerts">
         <!-- Alerts will be dynamically inserted here -->
+      </div>
+
+      <!-- Month Filter — re-scopes the Collections stat tile only (client-side
+           re-aggregation of the already-cached payments list; no new fetch). -->
+      <div class="dashboard-month-filter">
+        <label for="dashboardMonthFilter" class="dashboard-month-filter-label">Filter summary by month</label>
+        <select class="form-select" id="dashboardMonthFilter" aria-label="Filter summary by month">
+          <option value="all">Whole year</option>
+          <option value="January">January</option>
+          <option value="February">February</option>
+          <option value="March">March</option>
+          <option value="April">April</option>
+          <option value="May">May</option>
+          <option value="June">June</option>
+          <option value="July">July</option>
+          <option value="August">August</option>
+          <option value="September">September</option>
+          <option value="October">October</option>
+          <option value="November">November</option>
+          <option value="December">December</option>
+        </select>
       </div>
 
       <!-- Stats Grid - Compact single row -->

@@ -477,6 +477,54 @@
       color: var(--bn-white);
     }
 
+    /* Month filter — sits on the hero's dark gradient, so it reuses the
+       hero's own translucent-card idiom (.hero-stat: rgba(255,255,255,0.08)
+       bg, faint white border, backdrop blur) rather than the light
+       .form-select treatment used on white-background pages. */
+    .hero-month-filter {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--bn-space-3);
+      margin-bottom: var(--bn-space-6);
+    }
+
+    .hero-month-filter-label {
+      font-size: var(--bn-text-sm);
+      color: rgba(255, 255, 255, 0.7);
+      white-space: nowrap;
+    }
+
+    .hero-month-filter select {
+      appearance: none;
+      min-height: 44px;
+      min-width: 160px;
+      padding: var(--bn-space-2) var(--bn-space-12) var(--bn-space-2) var(--bn-space-4);
+      font-family: inherit;
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-white);
+      background-color: rgba(255, 255, 255, 0.08);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right var(--bn-space-4) center;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: var(--bn-radius-lg);
+      cursor: pointer;
+      transition: all var(--bn-transition-base);
+    }
+
+    .hero-month-filter select:hover {
+      background-color: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .hero-month-filter select option {
+      color: var(--bn-dark);
+      background: var(--bn-white);
+    }
+
     .hero-stats {
       display: flex;
       gap: var(--bn-space-3);
@@ -526,7 +574,8 @@
     .action-btn:focus-visible,
     #calendarPrevMonth:focus-visible,
     #calendarNextMonth:focus-visible,
-    .calendar-day:focus-visible {
+    .calendar-day:focus-visible,
+    .hero-month-filter select:focus-visible {
       outline: 2px solid var(--bn-accent);
       outline-offset: 2px;
     }
@@ -598,6 +647,10 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
       margin-top: 0;
+      /* #totalContributedLabel / #pendingPaymentsLabel can grow to e.g.
+         "Contributed (Jul)" once the month filter is applied — wrap inside
+         the card instead of overflowing it. */
+      overflow-wrap: break-word;
     }
 
     .hero-stat-details {
@@ -2110,6 +2163,25 @@
         </div>
       </div>
 
+        <div class="hero-month-filter">
+          <label for="dashboardMonthFilter" class="hero-month-filter-label">Filter summary by month</label>
+          <select id="dashboardMonthFilter" aria-label="Filter summary by month">
+            <option value="all">Whole year</option>
+            <option value="January">January</option>
+            <option value="February">February</option>
+            <option value="March">March</option>
+            <option value="April">April</option>
+            <option value="May">May</option>
+            <option value="June">June</option>
+            <option value="July">July</option>
+            <option value="August">August</option>
+            <option value="September">September</option>
+            <option value="October">October</option>
+            <option value="November">November</option>
+            <option value="December">December</option>
+          </select>
+        </div>
+
         <div class="hero-stats">
         <div class="hero-stat" id="nextPaymentStat" tabindex="0" aria-describedby="nextPaymentPopover" style="position: relative;">
           <div class="hero-stat-value" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
@@ -2121,18 +2193,19 @@
           <div class="hero-stat-popover" id="nextPaymentPopover" role="status"></div>
           <button type="button" class="hero-stat-badge" id="nextPaymentBadge" aria-label="Dismiss payment due reminder" style="position: absolute; top: var(--bn-space-1); right: var(--bn-space-1); background: var(--bn-danger); color: var(--bn-white); font-size: 8px; padding: 2px 6px; border: none; font-family: inherit; border-radius: 10px; font-weight: 700; cursor: pointer; display: none; z-index: 10;" onclick="dismissNextPaymentBadge(event)">Due</button>
         </div>
-        <div class="hero-stat" id="activeLoansStat" onclick="window.location.href='loan_payments.html'" tabindex="0" role="button" style="cursor: pointer; position: relative;">
+        <div class="hero-stat" id="activeLoansStat" onclick="window.location.href='loan_payments.html'" tabindex="0" role="button" aria-describedby="activeLoansPopover" style="cursor: pointer; position: relative;">
           <div class="hero-stat-value" id="activeLoans" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
             <span>0</span>
             <span style="font-size: 14px; line-height: 1;" title="Active Loans">💰</span>
           </div>
           <div class="hero-stat-label">Loans</div>
           <div class="hero-stat-details" id="activeLoansDetails"></div>
+          <div class="hero-stat-popover" id="activeLoansPopover" role="status">Loans issued to you that are approved or disbursed and not yet fully repaid.</div>
           <button type="button" class="hero-stat-badge" id="activeLoansBadge" aria-label="Dismiss loan due reminder" style="position: absolute; top: var(--bn-space-1); right: var(--bn-space-1); background: var(--bn-danger); color: var(--bn-white); font-size: 8px; padding: 2px 6px; border: none; font-family: inherit; border-radius: 10px; font-weight: 700; cursor: pointer; display: none; z-index: 10;" onclick="dismissActiveLoansBadge(event)">Due</button>
         </div>
         <div class="hero-stat" id="pendingPaymentsStat" tabindex="0" aria-describedby="pendingPaymentsPopover" style="position: relative;">
           <div class="hero-stat-value" id="pendingPayments">0</div>
-          <div class="hero-stat-label">Pending</div>
+          <div class="hero-stat-label" id="pendingPaymentsLabel">Pending</div>
           <div class="hero-stat-popover" id="pendingPaymentsPopover" role="status"></div>
         </div>
         <div class="hero-stat" id="totalArrearsStat" tabindex="0" aria-describedby="totalArrearsPopover" style="position: relative;">
@@ -2140,16 +2213,18 @@
           <div class="hero-stat-label">Arrears</div>
           <div class="hero-stat-popover" id="totalArrearsPopover" role="status"></div>
         </div>
-        <a href="contacts.html" class="hero-stat" id="membersStat" style="text-decoration: none; cursor: pointer;">
+        <a href="contacts.html" class="hero-stat" id="membersStat" aria-describedby="membersPopover" style="text-decoration: none; cursor: pointer; position: relative;">
           <div class="hero-stat-value" id="totalMembers" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
             <span>0</span>
             <span class="badge" style="background: var(--bn-accent); color: var(--bn-dark); font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: 700;">Members</span>
           </div>
           <div class="hero-stat-label">Group Members</div>
+          <div class="hero-stat-popover" id="membersPopover" role="status">The total number of members currently belonging to this group.</div>
         </a>
-        <button type="button" class="hero-stat" id="totalContributedStat" style="cursor: pointer;" onclick="showAllPaymentsModal()">
+        <button type="button" class="hero-stat" id="totalContributedStat" aria-describedby="totalContributedPopover" style="cursor: pointer; position: relative;" onclick="showAllPaymentsModal()">
           <div class="hero-stat-value" id="totalContributed">MWK 0</div>
-          <div class="hero-stat-label">Contributed</div>
+          <div class="hero-stat-label" id="totalContributedLabel">Contributed</div>
+          <div class="hero-stat-popover" id="totalContributedPopover" role="status">Your own approved and completed contributions, totalled for the period shown by the month filter above (a single month, or the whole year).</div>
         </button>
       </div>
 

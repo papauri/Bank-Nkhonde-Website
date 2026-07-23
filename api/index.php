@@ -86,6 +86,8 @@ const ROUTES = [
     'payments.reject'      => ['POST', 'reject_payment'],
     'payments.waivePenalty' => ['POST', 'waive_contribution_penalty'],
     'payments.groupArrears' => ['GET', 'group_arrears_summary'],
+    'payments.accountingSummary' => ['GET', 'group_accounting_summary'],
+    'payments.groupStats'  => ['GET', 'member_group_stats'],
 
     'statement.get' => ['GET', 'get_statement'],
 

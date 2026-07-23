@@ -103,6 +103,7 @@ const spinner = () => document.getElementById("spinner");
  */
 export async function init() {
   setupEventListeners();
+  initStaticStatPopovers();
 
   try {
     currentUser = await requireSession(); // redirects to login on 401
@@ -203,6 +204,16 @@ async function loadAnalytics() {
     handleApiError(error, "Failed to load analytics");
   } finally {
     showSpinner(false);
+  }
+
+  // Additive: group accounting position (H5, admin-gated server-side). Its own
+  // try/catch so a failure here never aborts the rest of loadAnalytics above.
+  try {
+    const accounting = await apiGet("payments.accountingSummary", {groupId: currentGroupId});
+    renderAccountingFigures(accounting);
+  } catch (error) {
+    handleApiError(error, "Failed to load accounting summary");
+    renderAccountingFigures(null);
   }
 }
 
@@ -407,9 +418,21 @@ function renderChartContainer() {
     return;
   }
 
-  container.appendChild(statCard("Contributions Collected", formatCurrency(collected)));
-  container.appendChild(statCard("Loans Disbursed", formatCurrency(disbursed)));
-  container.appendChild(statCard("Outstanding Arrears (live)", formatCurrency(liveArrearsTotal)));
+  container.appendChild(statCard(
+    "Contributions Collected",
+    formatCurrency(collected),
+    "Settled member contributions received over the selected period."
+  ));
+  container.appendChild(statCard(
+    "Loans Disbursed",
+    formatCurrency(disbursed),
+    "Total loan principal paid out to members."
+  ));
+  container.appendChild(statCard(
+    "Outstanding Arrears (live)",
+    formatCurrency(liveArrearsTotal),
+    "Contributions and penalties currently overdue across the group, computed live."
+  ));
 
   // Substituted with the server summary: remainingBalance is 0.00 for every
   // loan outside ISSUED_LOAN_STATUSES (pending/rejected never had a balance set,
@@ -418,10 +441,21 @@ function renderChartContainer() {
   // client-side sum. Verified against api/handlers/loans.php's remainingBalance
   // writes (default '0.00' on insert, only ever set on approve/repay).
   const outstandingLoans = loansSummary ? numberOf(loansSummary.totalOutstanding) : 0;
-  container.appendChild(statCard("Outstanding Loan Balances", formatCurrency(outstandingLoans)));
+  container.appendChild(statCard(
+    "Outstanding Loan Balances",
+    formatCurrency(outstandingLoans),
+    "Loan principal members still owe on active loans."
+  ));
 }
 
-function statCard(label, value) {
+/**
+ * @param {string} label
+ * @param {string} value - already-formatted display string (formatCurrency output)
+ * @param {string} [infoText] - when passed, attaches a "i" info-toggle popover
+ *   (see attachCardPopover) explaining the figure. Optional — existing 2-arg
+ *   callers are unaffected.
+ */
+function statCard(label, value, infoText) {
   const card = el("div", "breakdown-card");
   const header = el("div", "breakdown-card-header");
   const title = el("span", "breakdown-card-title");
@@ -430,7 +464,42 @@ function statCard(label, value) {
   const valueEl = el("div", "breakdown-card-value");
   valueEl.textContent = value;
   card.append(header, valueEl);
+  if (infoText) attachCardPopover(card, infoText, `${label} explanation`);
   return card;
+}
+
+// ── Group accounting position (H5, admin-gated server-side) — pure display of
+// ten already-server-computed money STRINGS, no client arithmetic. ───────────
+const ACCOUNTING_FIGURES = [
+  ["totalContributed", "Total Contributed", "Settled member contributions received by the group (approved and completed)."],
+  ["totalDisbursed", "Total Disbursed", "Total loan principal paid out to members."],
+  ["outstandingLoanPrincipal", "Outstanding Loan Principal", "Loan principal still owed and not yet repaid."],
+  ["interestEarned", "Interest Earned", "Interest received from approved loan repayments."],
+  ["loanRepaymentsReceived", "Loan Repayments Received", "Total loan repayments received — principal, interest and penalties combined."],
+  ["penaltiesCharged", "Penalties Charged", "Total penalties levied on late contributions and loans."],
+  ["penaltiesCollected", "Penalties Collected", "Penalty amounts members have actually paid."],
+  ["penaltiesWaived", "Penalties Waived", "Penalty amounts an admin has cancelled."],
+  ["penaltiesOutstanding", "Penalties Outstanding", "Recorded penalties charged but not yet collected or waived."],
+  ["cashPosition", "Cash Position", "Total contributed and repaid minus total disbursed — the group's net cash on hand."],
+];
+
+function renderAccountingFigures(summary) {
+  const block = document.getElementById("accountingFiguresBlock");
+  if (!block) return;
+  block.textContent = "";
+
+  if (!summary) {
+    block.appendChild(emptyState("📊", "No accounting data available"));
+    return;
+  }
+
+  const titleEl = el("h3");
+  titleEl.textContent = "Group Accounting Position";
+  block.appendChild(titleEl);
+
+  ACCOUNTING_FIGURES.forEach(([field, label, infoText]) => {
+    block.appendChild(statCard(label, formatCurrency(summary[field]), infoText));
+  });
 }
 
 // ── Member participation table — straight from cycle.equity, no re-derivation ──
@@ -505,6 +574,106 @@ function emptyTableRow(text, colspan) {
   cell.textContent = text;
   row.appendChild(cell);
   return row;
+}
+
+// ── Card-info popovers ──────────────────────────────────────────────────────
+// Page-local adaptation of admin_dashboard_sql.js's setupStatCardPopovers
+// (not imported — that mechanism is hard-scoped to admin_dashboard's
+// .stat-card-wrap and is left untouched). Attaches a small "i" toggle +
+// popover to a positioned card ancestor (.page-stat or .breakdown-card, both
+// given `position: relative` in analytics.html's inline <style>).
+const STATIC_TILE_INFO = [
+  ["totalIncome", "Total Income",
+    "Settled member contributions plus loan interest earned — the money flowing into the group this period."],
+  ["totalExpenses", "Total Expenses",
+    "Loan principal disbursed to members (approved, disbursed, completed and defaulted loans)."],
+  ["netProfit", "Net Profit",
+    "Total income minus loans disbursed — the group's net position for the period."],
+  ["loanInterest", "Loan Interest",
+    "Interest paid into the group's interest pool from loan repayments this cycle."],
+];
+
+let popoverIdCounter = 0;
+
+/**
+ * Build and attach a "i" info-toggle button + popover to a card element.
+ * Uses createElement/textContent only — never innerHTML.
+ * @param {HTMLElement} cardEl - positioned ancestor (.page-stat or .breakdown-card)
+ * @param {string} infoText - plain-text explanation, set via textContent
+ * @param {string} ariaLabel - accessible name for the toggle button
+ */
+function attachCardPopover(cardEl, infoText, ariaLabel) {
+  if (!cardEl || !infoText) return;
+
+  const popoverId = `stat-card-popover-${++popoverIdCounter}`;
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "stat-card-info-toggle";
+  toggle.textContent = "i";
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.setAttribute("aria-label", ariaLabel);
+  toggle.setAttribute("aria-controls", popoverId);
+
+  const popover = document.createElement("div");
+  popover.className = "stat-card-popover";
+  popover.id = popoverId;
+  popover.setAttribute("role", "status");
+  popover.textContent = infoText;
+
+  toggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const willOpen = !popover.classList.contains("open");
+    closeAllCardPopovers(willOpen ? popover : null);
+    popover.classList.toggle("open", willOpen);
+    toggle.setAttribute("aria-expanded", String(willOpen));
+  });
+
+  toggle.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+      e.preventDefault();
+      toggle.click();
+    } else if (e.key === "Escape") {
+      popover.classList.remove("open");
+      toggle.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  cardEl.append(toggle, popover);
+}
+
+/**
+ * Close every open card popover except the one passed (if any).
+ * @param {HTMLElement|null} except
+ */
+function closeAllCardPopovers(except) {
+  document.querySelectorAll(".stat-card-popover.open").forEach((p) => {
+    if (p === except) return;
+    p.classList.remove("open");
+    const toggle = document.querySelector(`[aria-controls="${p.id}"]`);
+    if (toggle) toggle.setAttribute("aria-expanded", "false");
+  });
+}
+
+// Single module-scope outside-click listener — closes any open popover when
+// the click lands outside both card container types.
+document.addEventListener("click", (e) => {
+  if (e.target.closest(".page-stat") || e.target.closest(".breakdown-card")) return;
+  closeAllCardPopovers(null);
+});
+
+/**
+ * One-shot init: attach the "i" popover to each of the 4 static summary
+ * tiles. Display/affordance only — no data dependency, safe to run before
+ * any group is selected.
+ */
+function initStaticStatPopovers() {
+  STATIC_TILE_INFO.forEach(([id, label, infoText]) => {
+    const valueEl = document.getElementById(id);
+    const wrap = valueEl?.closest(".page-stat");
+    if (!wrap) return;
+    attachCardPopover(wrap, infoText, `${label} explanation`);
+  });
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

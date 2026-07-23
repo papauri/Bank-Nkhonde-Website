@@ -70,7 +70,7 @@
             </div>
             <div class="info-card-value" id="totalIncome">MWK 0</div>
             <div class="info-card-footer">
-              <span class="info-card-meta">From contributions & interest</span>
+              <span class="info-card-meta">Settled contributions</span>
             </div>
           </div>
           <div class="info-card">
@@ -88,7 +88,7 @@
             </div>
             <div class="info-card-value" id="netPosition">MWK 0</div>
             <div class="info-card-footer">
-              <span class="info-card-meta">Current balance</span>
+              <span class="info-card-meta">Cash position</span>
             </div>
           </div>
           <div class="info-card">
@@ -100,6 +100,35 @@
               <span class="info-card-meta">Pending recovery</span>
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Group Accounting (server-accurate, no client-side money math) -->
+    <section class="content-section">
+      <div class="content-section-header">
+        <h2 class="content-section-title">Group Accounting</h2>
+      </div>
+      <div class="content-section-body">
+        <div class="table-container">
+          <table class="table table-responsive" id="accountingSummaryTable">
+            <thead>
+              <tr>
+                <th>Figure</th>
+                <th>Amount (MWK)</th>
+              </tr>
+            </thead>
+            <tbody id="accountingSummaryBody">
+              <tr>
+                <td colspan="2">
+                  <div class="empty-state">
+                    <div class="empty-state-icon">📊</div>
+                    <p class="empty-state-text">Select a group to view the accounting summary</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </section>

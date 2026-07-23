@@ -777,23 +777,31 @@ if (!function_exists('payment_obligations_summary_minor')) {
         $contributedMinor = money_to_minor(trim((string) $seed['amountPaid']));
         $arrearsMinor = money_to_minor(trim((string) $seed['arrears']));
         $penaltyAccruedMinor = money_to_minor(trim((string) $seed['penalty']['amountOutstanding']));
+        $seedContributedMinor = money_to_minor(trim((string) $seed['amountPaid']));
+        $monthlyContributedMinor = 0;
+        $feeContributedMinor = 0;
 
         foreach ($months as $monthRow) {
             $contributedMinor += money_to_minor(trim((string) $monthRow['amountPaid']));
             $arrearsMinor += money_to_minor(trim((string) $monthRow['arrears']));
             $penaltyAccruedMinor += money_to_minor(trim((string) $monthRow['penalty']['amountOutstanding']));
+            $monthlyContributedMinor += money_to_minor(trim((string) $monthRow['amountPaid']));
         }
 
         if ($serviceFee !== null) {
             $contributedMinor += money_to_minor(trim((string) $serviceFee['amountPaid']));
             $arrearsMinor += money_to_minor(trim((string) $serviceFee['arrears']));
             $penaltyAccruedMinor += money_to_minor(trim((string) $serviceFee['penalty']['amountOutstanding']));
+            $feeContributedMinor = money_to_minor(trim((string) $serviceFee['amountPaid']));
         }
 
         return [
             'contributedMinor' => $contributedMinor,
             'arrearsMinor' => $arrearsMinor,
             'penaltyAccruedMinor' => $penaltyAccruedMinor,
+            'seedContributedMinor' => $seedContributedMinor,
+            'monthlyContributedMinor' => $monthlyContributedMinor,
+            'feeContributedMinor' => $feeContributedMinor,
         ];
     }
 }
@@ -1060,6 +1068,11 @@ if (!function_exists('my_obligations')) {
                 'arrears' => money_from_minor($arrearsMinor),
                 'penaltyAccrued' => money_from_minor($penaltyAccruedMinor),
             ],
+            'contributionBreakdown' => [
+                'seedMoney' => money_from_minor($obligationsSummary['seedContributedMinor']),
+                'monthly' => money_from_minor($obligationsSummary['monthlyContributedMinor']),
+                'serviceFee' => money_from_minor($obligationsSummary['feeContributedMinor']),
+            ],
         ]);
     }
 }
@@ -1183,6 +1196,173 @@ if (!function_exists('group_arrears_summary')) {
             'penaltyAccrued' => money_from_minor($penaltyMinor),
             'totalArrears' => money_from_minor($arrearsMinor + $penaltyMinor),
             'memberCount' => count($uids),
+        ]);
+    }
+}
+
+if (!function_exists('group_accounting_summary')) {
+    /**
+     * GET payments.accountingSummary — the group's FULL financial position,
+     * server-side, in integer minor units. ADMIN-EQUIVALENT ONLY.
+     *
+     * Every money column is fetched raw and summed ROW-WISE via money_to_minor()
+     * — never SQL SUM() on a DECIMAL column, never a float — same convention as
+     * payment_settled_minor() above.
+     *
+     * cashPosition intentionally uses ONLY contributionPenaltiesCollected (the
+     * paymentId-scoped half of penalty_settlements): loan-penalty collections are
+     * already folded into loan_payments.amount, so adding penalty_settlements'
+     * loanId-scoped rows on top would double-count them.
+     */
+    function group_accounting_summary(): void
+    {
+        $groupId = (string) ($_GET['groupId'] ?? '');
+        if ($groupId === '') {
+            json_error('groupId is required.', 422);
+        }
+
+        require_role($groupId, PAYMENT_ADMIN_ROLES);
+
+        $pdo = getDbConnection();
+
+        // --- Settled contributions. ---
+        $stmt = $pdo->prepare(
+            "SELECT amountPaid FROM payments WHERE groupId = :groupId "
+            . "AND approvalStatus IN ('approved', 'completed')"
+        );
+        $stmt->execute([':groupId' => $groupId]);
+        $totalContributedMinor = 0;
+        foreach ($stmt->fetchAll() as $row) {
+            $totalContributedMinor += money_to_minor(trim((string) $row['amountPaid']));
+        }
+
+        // --- Disbursed loans. ---
+        $stmt = $pdo->prepare(
+            "SELECT principalAmount, remainingBalance FROM loans WHERE groupId = :groupId "
+            . "AND status IN ('approved', 'disbursed', 'completed', 'defaulted')"
+        );
+        $stmt->execute([':groupId' => $groupId]);
+        $totalDisbursedMinor = 0;
+        $outstandingLoanPrincipalMinor = 0;
+        foreach ($stmt->fetchAll() as $row) {
+            $totalDisbursedMinor += money_to_minor(trim((string) $row['principalAmount']));
+            $outstandingLoanPrincipalMinor += money_to_minor(trim((string) $row['remainingBalance']));
+        }
+
+        // --- Loan repayments. ---
+        $stmt = $pdo->prepare(
+            "SELECT amount, interestPortion FROM loan_payments WHERE groupId = :groupId "
+            . "AND status = 'approved'"
+        );
+        $stmt->execute([':groupId' => $groupId]);
+        $loanRepaymentsReceivedMinor = 0;
+        $interestEarnedMinor = 0;
+        foreach ($stmt->fetchAll() as $row) {
+            $loanRepaymentsReceivedMinor += money_to_minor(trim((string) $row['amount']));
+            $interestEarnedMinor += money_to_minor(trim((string) $row['interestPortion']));
+        }
+
+        // --- Penalty settlements. ---
+        $stmt = $pdo->prepare(
+            'SELECT amountAccrued, amountPaid, amountWaived, paymentId '
+            . 'FROM penalty_settlements WHERE groupId = :groupId'
+        );
+        $stmt->execute([':groupId' => $groupId]);
+        $penaltiesChargedMinor = 0;
+        $penaltiesCollectedMinor = 0;
+        $penaltiesWaivedMinor = 0;
+        $contributionPenaltiesCollectedMinor = 0;
+        foreach ($stmt->fetchAll() as $row) {
+            $accrued = money_to_minor(trim((string) $row['amountAccrued']));
+            $paid = money_to_minor(trim((string) $row['amountPaid']));
+            $waived = money_to_minor(trim((string) $row['amountWaived']));
+
+            $penaltiesChargedMinor += $accrued;
+            $penaltiesCollectedMinor += $paid;
+            $penaltiesWaivedMinor += $waived;
+
+            if ($row['paymentId'] !== null) {
+                $contributionPenaltiesCollectedMinor += $paid;
+            }
+        }
+
+        $penaltiesOutstandingMinor = max(
+            0,
+            $penaltiesChargedMinor - $penaltiesCollectedMinor - $penaltiesWaivedMinor
+        );
+
+        $cashPositionMinor = $totalContributedMinor
+            + $loanRepaymentsReceivedMinor
+            + $contributionPenaltiesCollectedMinor
+            - $totalDisbursedMinor;
+
+        json_response([
+            'totalContributed' => money_from_minor($totalContributedMinor),
+            'totalDisbursed' => money_from_minor($totalDisbursedMinor),
+            'outstandingLoanPrincipal' => money_from_minor($outstandingLoanPrincipalMinor),
+            'interestEarned' => money_from_minor($interestEarnedMinor),
+            'loanRepaymentsReceived' => money_from_minor($loanRepaymentsReceivedMinor),
+            'penaltiesCharged' => money_from_minor($penaltiesChargedMinor),
+            'penaltiesCollected' => money_from_minor($penaltiesCollectedMinor),
+            'penaltiesWaived' => money_from_minor($penaltiesWaivedMinor),
+            'penaltiesOutstanding' => money_from_minor($penaltiesOutstandingMinor),
+            'cashPosition' => money_from_minor($cashPositionMinor),
+        ]);
+    }
+}
+
+if (!function_exists('member_group_stats')) {
+    /**
+     * GET payments.groupStats — the small, member-safe transparency subset of
+     * the group's financial position: memberCount, groupTotalContributed,
+     * activeLoanCount. MEMBER-GATED (any role in the group may call this) —
+     * unlike group_accounting_summary() above, this deliberately excludes
+     * cashPosition, penalties, disbursement totals, and any per-member
+     * breakdown. Scoped strictly to the caller's own group.
+     */
+    function member_group_stats(): void
+    {
+        $groupId = (string) ($_GET['groupId'] ?? '');
+        if ($groupId === '') {
+            json_error('groupId is required.', 422);
+        }
+
+        require_role($groupId, PAYMENT_ANY_MEMBER_ROLES);
+
+        $pdo = getDbConnection();
+
+        // --- Active member count. ---
+        $stmt = $pdo->prepare(
+            "SELECT COUNT(*) AS n FROM members WHERE groupId = :groupId AND status = 'active'"
+        );
+        $stmt->execute([':groupId' => $groupId]);
+        $memberCount = (int) $stmt->fetch()['n'];
+
+        // --- Settled contributions, summed ROW-WISE via money_to_minor()
+        // — never SQL SUM() on a DECIMAL column, never a float. ---
+        $stmt = $pdo->prepare(
+            "SELECT amountPaid FROM payments WHERE groupId = :groupId "
+            . "AND approvalStatus IN ('approved', 'completed')"
+        );
+        $stmt->execute([':groupId' => $groupId]);
+        $totalContributedMinor = 0;
+        foreach ($stmt->fetchAll() as $row) {
+            $totalContributedMinor += money_to_minor(trim((string) $row['amountPaid']));
+        }
+
+        // --- Active loan count. ---
+        $stmt = $pdo->prepare(
+            // matches LOAN_ACTIVE_STATUSES in loans.php — the codebase's active-loan set
+            "SELECT COUNT(*) AS n FROM loans WHERE groupId = :groupId "
+            . "AND status IN ('pending', 'approved', 'disbursed')"
+        );
+        $stmt->execute([':groupId' => $groupId]);
+        $activeLoanCount = (int) $stmt->fetch()['n'];
+
+        json_response([
+            'memberCount' => $memberCount,
+            'groupTotalContributed' => money_from_minor($totalContributedMinor),
+            'activeLoanCount' => $activeLoanCount,
         ]);
     }
 }

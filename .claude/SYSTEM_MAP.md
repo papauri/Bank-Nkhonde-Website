@@ -888,3 +888,612 @@ None. All rendering, field names, API endpoints, and createElement patterns are 
 ### DEAD
 
 None in scope.
+
+---
+
+## Button/nav wiring audit (cycle 98 scout)
+
+**Scope:** pages/user_dashboard.html, admin_dashboard.html, analytics.html, user_analytics.html + paired _sql.js scripts + shared nav_sql.js and notifications-handler_sql.js.
+
+### Q1: notificationsBtn — Status: WIRED ✓
+
+| Control | Location | Handler | Details |
+|---------|----------|---------|---------|
+| `#notificationsBtn` | nav_sql.js:353 | notifications-handler_sql.js:59 | Bell icon button created by renderSidebarNav() (admin variant) and renderUserNav() (user variant). Click listener opens dropdown, calls loadNotifications(). Badge auto-updates via polling every 60s (POLL_INTERVAL_MS = 60000 at line 29). |
+
+**Evidence:** 
+- nav_sql.js line 353: `const notifBtn = document.createElement("button"); notifBtn.type = "button"; notifBtn.className = "topbar-btn"; notifBtn.id = "notificationsBtn"; notifBtn.setAttribute("aria-label", "Notifications"); notifBtn.appendChild(svgIcon("bell"));`
+- nav_sql.js lines 356–360: Badge span created and appended to notifBtn.
+- notifications-handler_sql.js line 59: `notificationBtn.addEventListener("click", (e) => { e.stopPropagation(); if (dropdown.classList.contains("show")) { closeDropdown(dropdown); } else { openDropdown(dropdown); loadNotifications(); } });`
+- Line 45 checks `if (!notificationBtn) return;` — gracefully no-ops if markup is missing.
+
+---
+
+### Q2: Admin↔User view switch — Status: WIRED ✓
+
+| Control | Location | Handler | Details |
+|----------|----------|---------|---------|
+| `#viewToggle` (user page) | user_dashboard.html:206–217 | user_dashboard_sql.js:224 | Two-button toggle ("Admin" / "User" view). Visible only if user is admin-role in current group. "Admin" button has onclick="window.location.href='admin_dashboard.html'". |
+| Switch link (admin page) | nav_sql.js:254–263 | admin_dashboard_sql.js:1302–1305 | "Switch to User View" link injected into sidebar footer via renderSidebarNav() footerSwitch config. querySelector listener on `'a.sidebar-nav-item[href="user_dashboard.html"]'` navigates to user_dashboard.html. |
+
+**Evidence:**
+- user_dashboard.html line 206–217: `<div class="view-toggle">` with two buttons inside (no ids, class-based styling).
+- user_dashboard_sql.js line 224: `const viewToggle = document.getElementById("viewToggle"); if (viewToggle) viewToggle.classList.toggle("hidden", !isAdmin);` — toggles visibility based on isAdmin flag.
+- nav_sql.js line 254–263: If footerSwitch config exists, builds link: `const switchUserLink = document.createElement("a"); switchUserLink.href = footerSwitch.href; switchUserLink.className = "sidebar-nav-item";` (footerSwitch.href hardcoded to "user_dashboard.html" or "admin_dashboard.html" depending on which shell).
+- admin_dashboard_sql.js line 1302: `document.querySelector('a.sidebar-nav-item[href="user_dashboard.html"]')?.addEventListener("click", () => { window.location.href = "user_dashboard.html"; });`
+
+---
+
+### Q3: Card info "i" helper — Status: WIRED ✓
+
+| Control | Location | Handler | Details |
+|----------|----------|---------|---------|
+| `.stat-card-info-toggle` (4 buttons) | admin_dashboard.html:1629, 1637, 1645, 1653 | admin_dashboard_sql.js:1343–1370 | Four small "i" buttons (italic text) for stat-card popovers (Collections, Loans, Pending, Arrears). Toggle popover.open class on click (touch/mobile tap). CSS handles hover/focus-within for desktop. Keyboard accessible (aria-expanded + focus-visible outline). |
+
+**Evidence:**
+- admin_dashboard.html line 1629: `<button type="button" class="stat-card-info-toggle" aria-expanded="false" aria-controls="totalCollectionsPopover" aria-label="Collections breakdown">i</button>` — repeated for all 4 stat cards.
+- admin_dashboard_sql.js line 1343–1370 (setupStatCardPopovers):
+  - Line 1355: `const toggle = wrap.querySelector(".stat-card-info-toggle");`
+  - Line 1357: `toggle.addEventListener("click", (e) => { e.stopPropagation(); const willOpen = !popover.classList.contains("open"); closeAll(willOpen ? popover : null); popover.classList.toggle("open", willOpen); toggle.setAttribute("aria-expanded", String(willOpen)); });`
+- Line 1332 in setupEventListeners: `setupStatCardPopovers();` is called on init.
+- admin_dashboard.html line 1630, 1638, 1646, 1654: `<div class="stat-card-popover" id="totalCollectionsPopover" role="status"></div>` — target elements exist for each button.
+
+---
+
+## Dashboard data→summary pipeline (cycle 99 scout)
+
+**Scope:** Map as-built data flow for month-filter briefing: `pages/user_dashboard.html` + `scripts/user_dashboard_sql.js` and `pages/admin_dashboard.html` + `scripts/admin_dashboard_sql.js` only. Identify (1) API actions fetched on load + data shapes, (2) every summary/stat figure shown + whether it's client-array-filterable or server-total-only, (3) where month/period control could sit, (4) DOM helpers for follow-on brief.
+
+### 1. User Dashboard — API Actions & Data Shapes
+
+**Fetched on load (loadDashboard, line 388–397):**
+| Action | Line | HTTP | Returns | Key date/month fields per record |
+|--------|------|------|---------|----------------------------------|
+| `payments.obligations` | 393 | GET | summary {contributed, arrears, penaltyAccrued} + seedMoney/monthlyContributions/serviceFee objects | seedMoney: dueDate; monthlyContributions.months[]: month (ENUM Jan–Dec), year, dueDate, approvalStatus; serviceFee: dueDate |
+| `payments.list` | 394 | GET | {payments: []} with rows | month (ENUM), year (INT), dueDate, paidAt, approvedAt, approvalStatus |
+| `loans.list` | 395 | GET | {loans: []} with rows | approvedAt, repaymentPeriod (for maturity calc) |
+| `members.list` | 396 | GET | {members: []} with rows | status (to filter active) |
+
+**Cached after load (line 416–421):** window.__dashboardData = {obligations, payments, loans} for modal/calendar re-render without re-fetch.
+
+### 2. User Dashboard — Summary Figures & Filterability
+
+| Stat/Figure | Element ID | Setter fn:line | Data source | Type | Notes |
+|---|---|---|---|---|---|
+| Total Contributed | `totalContributed` | line 474: setText(fmt(summary.contributed)) | payments.obligations → summary | server-total-only | Pre-summed on backend, never recalculated client-side |
+| Pending Payments | `pendingPayments` | line 483: setText(fmt(sum of pending rows)) | payments.list array | client-array | Sums rows where approvalStatus='pending'; re-aggregatable |
+| Total Arrears | `totalArrears` | line 489: setText(fmt(arrears + penalties)) | obligations summary | client-array | arrearsMinor + penaltyAccrued from summary |
+| Active Loans (count) | `activeLoans` | line 495–499: count of status='approved' or 'disbursed' | loans.list array | client-array | Filter-ready |
+| Group Members (count) | `totalMembers` | line 748: count of status!='inactive' | members.list array | client-array | Filter-ready |
+| Next Payment (amount + date) | `nextPaymentDetails` / `nextPaymentStat` | line 779: setText(fmt + date) | obligations months | client-array | Finds earliest unpaid obligation; re-derivable month-wise |
+| Upcoming Payments (list) | `upcomingPayments` | line 837: renders table | obligations (60-day window) | client-array | Window-filterable |
+| Active Loans (received + balance) | `activeLoansDetails` | line 1016–1021: sums received/balance | loans.list array | client-array | Per-loan data available |
+
+**Payment Calendar (line 1165+):** Already renders month-by-month from cached data; navigation (prev/next) re-renders using existing eventMap (no server call). **Month control already present:** `#calendarPrevMonth` / `#calendarNextMonth` buttons (lines 1762–1766), month/year display (line 1169 `calendarMonthYear`).
+
+### 3. Admin Dashboard — API Actions & Data Shapes
+
+**Fetched on load (loadDashboardAfterGroupSelection, line 148–152):**
+| Action | Line | HTTP | Returns | Key date/month fields per record |
+|--------|------|------|---------|----------------------------------|
+| `payments.list` | 149 | GET | {summary: {verifiedCollected, totalArrears}, payments: []} | month (ENUM), year, createdAt, paidAt, arrears, penalty.amountAccrued |
+| `loans.list` | 150 | GET | {loans: []} with rows | createdAt, approvedAt, status |
+| `members.list` | 151 | GET | {members: []} with rows | uid, fullName, status |
+| `payments.groupArrears` | 152 | GET | {totalArrears, arrears, penaltyAccrued, memberCount} | (aggregate only; no per-record dates) |
+
+**Cached after load (line 161–174):** groupData = {payments, loans, members, summary, groupArrears} for modal re-render.
+
+### 4. Admin Dashboard — Summary Figures & Filterability
+
+| Stat/Figure | Element ID | Setter fn:line | Data source | Type | Notes |
+|---|---|---|---|---|---|
+| Total Collections | `totalCollections` | line 291–293: setText(fmt(summary.verifiedCollected)) | payments.list → summary | server-total-only | Pre-summed on backend; no client re-aggregation |
+| Active Loans (count) | `activeLoans` | line 294: count of status in [approved, disbursed] | loans.list array | client-array | Filter-ready |
+| Pending Approvals | `pendingApprovals` | line 295: count of pending payments + loans | payments.list + loans.list arrays | client-array | Two separate filters, summed |
+| Total Arrears | `totalArrears` | line 305: setText(fmt(groupArrears.totalArrears)) | payments.groupArrears OR summary | server-total-only | Group-wide obligation arrears (includes members with zero payment rows); falls back to summary if groupArrears unavailable |
+| Collection Trends (pie charts) | `chartContainer` | line 319–484: renderCollectionTrends() | payments.list (filtered by range) | client-array | **Already has month/period select:** `#collectionTrendsRangeSelect` (line 328–329) with options "6", "12", "all". Client-side filters rangedPayments by createdAt (or paidAt fallback) within cutoff. Re-renders pie charts on select change (line 1330) |
+| Due Payments This Month | `duePaymentsCards` | line 825–883: loadDuePayments() | payments.list filtered by current month/year | client-array | Filters by paymentType='monthly_contribution' + month=current + year=current; scopes to arrears > 0 |
+
+**Collection Trends Range Select already exists (line 328):** `<select class="form-select content-card-header-select" id="collectionTrendsRangeSelect">` with options "Last 6 months" / "Last year" / "All time". **No additional month control needed for admin dashboard** — filtering is already functional.
+
+### 5. Month/Period Control Insertion Points
+
+**user_dashboard.html:**
+- Payment Calendar (line 1165–1272): Already has month navigation. No new control needed.
+- Upcoming Payments modal (can be opened but data already loaded): month-aware, but no monthly filter UI.
+- **Candidate insertion:** A month select above the "Upcoming Payments" list (lines 826–837) could filter by month; currently shows 60-day window only.
+
+**admin_dashboard.html:**
+- Collection Trends (line 319–484): **ALREADY HAS `#collectionTrendsRangeSelect`** (lines 728–738 in HTML). No new control needed.
+- Due Payments This Month (line 825–883): Hardcoded to current month. Could add a select to view prior/future months, but "This Month" is semantically clear.
+
+### 6. DOM Builders & Toast Helpers
+
+**user_dashboard_sql.js:**
+- **createElement + textContent pattern:** Lines 277–315 (buildGroupCard); line 1212–1269 (renderCalendarGrid); line 1453–1486 (buildNotificationRow) — all use createElement("div"), textContent for text, classList for styling.
+- **Toast helper:** `showToast(message, type)` at line 2830–2855 (creates div.toast in #toastContainer, auto-removes after 4s).
+- **Money helpers:** `toMinor(value):int` (line 2864–2874), `fromMinor(cents):string` (line 2881–2887).
+- **Date parser:** `parseServerDate(value):Date|null` (line 2896–2901), `formatDate(date):string` (line 2918–2924).
+
+**admin_dashboard_sql.js:**
+- **createElement + textContent pattern:** Lines 640–669 (buildGroupSelectionCard); lines 752–802 (buildApprovalRow); lines 1165–1206 (buildStatModalItem) — same pattern, no innerHTML.
+- **Toast helper:** `showToast(message, type)` at line 1666–1691 (identical to user_dashboard).
+- **Money helpers:** `toMinor(value):int` (line 1725–1735), `fromMinor(cents):string` (line 1742–1748), `formatCurrencyShort(value):string` (line 1755–1757), `formatCurrencyShortFromMinor(cents):string` (line 1764–1772).
+- **Date parser:** `parseServerDate(value):Date|null` (line 1781–1786), `formatDateShort(date):string` (line 1793–1795).
+
+### 7. Verdict: Client Re-aggregation vs. Server ?month Call
+
+**user_dashboard:**
+- **Client re-aggregation suffices** for obligations, loans, members, and upcoming-payment lists (all arrays fetched, month fields present).
+- Calendar already re-renders on month nav without server call.
+- **However:** No server ?month call for payment.obligations exists yet (uses fixed `year` param only). If admin-facing month filter on obligations is needed, a `?month` parameter to payments.obligations could be added (backend not checked this cycle).
+
+**admin_dashboard:**
+- **Collection Trends:** Client re-aggregation only (no server call on range select; filters existing array).
+- **Due Payments:** Client re-aggregation only (filters payments.list by current month).
+- **Collections & Arrears totals:** Already server-totals (summary.verifiedCollected, groupArrears.totalArrears); no month scoping on these pre-summed figures.
+- **If monthly breakdown of collections is needed:** payments.list already carries month/year per row; client can re-sum. No server call needed.
+- **Verdict:** No server ?month calls needed for current admin dashboard. Month filtering is client-side re-aggregation of already-fetched arrays.
+
+### GAPS
+
+1. **user_dashboard.html:** Upcoming Payments modal (line 1645–1668) re-renders from cached obligations but has no UI to select a specific month — defaults to 60-day window. A month picker could improve UX.
+2. **admin_dashboard.html:** Due Payments hardcoded to current month (line 830). A month/year selector could show past/future obligations, but is not critical (title says "This Month").
+3. **No server `?month` parameter on payments.obligations yet.** If member/admin wants to view obligations for a specific past/future month, server call is needed (not implemented).
+
+### DEAD
+
+None in scope.
+
+---
+
+### Q4: user_analytics page — Status: READ-ONLY (interactive selectors only, no clickable cards)
+
+| Element | Type | Handler | Wiring |
+|---------|------|---------|--------|
+| `#groupSelector` select | Form control | user_analytics_sql.js:100 | Change event listener loads group data (loadGroupData()). Populated from listMyGroups(). |
+| `#statementYearFilterEl` select | Form control | user_analytics_sql.js:125 | Change event listener reloads account statement (loadAccountStatement()). |
+| `#statementExportBtnEl` button | Button | user_analytics_sql.js:130 | Click listener calls downloadExport("exports.statement", {groupId}). |
+| Stat-card divs (`.stat-card`) | Display only | None | textContent populated from API; no onclick, no event listeners attached by JS. |
+| Recent Activity section | Display only | None | HTML injected from API (createElement + textContent only). |
+
+**Evidence:**
+- user_analytics_sql.js line 76: `const groupSelectorEl = () => document.getElementById("groupSelector");`
+- user_analytics_sql.js line 100: `groupSelectorEl()?.addEventListener("change", async (e) => { currentGroupId = e.target.value; if (currentGroupId) { sessionStorage.setItem("selectedGroupId", currentGroupId); await loadGroupData(); } else { ... } });`
+- user_analytics_sql.js line 80: `const statementExportBtnEl = () => document.getElementById("statementExportBtn");`
+- user_analytics_sql.js line 130: `statementExportBtnEl()?.addEventListener("click", () => { if (!currentGroupId) { showToast("Select a group first", "info"); return; } downloadExport("exports.statement", {groupId: currentGroupId}); });`
+- user_analytics.html lines 231–255: stat-cards are plain `<div class="stat-card">` with no id, no onclick, no data-action attributes.
+
+**Conclusion:** Page is a DISPLAY surface. Only the two `<select>` elements and export button are interactive; everything else is read-only stat rendering via textContent from loadTopStats(), loadGroupStats(), etc.
+
+---
+
+### Q5: analytics "Financial Trends" filters — Status: WIRED ✓ (tabs reload same monthly view)
+
+| Control | Location | Handler | Details |
+|---------|----------|---------|---------|
+| Tab buttons (Week / Month / Year) | analytics.html:177–181 | analytics_sql.js:135–147 | Click handler toggles .active class and reruns loadAnalytics(). Toast warns "Week/Year breakdowns are not available yet — showing the monthly view" (line 140). All three tabs call the same loadAnalytics() function; no week/year data endpoint exists. |
+
+**Evidence:**
+- analytics.html lines 177–180: `<div class="tabs">` with three `.tab` buttons: `<button class="tab">Week</button>` `<button class="tab active">Month</button>` `<button class="tab">Year</button>`.
+- analytics_sql.js line 123: `setupEventListeners()` function called on init (line 105).
+- analytics_sql.js lines 135–147:
+  - `document.querySelectorAll(".tab").forEach((tab) => { tab.addEventListener("click", async () => { document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active")); tab.classList.add("active"); if (tab.textContent?.trim() !== "Month") { showToast("Week/Year breakdowns are not available yet — showing the monthly view.", "info"); } if (currentGroupId) { await loadAnalytics(); document.getElementById("memberPerformanceTable")?.scrollIntoView({ behavior: "smooth", block: "start" }); } }); });`
+- Line 192 (loadAnalytics): loads same data for all tabs; no week/year filtering logic.
+- Line 60 (MONTH_NAMES constant): only months available, not weeks or quarters.
+
+---
+
+## Summary — Audit Results
+
+**WIRED CONTROLS (all functional, no gaps):**
+1. ✓ notificationsBtn — bell icon, dropdown, polling badge refresh every 60s
+2. ✓ Admin↔User view switch — toggle buttons + nav injection + querySelector listeners
+3. ✓ Stat-card "i" popovers — 4 info toggles wired to setupStatCardPopovers() (mobile tap + desktop hover)
+4. ✓ user_analytics selectors — groupSelector + statementYearFilter change handlers + export button
+5. ✓ analytics tab buttons — all wired (Week/Year stubs show toast; Month is live)
+
+**DEAD/MISSING CONTROLS:** None detected.
+
+**READ-ONLY PAGES:**
+- user_analytics.html — display surface; only selectors + export button interactive.
+
+**GAPS/DEFERRED (UI wired but backend missing):**
+- Week/Year tab granularity in analytics.html exists (UI event listeners active) but API has no day-level or year-level `payments.list` endpoint. Stubs show toast + reload monthly view unchanged (line 140).
+- CSV export on analytics_sql.js mentions "CSV/PDF export of charts or tables" as DEFERRED (lines 49–52); no `exports.analytics` handler exists yet (different from `exports.statement`).
+
+---
+
+## Analytics Financial Trends pipeline (cycle 100 scout)
+
+### (1) Financial Trends section structure (analytics.html)
+
+**Container:** `<section class="content-section">` (lines 173–191)
+- Header: `<div class="content-section-header">` (line 175)
+  - Title: `<h2 class="content-section-title">Financial Trends</h2>` (line 176)
+  - Tabs: `<div class="tabs">` (line 177)
+    - `<button class="tab">Week</button>` (line 178)
+    - `<button class="tab active">Month</button>` (line 179)
+    - `<button class="tab">Year</button>` (line 180)
+- Body: `<div class="content-section-body" id="chartsContainer">` (line 183)
+  - Monthly trend chart: `<div id="monthlyTrendChart" class="monthly-trend-chart">` (line 184)
+  - Pie charts grid: `<div class="charts-grid" id="chartContainer">` (line 187)
+
+**Summary stat tiles above Financial Trends (lines 154–171):**
+- `<div class="page-stats">` (line 154)
+  - `<div class="page-stat-value info" id="totalIncome">` (line 156)
+  - `<div class="page-stat-value danger" id="totalExpenses">` (line 160)
+  - `<div class="page-stat-value success" id="netProfit">` (line 164)
+  - `<div class="page-stat-value warning" id="loanInterest">` (line 168)
+
+**Member Performance section (lines 193–218):**
+- Table: `<table class="table table-responsive" id="memberPerformanceTable">` (line 200)
+- Table body: `<tbody id="memberPerformance">` (line 210)
+
+### (2) API actions fetched by loadAnalytics (line 192) + returned shapes + filterability
+
+| API action | Fetch call (file:line) | Returns | Per-record structure | Filterability verdict |
+|---|---|---|---|---|
+| members.list | analytics_sql.js:211 | `{members: [{uid, fullName, ...}]}` | Array, no date/month field | **server-total-only** (lookup table only) |
+| payments.list | analytics_sql.js:221 | `{payments: [{paymentType, approvalStatus, amountPaid, month, createdAt/paidAt, ...}]}` | Array with `month` field (string name, e.g. "January") | **client-array (filterable by month)** — used in renderSummaryTiles (line 286) and renderMonthlyTrendChart (line 325) with `.filter((p) => p.paymentType === "monthly_contribution" && SETTLED_STATUSES.includes(p.approvalStatus))` and `.forEach((p) => { const idx = MONTH_NAMES.indexOf(p.month); ...})` |
+| loans.list | analytics_sql.js:231 | `{loans: [{principalAmount/approvedAmount, status, disbursedAt, approvedAt, totalInterest, amountRepaid, remainingBalance, ...}], summary: {totalPrincipal, totalOutstanding, totalInterest, activePrincipal}}` | Array with `disbursedAt` and `approvedAt` (date strings). Summary block is group-wide single total. | **client-array (filterable by disbursedAt/approvedAt date field)** — used in renderSummaryTiles (line 300) with `.filter((l) => ISSUED_LOAN_STATUSES.includes(l.status))` and renderMonthlyTrendChart (line 335) with date extraction `.forEach((l) => { const when = l.disbursedAt \|\| l.approvedAt; ...const d = new Date(when); ...const idx = d.getMonth();...})` |
+| cycle.equity | analytics_sql.js:244 | `{summary: {groupInterestPool, ...}, members: [{fullName, totalContributed, totalBorrowed, totalInterestPaid, needsForcedLoan, shortfallVsTarget, ...}]}` | `members` is array with no date field; `summary` is single group-wide object. | **server-total-only** (only groupInterestPool used in line 291; members table rendered verbatim without filtering in renderMemberParticipation line 450) |
+| payments.obligations (per member) | analytics_sql.js:259 | `{seedMoney: {arrears}, serviceFee: {arrears}, monthlyContributions: {months: [{arrears, ...}]}}` | Nested; months array has no filterable field name in the spec. | **server-total-only** (summed into liveArrearsTotal via lines 269–276; no per-record filtering) |
+
+### (3) Rendered analytics figures → element ID → setter file:line
+
+| Figure | Element ID | Setter function | Setter file:line | Source data |
+|---|---|---|---|---|
+| Total Income (stat tile) | `#totalIncome` | setText(totalIncomeEl(), ...) | analytics_sql.js:306 | Collected payments + interestPaid from cycle.equity |
+| Total Expenses (stat tile) | `#totalExpenses` | setText(totalExpensesEl(), ...) | analytics_sql.js:307 | Disbursed loans (ISSUED_LOAN_STATUSES filter) |
+| Net Profit (stat tile) | `#netProfit` | setText(netProfitEl(), ...) | analytics_sql.js:308 | totalIncome − disbursed |
+| Loan Interest (stat tile) | `#loanInterest` | setText(loanInterestEl(), ...) | analytics_sql.js:309 | cycleEquity.summary.groupInterestPool |
+| Monthly Trend Chart (bar chart rendering) | `#monthlyTrendChart` | renderMonthlyTrendChart() creates bars dynamically; no individual element IDs | analytics_sql.js:313–388 | payments (grouped by month) + loans (binned by disbursedAt/approvedAt month) |
+| Contributions Collected (stat card in chartContainer) | (dynamically created div, class "breakdown-card") | statCard("Contributions Collected", ...) calls container.appendChild() | analytics_sql.js:410 | Collected payments (SETTLED_STATUSES filter) |
+| Loans Disbursed (stat card in chartContainer) | (dynamically created div, class "breakdown-card") | statCard("Loans Disbursed", ...) calls container.appendChild() | analytics_sql.js:411 | Disbursed loans (ISSUED_LOAN_STATUSES filter) |
+| Outstanding Arrears (stat card in chartContainer) | (dynamically created div, class "breakdown-card") | statCard("Outstanding Arrears (live)", ...) calls container.appendChild() | analytics_sql.js:412 | liveArrearsTotal (summed from payments.obligations) |
+| Outstanding Loan Balances (stat card in chartContainer) | (dynamically created div, class "breakdown-card") | statCard("Outstanding Loan Balances", ...) calls container.appendChild() | analytics_sql.js:421 | loansSummary.totalOutstanding (server-computed from loans.list summary) |
+| Member Participation table rows | (dynamically created `<tr>`, no id, cells have no id) | createParticipationRow(row) appends cells for fullName, totalContributed, totalBorrowed, totalInterestPaid, status badge | analytics_sql.js:459–496 | cycleEquity.members array rows |
+
+### (4) payments.accountingSummary import/usage status
+
+**NO** — payments.accountingSummary is **not imported or called** in analytics_sql.js.
+- File scanned for string "accountingSummary": zero matches.
+- The file fetches payments.list (line 221), loans.list (line 231), cycle.equity (line 244), and payments.obligations (line 259) only.
+- **Note for I3 brief:** To add accounting-figure filtering to analytics, the I3 must add a `loadAccountingSummary()` call (async apiGet("payments.accountingSummary", {groupId: currentGroupId})) inside loadAnalytics() and wire the returned figures (totalContributed, totalDisbursed, outstandingLoanPrincipal, interestEarned, loanRepaymentsReceived, penaltiesCharged, penaltiesCollected, penaltiesWaived, penaltiesOutstanding, cashPosition) into new elements within chartContainer or a new accounting section.
+
+### (5) Exact HTML location for filter control + accounting figures block
+
+**Filter controls insertion point:**
+- **Current:** Tab buttons sit in `content-section-header` (line 177) alongside title.
+- **Recommendation:** A filter dropdown (e.g. "Group Role Filter", "Member Filter") could be added to the right of tabs in the header, or as a new `<div class="filter-controls">` immediately after line 181 and before `id="chartsContainer"`.
+  - HTML insertion: After closing `</div>` of `.tabs` (line 181), add filter controls **within** `.content-section-header` (same row as tabs) OR add `<div class="filter-section">` between header and `id="chartsContainer"` (line 183).
+  - **Exact line:** Between analytics.html lines 181 and 183.
+
+**Accounting figures block insertion point:**
+- **Current:** Stat cards (Contributions Collected, Loans Disbursed, Outstanding Arrears, Outstanding Loan Balances) are rendered inside `#chartContainer` via renderChartContainer() called from renderMemberParticipation() (line 448).
+- **Recommendation:** Add new `<div id="accountingFiguresBlock" class="charts-grid">` immediately after `#monthlyTrendChart` and before `#chartContainer`, OR append accounting stat cards to the existing chartContainer alongside current cards.
+  - **Exact line (simplest):** Insert new container after analytics.html line 186 (after monthlyTrendChart closing div): `<div id="accountingFiguresBlock" class="charts-grid"></div>`.
+  - This keeps accounting figures separate from the member-participation-triggered chartContainer render, and allows independent filtering if needed.
+
+### (6) DOM-builder and toast helpers for I3 brief
+
+**DOM-builder helper:**
+- Function: `el(tag, className)` (analytics_sql.js:511–515)
+  - Signature: `function el(tag, className)` → creates `document.createElement(tag)` with optional `className`
+  - Usage: Used throughout for creating divs, buttons, spans, etc. (e.g., `el("div", "breakdown-card")` on line 425, `el("h3")` on line 353, etc.)
+  - **Note:** No textContent safety wrapper in the function itself; callers must use `node.textContent = value` explicitly (e.g., line 354, line 464).
+
+**Toast helper:**
+- Function: `showToast(message, type = "info")` (analytics_sql.js:558–578)
+  - Signature: `function showToast(message, type = "info")`
+  - Behavior: Finds `#toastContainer` (line 559), creates `<div class="toast toast-{type}">`, adds message via `span.textContent` (line 566, safe), adds close button with `innerHTML = "&times;"` (static entity only, line 568), animates in/out with 5s auto-dismiss (line 573–577).
+  - Usage pattern: `showToast("Message text", "error")` or `showToast("Message text", "info")`.
+  - **Fallback:** If `#toastContainer` not found, logs to console (line 561).
+
+**Helper utilities:**
+- `numberOf(value)` (line 527–530): Safe `parseFloat` with isFinite check, returns 0 on invalid.
+- `setText(node, value)` (line 532–534): Safe `node.textContent` setter (null-safe).
+- `emptyState(icon, text)` (line 517–525): Creates empty-state div for no-data scenarios (used line 406).
+
+---
+
+## I5 tooltip-rollout scoping (cycle 101 scout)
+
+**Objective:** Map where stat-card popover CSS lives + which pages link it, whether setupStatCardPopovers() is reusable cross-page, and exact card DOM for I5 tooltip insertion on analytics.html and user_dashboard.html.
+
+### (a) CSS location for `.stat-card-info-toggle`, `.stat-card-popover`, `.stat-card-popover.open`
+
+**Result: All three selectors defined inline in `admin_dashboard.html` — NOT in `styles/` directory.**
+
+| Selector | File:Lines | Definitions |
+|---|---|---|
+| `.stat-card-info-toggle` | admin_dashboard.html:586–614 | Absolute positioned toggle button (44px circle, italic "i", gray bg, transitions on hover/focus-visible) |
+| `.stat-card-popover` | admin_dashboard.html:615–628 | Absolute positioned popover (top: calc(100% + var(--bn-space-2)), left/right: 0, shadow, hidden by default) |
+| `.stat-card-popover.open` + display logic | admin_dashboard.html:629–633 | `.stat-card-wrap:hover .stat-card-popover`, `.stat-card-wrap:focus-within .stat-card-popover`, `.stat-card-popover.open { display: block; }` |
+| `.stat-card-popover:empty` | admin_dashboard.html:634–636 | `display: none` (CSS hides empty popovers) |
+| `.stat-card-popover-line` | admin_dashboard.html:637–647 | Line item styling for popover content (padding, font-size, border-bottom separator) |
+
+### (b) Stylesheet links in analytics.html and user_dashboard.html
+
+| Page | <head> stylesheet hrefs |
+|---|---|
+| admin_dashboard.html | design-system.css (line 12), admin-layout.css (line 13) — **NO pages.css** — **inline <style> (lines 15–1638)** |
+| analytics.html | design-system.css (line 12), admin-layout.css (line 13), pages.css (line 14) — **NO inline popover CSS** |
+| user_dashboard.html | design-system.css (line 12), pages.css (line 13), admin-layout.css (line 14) — **NO inline popover CSS** |
+
+**Finding:** The `.stat-card-info-toggle` and `.stat-card-popover` selectors are inline **only** in admin_dashboard.html. To use them on analytics.html or user_dashboard.html, the CSS must be **moved or copied** to a shared stylesheet (e.g., `admin-layout.css` or a new `tooltips.css`) or inserted as inline <style> in each target page.
+
+### (c) setupStatCardPopovers() export + wrapper-class requirement
+
+**Function location:** admin_dashboard_sql.js:1393–1414
+
+**Export status:** NOT exported (no `export` keyword on the function definition). Called locally only via line 1382 within setupEventListeners().
+
+**Wrapper-class requirement:** **YES — requires `.stat-card-wrap` wrapper class specifically.**
+
+| Requirement | Code |
+|---|---|
+| Wrapper query (line 1403) | `document.querySelectorAll(".stat-card-wrap").forEach((wrap) => {` — function ONLY operates on elements with this class |
+| Nested popover (line 1404) | `const popover = wrap.querySelector(".stat-card-popover");` — must be child of `.stat-card-wrap` |
+| Nested toggle (line 1405) | `const toggle = wrap.querySelector(".stat-card-info-toggle");` — must be child of `.stat-card-wrap` |
+| No-op if missing (line 1406) | `if (!popover || !toggle) return;` — silently skips wraps without both elements |
+
+**Verdict:** `setupStatCardPopovers()` is **NOT reusable as-is**. To use on analytics.html or user_dashboard.html, either:
+1. Export it and call it from both pages' scripts (requires both pages to wrap their cards in `.stat-card-wrap`)
+2. Copy the function into each page's script and adapt class names to match the page's own card structure (e.g., `.page-stat`, `.hero-stat`)
+
+### (d) statCard() internal DOM (analytics_sql.js:434–444)
+
+**Function signature:** `function statCard(label, value)` (analytics_sql.js:434)
+
+**Exact DOM structure returned:**
+
+```
+<div class="breakdown-card">
+  <div class="breakdown-card-header">
+    <span class="breakdown-card-title">label</span>
+  </div>
+  <div class="breakdown-card-value">value</div>
+</div>
+```
+
+**Element types:**
+- Root: `<div class="breakdown-card">` (line 435)
+- Header container: `<div class="breakdown-card-header">` (line 436)
+- Title: `<span class="breakdown-card-title">` (line 437) — textContent set at line 438
+- Value: `<div class="breakdown-card-value">` (line 440) — textContent set at line 441
+- Append order: `card.append(header, valueEl)` (line 442)
+
+**Popover insertion point:** A popover button and popover div would attach as siblings to the header/value structure, or as a child of `.breakdown-card` after the header. The title span offers no internal nesting.
+
+### (e) Target card DOM — analytics.html & user_dashboard.html
+
+#### analytics.html — Four `.page-stat-value` tiles
+
+| ID | Wrapping element | Class | Line range |
+|---|---|---|---|
+| #totalIncome | `<div>` | `.page-stat` | 233–236 |
+| #totalExpenses | `<div>` | `.page-stat` | 237–240 |
+| #netProfit | `<div>` | `.page-stat` | 241–244 |
+| #loanInterest | `<div>` | `.page-stat` | 245–248 |
+
+**Markup pattern (lines 233–248):**
+```html
+<div class="page-stat">
+  <div class="page-stat-value {modifier}" id="totalIncome">MWK 0</div>
+  <div class="page-stat-label">Total Income</div>
+</div>
+```
+
+#### user_dashboard.html — Six stat tiles
+
+| ID | Wrapping element | Element type | Class | Line range | Notes |
+|---|---|---|---|---|---|
+| #nextPaymentStat | `.hero-stat` | `<div>` | `.hero-stat` | 2186–2195 | Contains #nextPaymentDetails + popover div + badge button |
+| #activeLoansStat | `.hero-stat` | `<div>` | `.hero-stat` | 2196–2204 | Contains #activeLoans + #activeLoansDetails + badge button; onclick redirect to loan_payments.html |
+| #pendingPaymentsStat | `.hero-stat` | `<div>` | `.hero-stat` | 2205–2209 | Contains #pendingPayments + popover div |
+| #totalArrearsStat | `.hero-stat` | `<div>` | `.hero-stat` | 2210–2214 | Contains #totalArrears + popover div |
+| #membersStat | `.hero-stat` | `<a>` | `.hero-stat` | 2215–2221 | href="contacts.html"; contains #totalMembers (with inline badge) |
+| #totalContributedStat | `.hero-stat` | `<button>` | `.hero-stat` | 2222–2225 | onclick="showAllPaymentsModal()"; contains #totalContributed |
+
+**Markup pattern (lines 2186–2195 example — nextPaymentStat):**
+```html
+<div class="hero-stat" id="nextPaymentStat" tabindex="0" aria-describedby="nextPaymentPopover" style="position: relative;">
+  <div class="hero-stat-value" style="...">...</div>
+  <div class="hero-stat-label">Next Payment</div>
+  <div class="hero-stat-details" id="nextPaymentDetails"></div>
+  <div class="hero-stat-popover" id="nextPaymentPopover" role="status"></div>
+  <button type="button" class="hero-stat-badge" id="nextPaymentBadge" ...>Due</button>
+</div>
+```
+
+### Summary — CSS & JS Reusability for I5 rollout
+
+| Concern | Finding |
+|---|---|
+| **CSS Portability** | Inline CSS in admin_dashboard.html only. Must extract/copy to shared stylesheet (admin-layout.css) or inline into target pages to work on analytics.html & user_dashboard.html. |
+| **JS Function Reusability** | `setupStatCardPopovers()` NOT exported; hard-coded to query `.stat-card-wrap`. Cannot be reused cross-page without: (a) exporting + calling from both pages + wrapping their cards in `.stat-card-wrap`, or (b) copying function into each page's script and adapting class names. |
+| **analytics.html Card DOM** | `.page-stat` wrapper (not `.stat-card-wrap`); contains `.page-stat-value` (value elem) + `.page-stat-label` (label elem). Statically declared lines 233–248. |
+| **user_dashboard.html Card DOM** | `.hero-stat` wrapper (not `.stat-card-wrap`); varied element types (`<div>`, `<a>`, `<button>`); contains `.hero-stat-value` + `.hero-stat-label` + optional `.hero-stat-details` + `.hero-stat-popover` + `.hero-stat-badge`. Lines 2186–2225. Already includes popover div placeholders (e.g., #nextPaymentPopover). |
+| **Popover CSS Selectors** | Currently `.stat-card-wrap:hover .stat-card-popover` + `.stat-card-wrap:focus-within .stat-card-popover` + `.stat-card-popover.open`. Would need adaptation to `.page-stat` / `.hero-stat` if reusing CSS without refactoring. |
+
+---
+
+## user_analytics.html data & content pipeline (cycle 104 scout)
+
+**Objective:** Map the full data pipeline of user_analytics.html — what every API call fetches, when, what's rendered, what's fetched but unshown, and what actionable data could make display-only cards interactive (comparing to user_dashboard.html's three patterns: inline onclick nav, modal openers, and hover/focus popovers).
+
+**Real state:** Pages are structurally similar (member-scoped analytics + statements) but user_analytics is **fully display-only** (no click-through, no modals, no popovers), while user_dashboard has interactive hero-stat tiles tied to three actionability patterns. user_analytics lacks filters (month, status), expandable sections, and deep-link drill-downs that user_dashboard provides.
+
+### 1. DATA PIPELINE — API actions, timing, and response shapes
+
+| API Action | Trigger / Caller | Line(s) | HTTP method | Parameters | Response fields consumed |
+|---|---|---|---|---|---|
+| **groups.mine** | listMyGroups() via loadUserGroups() | 142 (init on load) | GET | — | via import; returns groups[] |
+| **payments.obligations** | loadContributions() → loadGroupData() | 194 (on group select, init) | GET | `groupId`, optional `year` | `summary{contributed, arrears, penaltyAccrued}`, `monthlyContributions{months[]}` |
+| **loans.list** | loadLoans() → loadGroupData() | 297 (on group select) | GET | `groupId` | `loans[]`, `summary{totalOutstanding}` |
+| **repayments.mine** | loadLoans() → loadGroupData() | 303 (on group select) | GET | `groupId` | `payments[]` (loan_payments rows) |
+| **statement.get** | loadAccountStatement() → loadGroupData() or year filter change | 374 (on group select, year change) | GET | `groupId`, optional `year` | `contributions{lines[], total}`, `loanAccount{lines[], outstanding}`, `penalties{lines[], totalCharged, totalWaived, net}` |
+| **exports.statement** | Event listener on #statementExportBtn | 135 (on export click) | GET | `groupId` | Binary CSV stream via downloadExport() |
+
+**Call sequence on page load:**
+1. init() → requireSession() (line 87) ← redirects to login on 401
+2. loadUserGroups() (line 94) → listMyGroups() → populates #groupSelector, auto-selects first/stored group
+3. loadGroupData() (line 172, triggered by group auto-select) → parallel calls:
+   - loadContributions() → apiGet("payments.obligations"...) → renderTopStats() + renderContributionTrendChart()
+   - loadLoans() → apiGet("loans.list"...) → apiGet("repayments.mine"...) → renderRepaymentHistory() + renderTopStats() (re-called)
+   - loadAccountStatement() → apiGet("statement.get"...) → render three ledgers
+
+**On group selector change (lines 100–123):** Repeats loadGroupData() for new group; clears old data.
+
+**On year filter change (lines 125–128):** Calls loadAccountStatement() with year param; re-renders statement ledgers only.
+
+**Export click (lines 130–136):** Calls downloadExport("exports.statement", {groupId}).
+
+### 2. CARD/SECTION INVENTORY — DOM elements, fetched fields, render callsites
+
+| Card/Section | HTML Element | ID | Fetched data source | Response field(s) | Render function:line | Display-only or interactive? | Content |
+|---|---|---|---|---|---|---|---|
+| **Top Stat: Total Contributed** | `.page-stat-value` | `#totalContributed` | payments.obligations | summary.contributed | renderTopStats:231 | Display-only textContent | MWK (formatted currency) |
+| **Top Stat: Total Borrowed** | `.page-stat-value` | `#totalBorrowed` | loans.list | loans[].{principalAmount,approvedAmount} (filtered ISSUED_LOAN_STATUSES) | renderTopStats:232 | Display-only textContent | MWK (formatted currency) |
+| **Top Stat: Loan Outstanding** | `.page-stat-value` | `#outstanding` | loans.list | summary.totalOutstanding | renderTopStats:233 | Display-only textContent | MWK (formatted currency) |
+| **Top Stat: Arrears** | `.page-stat-value` | `#totalArrears` | payments.obligations | summary.arrears | renderTopStats:234 | Display-only textContent | MWK (formatted currency) |
+| **Your Overview: Total Contributed** | `.stat-card .stat-value` | `#userTotalContributed` | payments.obligations | summary.contributed | renderTopStats:236 | Display-only textContent | MWK (formatted currency) |
+| **Your Overview: Total Loans** | `.stat-card .stat-value` | `#userTotalLoans` | loans.list | loans[].{principalAmount,approvedAmount} (filtered ISSUED_LOAN_STATUSES) | renderTopStats:237 | Display-only textContent | MWK (formatted currency) |
+| **Your Overview: Loan Outstanding** | `.stat-card .stat-value` | `#userLoanOutstanding` | loans.list | summary.totalOutstanding | renderTopStats:238 | Display-only textContent | MWK (formatted currency) |
+| **Your Overview: Total Arrears** | `.stat-card .stat-value` | `#userTotalArrears` | payments.obligations | summary.arrears | renderTopStats:239 | Display-only textContent | MWK (formatted currency) |
+| **Your Overview: Active Loans** | `.stat-card .stat-value` | `#userActiveLoans` | loans.list | loans[] (filtered ISSUED_LOAN_STATUSES).count | renderTopStats:240–243 | Display-only textContent | Integer count |
+| **Your Overview: Groups** | `.stat-card .stat-value` | `#userGroupsCount` | groups.mine (local state userGroups) | userGroups.length | renderTopStats:244 | Display-only textContent | Integer count |
+| **Group Stats: You Contributed** | `.stat-card .stat-value` | `#groupTotalContributed` | payments.obligations | summary.contributed (scoped to currentGroupId) | renderTopStats:249 | Display-only textContent | MWK (formatted currency) |
+| **Group Stats: Total Members** | `.stat-card .stat-value` | `#groupTotalMembers` | *(NOT fetched; no endpoint called)* | — | *(NOT rendered)* | — | *(unimplemented)* |
+| **Group Stats: Group Collections** | `.stat-card .stat-value` | `#groupTotalCollections` | *(NOT fetched)* | — | *(NOT rendered)* | — | *(unimplemented)* |
+| **Group Stats: Group Active Loans** | `.stat-card .stat-value` | `#groupActiveLoans` | *(NOT fetched)* | — | *(NOT rendered)* | — | *(unimplemented)* |
+| **Contribution Trend Chart** | `#chartContainer` (bar chart) | — | payments.obligations | monthlyContributions.months[] (last 6 with data) | renderContributionTrendChart:255–290 | Display-only animated bars | Bar height = amountPaid as % of maxAmount; title on hover = "month: MWK paid / MWK expected" |
+| **Recent Activity** | `#recentActivity` (list) | — | repayments.mine | payments[] (loan_payments, top 10) | renderRepaymentHistory:321–362 | Display-only list items | Each row: "Loan Payment — loanNumber", date (paidAt or createdAt), status, amount |
+| **Statement: Contributions Ledger** | `#statementContributions` (table) | — | statement.get | contributions.lines[], contributions.total | renderContributionsLedger:429–463 | Display-only table | Columns: Date, Type, Description, Amount, Running Balance; footer shows total |
+| **Statement: Loan Account Ledger** | `#statementLoanAccount` (table) | — | statement.get | loanAccount.lines[], loanAccount.outstanding | renderLoanAccountLedger:465–498 | Display-only table | Columns: Date, Event, Loan, Amount, Running Outstanding; footer shows outstanding |
+| **Statement: Penalties Ledger** | `#statementPenalties` (table) | — | statement.get | penalties.lines[], penalties.{totalCharged,totalWaived,net} | renderPenaltiesLedger:500–533 | Display-only table | Columns: Date, Event, Amount, Context; footer shows totalCharged / totalWaived / net |
+
+**Notes on unrendered Group Stats cells:**
+- `#groupTotalMembers`, `#groupTotalCollections`, `#groupActiveLoans` are declared in HTML (lines 272, 276, 280) but **never populated** — setText() is never called for them. Data is not fetched (no groups.get endpoint to retrieve group-wide stats for a member-scoped call).
+
+### 3. UNSHOWN DATA — Fetched but not rendered
+
+**From payments.obligations:**
+- `monthlyContributions.months[].dueDate` — fetched (line 260 iteration), used in chart title construction (line 282), but date itself **not rendered** in the chart display.
+- `monthlyContributions.months[].approvalStatus` — fetched (line 260), **not used or rendered**.
+
+**From loans.list:**
+- `loans[].interestRate*`, `loans[].totalInterest`, `loans[].collateral`, `loans[].guarantor*` — entire loan-detail fields — **not fetched/rendered**; loans.list returns only summary fields for a member-scoped call.
+- Actually: loans.list **does** return full rows, but the code (line 300) only destructures `data.loans` and `data.summary`; full row fields like `interestRateMonth1`, `totalInterest`, `repaymentPeriod` are present in response but **not read by the script**.
+
+**From repayments.mine:**
+- `payments[].loanId` — fetched (implied in repayData response), **not used or rendered** (only loanNumber is displayed).
+- `payments[].principalPortion`, `payments[].interestPortion`, `payments[].penaltyPortion` — breakdown columns — **not fetched/rendered**.
+
+**From statement.get:**
+- Statement line items include additional metadata (type, event labels) which are already rendered in full table form, so **no unshown data** in the ledger responses — all fields in contributions/loanAccount/penalties line arrays are displayed.
+
+**Summary:** Main unshown data are: loan detail fields (interest rates, collateral, guarantor), loan-payment breakdown (principal/interest/penalty split), and obligation due dates in the contribution chart. None are rendered because:
+1. loans.list for a member returns only their own loans (no cross-member loan details).
+2. Loan interest/collateral/guarantor are not member-visible (admin-only detail).
+3. Loan-payment breakdown is not scoped to a member's own repayments for visibility in a statement (belongs in admin loan-approval UI).
+
+### 4. ACTIONABILITY VERDICT — Card-by-card assessment and candidate targets
+
+**Comparison to user_dashboard.html interactive patterns:**
+
+| Pattern | Example in user_dashboard.html | Implementation |
+|---|---|---|
+| **Inline onclick navigation** | #activeLoansStat → onclick navigate to loan_payments.html | Clickable element (usually `.hero-stat.clickable` with cursor: pointer) calls window.location.href or similar in event handler |
+| **Modal opener** | #totalContributedStat → onclick openPaymentModal() or showAllPaymentsModal() | Button/link onclick handler opens a `.modal-overlay` with preloaded data from cached window.__dashboardData |
+| **Hover/focus popover** | #nextPaymentStat, #pendingPaymentsStat, #totalArrearsStat → `.hero-stat-popover` shows on :hover/:focus-within | Popover div (sibling to stat card, hidden by default) contains structured detail; CSS or JS (initHeroStatPopover) toggles visibility |
+
+**Verdict for each user_analytics card (actionable data exists? target?)**
+
+1. **#totalContributed** (Top + Your Overview)
+   - Actionable data: YES — breakdown of seed money + monthly contributions + service fee (in obligations.summary, but not split per-component)
+   - Pattern fit: **Popover** (hover/focus to see contribution type breakdown)
+   - Target: Show seed/monthly/service fee totals in a 3-row popover (like dashboard's renderArrearsPopover at line 608)
+   - Candidate field: Synthesize from summary or fetch additional detail endpoint
+
+2. **#totalBorrowed** (Top + Your Overview)
+   - Actionable data: YES — list of all issued loans, their amounts and statuses (loans.list already filtered to ISSUED_LOAN_STATUSES)
+   - Pattern fit: **Modal opener** (click to see all loans modal)
+   - Target: Open modal listing all loans with principal, approved amount, and status
+   - Candidate field: loans.list response already has full details; modal would list them
+
+3. **#outstanding** (Top + Your Overview)
+   - Actionable data: YES — breakdown of outstanding by loan (loans[] with remainingBalance > 0)
+   - Pattern fit: **Modal opener** or **inline onclick** to loan_payments.html
+   - Target: Open modal showing outstanding loans only (filter loans by status + remainingBalance > 0), or navigate to loan_payments.html for detail
+   - Candidate field: loans.list.summary.totalOutstanding; drill-down to individual loans via loans[]
+
+4. **#totalArrears** (Top + Your Overview)
+   - Actionable data: YES — breakdown of arrears on contributions (seed, monthly, service fee) + live penalties (both in obligations.summary and penalty detail)
+   - Pattern fit: **Popover** or **modal opener**
+   - Target: Popover showing arrears vs. penalties (like dashboard's renderArrearsPopover line 608), or modal listing arrears by obligation type
+   - Candidate field: summary.arrears + summary.penaltyAccrued (already split in summary)
+
+5. **#userActiveLoans** (Your Overview)
+   - Actionable data: YES — list of active loans, amounts, dates (loans.list filtered to ISSUED_LOAN_STATUSES)
+   - Pattern fit: **Inline onclick** to loan_payments.html (dashboard's #activeLoansStat does this at line 1294)
+   - Target: Navigate to loan_payments.html with no parameters (page loads all of caller's active loans)
+   - Candidate field: loans[] filtered by ISSUED_LOAN_STATUSES
+
+6. **#userGroupsCount** (Your Overview)
+   - Actionable data: LIMITED — count is rendered, but group list already visible in top nav (group selector); no new detail to show
+   - Pattern fit: NO actionability gain (already accessible via nav)
+   - Target: SKIP (not actionable)
+
+7. **#groupTotalContributed** (Group Stats)
+   - Actionable data: YES — same as top-level total contributed; could show breakdown by contribution type
+   - Pattern fit: **Popover**
+   - Target: Same as #totalContributed popover (seed/monthly/service fee split)
+   - Candidate field: Same obligations.summary
+
+8. **#groupTotalMembers, #groupTotalCollections, #groupActiveLoans** (Group Stats)
+   - Actionable data: NOT CURRENTLY FETCHED — no group-wide stats endpoint exists that a member can call
+   - Pattern fit: N/A — would require new API endpoint
+   - Target: BLOCKED (no data source)
+   - Note: These require group.get or groups.statistics endpoint callable by members; not currently implemented
+
+9. **Contribution Trend Chart** (#chartContainer)
+   - Actionable data: YES — months array is full; could expand to show all months (not just last 6), or click a month for detail
+   - Pattern fit: **Expandable section** or **inline month click handler**
+   - Target: Add "Show all months" toggle, or make bars clickable to show that month's obligation detail
+   - Candidate field: monthlyContributions.months[] (currently capped at 6 with data; code allows more)
+
+10. **Recent Activity** (#recentActivity)
+    - Actionable data: YES — list is capped at 10 items (line 336); could expand to show all or paginate
+    - Pattern fit: **Expandable section** or **"Load more" button**
+    - Target: Add "Show all" toggle to display full repayment history, or add pagination
+    - Candidate field: myRepayments array (fully fetched, only 10 shown)
+
+11. **Statement Ledgers** (#statementContributions, #statementLoanAccount, #statementPenalties)
+    - Actionable data: YES — ledger lines are already shown in full table form; no actionability gap
+    - Pattern fit: NONE (already interactive via year filter at page level)
+    - Target: SKIP (fully transparent, no drill-down needed)
+
+### 5. INTERACTIVITY GAP — What user_dashboard has that user_analytics lacks
+
+| Feature | user_dashboard.html | user_analytics.html | Gap |
+|---|---|---|---|
+| **Click-through hero stats** | #activeLoansStat → onclick nav to loan_payments.html; #totalContributedStat → showAllPaymentsModal() | No clickable cards at all | **MISSING** — all cards are display-only divs with no onclick handlers |
+| **Hover/focus popovers on hero stats** | #nextPaymentStat, #pendingPaymentsStat, #totalArrearsStat have `.hero-stat-popover` siblings; shown via :hover/:focus-within CSS + popover-open JS toggle | No popovers on any stat card | **MISSING** — no `.stat-card-popover` or equivalent; no popover-open CSS/JS pattern |
+| **Modal openers** | openArrearsModal() (arrears detail), showAllPaymentsModal() (all contributions), openPaymentModal() (record payment form) | No modals anywhere on page | **MISSING** — all sections display-only inline; no modal workflows |
+| **Month/period filter on hero stats** | #dashboardMonthFilter select (line 572) re-scopes Contributed/Pending totals to chosen month; applyDashboardMonthFilter() recalculates client-side | #statementYearFilterEl exists but only filters statement ledgers; does NOT re-scope top hero stats | **PARTIAL** — year filter exists for statement only, not for top-stat cards |
+| **Interactive payment calendar** | #paymentCalendar (lines 1214–1420) built with 7-column grid, clickable event days, day-details panel, prev/next month nav | No calendar on analytics page (not scoped to member analytics) | **N/A** — calendar is admin dashboard feature; member analytics does not need it |
+| **Expandable/collapsible sections** | None on dashboard (all sections are always visible) | Statement ledgers are always rendered when group selected | **NONE** — both lack collapsible sections |
+| **Inline action buttons in rows** | Upcoming Payments table has "Pay" button per row (line 1004) to open openPaymentModal() | Recent Activity list items are read-only; no action buttons | **MISSING** — activity items are not actionable (but member cannot record repayments from analytics page anyway; that's admin-only) |
+
+**Summary of gaps:**
+1. **No clickable stat cards** — all cards are static display-only; none navigate or open modals
+2. **No popovers** — no hover/focus detail panels; all info is top-level text only
+3. **No modals** — no detail views or drill-downs available
+4. **Limited filtering** — year filter only applies to statement ledgers, not top-level hero stats (unlike dashboard's month filter on hero stats)
+5. **Capped list views** — Recent Activity shows only 10 of potentially many repayments (no "show all" or pagination)
+6. **No interactivity patterns** — unlike dashboard's three patterns (click-through, modal, popover), analytics page has zero interactive elements
+
+---

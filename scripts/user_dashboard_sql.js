@@ -420,6 +420,10 @@ async function loadDashboard(groupId) {
     loans: loanRows,
   };
 
+  // Re-scope Contributed/Pending to the month-filter's current selection
+  // (defaults to the current month) now that payments are cached.
+  applyDashboardMonthFilter();
+
   await loadNotifications(groupId);
 }
 
@@ -548,6 +552,51 @@ function renderPendingPopover(payments) {
     more.textContent = `+${pending.length - CAP} more`;
     popover.appendChild(more);
   }
+}
+
+/**
+ * Re-scope the Contributed and Pending hero-stat tiles to the
+ * #dashboardMonthFilter selection, re-aggregating the already-cached
+ * window.__dashboardData.payments array client-side — no re-fetch, no
+ * server call. Every other tile (Next Payment, Loans, Arrears, Group
+ * Members) and the Payment Calendar are untouched.
+ *
+ * Uses the exact per-row amount extraction/toMinor call the base
+ * renderFinancialOverview() pending sum uses (row.amountPaid via toMinor),
+ * so this never introduces new float math or a new field name. Contributed
+ * here is computed the same way, scoped to approved/completed rows, rather
+ * than read from the obligations summary — that's what lets it be re-scoped
+ * by month on the client without a server round-trip.
+ */
+function applyDashboardMonthFilter() {
+  const select = document.getElementById("dashboardMonthFilter");
+  const data = window.__dashboardData;
+  if (!select || !data || !Array.isArray(data.payments)) return;
+
+  const scope = select.value || "all";
+  const currentYear = new Date().getFullYear();
+
+  const inScope = (row) =>
+    Number(row.year) === currentYear && (scope === "all" || String(row.month) === scope);
+
+  let contributedMinor = 0;
+  let pendingMinor = 0;
+  for (const row of data.payments) {
+    if (!inScope(row)) continue;
+    const status = String(row.approvalStatus);
+    if (status === "approved" || status === "completed") {
+      contributedMinor += toMinor(row.amountPaid);
+    } else if (status === "pending") {
+      pendingMinor += toMinor(row.amountPaid);
+    }
+  }
+
+  setText("totalContributed", formatCurrency(fromMinor(contributedMinor)));
+  setText("pendingPayments", formatCurrency(fromMinor(pendingMinor)));
+
+  const scopeLabel = scope === "all" ? String(currentYear) : scope.slice(0, 3);
+  setText("totalContributedLabel", `Contributed (${scopeLabel})`);
+  setText("pendingPaymentsLabel", `Pending (${scopeLabel})`);
 }
 
 /**
@@ -1675,6 +1724,15 @@ function openUpcomingPaymentsModal() {
  * Wire the buttons and modals that exist independent of loaded data.
  */
 function wireStaticHandlers() {
+  // Hero stat-band month/period filter — defaults to the current month and
+  // re-scopes only the Contributed/Pending tiles from the already-cached
+  // payments array (see applyDashboardMonthFilter). No re-fetch here.
+  const monthFilter = document.getElementById("dashboardMonthFilter");
+  if (monthFilter) {
+    monthFilter.value = LOAN_MONTHS[new Date().getMonth()];
+    monthFilter.addEventListener("change", applyDashboardMonthFilter);
+  }
+
   document.getElementById("logoutBtn")?.addEventListener("click", handleLogout);
   document
     .getElementById("mobileLogoutBtn")
@@ -1722,6 +1780,9 @@ function wireStaticHandlers() {
   initHeroStatPopover("pendingPaymentsStat", "pendingPaymentsPopover");
   initHeroStatPopover("totalArrearsStat", "totalArrearsPopover", {
     ignoreSelector: "#totalArrears",
+  });
+  initHeroStatPopover("activeLoansStat", "activeLoansPopover", {
+    ignoreSelector: "#activeLoansBadge",
   });
   document
     .getElementById("closeArrearsModal")

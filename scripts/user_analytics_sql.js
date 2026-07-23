@@ -71,6 +71,8 @@ let myLoans = [];
  * a plain member's loans.list call only ever returns their own rows. */
 let myLoansSummary = null;
 let myRepayments = [];
+let showAllRepayments = false;
+let showAllChartMonths = false;
 let statementYear = "";
 
 const groupSelectorEl = () => document.getElementById("groupSelector");
@@ -99,6 +101,8 @@ if (!window.__bnSpa) {
 function setupEventListeners() {
   groupSelectorEl()?.addEventListener("change", async (e) => {
     currentGroupId = e.target.value;
+    showAllRepayments = false;
+    showAllChartMonths = false;
     if (currentGroupId) {
       sessionStorage.setItem("selectedGroupId", currentGroupId);
       await loadGroupData();
@@ -111,6 +115,7 @@ function setupEventListeners() {
       const container = chartContainerEl();
       if (container) {
         container.textContent = "";
+        container.parentElement?.querySelector("#chartMonthsToggle")?.remove();
         container.appendChild(emptyState("📊", "Select a group to view contribution trends"));
       }
       const activity = document.getElementById("recentActivity");
@@ -184,6 +189,20 @@ async function loadGroupData() {
   await loadContributions();
   await loadLoans();
   await loadAccountStatement();
+  await loadGroupStats();
+}
+
+// ── Group stats (group-wide, member-gated to caller's own group) ───────────
+async function loadGroupStats() {
+  if (!currentGroupId) return;
+  try {
+    const stats = await apiGet("payments.groupStats", {groupId: currentGroupId});
+    setText(document.getElementById("groupTotalMembers"), String(stats.memberCount));
+    setText(document.getElementById("groupTotalCollections"), formatCurrency(numberOf(stats.groupTotalContributed)));
+    setText(document.getElementById("groupActiveLoans"), String(stats.activeLoanCount));
+  } catch (error) {
+    handleApiError(error, "Failed to load group stats");
+  }
 }
 
 // ── Contributions ───────────────────────────────────────────────────────────
@@ -248,14 +267,127 @@ function renderTopStats() {
   // the same figure as the top-of-page total.
   setText(document.getElementById("groupTotalContributed"), formatCurrency(totalContributed));
 
+  renderBreakdownPopovers();
+
   const section = groupStatsSectionEl();
   if (section) section.style.display = "";
+}
+
+// ── Card-info popovers (ported from analytics.html / analytics_sql.js) ─────
+// Adapted to take structured [label, valueString] rows instead of a single
+// text blob, since these cards break a total down into server-computed
+// line items rather than one sentence of context.
+let popoverIdCounter = 0;
+
+/**
+ * Build and attach a "i" info-toggle button + popover to a card element.
+ * Uses createElement/textContent only — never innerHTML.
+ * @param {HTMLElement} cardEl - positioned ancestor (.page-stat or .stat-card)
+ * @param {string} ariaLabel - accessible name for the toggle button
+ * @param {Array<[string, string]>} rows - [label, valueString] pairs, each
+ *   already formatted server-computed text (no client money math here).
+ */
+function attachCardPopover(cardEl, ariaLabel, rows) {
+  if (!cardEl || !Array.isArray(rows) || rows.length === 0) return;
+
+  const popoverId = `stat-card-popover-${++popoverIdCounter}`;
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "stat-card-info-toggle";
+  toggle.textContent = "i";
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.setAttribute("aria-label", ariaLabel);
+  toggle.setAttribute("aria-controls", popoverId);
+
+  const popover = document.createElement("div");
+  popover.className = "stat-card-popover";
+  popover.id = popoverId;
+  popover.setAttribute("role", "status");
+  rows.forEach(([label, val]) => {
+    const r = document.createElement("div");
+    r.textContent = label + ": " + val;
+    popover.appendChild(r);
+  });
+
+  toggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const willOpen = !popover.classList.contains("open");
+    closeAllCardPopovers(willOpen ? popover : null);
+    popover.classList.toggle("open", willOpen);
+    toggle.setAttribute("aria-expanded", String(willOpen));
+  });
+
+  toggle.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+      e.preventDefault();
+      toggle.click();
+    } else if (e.key === "Escape") {
+      popover.classList.remove("open");
+      toggle.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  cardEl.append(toggle, popover);
+}
+
+/**
+ * Close every open card popover except the one passed (if any).
+ * @param {HTMLElement|null} except
+ */
+function closeAllCardPopovers(except) {
+  document.querySelectorAll(".stat-card-popover.open").forEach((p) => {
+    if (p === except) return;
+    p.classList.remove("open");
+    const toggle = document.querySelector(`[aria-controls="${p.id}"]`);
+    if (toggle) toggle.setAttribute("aria-expanded", "false");
+  });
+}
+
+// Single module-scope outside-click listener — closes any open popover when
+// the click lands outside every card container type this page uses.
+document.addEventListener("click", (e) => {
+  if (e.target.closest(".page-stat") || e.target.closest(".stat-card") || e.target.closest(".breakdown-card")) return;
+  closeAllCardPopovers(null);
+});
+
+// Re-attaches the 4 breakdown popovers against the current `obligations`
+// figures. Idempotent: removes any toggle+popover a previous render left
+// before re-attaching, so switching groups / re-rendering never duplicates.
+function renderBreakdownPopovers() {
+  const cb = obligations?.contributionBreakdown || {};
+  const contributedRows = [
+    ["Seed money", formatCurrency(numberOf(cb.seedMoney))],
+    ["Monthly contributions", formatCurrency(numberOf(cb.monthly))],
+    ["Service fee", formatCurrency(numberOf(cb.serviceFee))],
+  ];
+
+  const summary = obligations?.summary || {};
+  const arrearsRows = [
+    ["Contribution arrears", formatCurrency(numberOf(summary.arrears))],
+    ["Penalties accrued", formatCurrency(numberOf(summary.penaltyAccrued))],
+  ];
+
+  attachBreakdown("totalContributed", ".page-stat", "Contributions breakdown", contributedRows);
+  attachBreakdown("userTotalContributed", ".stat-card", "Contributions breakdown", contributedRows);
+  attachBreakdown("totalArrears", ".page-stat", "Arrears breakdown", arrearsRows);
+  attachBreakdown("userTotalArrears", ".stat-card", "Arrears breakdown", arrearsRows);
+}
+
+function attachBreakdown(valueElId, wrapSelector, ariaLabel, rows) {
+  const valueEl = document.getElementById(valueElId);
+  const wrap = valueEl?.closest(wrapSelector);
+  if (!wrap) return;
+  wrap.querySelector(".stat-card-info-toggle")?.remove();
+  wrap.querySelector(".stat-card-popover")?.remove();
+  attachCardPopover(wrap, ariaLabel, rows);
 }
 
 function renderContributionTrendChart() {
   const container = chartContainerEl();
   if (!container) return;
   container.textContent = "";
+  container.parentElement?.querySelector("#chartMonthsToggle")?.remove();
 
   const months = obligations?.monthlyContributions?.months || [];
   if (months.length === 0) {
@@ -264,7 +396,8 @@ function renderContributionTrendChart() {
   }
 
   const monthsWithData = months.filter((m) => numberOf(m.amountPaid) > 0 || numberOf(m.totalAmount) > 0);
-  const monthsToShow = (monthsWithData.length > 0 ? monthsWithData : months).slice(-6);
+  const source = monthsWithData.length > 0 ? monthsWithData : months;
+  const monthsToShow = showAllChartMonths ? source : source.slice(-6);
 
   const maxAmount = Math.max(
       1,
@@ -287,6 +420,23 @@ function renderContributionTrendChart() {
     wrapper.append(bar, label);
     container.appendChild(wrapper);
   });
+
+  if (source.length > 6) {
+    const host = container.parentElement;
+    if (host) {
+      const t = el("button", "btn btn-secondary");
+      t.type = "button";
+      t.id = "chartMonthsToggle";
+      t.style.marginTop = "var(--bn-space-3)";
+      t.setAttribute("aria-expanded", String(showAllChartMonths));
+      t.textContent = showAllChartMonths ? "Show last 6 months" : ("Show all months (" + source.length + ")");
+      t.addEventListener("click", () => {
+        showAllChartMonths = !showAllChartMonths;
+        renderContributionTrendChart();
+      });
+      host.appendChild(t);
+    }
+  }
 }
 
 // ── Loans / repayment history ───────────────────────────────────────────────
@@ -333,7 +483,9 @@ function renderRepaymentHistory() {
     return;
   }
 
-  myRepayments.slice(0, 10).forEach((payment) => {
+  const REPAY_CAP = 10;
+  const rows = showAllRepayments ? myRepayments : myRepayments.slice(0, REPAY_CAP);
+  rows.forEach((payment) => {
     const div = el("div", "list-item");
 
     const info = el("div");
@@ -359,6 +511,19 @@ function renderRepaymentHistory() {
 
     container.appendChild(div);
   });
+
+  if (myRepayments.length > REPAY_CAP) {
+    const t = el("button", "btn btn-secondary");
+    t.type = "button";
+    t.style.marginTop = "var(--bn-space-3)";
+    t.setAttribute("aria-expanded", String(showAllRepayments));
+    t.textContent = showAllRepayments ? "Show less" : ("Show all (" + myRepayments.length + ")");
+    t.addEventListener("click", () => {
+      showAllRepayments = !showAllRepayments;
+      renderRepaymentHistory();
+    });
+    container.appendChild(t);
+  }
 }
 
 // ── Account statement ───────────────────────────────────────────────────────

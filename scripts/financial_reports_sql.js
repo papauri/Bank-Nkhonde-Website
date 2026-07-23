@@ -72,6 +72,8 @@ let loans = [];
 let loansSummary = null;
 /** uid -> obligations response (payments.obligations), live snapshot. */
 let obligationsByUid = new Map();
+/** payments.accountingSummary response — the group's money-accurate position. */
+let accountingSummary = null;
 
 const groupSelector = () => document.getElementById("groupSelector");
 const totalIncomeEl = () => document.getElementById("totalIncome");
@@ -79,6 +81,7 @@ const totalDisbursementsEl = () => document.getElementById("totalDisbursements")
 const netPositionEl = () => document.getElementById("netPosition");
 const outstandingLoansEl = () => document.getElementById("outstandingLoans");
 const detailedReportEl = () => document.getElementById("detailedReport");
+const accountingSummaryBodyEl = () => document.getElementById("accountingSummaryBody");
 const exportBtn = () => document.getElementById("exportBtn");
 const spinner = () => document.getElementById("spinner");
 const statementMemberSelectEl = () => document.getElementById("statementMemberSelect");
@@ -223,8 +226,10 @@ async function loadReportData() {
     await loadPayments();
     await loadLoans();
     await loadLiveObligations();
+    await loadAccountingSummary();
 
     renderSummaryTiles();
+    renderAccountingSummary();
     renderDetailedReport();
     populateStatementMemberSelect();
   } catch (error) {
@@ -287,6 +292,20 @@ async function loadLiveObligations() {
   }
 }
 
+/**
+ * The group's money-accurate position — every figure server-computed, no
+ * client-side aggregation. Failure here must never block the rest of the
+ * report; the summary tiles/section simply show a muted note.
+ */
+async function loadAccountingSummary() {
+  try {
+    accountingSummary = await apiGet("payments.accountingSummary", {groupId: currentGroupId});
+  } catch (error) {
+    accountingSummary = null;
+    handleApiError(error, "Failed to load accounting summary");
+  }
+}
+
 /** Sum of a member's live arrears across seed money, service fee and every month. */
 function liveArrearsFor(uid) {
   const obligations = obligationsByUid.get(uid);
@@ -301,41 +320,66 @@ function liveArrearsFor(uid) {
   return total;
 }
 
-// ── Summary tiles (sums of already-server-computed figures only) ──────────
+// ── Summary tiles (each figure a single server field — no client math) ────
 function renderSummaryTiles() {
-  const settled = payments.filter((p) => SETTLED_STATUSES.includes(p.approvalStatus));
-  // Interest counts as income on any loan whose money actually went out (same
-  // status set as disbursements — 'active' is not a status this schema has).
-  // Substituted with the server summary: totalInterest is '0.00' on every loan
-  // until `loans.approve` computes it (api/handlers/loans.php), so pending and
-  // rejected loans (the rows DISBURSED_LOAN_STATUSES excludes) contribute
-  // nothing either way — summing over ALL rows (`summary.totalInterest`) is
-  // mathematically identical to this filtered client-side sum.
-  const loanInterestIncome = loansSummary ? numberOf(loansSummary.totalInterest) : 0;
-  const totalIncome = settled.reduce((sum, p) => sum + numberOf(p.amountPaid), 0)
-    + loanInterestIncome;
+  if (!accountingSummary) {
+    // Server figure unavailable — leave tiles showing their last-known/default
+    // value rather than inventing a client-computed number.
+    return;
+  }
+  setText(totalIncomeEl(), formatCurrency(accountingSummary.totalContributed));
+  setText(totalDisbursementsEl(), formatCurrency(accountingSummary.totalDisbursed));
+  setText(netPositionEl(), formatCurrency(accountingSummary.cashPosition));
+  setText(outstandingLoansEl(), formatCurrency(accountingSummary.outstandingLoanPrincipal));
+}
 
-  // NOT substituted with `summary.totalPrincipal`/`activePrincipal`: totalPrincipal
-  // sums over ALL rows (pending/rejected loans still carry a nonzero requested
-  // principalAmount, unlike totalInterest/remainingBalance which start at zero),
-  // and activePrincipal excludes completed/defaulted. Neither scope matches
-  // DISBURSED_LOAN_STATUSES here, so the client-side filter stays.
-  const totalDisbursements = loans
-    .filter((l) => DISBURSED_LOAN_STATUSES.includes(l.status))
-    .reduce((sum, l) => sum + numberOf(l.principalAmount ?? l.approvedAmount), 0);
+// ── Group Accounting: full authoritative breakdown, one row per server
+// field — no client-side aggregation, no innerHTML. ───────────────────────
+function renderAccountingSummary() {
+  const tbody = accountingSummaryBodyEl();
+  if (!tbody) return;
+  tbody.textContent = "";
 
-  const netPosition = totalIncome - totalDisbursements;
+  if (!accountingSummary) {
+    const row = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 2;
+    td.appendChild(emptyState("📊", "Accounting summary unavailable right now"));
+    row.appendChild(td);
+    tbody.appendChild(row);
+    return;
+  }
 
-  // Substituted with the server summary: remainingBalance is '0.00' for every
-  // loan outside DISBURSED_LOAN_STATUSES (pending/rejected never had a balance
-  // set, completed loans are repaid to 0), so summing over ALL rows
-  // (`summary.totalOutstanding`) equals this filtered client-side sum.
-  const outstandingLoans = loansSummary ? numberOf(loansSummary.totalOutstanding) : 0;
+  const rows = [
+    {label: "Total Contributed", key: "totalContributed"},
+    {label: "Total Disbursed", key: "totalDisbursed"},
+    {label: "Outstanding Loan Principal", key: "outstandingLoanPrincipal"},
+    {label: "Interest Earned", key: "interestEarned"},
+    {label: "Loan Repayments Received", key: "loanRepaymentsReceived"},
+    {label: "Penalties Charged", key: "penaltiesCharged", group: true},
+    {label: "Penalties Collected", key: "penaltiesCollected", group: true},
+    {label: "Penalties Waived", key: "penaltiesWaived", group: true},
+    {label: "Penalties Outstanding", key: "penaltiesOutstanding", group: true},
+    {label: "Cash Position", key: "cashPosition", emphasis: true},
+  ];
 
-  setText(totalIncomeEl(), formatCurrency(totalIncome));
-  setText(totalDisbursementsEl(), formatCurrency(totalDisbursements));
-  setText(netPositionEl(), formatCurrency(netPosition));
-  setText(outstandingLoansEl(), formatCurrency(outstandingLoans));
+  rows.forEach((row) => {
+    const tr = document.createElement("tr");
+    if (row.group) tr.className = "cell-muted";
+
+    const labelTd = document.createElement("td");
+    labelTd.dataset.label = "Figure";
+    labelTd.textContent = row.label;
+    tr.appendChild(labelTd);
+
+    const valueTd = document.createElement("td");
+    valueTd.dataset.label = "Amount (MWK)";
+    valueTd.className = row.emphasis ? "cell-right cell-nowrap text-emphasis" : "cell-right cell-nowrap";
+    valueTd.textContent = formatCurrency(accountingSummary[row.key]);
+    tr.appendChild(valueTd);
+
+    tbody.appendChild(tr);
+  });
 }
 
 // ── Detailed report: per-member contribution standing + loan summary ──────

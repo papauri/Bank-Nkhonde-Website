@@ -183,6 +183,82 @@
       outline: 2px solid var(--bn-accent);
       outline-offset: 2px;
     }
+
+    /* Card-info popovers (ported from analytics.html) — reveal rule also
+       targets .stat-card so the Your-Overview grid cards reveal too. */
+    .page-stat,
+    .stat-card,
+    .breakdown-card {
+      position: relative;
+    }
+
+    .page-stats {
+      overflow: visible;
+    }
+
+    .page-stats .page-stat {
+      padding-right: calc(44px + var(--bn-space-2));
+    }
+
+    .stat-card:has(.stat-card-info-toggle) {
+      padding-top: calc(44px + var(--bn-space-2));
+    }
+
+    .stat-card-info-toggle {
+      position: absolute;
+      top: var(--bn-space-2);
+      right: var(--bn-space-2);
+      z-index: 10;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: inherit;
+      font-size: var(--bn-text-sm);
+      font-weight: 700;
+      font-style: italic;
+      color: var(--bn-gray-700);
+      background: var(--bn-gray-100);
+      border: none;
+      border-radius: var(--bn-radius-full);
+      cursor: pointer;
+      transition: all var(--bn-transition-fast);
+    }
+    .stat-card-info-toggle:hover {
+      background: var(--bn-gray-lighter);
+      color: var(--bn-dark);
+    }
+    .stat-card-info-toggle:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: 2px;
+    }
+    .stat-card-popover {
+      position: absolute;
+      top: calc(100% + var(--bn-space-2));
+      left: 0;
+      right: 0;
+      z-index: var(--z-dropdown);
+      display: none;
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-md);
+      box-shadow: 0 4px 16px rgba(10, 22, 40, 0.18);
+      padding: var(--bn-space-3) var(--bn-space-4);
+      text-align: left;
+    }
+    .page-stat:hover .stat-card-popover,
+    .page-stat:focus-within .stat-card-popover,
+    .stat-card:hover .stat-card-popover,
+    .stat-card:focus-within .stat-card-popover,
+    .breakdown-card:hover .stat-card-popover,
+    .breakdown-card:focus-within .stat-card-popover,
+    .stat-card-popover.open {
+      display: block;
+    }
+    .stat-card-popover:empty {
+      display: none;
+    }
   </style>
 </head>
 <body class="user-page" data-nav-variant="user-sidebar" data-nav-active-page="user_analytics">
@@ -200,11 +276,11 @@
         <div class="page-stat-value success" id="totalContributed">MWK 0</div>
         <div class="page-stat-label">Total Contributed</div>
       </div>
-      <div class="page-stat">
+      <div class="page-stat" role="button" tabindex="0" onclick="window.location.href='loan_payments.html'" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='loan_payments.html';}" style="cursor: pointer;" aria-label="Total borrowed — open your loans and repayments">
         <div class="page-stat-value info" id="totalBorrowed">MWK 0</div>
         <div class="page-stat-label">Total Borrowed</div>
       </div>
-      <div class="page-stat">
+      <div class="page-stat" role="button" tabindex="0" onclick="window.location.href='loan_payments.html'" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='loan_payments.html';}" style="cursor: pointer;" aria-label="Loan outstanding — open your loans and repayments">
         <div class="page-stat-value warning" id="outstanding">MWK 0</div>
         <div class="page-stat-label">Loan Outstanding</div>
       </div>
@@ -232,11 +308,11 @@
             <div class="stat-value" id="userTotalContributed">MWK 0</div>
             <div class="stat-label">Total Contributed</div>
           </div>
-          <div class="stat-card">
+          <div class="stat-card" role="button" tabindex="0" onclick="window.location.href='loan_payments.html'" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='loan_payments.html';}" style="cursor: pointer;" aria-label="Total loans — open your loans and repayments">
             <div class="stat-value" id="userTotalLoans">MWK 0</div>
             <div class="stat-label">Total Loans</div>
           </div>
-          <div class="stat-card">
+          <div class="stat-card" role="button" tabindex="0" onclick="window.location.href='loan_payments.html'" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='loan_payments.html';}" style="cursor: pointer;" aria-label="Your loan outstanding — open your loans and repayments">
             <div class="stat-value" id="userLoanOutstanding">MWK 0</div>
             <div class="stat-label">Loan Outstanding</div>
           </div>
@@ -244,7 +320,7 @@
             <div class="stat-value" id="userTotalArrears">MWK 0</div>
             <div class="stat-label">Total Arrears</div>
           </div>
-          <div class="stat-card">
+          <div class="stat-card" role="button" tabindex="0" onclick="window.location.href='loan_payments.html'" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='loan_payments.html';}" style="cursor: pointer;" aria-label="Active loans — open your loans and repayments">
             <div class="stat-value" id="userActiveLoans">0</div>
             <div class="stat-label">Active Loans</div>
           </div>
