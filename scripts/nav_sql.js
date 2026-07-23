@@ -42,6 +42,8 @@ const ICONS = {
   analytics: `<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>`,
   switchUser: `<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>`,
   chevronDown: `<polyline points="6 9 12 15 18 9"/>`,
+  messages: `<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>`,
+  rules: `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><line x1="8" y1="9" x2="10" y2="9"/>`,
 };
 
 /** Nav items shared by the admin sidebar and admin mobile bottom-nav. */
@@ -51,6 +53,17 @@ const ADMIN_NAV_ITEMS = [
   {nav: "loans", label: "Manage Loans", href: "manage_loans.html", icon: ICONS.loans},
   {nav: "payments", label: "Payments", href: "manage_payments.html", icon: ICONS.payments},
   {nav: "members", label: "Members", href: "manage_members.html", icon: ICONS.members},
+  {nav: "settings", label: "Settings", href: "settings.html", icon: ICONS.settings},
+];
+
+/** Nav items for the user-sidebar variant (dormant until pages opt in). */
+const USER_SIDEBAR_NAV_ITEMS = [
+  {nav: "user_dashboard", label: "Dashboard", href: "user_dashboard.html", icon: ICONS.dashboard},
+  {nav: "user_analytics", label: "Analytics", href: "user_analytics.html", icon: ICONS.analytics},
+  {nav: "loan_payments", label: "Loan Payments", href: "loan_payments.html", icon: ICONS.payments},
+  {nav: "contacts", label: "Contacts", href: "contacts.html", icon: ICONS.members},
+  {nav: "messages", label: "Messages", href: "messages.html", icon: ICONS.messages},
+  {nav: "view_rules", label: "Rules", href: "view_rules.html", icon: ICONS.rules},
   {nav: "settings", label: "Settings", href: "settings.html", icon: ICONS.settings},
 ];
 
@@ -571,12 +584,22 @@ function wireMobileMenu(btn, closeBtn, overlay, menu) {
    ============================================================ */
 
 /**
- * Build and inject the admin sidebar, topbar, and mobile bottom-nav.
+ * Build and inject a sidebar-shell nav (sidebar + topbar + mobile bottom-nav).
+ * Shared by the admin variant and the user-sidebar variant; the caller
+ * supplies which nav items, logo href, and footer "switch view" link to use.
  * @param {Object} user Session user ({fullName, role, ...}).
  * @param {Object} opts {activePage, pageTitle}
+ * @param {Object} config {navItems, logoHref, footerSwitch}
+ * @param {Array<Object>} config.navItems Nav item list ({nav, label, href, icon}).
+ * @param {string} config.logoHref Sidebar logo link target.
+ * @param {?{href: string, label: string, mobileLabel: (string|undefined)}}
+ *     config.footerSwitch Optional "switch view" link rendered in the
+ *     sidebar footer + mobile nav (mobileLabel overrides the shorter mobile
+ *     bottom-nav text; defaults to label); pass null to omit it entirely.
  */
-function renderAdminNav(user, opts) {
+function renderSidebarNav(user, opts, config) {
   const {activePage = "dashboard", pageTitle = "Dashboard"} = opts;
+  const {navItems, logoHref, footerSwitch} = config;
 
   const mainContent = document.getElementById("mainContent") || document.querySelector(".main-content");
 
@@ -588,7 +611,7 @@ function renderAdminNav(user, opts) {
   const sidebarHeader = document.createElement("div");
   sidebarHeader.className = "sidebar-header";
   const sidebarLogo = document.createElement("a");
-  sidebarLogo.href = "admin_dashboard.html";
+  sidebarLogo.href = logoHref;
   sidebarLogo.className = "sidebar-logo";
   const sidebarLogoIcon = document.createElement("div");
   sidebarLogoIcon.className = "sidebar-logo-icon";
@@ -603,7 +626,7 @@ function renderAdminNav(user, opts) {
 
   const sidebarNav = document.createElement("nav");
   sidebarNav.className = "sidebar-nav";
-  ADMIN_NAV_ITEMS.forEach((item) => {
+  navItems.forEach((item) => {
     const a = document.createElement("a");
     a.href = item.href;
     const isActive = item.nav === activePage;
@@ -620,15 +643,17 @@ function renderAdminNav(user, opts) {
 
   const sidebarFooter = document.createElement("div");
   sidebarFooter.className = "sidebar-footer";
-  const switchUserLink = document.createElement("a");
-  switchUserLink.href = "user_dashboard.html";
-  switchUserLink.className = "sidebar-nav-item";
-  switchUserLink.title = "Switch to User View";
-  switchUserLink.appendChild(svgIcon("switchUser"));
-  const switchLabel = document.createElement("span");
-  switchLabel.textContent = "Switch to User View";
-  switchUserLink.appendChild(switchLabel);
-  sidebarFooter.appendChild(switchUserLink);
+  if (footerSwitch) {
+    const switchUserLink = document.createElement("a");
+    switchUserLink.href = footerSwitch.href;
+    switchUserLink.className = "sidebar-nav-item";
+    switchUserLink.title = footerSwitch.label;
+    switchUserLink.appendChild(svgIcon("switchUser"));
+    const switchLabel = document.createElement("span");
+    switchLabel.textContent = footerSwitch.label;
+    switchUserLink.appendChild(switchLabel);
+    sidebarFooter.appendChild(switchUserLink);
+  }
 
   const sidebarUser = document.createElement("div");
   sidebarUser.className = "sidebar-user";
@@ -754,7 +779,7 @@ function renderAdminNav(user, opts) {
   mobileNav.className = "mobile-nav";
   const mobileNavItems = document.createElement("div");
   mobileNavItems.className = "mobile-nav-items";
-  ADMIN_NAV_ITEMS.slice(0, 4).forEach((item) => {
+  navItems.slice(0, 4).forEach((item) => {
     const a = document.createElement("a");
     a.href = item.href;
     const isActive = item.nav === activePage;
@@ -767,14 +792,16 @@ function renderAdminNav(user, opts) {
     a.appendChild(span);
     mobileNavItems.appendChild(a);
   });
-  const switchUserMobile = document.createElement("a");
-  switchUserMobile.href = "user_dashboard.html";
-  switchUserMobile.className = "mobile-nav-item";
-  switchUserMobile.appendChild(svgIcon("switchUser", "20"));
-  const switchUserLabel = document.createElement("span");
-  switchUserLabel.textContent = "User View";
-  switchUserMobile.appendChild(switchUserLabel);
-  mobileNavItems.appendChild(switchUserMobile);
+  if (footerSwitch) {
+    const switchUserMobile = document.createElement("a");
+    switchUserMobile.href = footerSwitch.href;
+    switchUserMobile.className = "mobile-nav-item";
+    switchUserMobile.appendChild(svgIcon("switchUser", "20"));
+    const switchUserLabel = document.createElement("span");
+    switchUserLabel.textContent = footerSwitch.mobileLabel || footerSwitch.label;
+    switchUserMobile.appendChild(switchUserLabel);
+    mobileNavItems.appendChild(switchUserMobile);
+  }
   mobileNav.appendChild(mobileNavItems);
   document.body.appendChild(mobileNav);
 
@@ -811,6 +838,40 @@ function renderAdminNav(user, opts) {
 }
 
 /**
+ * Build and inject the admin sidebar, topbar, and mobile bottom-nav.
+ * Thin wrapper over renderSidebarNav with the admin-specific config.
+ * @param {Object} user Session user ({fullName, role, ...}).
+ * @param {Object} opts {activePage, pageTitle}
+ */
+function renderAdminNav(user, opts) {
+  renderSidebarNav(user, opts, {
+    navItems: ADMIN_NAV_ITEMS,
+    logoHref: "admin_dashboard.html",
+    footerSwitch: {href: "user_dashboard.html", label: "Switch to User View", mobileLabel: "User View"},
+  });
+}
+
+/**
+ * Build and inject the user-sidebar shell (sidebar + topbar + mobile
+ * bottom-nav) using USER_SIDEBAR_NAV_ITEMS. Shows an "Admin View" footer
+ * switch link only when the session user's role is an admin role — the
+ * server is the real gate on any admin page reached from it.
+ * @param {Object} user Session user ({fullName, role, ...}).
+ * @param {Object} opts {activePage, pageTitle}
+ */
+function renderUserSidebarNav(user, opts) {
+  const role = user && user.role;
+  const footerSwitch = ADMIN_ROLES.includes(role) ?
+    {href: "admin_dashboard.html", label: "Admin View"} :
+    null;
+  renderSidebarNav(user, opts, {
+    navItems: USER_SIDEBAR_NAV_ITEMS,
+    logoHref: "user_dashboard.html",
+    footerSwitch,
+  });
+}
+
+/**
  * Refresh the topbar's date text.
  * @param {HTMLElement} dateEl Target element (falls back to lookup by id).
  */
@@ -829,7 +890,8 @@ function updateCurrentDate(dateEl) {
 /**
  * Initialize navigation for the current page.
  * @param {Object} options
- * @param {"user"|"admin"} options.variant Which nav surface to render.
+ * @param {"user"|"admin"|"user-sidebar"} options.variant Which nav surface to
+ *     render ("user-sidebar" is dormant infra — no page opts into it yet).
  * @param {string} [options.activePage] Nav identifier to mark active
  *     (admin variant).
  * @param {boolean} [options.showGroupDisplay] User variant: show the current
@@ -853,6 +915,8 @@ export async function initNav(options = {}) {
 
   if (variant === "admin") {
     renderAdminNav(user, options);
+  } else if (variant === "user-sidebar") {
+    renderUserSidebarNav(user, options);
   } else {
     let groups = [];
     if (options.showGroupDisplay) {

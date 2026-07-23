@@ -182,17 +182,116 @@ roles `member|admin|senior_admin` · member status `active|inactive|suspended` �
 
 ---
 
-## Navigation cluster (scripts/ + styles/)
+## Navigation shell cluster (cycle 93 scout)
 
-### Overview
-Five navigation-related scripts and two stylesheets handle DOM injection, mobile/desktop menu management, SPA routing (admin), and auth-gated navigation. Two scripts are DEAD (referenced only in documentation). Three are active:
-1. **User pages (loan_payments, contacts, group_page, messages, user_analytics, view_rules, user_dashboard)** use `shared-top-nav.js` + `unified-navigation.js`
-2. **Admin pages (13 dashboard/management pages)** use `admin-layout.js` (SPA implementation)
+**Scope:** Map the live navigation renderer (`nav_sql.js`, `admin-layout.css`) and document how both user top-nav and admin sidebar shells are wired; identify which pages are bound to which shell and what pre-mainContent chrome each carries.
 
-| Feature | Pages | Script(s) | Firebase? | Auth gate | Notes |
+**Real as-built:** The live nav stack is **single-entry-point** (`scripts/nav_sql.js` only). Both user top-nav and admin sidebar/topbar/mobile-nav are rendered from the same module. No `shared-top-nav.js`, `admin-layout.js`, or `unified-navigation.js` are in use on SQL-era pages. Deleted Firebase twins (`user_dashboard_new.html`, `manage_members_new.html`) and their associated `*_new.js` scripts remain on disk but are unreferenced.
+
+### 1. VARIANT DISPATCH & ROLE SOURCE
+
+**How variant is chosen (page → nav shell):**
+- `page-bootstrap.js` (line 35–45) reads `<body data-nav-variant>` attribute via `document.body.dataset.navVariant`
+- Forwards it to `initNav()` as `opts.variant` (line 38 in page-bootstrap.js; parameter at line 845 in nav_sql.js)
+- **If `variant === "admin"`** → calls `renderAdminNav()` (line 854 in nav_sql.js)
+- **Otherwise (default "user")** → calls `renderUserNav()` (line 865 in nav_sql.js)
+
+**User object & role:**
+- Fetched via `await getSession()` (line 849 in nav_sql.js) → calls `api.js:getSession()` (PHP backend, `/api/index.php?action=auth.session`)
+- Role field: `user.role` (accessed at line 657 in nav_sql.js when rendering admin sidebar)
+- **ADMIN_ROLES constant** (line 27 in nav_sql.js): `["admin", "senior_admin", "treasurer"]`
+- Role-gate example: line 184 in nav_sql.js, `switchGroup()` checks if `group.myRole` is in ADMIN_ROLES to choose dashboard URL
+
+### 2. renderAdminNav() INSERTION POINTS (sidebar/topbar/mobile-nav factory)
+
+| Element | Line(s) | Insertion location | Details |
+|---|---|---|---|
+| Sidebar + overlay | 681–687 | Before `#mainContent` (as siblings) | `mainContent.parentElement.insertBefore(sidebar, mainContent)` and overlay before mainContent |
+| Topbar header | 744–748 | First child of `#mainContent` | `mainContent.insertBefore(topbar, mainContent.firstChild)` — sticky header with title, date, notifications, avatar |
+| Mobile bottom nav | 779 | Appended to `<body>` | `.mobile-nav` fixed-position 5–6 icon tabs (partial ADMIN_NAV_ITEMS + "Switch to User View") |
+| "Switch to User View" footer link | 623–631 | `.sidebar-footer` | Hardcoded `href="user_dashboard.html"` (line 624) |
+| Sidebar logo href | 591 | `.sidebar-header` | Hardcoded `href="admin_dashboard.html"` (line 591) |
+
+### 3. renderUserNav() OUTPUT & INSERTION (top-nav + mobile slide menu factory)
+
+| Element | ID | Class | Line(s) | Insertion | Details |
 |---|---|---|---|---|---|
-| User top nav (desktop) + mobile menu (injected) | loan_payments, contacts, group_page, messages, user_analytics, view_rules | `shared-top-nav.js` | NO (relies on `window.auth` set externally) | Checked by page script | Exports `window.initTopNav(options)`. Creates `.top-nav`, `.mobile-menu-overlay`, `.mobile-menu`. Configurable: showGroupDisplay, showViewToggle, logoLink. Exposes `window.closeMobileMenu()`, `window.handleMobileLogout()`. |
-| User nav state + mobile menu toggle + modal scroll lock | loan_payments, contacts, group_page, messages, user_analytics, view_rules | `unified-navigation.js` | YES (dynamic import of `auth`, `signOut`) | Checked by page script | Auto-initializes on DOMContentLoaded. Exports `initializeUnifiedNavigation()`. Handles mobile menu open/close, modal `.active` state, logout button handlers. Exposes `window.handleMobileNavLogout`, `window.handleSwitchToAdmin`, `window.closeMobileMenu`. |
+| Top navigation bar | N/A | `.top-nav` | 318 | Prepended to `<body>` (line 488) | Sticky, dark background, logo + optional group-switcher + actions (notifications, logout, avatar, burger) |
+| Logo | N/A | `.top-nav-logo` | 324 | Inside `.top-nav-container` | Hardcoded href to `logoLink` option (defaults to `user_dashboard.html`) |
+| Group switcher | `currentGroupDisplay` | `.current-group-display` | 213 | Only if `showGroupDisplay: true` | Chip + dropdown (id `currentGroupToggle` on button, line 218); populated from `listMyGroups()` |
+| Notifications button | `notificationsBtn` | `.top-nav-btn` | 371 | `.top-nav-actions` | Bell icon; calls `window.toggleNotifications()` if available; badge id `notificationBadge` (line 375) |
+| Logout button | `logoutBtn` | `.top-nav-btn` | 388 | `.top-nav-actions` | Calls `handleLogout()` directly |
+| User avatar | `userAvatar` | `.top-nav-avatar` | 398 | `.top-nav-actions` | Links to `settings.html`; shows profile image or initials (id `userInitials`, line 408) |
+| View toggle (admin/user) | `viewToggle` | `.view-toggle` | 349 | `.top-nav-actions` | Only if `showViewToggle: true`; "Admin" button navigates to `admin_dashboard.html` |
+| Burger menu button | `mobileMenuBtn` | `.mobile-menu-btn` | 420 | `.top-nav-container` | Toggles mobile menu; aria-controls `mobileMenu` (line 423) |
+| Mobile menu (slide panel) | `mobileMenu` | `.mobile-menu` | 435 | Prepended to `<body>` (line 486) | Slides in from right; contains Dashboard, Settings, Sign Out links |
+| Mobile overlay | `mobileMenuOverlay` | `.mobile-menu-overlay` | 431 | Prepended to `<body>` (line 487) | Dismisses menu on click; fixed inset, semi-transparent |
+| Menu close button | `mobileMenuClose` | `.mobile-menu-close` | 446 | Inside `.mobile-menu-header` | SVG close icon; aria-label "Close menu" |
+
+### 4. admin-layout.css SHELL CONTRACT (styles for sidebar+topbar variant)
+
+| Selector | Line range | Role | Notes |
+|---|---|---|---|
+| `.sidebar` | 18–30 | Fixed sidebar column, left side | width: var(--sidebar-width) (280px); z-index: var(--z-fixed); flex column |
+| `.sidebar-overlay` | 564–570 | Mobile overlay behind sidebar | Fixed inset, rgba(10,22,40,0.5) bg, z-index calc(--z-fixed - 1); display: none by default; shown @media ≤1024px |
+| `.topbar` | 306–319 | Sticky header above content | height: var(--topbar-height) (72px); z-index: var(--z-sticky); flex row, space-between |
+| `.main-content` | 298–301 | Content wrapper with sidebar offset | **margin-left: var(--sidebar-width)**; min-height: 100vh |
+| `.dashboard-content` | 508–511 | Padding container inside main | padding: var(--bn-space-6) var(--bn-space-8); position: relative |
+| `.mobile-nav` | 516–526 | Fixed bottom navigation | display: none by default; shown @media ≤1024px; position: fixed bottom; z-index: var(--z-fixed) |
+
+**Responsive:** @media (max-width: 1024px) — sidebar slides from left (transform: translateX(-100%)), overlay visible, mobile-nav shown, margin-left removed. @media (max-width: 768px) — topbar padding reduced, .dashboard-content padding reduced.
+
+### 5. SIX USER PAGES — Pre-mainContent chrome, main structure, stylesheets
+
+All six pages use `data-nav-variant="user"` in `<body>` tag; none load `admin-layout.css`.
+
+| Page | Body attrs | Pre-mainContent chrome | Main structure | Stylesheets (rel="stylesheet") | Notes |
+|---|---|---|---|---|---|
+| `user_dashboard.html` | Line 2082: `data-nav-variant="user"` + `data-nav-show-group-display="true"` + `data-nav-show-view-toggle="true"` + `data-nav-logo-link="../index.html"` | `<section class="hero-section">` (lines 2084–2172): greeting, stats band, quick actions, all inside dark gradient | `<main class="main-content" id="mainContent"><div class="dashboard-content">` (lines 2172+) | design-system.css, unified-navigation.css, unified-mobile-nav.css | Hero block to be relocated into .dashboard-content by C8 |
+| `view_rules.html` | Line 168: `data-nav-variant="user"` + `data-nav-active-page="view_rules"` | `<header class="page-header">` (lines 170–186): back button, title, subtitle | `<main class="main-content" id="mainContent"><div class="dashboard-content">` (lines 189–190) | design-system.css, pages.css, unified-navigation.css, unified-mobile-nav.css | Page header with gradient background (pages.css) |
+| `user_analytics.html` | Line 201: `data-nav-variant="user"` + `data-nav-active-page="user_analytics"` | `<header class="page-header">` (lines 203–243): back button, title, group selector, stats summary | `<main class="main-content" id="mainContent"><div class="dashboard-content">` (lines 246–247) | design-system.css, pages.css, unified-navigation.css, unified-mobile-nav.css | Page header + pre-mainContent selector & stats |
+| `loan_payments.html` | Line 186: `data-nav-variant="user"` + `data-nav-active-page="loan_payments"` | `<header class="page-header">` (TBD — not fully read) | `<main class="main-content" id="mainContent"><div class="dashboard-content">` (TBD) | design-system.css, pages.css, unified-navigation.css, unified-mobile-nav.css | Page header (pages.css style) |
+| `contacts.html` | Line 420: `data-nav-variant="user"` + `data-nav-active-page="contacts"` | `<header class="page-header">` (TBD — not fully read) | `<main class="main-content" id="mainContent"><div class="dashboard-content">` (TBD) | design-system.css, pages.css, unified-navigation.css, unified-mobile-nav.css | Page header (pages.css style) |
+| `messages.html` | Line 313: `data-nav-variant="user"` + `data-nav-active-page="messages"` | `<header class="page-header">` (TBD — not fully read) | `<main class="main-content" id="mainContent"><div class="dashboard-content">` (TBD) | design-system.css, pages.css, unified-navigation.css, unified-mobile-nav.css | Page header (pages.css style) |
+
+### 6. user_dashboard.html HERO SECTION LINE RANGE
+
+**Lines 2084–2172:** Full block from `<section class="hero-section">` to closing `</section>`. Contains:
+- Greeting + user name (line 2088)
+- Current group display element (line 2089, shown only if showGroupDisplay: true)
+- Stats band (hero-stats) with 6 clickable stat cards (lines 2095–2136)
+- Quick Actions button grid (lines 2139–2170)
+
+### 7. PAGE-SCRIPT COUPLING — Top-nav DOM IDs referenced by scripts
+
+| ID | Class | Script file:line | Usage |
+|---|---|---|---|
+| `userInitials` | `.top-nav-avatar` child span | user_dashboard_sql.js:193 | setText("userInitials", ...) — updates with display name |
+| `userAvatar` | `.top-nav-avatar` link | user_dashboard_sql.js:195 | Updates src if profile image available |
+| `viewToggle` | `.view-toggle` container | user_dashboard_sql.js:223 | Toggle visibility based on admin status |
+| `currentGroupDisplay` | `.current-group-display` | user_dashboard_sql.js:321 | Show/hide based on whether user has groups |
+| `currentGroupToggle` | `.current-group-toggle` button | user-dashboard-view-groups.js:7 | Reference to group switcher for re-initialization |
+| `mobileMenuBtn` | `.mobile-menu-btn` | user_dashboard_sql.js:1697, 1890, 1905 | Burger button DOM; accessed 3 times (mobile menu wiring) |
+| `notificationsBtn` | `.top-nav-btn` | notifications-handler_sql.js:45 | Bell button; toggles notification panel |
+| `.top-nav` | Top nav container | spa-router.js:493 | Removed from DOM during SPA navigation (line 493 removes ".top-nav, #mobileMenuOverlay, #mobileMenu") |
+| `#mobileMenuOverlay` | Mobile overlay | spa-router.js:493 | Removed during SPA navigation |
+| `#mobileMenu` | Mobile slide menu | spa-router.js:493 | Removed during SPA navigation |
+
+**Impact:** Pages that migrate from user top-nav shell to admin sidebar shell must remove references to these IDs from their page scripts, or ensure the IDs no longer exist (sidebar renders different elements). Sidebar variant creates `#sidebar`, `#sidebarOverlay`, `#topbar`, `#topbarAvatar`, `#notificationBadge` (topbar), `#mobileMenuBtn` (topbar only, not user nav), and `.mobile-nav` (different from user `.mobile-menu`).
+
+### GAPS
+
+1. **loan_payments.html, contacts.html, messages.html** — Pre-mainContent chrome and main structure not fully read; assume same `<header class="page-header">` + `<main class="main-content">` pattern as view_rules.html and user_analytics.html, but needs confirmation.
+2. **Data retrieval flow** — No trace of where `initNav()` is called or how `getSession()` decides role/groups; assume PHP backend `/api/index.php?action=auth.session` exists but not mapped.
+3. **Sidebar active-page highlighting** — `updateActiveNav()` (line 886 in nav_sql.js) updates `[data-nav]` elements on the admin sidebar, but no trace of which admin page calls this or how SPA router integrates (see spa-router.js:525 "no rebuild").
+
+### DEAD
+
+1. **scripts/shared-top-nav.js** — Not imported; SYSTEM_MAP ~line 189 references it as active, contradicted by live nav_sql.js. Candidate for deletion.
+2. **scripts/admin-layout.js** — Not imported; SYSTEM_MAP ~line 190 references it, but sidebar is rendered by nav_sql.js. Candidate for deletion.
+3. **scripts/unified-navigation.js** — Not imported by any _sql.js page. Candidate for deletion.
+4. **pages/user_dashboard_new.html** + **scripts/user_dashboard_new_sql.js** — Duplicate of user_dashboard.html; unreferenced. Same for manage_members_new.html + manage_members_new_sql.js.
+5. **styles/unified-navigation.css** — Loaded by all user pages but styles are inlined in page `<style>` blocks or exist as dead orphan rules.
 
 ---
 

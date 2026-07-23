@@ -9,28 +9,28 @@ This project runs an autonomous agent build system. **When asked to build, fix, 
 Session start: read `.claude/BUILD_PLAN.md` (what's next, what's blocked) and `.claude/SYSTEM_MAP.md` (what exists). Those two files are the source of truth — do **not** re-scan the repo to rebuild context that is already written down.
 
 ### The loop runs in continuous / maximum-autonomy mode
-- **Do not stop between tasks.** When a task passes QA or is parked as blocked, immediately pull the next objective from `BUILD_PLAN.md` and continue in the same run — no waiting for user input.
-- **Stop only for these four conditions:** (1) a blocked item needing the user's decision and no other unblocked task remains; (2) a task that failed QA twice; (3) a required action would violate a safety rail (commit/push, destructive SQL/Firestore, deletion without sign-off); (4) Phase 3 (Polish) is fully complete. Always say which condition stopped it.
-- **Ambiguous ≠ blocked.** If unclear but not a genuine user decision, make the most reasonable assumption, record it under that task in `BUILD_PLAN.md`, and continue. Park only when the answer is truly the user's (money rules, product behaviour, a credential, an irreversible delete).
-- **Report every cycle:** a `STATUS` block (finished / in-progress / next 3 / blocked-with-question) after each task, and a `SESSION SUMMARY` (completed this run / remaining by phase / blockers / one-line recommendation) at the end of the run. Full formats in the skill.
+- **Full autonomy to completion — no owner intervention.** Run continuously; pull the next objective and keep going. Decide product / behaviour / wording / default questions yourself from **real-world village-banking flows** (how seed money, contributions, loans, interest, penalties, payouts actually work), record the assumption in `BUILD_PLAN.md`, and proceed.
+- **Stop only for:** (1) a genuine hard blocker no reasonable assumption can resolve — a missing credential/secret, or an irreversible + destructive data action; (2) a task that failed QA twice; (3) an action that would violate a safety rail (commit/push, destructive SQL, deletion without sign-off); (4) the PROJECT COMPLETE checklist fully `[x]`. Always say which one stopped it.
+- **Ambiguous ≠ blocked.** Make the reasonable real-world assumption, record it, continue. Only credentials and irreversible data loss are truly the owner's to unblock — everything else you decide.
+- **Report functionally every cycle:** a `STATUS` block (done / now / next / note) in plain product language — what now works or was fixed — and a `SESSION SUMMARY` (shipped / verified / remaining / notes) at the end. **No code, file paths, or agent chatter in the summary.** Full formats in the skill.
 
-### Stack has pivoted: Firebase → PHP + MySQL (cycle 3)
-Scaffold-first migration is underway. The SQL data layer exists (`database/migrations/001–003_*.sql`, `config/database.php`, `config/env.php`, `run_migrations.php`, `.env`). Firebase code is still live and untouched — it is removed only at the end, with human sign-off. The full data model is in `SYSTEM_MAP.md` → "Data model (for SQL migration)". Migration runner convention: `php run_migrations.php`.
+### Stack: PHP + MySQL (migrated off Firebase)
+The live path is the **PHP API + MySQL**. Frontend pages load their `*_sql.js` modules, which call the action-routed API (`api/index.php?action=x.y` → `api/handlers/*.php`). Any Firebase files still in the tree are **legacy** — do not build on them. **Schema changes are applied DIRECTLY to the live MySQL DB** and the DDL recorded in `BUILD_PLAN.md` — keep **no** offline `.sql` migration files (owner rule). `config/database.php` (PDO) + `config/env.php` read creds from `.env`.
 
 ## Stack — the givens
 
-- **Static site.** Plain HTML in `pages/`, **vanilla ES modules** in `scripts/`, plain CSS in `styles/`. **No build step, no bundler, no package.json at root, no test framework.** A client-side npm package cannot be added — there is nothing to bundle it.
-- **Firebase Web SDK v9.15.0, modular**, loaded from the gstatic CDN. Every Firebase symbol is re-exported from the single barrel `scripts/firebaseConfig.js` (`db`, `auth`, `storage`, `functions`, `doc`, `collection`, `onSnapshot`, `httpsCallable`, …). Page scripts import from the barrel — never from a gstatic URL, never call `initializeApp` twice.
-- **Backend = `functions/index.js` only.** Cloud Functions, Node 18, **CommonJS**, `firebase-functions` v4, `firebase-admin` v12, nodemailer. Lints with `eslint-config-google` as a **predeploy hook** — a lint failure is a broken deploy.
-- **Database = Firestore**, not SQL. `users/{uid}`, `groups/{groupId}`, `groups/{groupId}/members/{uid}` (holds `role`). Authorization is `firestore.rules`, with helpers `isSignedIn`, `isGroupAdmin`, `isSeniorAdmin`, `isGroupMember`. Roles: `admin`, `senior_admin`, member.
-- `config.php` is a **vestigial leftover** — no PHP runtime is deployed. Treat as dead.
-- Domain: village-banking savings groups — seed money, contributions, loans, interest, penalties. **This app moves real money.** Currency maths goes through `scripts/utils_financial.js`, never re-implemented.
+- **No build step, no bundler, no root `package.json`, no test framework, no client npm.** Plain HTML in `pages/`, **vanilla ES modules** in `scripts/` (`*_sql.js` per page), plain CSS in `styles/`.
+- **API = `api/index.php`** front controller: action-routed `?action=x.y` via a `ROUTES` map (`['GET'|'POST','handler']`) to handlers in `api/handlers/*.php`. JSON envelope via `api/lib/http.php` (`json_response`/`json_error`). The client calls it through `scripts/api.js` — `apiGet`/`apiPost` **unwrap** the envelope (return `data`); `downloadExport()` handles CSV/Excel downloads.
+- **Auth = PHP sessions** (`api/lib/session.php`): `require_role($groupId, [roles])` returns the caller `{uid, role}` and is re-checked server-side on every callable. Roles: `member`, `admin`, `senior_admin`, `treasurer`. Cross-member reads use the admin-only `uid`-override pattern (`payments.php::my_obligations`).
+- **Database = MySQL** (live cPanel), PDO from `config/database.php`. Tables: `users`, `groups`, `members`, `group_rules`, `loans`, `loan_payments`, `payments`, `penalty_settlements`, … Prepared statements always; back-tick reserved words (`groups`).
+- **Money:** server-side **integer minor units** via `api/lib/money.php` (`money_to_minor` / `money_from_minor`, which returns a bare `"1000.00"` string — no `MWK`). Display via `scripts/utils_financial.js` `formatCurrency`. **Never floats, never client-side maths.** This app moves real money.
+- Domain: village-banking savings groups — seed money, contributions, loans, interest, penalties.
 
-## Known state (from the Phase-0 scan)
+## Known state
 
-- **`firebase.json` hosting points at `frontend/`, which does not exist.** The app is at the repo root. Deploys are publishing nothing. This is BLOCKER-1.
-- **`functions/index.js` has a hardcoded SMTP password** as a `functions.config()` fallback. BLOCKER-2 — the literal must come out, and the password must then be rotated by a human.
-- Duplicate `_new` twins exist (`user_dashboard*`, `manage_members*`), and five overlapping nav scripts. See `BUILD_PLAN.md` Phase 2.
+- The app runs on the PHP API + MySQL; earlier Firebase blockers (BLOCKER-1 hosting, BLOCKER-2 SMTP literal) belong to the retired stack — see `BUILD_PLAN.md` history.
+- **`php -S` (local dev) is single-threaded** — rapid sequential requests cause transient 500s/empty bodies. The remote cPanel MySQL **throttles** connections after many rapid connects (`SQLSTATE[HY000] [2002]` timeout). Both are infra, not code — don't hammer, retry.
+- Duplicate `_new` twins exist (`user_dashboard*`, `manage_members*`) — a page may load the `_new` variant; confirm the `<script type="module">` tag before editing. See `BUILD_PLAN.md`.
 
 ## The agents (`.claude/agents/`)
 
@@ -38,14 +38,14 @@ Scaffold-first migration is underway. The SQL data layer exists (`database/migra
 |---|---|---|
 | `codebase-scout` | haiku | Read-only. Maps ONE directory tree into `.claude/SYSTEM_MAP.md`. Never the whole repo at once. |
 | `build-planner` | opus | Owns `BUILD_PLAN.md`. Picks ONE objective per cycle, writes exact-path dispatch briefs. **Never edits code.** |
-| `backend-specialist` | sonnet | `functions/`, `firestore.rules`, `firestore.indexes.json`, named Firestore calls. |
-| `frontend-specialist` | sonnet | `pages/`, `scripts/` — functional wiring only. |
+| `backend-specialist` | sonnet | `api/index.php`, `api/handlers/*.php`, `api/lib/*.php`, live MySQL + DDL, named server calls. |
+| `frontend-specialist` | sonnet | `pages/`, `scripts/*_sql.js` — functional wiring only (API via `scripts/api.js`). |
 | `ui-designer` | sonnet | Visual/responsive/a11y polish, scoped **only** to files `frontend-specialist` just touched. No behaviour changes. |
 | `qa-auditor` | haiku (lint) / sonnet (review) | Read-only gate. **Diff only, never whole files.** Nothing is done until it PASSes. |
 
 ## Cost rails
 
-- Default **haiku** for read-only, lint, and lookup work. Escalate tier only when the planner flags `COMPLEXITY: high` (security rules, money arithmetic, 4+ files).
+- Default **haiku** for read-only, lint, and lookup work. Escalate tier only when the planner flags `COMPLEXITY: high` (auth boundaries, money/interest arithmetic, 4+ files).
 - **Max 2 concurrent specialist spawns.** Parallel only when their file lists are disjoint.
 - Every subagent brief states **exact file paths and line ranges**. A brief containing "explore" / "investigate" / "as needed" is malformed — reject it, don't spend a specialist on it.
 - `/compact` after every 3 completed tasks. `/clear` when switching phase.
@@ -55,12 +55,12 @@ Scaffold-first migration is underway. The SQL data layer exists (`database/migra
 ## Safety rails — hard stops
 
 - **Never `git commit`. Never `git push`.** The human commits. No exceptions, not even on a finished task.
-- **Never run destructive SQL or destructive Firestore ops** — no collection wipes, no bulk deletes, no unbounded batch writes.
+- **Never run destructive SQL** — no `DROP`/`TRUNCATE`, no unscoped `DELETE`/`UPDATE`, no unbounded batch writes. Additive, idempotent `ALTER … ADD COLUMN … DEFAULT` applied to the live DB (behaviour-preserving default) is allowed and recorded in `BUILD_PLAN.md`.
 - **Never delete a file** without explicit human sign-off — park it BLOCKED with a recommendation.
-- **Never loosen `firestore.rules`** to make a feature pass — automatic QA failure. If a rule blocks you, it is working.
-- **Never write a credential into a tracked file.** (The Firebase web config in `firebaseConfig.js` is public by design; nothing else is.)
-- Every callable verifies `context.auth` and re-checks the caller's group role **server-side**. Client-side role checks are UX, never a gate.
-- No `innerHTML` carrying user-authored or Firestore-sourced strings — `createElement` + `textContent`.
+- **Never weaken a server-side `require_role` / auth gate** to make a feature pass — automatic QA failure. If a gate blocks you, it is working.
+- **Never write a credential into a tracked file.** Secrets live in `.env` (gitignored) — DB creds, SMTP.
+- Every callable verifies the session and re-checks the caller's group role **server-side** via `require_role`; cross-member reads use the admin-only `uid`-override. Client-side role checks are UX, never a gate.
+- No `innerHTML` carrying user- or server-sourced strings — `createElement` + `textContent` (SVG via `createElementNS`).
 - Anything needing a human decision → mark **BLOCKED** in `BUILD_PLAN.md` with the exact question and move on. Never stall, never guess.
 
 ## Retry policy

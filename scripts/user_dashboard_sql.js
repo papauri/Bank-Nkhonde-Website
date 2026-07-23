@@ -491,11 +491,13 @@ function renderFinancialOverview(ob, payments, loans) {
     }
   }
   setText("pendingPayments", formatCurrency(fromMinor(pendingMinor)));
+  renderPendingPopover(payments);
 
   // Arrears = outstanding arrears + accrued live penalties across obligations
   // (seed + months + service fee).
   const arrearsMinor = toMinor(summary.arrears) + toMinor(summary.penaltyAccrued);
   setText("totalArrears", formatCurrency(fromMinor(arrearsMinor)));
+  renderArrearsPopover(summary);
 
   // Active-loans count (approved / disbursed).
   const active = loans.filter((l) => isActiveLoan(l.status)).length;
@@ -508,6 +510,82 @@ function renderFinancialOverview(ob, payments, loans) {
   }
 
   renderContributionChart(ob);
+}
+
+/**
+ * "Pending" hero-stat popover: the individual un-adjudicated payment rows
+ * behind the pending total (already fetched, no new API call), capped so the
+ * popover stays a quick glance rather than a full list.
+ * @param {Array<Object>} payments payment rows
+ */
+function renderPendingPopover(payments) {
+  const popover = document.getElementById("pendingPaymentsPopover");
+  if (!popover) return;
+  popover.replaceChildren();
+
+  const pending = payments
+    .filter((row) => String(row.approvalStatus) === "pending")
+    .map((row) => ({
+      type: PAYMENT_TYPE_LABELS[row.paymentType] || String(row.paymentType),
+      amountStr: String(row.amountPaid),
+      date: parseServerDate(row.submittedAt || row.createdAt),
+    }))
+    .sort((a, b) => (b.date || 0) - (a.date || 0));
+
+  const title = document.createElement("p");
+  title.className = "hero-stat-popover-title";
+  title.textContent = pending.length
+    ? `${pending.length} pending payment${pending.length === 1 ? "" : "s"}`
+    : "No pending payments";
+  popover.appendChild(title);
+
+  const CAP = 5;
+  pending.slice(0, CAP).forEach((p) => {
+    const row = document.createElement("div");
+    row.className = "hero-stat-popover-row";
+    const label = document.createElement("span");
+    label.textContent = p.date ? `${p.type} (${formatDate(p.date)})` : p.type;
+    const amount = document.createElement("span");
+    amount.textContent = formatCurrency(p.amountStr);
+    row.appendChild(label);
+    row.appendChild(amount);
+    popover.appendChild(row);
+  });
+
+  if (pending.length > CAP) {
+    const more = document.createElement("p");
+    more.className = "hero-stat-popover-more";
+    more.textContent = `+${pending.length - CAP} more`;
+    popover.appendChild(more);
+  }
+}
+
+/**
+ * "Arrears" hero-stat popover: splits the combined total into its two
+ * server-computed components (true arrears vs. accrued live penalties) —
+ * a breakdown the arrears modal's row table doesn't otherwise surface.
+ * @param {Object} summary ob.summary
+ */
+function renderArrearsPopover(summary) {
+  const popover = document.getElementById("totalArrearsPopover");
+  if (!popover) return;
+  popover.replaceChildren();
+
+  const rows = [
+    ["Arrears", summary.arrears],
+    ["Penalties", summary.penaltyAccrued],
+  ];
+  for (const [label, amountStr] of rows) {
+    const row = document.createElement("div");
+    row.className = "hero-stat-popover-row";
+    const l = document.createElement("span");
+    l.textContent = label;
+    const v = document.createElement("span");
+    v.textContent = formatCurrency(amountStr);
+    row.appendChild(l);
+    row.appendChild(v);
+    popover.appendChild(row);
+  }
 }
 
 /**
@@ -688,6 +766,7 @@ function renderNextMonthlyPayment(ob) {
   const detailsEl = document.getElementById("nextPaymentDetails");
   const badgeEl = document.getElementById("nextPaymentBadge");
   const statEl = document.getElementById("nextPaymentStat");
+  const popoverEl = document.getElementById("nextPaymentPopover");
   if (!detailsEl) return;
 
   const today = startOfToday();
@@ -711,11 +790,41 @@ function renderNextMonthlyPayment(ob) {
     detailsEl.style.display = "block";
     if (badgeEl) badgeEl.style.display = next.overdue ? "block" : "none";
     if (statEl) statEl.classList.toggle("flash", next.overdue);
+
+    // Popover adds the two facts not already printed on the card face:
+    // which obligation this is, and how many days away it sits.
+    if (popoverEl) {
+      popoverEl.replaceChildren();
+      const days = Math.round((next.due - today) / 86400000);
+
+      const typeRow = document.createElement("div");
+      typeRow.className = "hero-stat-popover-row";
+      const typeLabel = document.createElement("span");
+      typeLabel.textContent = "Type";
+      const typeValue = document.createElement("span");
+      typeValue.textContent = "Monthly Contribution";
+      typeRow.appendChild(typeLabel);
+      typeRow.appendChild(typeValue);
+
+      const dueRow = document.createElement("div");
+      dueRow.className = `hero-stat-popover-row ${days < 0 ? "overdue" : "on-time"}`;
+      const dueLabel = document.createElement("span");
+      dueLabel.textContent = days < 0 ? "Overdue by" : "Due in";
+      const dueValue = document.createElement("span");
+      const absDays = Math.abs(days);
+      dueValue.textContent = `${absDays} day${absDays === 1 ? "" : "s"}`;
+      dueRow.appendChild(dueLabel);
+      dueRow.appendChild(dueValue);
+
+      popoverEl.appendChild(typeRow);
+      popoverEl.appendChild(dueRow);
+    }
   } else {
     detailsEl.textContent = "No payment due";
     detailsEl.style.display = "block";
     if (badgeEl) badgeEl.style.display = "none";
     if (statEl) statEl.classList.remove("flash");
+    if (popoverEl) popoverEl.replaceChildren();
   }
 }
 
@@ -1605,12 +1714,25 @@ function wireStaticHandlers() {
     }
   });
 
-  // Arrears modal.
+  // Arrears modal (tapping/clicking the amount opens the full arrears modal —
+  // unchanged). The popover toggle below is scoped to the rest of the card so
+  // it doesn't fight with this click.
   const totalArrears = document.getElementById("totalArrears");
   if (totalArrears) {
     totalArrears.style.cursor = "pointer";
     totalArrears.addEventListener("click", () => openArrearsModalGuarded());
   }
+
+  // Hero-stat popovers: hover/focus-within (CSS) already covers mouse and
+  // keyboard; the click-toggle below is the touch fallback (no :hover there).
+  // "Arrears" excludes the amount itself so it keeps opening the full modal.
+  initHeroStatPopover("nextPaymentStat", "nextPaymentPopover", {
+    ignoreSelector: "#nextPaymentBadge",
+  });
+  initHeroStatPopover("pendingPaymentsStat", "pendingPaymentsPopover");
+  initHeroStatPopover("totalArrearsStat", "totalArrearsPopover", {
+    ignoreSelector: "#totalArrears",
+  });
   document
     .getElementById("closeArrearsModal")
     ?.addEventListener("click", hideArrearsModal);
@@ -1863,6 +1985,59 @@ function setText(id, value) {
   const el = document.getElementById(id);
   if (el) el.textContent = value;
 }
+
+/**
+ * Wire a hero-stat card's popover for tap/keyboard access. Hover and
+ * focus-within reveal it via CSS for mouse/keyboard already; this adds the
+ * click-toggle path touch devices need (they have no :hover), matching the
+ * calendar day-details dual-path pattern elsewhere in this file. A
+ * document-level listener (registered once, below) closes any open popover
+ * on an outside tap.
+ * @param {string} cardId hero-stat card element id
+ * @param {string} popoverId popover element id (already referenced by the
+ *   card's aria-describedby in the HTML)
+ * @param {{ignoreSelector: (string|undefined)}=} opts elements within the
+ *   card (e.g. an existing action button/link) that should not toggle the
+ *   popover — their own click handler still fires normally.
+ */
+function initHeroStatPopover(cardId, popoverId, opts = {}) {
+  const card = document.getElementById(cardId);
+  const popover = document.getElementById(popoverId);
+  if (!card || !popover) return;
+  const ignoreSelector = opts.ignoreSelector;
+
+  const setOpen = (open) => {
+    card.classList.toggle("popover-open", open);
+    card.setAttribute("aria-expanded", String(open));
+  };
+  card.setAttribute("aria-expanded", "false");
+
+  card.addEventListener("click", (e) => {
+    if (ignoreSelector && e.target.closest(ignoreSelector)) return;
+    setOpen(!card.classList.contains("popover-open"));
+  });
+
+  card.addEventListener("keydown", (e) => {
+    if (e.target !== card) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setOpen(!card.classList.contains("popover-open"));
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  });
+}
+
+// Close any open hero-stat popover on an outside tap/click — the touch
+// equivalent of a hover ending.
+document.addEventListener("click", (e) => {
+  document.querySelectorAll(".hero-stat.popover-open").forEach((card) => {
+    if (!card.contains(e.target)) {
+      card.classList.remove("popover-open");
+      card.setAttribute("aria-expanded", "false");
+    }
+  });
+});
 
 /**
  * The monthly-contribution obligation rows, or an empty array.

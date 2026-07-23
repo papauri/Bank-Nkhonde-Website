@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
-  <link rel="stylesheet" href="../styles/unified-navigation.css">
-  <link rel="stylesheet" href="../styles/unified-mobile-nav.css">
+  <link rel="stylesheet" href="../styles/pages.css">
+  <link rel="stylesheet" href="../styles/admin-layout.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
     /* User Dashboard Layout */
@@ -414,10 +414,27 @@
        HERO SECTION
        ============================================ */
     .hero-section {
+      /* Now a card inside .dashboard-content (admin-layout.css), not a
+         body-level full-bleed band — rounded like the other content-cards
+         on this page, with the same inter-card gap. Keeps its dark
+         gradient background so the white-on-dark hero text stays correct.
+         Shadow matches .content-card's elevation so it reads as a card
+         among cards; no border (a light .content-card hairline would read
+         as a stray line on the dark gradient — the hero already has its
+         own light edge via the translucent .hero-stat/.action-btn borders
+         inside it, which is enough definition against the page's gray-100
+         background).
+         Deliberately NOT overflow:hidden here: the ::before radial isn't
+         clipped by the section (it clips itself, see below) because
+         overflow:hidden on this element would also clip .hero-stat-popover,
+         which is a child of .hero-stat and needs to escape the card's
+         bottom edge (cycle-94 fix). */
       background: var(--bn-gradient-primary);
-      padding: var(--bn-space-8) var(--bn-space-6) var(--bn-space-16);
+      border-radius: var(--bn-radius-xl);
+      box-shadow: var(--bn-shadow-lg);
+      padding: var(--bn-space-8) var(--bn-space-6);
+      margin-bottom: var(--bn-space-6);
       position: relative;
-      overflow: hidden;
     }
 
     .hero-section::before {
@@ -427,6 +444,12 @@
       right: 0;
       width: 60%;
       height: 100%;
+      /* Matches the section's own top-right/bottom-right rounding so the
+         decorative radial never shows a square corner poking past the
+         card's rounded edge — clips itself instead of relying on
+         overflow:hidden on the parent (which would also clip the
+         hero-stat popovers). */
+      border-radius: 0 var(--bn-radius-xl) var(--bn-radius-xl) 0;
       background: radial-gradient(ellipse at 70% 30%, rgba(201, 162, 39, 0.1) 0%, transparent 60%);
       pointer-events: none;
     }
@@ -588,15 +611,87 @@
       font-weight: 400;
     }
 
+    /* Hero-stat popover: informational detail on hover/focus (mouse + keyboard)
+       and on tap via the .popover-open class toggled in JS (touch devices,
+       which have no :hover). Sits on the dark hero gradient, so — unlike the
+       translucent .hero-stat card it hangs off — it's a solid, opaque light
+       panel for guaranteed contrast, reusing the same floating-panel
+       convention (shadow/radius/z-index) as .current-group-menu and the
+       admin dashboard's stat-card popovers. */
+    .hero-stat-popover {
+      display: none;
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + var(--bn-space-2));
+      z-index: var(--z-dropdown);
+      text-align: left;
+      background: var(--bn-white);
+      color: var(--bn-gray-700);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-md);
+      box-shadow: 0 4px 16px rgba(10, 22, 40, 0.18);
+      padding: var(--bn-space-3) var(--bn-space-4);
+      max-width: calc(100vw - var(--bn-space-8));
+    }
+
+    .hero-stat.popover-open .hero-stat-popover,
+    .hero-stat:hover .hero-stat-popover,
+    .hero-stat:focus-within .hero-stat-popover {
+      display: block;
+    }
+
+    .hero-stat-popover:empty {
+      display: none;
+    }
+
+    .hero-stat-popover-title,
+    .hero-stat-popover-more {
+      margin: 0 0 var(--bn-space-2) 0;
+      font-size: var(--bn-text-sm);
+      font-weight: 700;
+      color: var(--bn-dark);
+    }
+
+    .hero-stat-popover-more {
+      margin-top: var(--bn-space-2);
+      margin-bottom: 0;
+      font-weight: 600;
+      color: var(--bn-gray);
+    }
+
+    .hero-stat-popover-row {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--bn-space-2);
+      padding: var(--bn-space-1) 0;
+      font-size: var(--bn-text-sm);
+    }
+
+    .hero-stat-popover-row:not(:last-child) {
+      border-bottom: 1px solid var(--bn-gray-100);
+    }
+
+    /* Severity color-coding for the Next Payment popover's "Overdue by" /
+       "Due in" row — same tokens as the Payment Calendar's day-details panel
+       (.calendar-day-details-status). */
+    .hero-stat-popover-row.overdue span:last-child {
+      color: var(--bn-danger-dark);
+      font-weight: 700;
+    }
+
+    .hero-stat-popover-row.on-time span:last-child {
+      color: var(--bn-success-dark);
+      font-weight: 700;
+    }
+
     /* ============================================
        MAIN CONTENT
        ============================================ */
-    .main-content {
-      max-width: 1200px;
-      margin: var(--bn-space-8) auto 0;
-      padding: 0 var(--bn-space-6);
-      position: relative;
-    }
+    /* .main-content itself is now the admin-layout.css shell region
+       (margin-left: sidebar width) — no page-local override here, the old
+       centered max-width/margin/padding rule was for the retired top-nav
+       layout and would have fought the shell's own .main-content rule. */
 
     .content-grid {
       display: grid;
@@ -1678,7 +1773,7 @@
       padding: var(--bn-space-6);
     }
 
-    /* Mobile nav styles are now in unified-mobile-nav.css */
+    /* Mobile bottom nav is now injected by the admin-layout shell (nav_sql.js) */
 
     /* ============================================
        RESPONSIVE
@@ -1691,13 +1786,18 @@
 
     @media (max-width: 768px) {
       .hero-section {
-        padding: var(--bn-space-6) var(--bn-space-4) var(--bn-space-12);
+        padding: var(--bn-space-6) var(--bn-space-4);
       }
 
       .hero-stats {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
         gap: var(--bn-space-3);
+        /* Two-column grid never needs horizontal scroll — drop the desktop
+           overflow-x:auto so it can't implicitly clip the popover on the Y
+           axis (overflow-x/overflow-y pairing rule turns a paired "visible"
+           into "auto"). */
+        overflow: visible;
       }
 
       .hero-stat {
@@ -1710,14 +1810,6 @@
 
       .hero-stat-value {
         font-size: var(--bn-text-base);
-      }
-
-      .main-content {
-        margin-top: var(--bn-space-5);
-        padding: 0 var(--bn-space-4);
-        width: 100%;
-        max-width: 100%;
-        box-sizing: border-box;
       }
 
       .content-grid {
@@ -1966,7 +2058,8 @@
         padding-bottom: calc(var(--bn-space-2) + env(safe-area-inset-bottom));
       }
       
-      /* Body padding handled by unified-mobile-nav.css */
+      /* Body bottom padding for the shell's injected mobile nav is handled
+         by admin-layout.css, not this page. */
     }
 
     /* ============================================
@@ -2000,9 +2093,13 @@
     }
   </style>
 </head>
-<body data-nav-variant="user" data-nav-active-page="user_dashboard" data-nav-show-group-display="true" data-nav-show-view-toggle="true" data-nav-logo-link="../index.html">
-  <!-- Hero Section -->
-  <section class="hero-section">
+<body class="user-page" data-nav-variant="user-sidebar" data-nav-active-page="user_dashboard" data-nav-show-group-display="true" data-nav-show-view-toggle="true" data-nav-logo-link="../index.html">
+  <!-- Main Content -->
+  <main class="main-content" id="mainContent">
+   <div class="dashboard-content">
+    <!-- Hero Section (relocated inside dashboard-content so it travels with
+         the swapped content region rather than as body-level chrome) -->
+    <section class="hero-section">
     <div class="hero-container">
       <div class="hero-greeting">
         <p class="hero-greeting-text">Welcome back,</p>
@@ -2014,13 +2111,14 @@
       </div>
 
         <div class="hero-stats">
-        <div class="hero-stat" id="nextPaymentStat" style="position: relative;">
+        <div class="hero-stat" id="nextPaymentStat" tabindex="0" aria-describedby="nextPaymentPopover" style="position: relative;">
           <div class="hero-stat-value" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
             <span style="font-size: 14px; line-height: 1;" title="Monthly Payment">📅</span>
             <span style="font-size: 10px; line-height: 1; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.05em;">Monthly</span>
           </div>
           <div class="hero-stat-label">Next Payment</div>
           <div class="hero-stat-details" id="nextPaymentDetails"></div>
+          <div class="hero-stat-popover" id="nextPaymentPopover" role="status"></div>
           <button type="button" class="hero-stat-badge" id="nextPaymentBadge" aria-label="Dismiss payment due reminder" style="position: absolute; top: var(--bn-space-1); right: var(--bn-space-1); background: var(--bn-danger); color: var(--bn-white); font-size: 8px; padding: 2px 6px; border: none; font-family: inherit; border-radius: 10px; font-weight: 700; cursor: pointer; display: none; z-index: 10;" onclick="dismissNextPaymentBadge(event)">Due</button>
         </div>
         <div class="hero-stat" id="activeLoansStat" onclick="window.location.href='loan_payments.html'" tabindex="0" role="button" style="cursor: pointer; position: relative;">
@@ -2032,13 +2130,15 @@
           <div class="hero-stat-details" id="activeLoansDetails"></div>
           <button type="button" class="hero-stat-badge" id="activeLoansBadge" aria-label="Dismiss loan due reminder" style="position: absolute; top: var(--bn-space-1); right: var(--bn-space-1); background: var(--bn-danger); color: var(--bn-white); font-size: 8px; padding: 2px 6px; border: none; font-family: inherit; border-radius: 10px; font-weight: 700; cursor: pointer; display: none; z-index: 10;" onclick="dismissActiveLoansBadge(event)">Due</button>
         </div>
-        <div class="hero-stat">
+        <div class="hero-stat" id="pendingPaymentsStat" tabindex="0" aria-describedby="pendingPaymentsPopover" style="position: relative;">
           <div class="hero-stat-value" id="pendingPayments">0</div>
           <div class="hero-stat-label">Pending</div>
+          <div class="hero-stat-popover" id="pendingPaymentsPopover" role="status"></div>
         </div>
-        <div class="hero-stat">
+        <div class="hero-stat" id="totalArrearsStat" tabindex="0" aria-describedby="totalArrearsPopover" style="position: relative;">
           <div class="hero-stat-value" id="totalArrears">MWK 0</div>
           <div class="hero-stat-label">Arrears</div>
+          <div class="hero-stat-popover" id="totalArrearsPopover" role="status"></div>
         </div>
         <a href="contacts.html" class="hero-stat" id="membersStat" style="text-decoration: none; cursor: pointer;">
           <div class="hero-stat-value" id="totalMembers" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
@@ -2087,11 +2187,8 @@
         </div>
       </div>
     </div>
-  </section>
+    </section>
 
-  <!-- Main Content -->
-  <main class="main-content" id="mainContent">
-   <div class="dashboard-content">
     <!-- Loading Overlay -->
     <div class="spinner-overlay hidden" id="spinner">
       <div class="spinner-content">
@@ -2358,30 +2455,6 @@
     </div>
   </div>
 
-  <!-- Mobile Bottom Navigation -->
-  <nav class="mobile-nav">
-    <a href="user_dashboard.html" class="mobile-nav-item active">
-      <span class="mobile-nav-icon">🏠</span>
-      <span>Home</span>
-    </a>
-    <a href="manage_payments.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">💳</span>
-      <span>Payments</span>
-    </a>
-    <a href="loan_payments.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">💰</span>
-      <span>Loans</span>
-    </a>
-    <button class="mobile-nav-item mobile-nav-item-admin hidden" id="mobileSwitchToAdmin" onclick="handleSwitchToAdmin()">
-      <span class="mobile-nav-icon">👑</span>
-      <span>Admin</span>
-    </button>
-    <button class="mobile-nav-item" id="mobileNavSignOut" onclick="handleMobileNavLogout()">
-      <span class="mobile-nav-icon">🚪</span>
-      <span>Sign Out</span>
-    </button>
-  </nav>
-
   <!-- Upcoming Payments Modal -->
   <div class="modal-overlay hidden" id="upcomingPaymentsModal">
     <div class="modal-content" style="max-width: 800px; max-height: 90vh;">
@@ -2414,9 +2487,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Toast Container -->
-  <div class="toast-container" id="toastContainer"></div>
 
   <!-- Group Selection Overlay -->
   <div class="group-selection-overlay hidden" id="groupSelectionOverlay" style="display: none;">
@@ -2791,6 +2861,5 @@
   <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/user-dashboard-view-groups.js?v=20260722"></script>
   <script type="module" src="../scripts/user_dashboard_sql.js?v=20260722"></script>
-  <script src="../scripts/mobile-nav-active.js"></script>
 </body>
 </html>

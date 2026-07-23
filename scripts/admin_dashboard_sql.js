@@ -303,6 +303,8 @@ function renderDashboardStats() {
         ? summary.totalArrears
         : "0.00";
   setText("totalArrears", formatCurrency(arrearsValue));
+
+  renderStatCardPopovers(pendingPayments, pendingLoans);
 }
 
 /* ------------------------------------------------------------------ *
@@ -320,6 +322,31 @@ function renderCollectionTrends() {
     document.querySelector(".chart-container");
   if (!chartContainer) return;
 
+  // Range filter — client-side only, over already-fetched rows (no new
+  // fetch). "all" keeps every row; "6"/"12" keep rows dated within that many
+  // months of now, using createdAt (fallback approvedAt for loans).
+  const rangeSelect = document.getElementById("collectionTrendsRangeSelect");
+  const rangeValue = rangeSelect ? rangeSelect.value : "all";
+  let cutoffDate = null;
+  if (rangeValue !== "all") {
+    const months = parseInt(rangeValue, 10);
+    if (Number.isFinite(months)) {
+      cutoffDate = new Date();
+      cutoffDate.setMonth(cutoffDate.getMonth() - months);
+    }
+  }
+  const withinRange = (row, field1, field2) => {
+    if (!cutoffDate) return true;
+    const d = parseServerDate(row[field1] || row[field2]);
+    return d ? d >= cutoffDate : true;
+  };
+  const rangedPayments = groupData.payments.filter((p) =>
+    withinRange(p, "createdAt", "paidAt"),
+  );
+  const rangedLoans = groupData.loans.filter((l) =>
+    withinRange(l, "createdAt", "approvedAt"),
+  );
+
   let seedMinor = 0;
   let monthlyMinor = 0;
   let approvedMinor = 0;
@@ -328,7 +355,7 @@ function renderCollectionTrends() {
   MONTHS.forEach((m) => (monthlyCollections[m] = 0));
 
   const payingMembers = new Set();
-  for (const p of groupData.payments) {
+  for (const p of rangedPayments) {
     const paidMinor = toMinor(p.amountPaid);
     const verified = isVerifiedPayment(p);
     if (String(p.paymentType) === "seed_money") seedMinor += paidMinor;
@@ -348,13 +375,13 @@ function renderCollectionTrends() {
   // disbursed, defaulted, completed), while "collected" here is deliberately
   // scoped to completed loans only. The scopes are genuinely different, so the
   // server summary cannot replace this loop without changing what the number means.
-  for (const l of groupData.loans) {
+  for (const l of rangedLoans) {
     if (String(l.status) === "completed") interestMinor += toMinor(l.totalInterest);
   }
 
   const totalMembers = groupData.members.length;
   const membersWithPayments = payingMembers.size;
-  const arrearsMinor = groupData.payments.reduce((acc, p) => {
+  const arrearsMinor = rangedPayments.reduce((acc, p) => {
     let v = toMinor(p.arrears);
     if (p.penalty) v += toMinor(p.penalty.amountAccrued);
     return acc + v;
@@ -1297,6 +1324,187 @@ function setupEventListeners() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeStatModal();
   });
+
+  document
+    .getElementById("collectionTrendsRangeSelect")
+    ?.addEventListener("change", () => renderCollectionTrends());
+
+  setupStatCardPopovers();
+}
+
+/**
+ * Wire the four stat-card detail popovers. Each card keeps its EXISTING
+ * navigateToStatPage(...) click-through unchanged; a separate small
+ * ".stat-card-info-toggle" button (sibling, not nested inside the nav
+ * button) opens/closes the popover on tap for touch/no-hover devices, while
+ * hover/focus-within is handled purely in CSS for desktop/keyboard users. A
+ * document-level listener closes any open popover on an outside click.
+ */
+function setupStatCardPopovers() {
+  const closeAll = (except) => {
+    document.querySelectorAll(".stat-card-popover.open").forEach((p) => {
+      if (p === except) return;
+      p.classList.remove("open");
+      const toggle = document.querySelector(`[aria-controls="${p.id}"]`);
+      if (toggle) toggle.setAttribute("aria-expanded", "false");
+    });
+  };
+
+  document.querySelectorAll(".stat-card-wrap").forEach((wrap) => {
+    const popover = wrap.querySelector(".stat-card-popover");
+    const toggle = wrap.querySelector(".stat-card-info-toggle");
+    if (!popover || !toggle) return;
+    toggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const willOpen = !popover.classList.contains("open");
+      closeAll(willOpen ? popover : null);
+      popover.classList.toggle("open", willOpen);
+      toggle.setAttribute("aria-expanded", String(willOpen));
+    });
+  });
+
+  document.addEventListener("click", (e) => {
+    if (e.target.closest(".stat-card-wrap")) return;
+    closeAll(null);
+  });
+}
+
+/**
+ * Populate the four stat-card detail popovers from data already loaded for
+ * this render — zero new fetches, only breakdown of numbers already summed
+ * above. Uses createElement/textContent only (no innerHTML).
+ * @param {number} pendingPayments
+ * @param {number} pendingLoans
+ */
+function renderStatCardPopovers(pendingPayments, pendingLoans) {
+  renderCollectionsPopover();
+  renderActiveLoansPopover();
+  renderPendingPopover(pendingPayments, pendingLoans);
+  renderArrearsPopover();
+}
+
+/**
+ * Collections popover: verified/approved amount per payment type.
+ */
+function renderCollectionsPopover() {
+  const popover = document.getElementById("totalCollectionsPopover");
+  if (!popover) return;
+  popover.replaceChildren();
+
+  const byType = new Map();
+  for (const p of groupData.payments) {
+    if (!isVerifiedPayment(p)) continue;
+    const type = String(p.paymentType);
+    byType.set(type, (byType.get(type) || 0) + toMinor(p.amountPaid));
+  }
+
+  const order = ["monthly_contribution", "seed_money", "service_fee"];
+  const lines = [];
+  for (const type of order) {
+    const minor = byType.get(type) || 0;
+    if (minor > 0) lines.push(`${paymentTypeLabel(type)}: ${formatCurrencyFromMinor(minor)}`);
+  }
+  // Any other payment type not in the known set — still surface it rather
+  // than silently drop it.
+  for (const [type, minor] of byType) {
+    if (order.includes(type) || minor <= 0) continue;
+    lines.push(`${paymentTypeLabel(type)}: ${formatCurrencyFromMinor(minor)}`);
+  }
+
+  appendPopoverLines(popover, lines, "No verified collections yet");
+}
+
+/**
+ * Active loans popover: total outstanding balance + active count.
+ */
+function renderActiveLoansPopover() {
+  const popover = document.getElementById("activeLoansPopover");
+  if (!popover) return;
+  popover.replaceChildren();
+
+  const active = groupData.loans.filter((l) => isActiveLoan(l.status));
+  const outstandingMinor = active.reduce(
+    (acc, l) => acc + toMinor(l.remainingBalance),
+    0,
+  );
+
+  const lines = [];
+  if (active.length) {
+    lines.push(`Outstanding balance: ${formatCurrencyFromMinor(outstandingMinor)}`);
+    lines.push(`Active loans: ${active.length}`);
+  }
+  appendPopoverLines(popover, lines, "No active loans");
+}
+
+/**
+ * Pending approvals popover: split payments/loans counts, plus a secondary
+ * link to manage_loans.html (pending is that page's default tab) since the
+ * card's own click-through only reaches the payments side.
+ * @param {number} pendingPayments
+ * @param {number} pendingLoans
+ */
+function renderPendingPopover(pendingPayments, pendingLoans) {
+  const popover = document.getElementById("pendingApprovalsPopover");
+  if (!popover) return;
+  popover.replaceChildren();
+
+  const lines = [
+    `${pendingPayments} pending payment${pendingPayments === 1 ? "" : "s"}`,
+    `${pendingLoans} pending loan request${pendingLoans === 1 ? "" : "s"}`,
+  ];
+  appendPopoverLines(popover, lines, "Nothing pending");
+
+  if (pendingLoans > 0 && currentGroup && currentGroup.groupId) {
+    const link = document.createElement("a");
+    link.className = "stat-card-popover-link";
+    link.href = `manage_loans.html?groupId=${encodeURIComponent(currentGroup.groupId)}`;
+    link.textContent = "Review pending loans →";
+    popover.appendChild(link);
+  }
+}
+
+/**
+ * Arrears popover: arrears, penalties accrued, and members with a balance —
+ * straight from payments.groupArrears, already fetched.
+ */
+function renderArrearsPopover() {
+  const popover = document.getElementById("totalArrearsPopover");
+  if (!popover) return;
+  popover.replaceChildren();
+
+  const ga = groupData.groupArrears;
+  if (!ga) {
+    appendPopoverLines(popover, [], "Breakdown unavailable");
+    return;
+  }
+  const lines = [
+    `Arrears: ${formatCurrency(ga.arrears ?? "0.00")}`,
+    `Penalties accrued: ${formatCurrency(ga.penaltyAccrued ?? "0.00")}`,
+    `${ga.memberCount ?? 0} member${(ga.memberCount ?? 0) === 1 ? "" : "s"} with an outstanding balance`,
+  ];
+  appendPopoverLines(popover, lines, "No arrears");
+}
+
+/**
+ * Append a list of plain-text lines to a popover, or an empty-state line.
+ * @param {HTMLElement} popover
+ * @param {Array<string>} lines
+ * @param {string} emptyText
+ */
+function appendPopoverLines(popover, lines, emptyText) {
+  if (!lines.length) {
+    const p = document.createElement("p");
+    p.className = "stat-card-popover-line";
+    p.textContent = emptyText;
+    popover.appendChild(p);
+    return;
+  }
+  for (const line of lines) {
+    const p = document.createElement("p");
+    p.className = "stat-card-popover-line";
+    p.textContent = line;
+    popover.appendChild(p);
+  }
 }
 
 /**

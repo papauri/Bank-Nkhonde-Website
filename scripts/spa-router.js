@@ -533,11 +533,28 @@ function swapLocalBodyElements(targetDoc) {
   const staleEls = document.body.querySelectorAll(":scope > [" + LOCAL_BODY_ATTR + "]");
   staleEls.forEach((el) => el.remove());
 
-  Array.from(targetDoc.body.children).forEach((el) => {
+  // The shared, persistent #mainContent is the anchor. A page-local body
+  // element that sits BEFORE #mainContent in the target document (e.g.
+  // user_dashboard's <section class="hero-section"> holding the stats + Quick
+  // Actions, or view_rules' <header class="page-header">) must be re-inserted
+  // before the live #mainContent, not appended blindly — a plain
+  // appendChild() drops it at the end of <body>, below #mainContent, which is
+  // exactly what made the hero (and its action buttons) "pop out" beneath the
+  // content on a swap-back. Elements after #mainContent (modals, #spinner
+  // overlays) still append to the end.
+  const liveMain = document.getElementById("mainContent");
+  const targetChildren = Array.from(targetDoc.body.children);
+  const mainIndex = targetChildren.findIndex((el) => el.id === "mainContent");
+
+  targetChildren.forEach((el, index) => {
     if (!isSyncablePageBodyElement(el)) return;
     const clone = el.cloneNode(true);
     clone.setAttribute(LOCAL_BODY_ATTR, "true");
-    document.body.appendChild(clone);
+    if (liveMain && mainIndex !== -1 && index < mainIndex) {
+      document.body.insertBefore(clone, liveMain);
+    } else {
+      document.body.appendChild(clone);
+    }
   });
 }
 

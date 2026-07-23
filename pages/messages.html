@@ -11,8 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/design-system.css">
   <link rel="stylesheet" href="../styles/pages.css">
-  <link rel="stylesheet" href="../styles/unified-navigation.css">
-  <link rel="stylesheet" href="../styles/unified-mobile-nav.css">
+  <link rel="stylesheet" href="../styles/admin-layout.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
     .messages-list {
@@ -293,52 +292,30 @@
       margin-bottom: var(--bn-space-4);
     }
 
-    /* SPA markup contract: admin-layout.css is not loaded on this page,
-       so preserve the .page-content layout (pages.css) on the new wrapper. */
-    #mainContent .dashboard-content {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0 var(--bn-space-6);
-      margin-top: calc(-1 * var(--bn-space-6));
-      position: relative;
-      z-index: 2;
+    .page-intro {
+      margin-bottom: var(--bn-space-6);
     }
-    @media (max-width: 768px) {
-      #mainContent .dashboard-content {
-        padding: 0 var(--bn-space-4);
-      }
+
+    .page-intro .page-subtitle {
+      color: var(--bn-gray);
+      font-weight: 500;
+      margin-top: 0;
     }
   </style>
 </head>
-<body class="user-page" data-nav-variant="user" data-nav-active-page="messages">
-  <!-- Page Header -->
-  <header class="page-header">
-    <div class="page-header-container">
-      <div class="page-header-top">
-        <div class="page-header-nav">
-          <button class="page-back-btn" onclick="history.back()" aria-label="Go back">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
-          </button>
-          <div>
-            <h1 class="page-title">Messages</h1>
-            <p class="page-subtitle">Your notifications and broadcasts</p>
-          </div>
-        </div>
-      </div>
-
+<body class="user-page" data-nav-variant="user-sidebar" data-nav-active-page="messages">
+  <!-- Page Content -->
+  <main class="main-content" id="mainContent">
+   <div class="dashboard-content">
+    <!-- Page intro: relocated group selector (was in the removed .page-header) -->
+    <div class="page-intro">
+      <p class="page-subtitle">Your notifications and broadcasts</p>
       <div class="page-group-selector">
         <select id="groupSelector">
           <option value="">All Groups</option>
         </select>
       </div>
     </div>
-  </header>
-
-  <!-- Page Content -->
-  <main class="main-content" id="mainContent">
-   <div class="dashboard-content">
     <!-- Loading Overlay -->
     <div class="spinner-overlay hidden" id="spinner">
       <div class="spinner-content">
@@ -391,34 +368,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Mobile Navigation -->
-  <!-- Mobile Navigation -->
-  <nav class="mobile-nav">
-    <a href="user_dashboard.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">🏠</span>
-      <span>Home</span>
-    </a>
-    <a href="manage_payments.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">💳</span>
-      <span>Payments</span>
-    </a>
-    <a href="loan_payments.html" class="mobile-nav-item">
-      <span class="mobile-nav-icon">💰</span>
-      <span>Loans</span>
-    </a>
-    <button class="mobile-nav-item mobile-nav-item-admin hidden" id="mobileSwitchToAdmin" onclick="handleSwitchToAdmin()">
-      <span class="mobile-nav-icon">👑</span>
-      <span>Admin</span>
-    </button>
-    <button class="mobile-nav-item" id="mobileNavSignOut" onclick="handleMobileNavLogout()">
-      <span class="mobile-nav-icon">🚪</span>
-      <span>Sign Out</span>
-    </button>
-  </nav>
-
-  <!-- Toast Container -->
-  <div class="toast-container" id="toastContainer"></div>
 
   <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/messages_sql.js?v=20260722"></script>
