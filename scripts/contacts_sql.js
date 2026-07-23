@@ -576,26 +576,3 @@ function showToast(message, type = "info") {
     toast.remove();
   }, 4000);
 }
-
-// ── Mobile nav: Sign Out ────────────────────────────────────────────────────
-window.handleMobileNavLogout = async function handleMobileNavLogout() {
-  try {
-    await logout();
-  } catch (error) {
-    console.error("Logout failed", error);
-  } finally {
-    sessionStorage.clear();
-    localStorage.removeItem("selectedGroupId");
-    redirectToLogin();
-  }
-};
-
-// ── Mobile nav: Switch to Admin ─────────────────────────────────────────────
-window.handleSwitchToAdmin = function handleSwitchToAdmin() {
-  const groupId = currentGroupId ||
-    localStorage.getItem("selectedGroupId") ||
-    sessionStorage.getItem("selectedGroupId");
-  window.location.href = groupId ?
-    `admin_dashboard.html?groupId=${encodeURIComponent(groupId)}` :
-    "admin_dashboard.html";
-};

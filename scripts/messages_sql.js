@@ -682,16 +682,3 @@ function showToast(message, type = "info") {
     setTimeout(() => toast.remove(), 300);
   }, 4000);
 }
-
-// ── Mobile nav: Sign Out ────────────────────────────────────────────────────
-window.handleMobileNavLogout = async function handleMobileNavLogout() {
-  try {
-    await logout();
-  } catch (error) {
-    console.error("Logout failed", error);
-  } finally {
-    sessionStorage.clear();
-    localStorage.removeItem("selectedGroupId");
-    redirectToLogin();
-  }
-};

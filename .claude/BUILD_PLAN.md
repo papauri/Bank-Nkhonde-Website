@@ -7,6 +7,36 @@ Do not stop between tasks. Keep looping — build endpoint → QA → re-wire cl
 
 ## STATUS AS OF CYCLE 47: PROJECT COMPLETE. Legacy dead-code cleanup (33 files, owner-confirmed) + B20 (optional KYC fields, QA pass after 1 retry) both landed. Every box in PROJECT COMPLETE WHEN, including the optional section F, is now `[x]`. Loop halted on condition 0 — terminal stop.
 
+## CYCLE 96 (2026-07-23) — OWNER-DIRECTED group H, H4: richer info at ADMIN payment recording — **DONE, QA PASS (logic) + styled**
+H4 shipped: the admin record-payment modal now shows a read-only "what's owed" panel (due / already paid / outstanding for the selected type+month, plus total arrears+penalties) for the chosen member, via `payments.obligations` with the admin `?uid` override. Replaced a dead half-built feature (a `#paymentAmountHint` that never existed + a non-functional Auto-fill button — both removed). Read-only: no amount auto-fill/cap (admins record partial/advance payments). QA caught + fixed one edge case (unconfigured monthly rule now shows "No monthly contribution due" instead of zeros). CSS: `.text-emphasis` utility added to design-system.css; `#paymentOwedInfo` styled as a nested info card. Live-verify parked with the rest of H (DB throttled). Original scout entry below.
+
+## CYCLE 96 (2026-07-23) — OWNER-DIRECTED group H, H4: richer info at ADMIN payment recording (member's due/paid/outstanding before an admin records cash on their behalf) — SCOUT DISPATCHED, cycle stops at scout
+
+**Why this beat the alternatives:** the parent flagged the live DB is unreachable this cycle, so the objective must be QA-able on the DIFF ALONE (no live round-trip). Mirroring H3 (the member's richer payment modal) onto the ADMIN `manage_payments` record-cash flow is the most self-contained such item: it is a pure FRONTEND change that reuses an endpoint that ALREADY exists and ALREADY supports the admin cross-member override — `payments.obligations` (`my_obligations`, payments.php ~760-942) with the admin `?uid` override at ~920-932 (guarded by `PAYMENT_ADMIN_ROLES`). No new backend, no schema, no DDL, no money math added — the admin panel renders the same server-computed obligation figures H3 already renders for members. Highest real-world value: today an admin records a member's cash payment with NO on-screen view of what that member actually owes (seed / monthly / service fee due, paid, outstanding, penalty accrued), inviting over/under-collection.
+
+**Scope tracing (H is owner-directed enrichment on the complete A–F checklist, NOT a new box):** H4's admin per-member read surface traces to **B1** (role-gated feature read surface) — same class as H1 (admin loan-approval borrower standing, cycle 91) and H2 (admin per-member statement). Reuse-first: this is "add the admin `?uid` view of an existing member-scoped endpoint to the admin record UI," not a new endpoint.
+
+**Assumption recorded (ambiguous ≠ blocked):** the obligations panel is READ-ONLY context shown when the admin has picked the target member in the record-payment modal; it does NOT auto-fill or cap the amount field (an admin may deliberately record a partial or advance payment). It refreshes when the selected member changes. Owner may override to hard-cap.
+
+**Why a scout first (not a direct frontend brief):** SYSTEM_MAP has NO coverage of the admin `manage_payments` record-payment modal (cycle 91 mapped `manage_loans` only). Per the exact-line rule, I will not guess the modal's function names / DOM container / submit payload / member-picker mechanism into a frontend brief. One read-only scout of the ONE surface unblocks an exact-line frontend brief next cycle. Cycle stops at the scout.
+
+### H4 SCOUT DISPATCH (cycle 96)
+```
+AGENT      codebase-scout
+OBJECTIVE  Map the exact as-built ADMIN record-a-payment surface — the record-payment modal/form in pages/manage_payments.html + scripts/manage_payments_sql.js: how the target member is chosen, the submit payload + apiPost action, whether any obligation context is shown pre-submit, and the createElement/formatCurrency patterns — into SYSTEM_MAP (traces to B1). READ-ONLY.
+FILES      pages/manage_payments.html · scripts/manage_payments_sql.js
+CONTEXT    - The A–F checklist is complete; this is owner-directed enrichment (H4). Read-only, map ONE surface (the admin record-payment modal), do NOT plan or edit.
+           - Endpoint to be reused (already live): apiGet 'payments.obligations' → my_obligations (payments.php ~760-942). It accepts groupId, an admin-only ?uid override (guard at ~920-932: a caller whose role is NOT in PAYMENT_ADMIN_ROLES = ['admin','senior_admin','treasurer'] may only pass their own uid; a uid not in the group → 404), and optional ?year. Response carries seed/monthly/service-fee obligation objects (each with due/totalAmount, amountPaid, arrears/outstanding), member standing flags (seedMoneyPaid, monthlyContributionsCurrent, eligibleForLoan) and a summary (contributed, arrears, penaltyAccrued). This is the SAME data H3 renders for members.
+           - The admin submit path already exists: apiPost 'payments.record' → record_payment. The scout must report its exact payload field names as sent by THIS file (uid, paymentType, amount, paymentMethod, year, month, notes, etc.).
+           - Money is real: this file uses a currency formatter (formatCurrency / formatCurrencyFromMinor). Record which, with line refs, so the follow-on panel renders figures the same way as the rest of the page.
+           - No 'explore/investigate/as needed' — answer ONLY the numbered questions below with exact file:line.
+DO NOT     Do not edit any file. Do not map any other admin page. Do not map the payments.php backend internals (already mapped, cycles 90/92) — only report which apiGet/apiPost actions THIS frontend file calls and with what payload. No whole-file dumps — cite lines. Leave git status unchanged.
+ACCEPT     Appends a dated "Admin record-payment surface (cycle 96 scout)" section to SYSTEM_MAP answering, with exact file:line: (1) the function that OPENS the record-payment modal + the modal's DOM container id (in the .html) + the exact HTML line range of the modal body where a read-only obligations panel could be injected; (2) HOW the target member is selected in the modal (a <select> of members? a per-row 'Record payment' action carrying the member uid? both?) and the exact variable/field holding the chosen member's uid at submit time; (3) the submit handler function + the apiPost action string + the full payload object field names it sends; (4) whether ANY obligation/what-is-owed context is fetched or shown before submit today (yes/no + line); (5) is apiGet('payments.obligations', …) already called anywhere in this file — if so, where and what of its response is consumed; (6) the members-list data source in this file (is a members array with uid+fullName already in memory to drive a picker and labels?) with line ref; (7) the createElement/textContent DOM-builder helper (e.g. an el() helper) and the currency formatter used in this file, each with a line ref, to be copied verbatim by the follow-on frontend brief. git status unchanged.
+COMPLEXITY low
+```
+
+**NEXT (after scout returns):** dispatch H4 frontend-specialist on `pages/manage_payments.html` + `scripts/manage_payments_sql.js` ONLY — when the admin selects the target member in the record-payment modal, `apiGet('payments.obligations', {groupId, uid})` and render a read-only due/paid/outstanding + penalty-accrued panel (createElement/textContent, the file's own currency formatter), refreshing on member change; no amount auto-fill/cap (per the recorded assumption); no backend/api file touched. Diff-QA-able without the live DB.
+
 ## CYCLE 95 (2026-07-23) — U-SHELL COMPLETE: all 6 user pages now on the sidebar app-shell — DONE, QA PASS
 
 Owner asked to "finish what was left" — resumed the U-SHELL rollout queued at cycle 93 (which had stopped after its scout). Found the queue itself was stale: `nav_sql.js`'s foundation (C2) and the `view_rules.html` reference template (C3) were already live and working — further along than the log showed. The real remaining work was the 4 secondary pages + `user_dashboard.html`.
@@ -22,6 +52,26 @@ Owner asked to "finish what was left" — resumed the U-SHELL rollout queued at 
 **Note on H2 (member account statement/ledger, also queued at cycle 92):** found already code-complete and QA-passed (backend `statement.get` + `exports.statement` CSV + UI on `financial_reports.html`/`user_analytics.html`) — nothing left to build. Per its own prior entry, only a live-verify against the real DB remains (recorded as pending DB recovery) — outside what this session can action.
 
 **Not yet manually clicked through in a live browser** (static + QA verification only) — recommend the owner spot-check all 6 user pages' sidebar/mobile-nav/toast behavior once deployed, especially `user_dashboard.html` given its money-adjacent hero content.
+
+## CYCLE 96 (2026-07-23) — U-SHELL **C9 CLEANUP DONE** (owner signed off: "cleanup") — QA PASS
+
+Dead-code removal now that the legacy top-nav is reachable from zero pages. 7 files, ~400 lines deleted, pure removal + one intentional dispatch merge.
+
+- **`scripts/nav_sql.js`** — `initNav`'s `"user-sidebar"` and legacy `"user"` branches merged into one calling `renderUserSidebarNav(user, options)`, so a stray page still declaring `"user"` gets the modern shell instead of a broken top-nav. Deleted: `renderUserNav` (the whole `.top-nav`/mobile-menu/burger/view-toggle builder), `buildGroupSwitcher`, `switchGroup`, `closeMobileMenu`, `_closeMobileMenuFn`, `wireMobileMenu`, `ICONS.close`, `ICONS.chevronDown`, and the now-unneeded `listMyGroups` import + fetch. `renderAdminNav`/`renderSidebarNav`/`ADMIN_NAV_ITEMS`/`USER_SIDEBAR_NAV_ITEMS`/`svgIcon`/`initialsFrom`/`updateActiveNav`/`updateCurrentDate` all retained and still referenced — admin pages byte-unaffected.
+- **6 `*_sql.js`** — deleted the inert `window.handleMobileNavLogout` / `window.handleSwitchToAdmin` globals. Guarded by a mandatory repo-wide grep of EVERY `.html` (incl. the 13 admin pages + root) for surviving `onclick="handle…()"` references: **zero hits**, so every deletion was provably safe. `user_dashboard_sql.js`'s local `handleLogout()` was KEPT (still called at 3 sites); only the dead global alias went.
+- **Name-collision guard held:** `admin_dashboard_sql.js` has its own distinct `switchGroup(groupId)` — untouched, not in the diff.
+
+**QA PASS** — `node --check` clean on all 7; zero dangling references to any deleted symbol across `scripts/` + `pages/`; dispatch merge verified behaviour-preserving (`renderSidebarNav` never reads `opts.groups`, so dropping it is safe); admin branch unchanged.
+
+**Resolved an open worry honestly:** `user_dashboard.html` still sets `data-nav-show-group-display="true"` and `page-bootstrap.js` still maps it to `opts.showGroupDisplay`, but the sidebar shell NEVER read that option — it was already dead/dormant BEFORE C9. So C9 caused no loss of nav-level group switching; group selection lives in page content (`#groupSelector` per page, hero group display on the dashboard). The attribute is now fully inert markup — removable in a later pass.
+
+**STILL BLOCKED — needs the owner to run it.** Two files are verified referenced by NOTHING but could not be deleted (the sandbox permission classifier blocked `git rm`):
+```
+git rm styles/unified-navigation.css scripts/mobile-nav-active.js
+```
+**Do NOT delete `styles/unified-mobile-nav.css`** — it looks dead by a page-link check but is still `@import`ed by `design-system.css:12`, so it loads on EVERY page; deleting it would strip mobile-nav styling app-wide.
+
+**Remaining known-dead, left for a future pass (all NOTEs, none blocking):** `spa-router.js` comments at lines 9/294/485 still name `renderUserNav` in prose (file was out of scope); `ICONS.grid` was already unreferenced before this cycle; `data-nav-show-group-display`/`data-nav-show-view-toggle` attrs + their `page-bootstrap.js` mapping are now inert; `contacts_sql.js:72` reads `#searchContacts` which exists in NO version of the page (pre-existing bug, predates this work); `loan_payments.html` lost its "Track loan repayments" subtitle text during conversion.
 
 ## CYCLE 95 (2026-07-23) — U-SHELL ROLLOUT **COMPLETE**: all 6 user pages on the sidebar app-shell — QA PASS on every page
 

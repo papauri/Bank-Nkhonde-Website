@@ -213,6 +213,35 @@
       flex-wrap: wrap;
     }
 
+    /* Read-only "what's owed" panel injected into #paymentOwedInfo by
+       manage_payments_sql.js (amount due / already paid / outstanding /
+       totals lines). Styled as a nested info card, matching the treatment
+       of other muted modal info panels on this page. */
+    #paymentOwedInfo {
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-md);
+      padding: var(--bn-space-3) var(--bn-space-4);
+      margin-bottom: var(--bn-space-4);
+    }
+
+    #paymentOwedInfo:empty {
+      display: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    #paymentOwedInfo p,
+    #paymentOwedInfo small {
+      font-size: var(--bn-text-sm);
+      line-height: var(--bn-leading-snug);
+      margin-bottom: var(--bn-space-1);
+    }
+
+    #paymentOwedInfo p:last-child,
+    #paymentOwedInfo small:last-child {
+      margin-bottom: 0;
+    }
+
     #paymentAmount:focus {
       border-color: var(--bn-accent);
       box-shadow: 0 0 0 3px var(--bn-accent-subtle);
@@ -499,17 +528,12 @@
               <option value="">Select month...</option>
             </select>
           </div>
+          <div class="form-group" id="paymentOwedInfo"></div>
             <div class="form-group">
               <label class="form-label">Amount (MWK) *</label>
               <div class="payment-amount-row" style="display: flex; gap: var(--bn-space-2); align-items: flex-end;">
               <input type="number" class="form-input" id="paymentAmount" required min="0.01" step="0.01" style="font-size: var(--bn-text-base); padding: var(--bn-space-3) var(--bn-space-4); font-weight: 600;">
-                <button type="button" class="btn btn-ghost btn-sm" id="autoFillAmountBtn" title="Auto-fill amount due" style="white-space: nowrap;">
-                  🔄 Auto-fill Due
-                </button>
               </div>
-              <small style="color: var(--bn-gray); font-size: var(--bn-text-xs); margin-top: 4px; display: block;">
-                Click "Auto-fill Due" to populate with amount owed for selected member/month
-              </small>
             </div>
           <div class="form-group">
             <label class="form-label">

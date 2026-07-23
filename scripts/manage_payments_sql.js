@@ -63,7 +63,7 @@ import {
   redirectToLogin,
   downloadExport,
 } from "./api.js";
-import { formatCurrency } from "./utils_financial.js";
+import { formatCurrency, formatCurrencyFromMinor } from "./utils_financial.js";
 
 // ── Global state ────────────────────────────────────────────────────────────
 let currentUser = null;
@@ -197,12 +197,12 @@ function setupEventListeners() {
       if (checkbox) checkbox.checked = false;
     }
 
-    updateAmountDueForSelection();
+    updatePaymentOwedInfo();
   });
 
-  // The live arrears depend on WHO is paying and WHICH month, not just the type.
-  document.getElementById("memberSelect")?.addEventListener("change", updateAmountDueForSelection);
-  document.getElementById("paymentMonth")?.addEventListener("change", updateAmountDueForSelection);
+  // The owed info depends on WHO is paying and WHICH month, not just the type.
+  document.getElementById("memberSelect")?.addEventListener("change", updatePaymentOwedInfo);
+  document.getElementById("paymentMonth")?.addEventListener("change", updatePaymentOwedInfo);
 
   document.getElementById("recordPaymentPOP")?.addEventListener("change", (e) => {
     const file = e.target.files?.[0];
@@ -646,100 +646,137 @@ function openRecordPaymentModal(preSelectMemberId = null) {
   const paymentDate = document.getElementById("paymentDate");
   if (paymentDate) paymentDate.value = new Date().toISOString().split("T")[0];
 
-  updateAmountDueForSelection();
+  updatePaymentOwedInfo();
 
   showModal("recordPaymentModal");
 }
 
 /**
- * Show the SELECTED MEMBER's live arrears for the chosen payment type, and
- * pre-fill the amount with it.
+ * Read-only "what does this member owe" panel for the admin record-payment
+ * modal. Renders into #paymentOwedInfo — never touches #paymentAmount. The
+ * admin still types the amount themselves (partial/advance payments are
+ * legitimate); this is context only, never an auto-fill.
  *
- * payments.obligations now accepts an admin-supplied `uid` (the server enforces
- * that only an admin/treasurer may ask for someone else, and that the uid is a
- * real member of the group), so this is the member's REAL outstanding figure —
- * computed server-side, penalties included. The client never derives it.
+ * payments.obligations accepts an admin-supplied `uid` (the server enforces
+ * that only an admin/treasurer may ask for someone else, and that the uid is
+ * a real member of the group), so every figure here is computed SERVER-side,
+ * penalties included — the client never derives a financial figure.
  */
-async function updateAmountDueForSelection() {
-  // NOTE: manage_payments.html has no "#paymentAmountHint" element (confirmed
-  // absent, not fabricated). The record-payment modal only exposes a static
-  // instructional <small> next to the "#autoFillAmountBtn" button — that
-  // button isn't wired to anything in this file either. Wiring a real hint
-  // display / auto-fill click handler is out of scope for this fix; this
-  // stays a documented no-op via the early return below.
-  const hint = document.getElementById("paymentAmountHint");
-  const amountInput = document.getElementById("paymentAmount");
+async function updatePaymentOwedInfo() {
+  const container = document.getElementById("paymentOwedInfo");
+  if (!container) return;
+
+  container.textContent = "";
+
   const targetUid = document.getElementById("memberSelect")?.value;
   const paymentType = document.getElementById("paymentType")?.value;
+  const month = document.getElementById("paymentMonth")?.value;
 
-  if (!hint) return;
-  if (!selectedGroupId || !targetUid || !paymentType) {
-    hint.textContent = "";
+  if (!selectedGroupId || !targetUid) {
+    const hint = el("small", "text-muted");
+    hint.textContent = "Select a member to see what they owe.";
+    container.appendChild(hint);
     return;
   }
 
-  hint.textContent = "Checking what this member owes…";
+  const loading = el("small", "text-muted");
+  loading.textContent = "Checking what this member owes…";
+  container.appendChild(loading);
 
+  let obligations;
   try {
-    const obligations = await apiGet("payments.obligations", {
+    obligations = await apiGet("payments.obligations", {
       groupId: selectedGroupId,
       uid: targetUid,
     });
-
-    const arrears = arrearsFor(obligations, paymentType);
-    if (arrears === null) {
-      hint.textContent = "";
+  } catch (error) {
+    container.textContent = "";
+    if (error instanceof ApiError && error.status === 401) {
+      redirectToLogin();
       return;
     }
-
-    if (arrears > 0) {
-      hint.textContent = `Outstanding for this member: ${formatCurrency(arrears)} (penalties included).`;
-      // Pre-fill with the server's figure; the admin can still edit it (a member
-      // may be paying only part of what they owe).
-      if (amountInput && !amountInput.value) amountInput.value = arrears;
-    } else {
-      hint.textContent = "This member has nothing outstanding for that item.";
-    }
-  } catch (error) {
-    // Never block recording a payment because the hint failed to load.
-    hint.textContent = "Could not load this member's outstanding balance.";
+    const note = el("small", "text-muted");
+    note.textContent = "Could not load this member's outstanding balance.";
+    container.appendChild(note);
+    return;
   }
+
+  container.textContent = "";
+
+  if (!obligations || typeof obligations !== "object") {
+    const note = el("small", "text-muted");
+    note.textContent = "Could not load this member's outstanding balance.";
+    container.appendChild(note);
+    return;
+  }
+
+  // Resolve the obligation row for the selected payment type (+ month).
+  let row = null;
+  let notConfiguredLabel = "";
+  if (paymentType === "seed_money") {
+    row = obligations.seedMoney ?? null;
+    notConfiguredLabel = "seed money";
+  } else if (paymentType === "service_fee") {
+    row = obligations.serviceFee ?? null;
+    notConfiguredLabel = "service fee";
+  } else if (paymentType === "monthly_contribution") {
+    notConfiguredLabel = "monthly contribution";
+    if (!month) {
+      const note = el("small", "text-muted");
+      note.textContent = "Select a month to see what this member owes.";
+      container.appendChild(note);
+      appendTotalsLine(container, obligations);
+      return;
+    }
+    const months = obligations.monthlyContributions?.months;
+    row = Array.isArray(months)
+      ? months.find((m) => String(m.month) === String(month)) ?? null
+      : null;
+  }
+
+  const monthlyNotConfigured =
+    paymentType === "monthly_contribution" &&
+    obligations.monthlyContributions?.configured === false;
+
+  if (!row || row.configured === false || monthlyNotConfigured) {
+    const note = el("p", "text-muted");
+    note.textContent = `No ${notConfiguredLabel} due.`;
+    container.appendChild(note);
+    appendTotalsLine(container, obligations);
+    return;
+  }
+
+  const dueLine = el("p");
+  dueLine.textContent = `Amount due: ${formatCurrency(row.totalAmount ?? "0")}`;
+  const paidLine = el("p");
+  paidLine.textContent = `Already paid: ${formatCurrency(row.amountPaid ?? "0")}`;
+  const outstandingLine = el("p", "text-emphasis");
+  outstandingLine.textContent = `Outstanding: ${formatCurrency(row.arrears ?? "0")}`;
+
+  container.append(dueLine, paidLine, outstandingLine);
+  appendTotalsLine(container, obligations);
 }
 
 /**
- * Pull the arrears figure for one payment type out of the obligations response.
- * Reads only server-computed values — no client-side arithmetic.
+ * Appends the muted "total outstanding (arrears + penalties)" line, summing
+ * the two already server-computed summary totals in minor units (no
+ * per-item money is re-derived here — only two already-summed totals added).
  */
-function arrearsFor(obligations, paymentType) {
-  if (!obligations || typeof obligations !== "object") return null;
+function appendTotalsLine(container, obligations) {
+  const arrearsMinor = toMinorSafe(obligations.summary?.arrears);
+  const penaltyMinor = toMinorSafe(obligations.summary?.penaltyAccrued);
+  const totalLine = el("small", "text-muted");
+  totalLine.textContent =
+    `Total outstanding (arrears + penalties): ${formatCurrencyFromMinor(arrearsMinor + penaltyMinor)}`;
+  container.appendChild(totalLine);
+}
 
-  // Server shape (payments.php my_obligations):
-  //   { seedMoney: {...arrears}, monthlyContributions: { months: [ {month, arrears} ] },
-  //     serviceFee: {...arrears} }
-  if (paymentType === "seed_money") {
-    return numberOf(obligations.seedMoney?.arrears);
-  }
-  if (paymentType === "service_fee") {
-    return numberOf(obligations.serviceFee?.arrears);
-  }
-  if (paymentType === "monthly_contribution") {
-    const months = obligations.monthlyContributions?.months;
-    if (!Array.isArray(months)) return null;
-
-    // The month the admin picked, else the total owed across every month.
-    const month = document.getElementById("paymentMonth")?.value;
-    if (month) {
-      const row = months.find((m) => String(m.month) === String(month));
-      return row ? numberOf(row.arrears) : 0;
-    }
-    // Scope note: this totals monthly_contribution arrears ONLY (this branch
-    // never sees seed money or service fee types). The new obligations
-    // `summary.arrears` field spans seed + months + service fee combined, so
-    // it does not match this narrower per-payment-type figure — left as a
-    // client-side sum intentionally.
-    return months.reduce((sum, m) => sum + numberOf(m.arrears), 0);
-  }
-  return null;
+// Bare decimal string -> integer minor units (cents), matching the server's
+// money_to_minor convention. Used only to sum two already-server-computed
+// totals — never to derive a new financial figure.
+function toMinorSafe(value) {
+  const n = parseFloat(value);
+  return Number.isFinite(n) ? Math.round(n * 100) : 0;
 }
 
 function clearPOPUpload() {

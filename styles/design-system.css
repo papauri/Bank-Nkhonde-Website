@@ -262,6 +262,13 @@ p {
   color: var(--bn-gray);
 }
 
+/* Emphasised figure inside a read-only info line (e.g. "Outstanding: MWK …") */
+.text-emphasis {
+  font-weight: 700;
+  font-size: var(--bn-text-base);
+  color: var(--bn-danger);
+}
+
 .text-white {
   color: var(--bn-white);
 }

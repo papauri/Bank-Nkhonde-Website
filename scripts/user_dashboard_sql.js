@@ -377,16 +377,6 @@ window.dismissActiveLoansBadge = function dismissActiveLoansBadge(event) {
   event.target.style.display = "none";
 };
 
-/**
- * Jump to the admin dashboard for the selected group.
- */
-window.handleSwitchToAdmin = function handleSwitchToAdmin() {
-  const groupId = getSelectedGroupId();
-  window.location.href = groupId
-    ? `admin_dashboard.html?groupId=${encodeURIComponent(groupId)}`
-    : "admin_dashboard.html";
-};
-
 /* ------------------------------------------------------------------ *
  * Dashboard load — obligations, payments, loans, notifications
  * ------------------------------------------------------------------ */
@@ -1938,7 +1928,6 @@ async function handleLogout() {
   localStorage.removeItem("userRole");
   window.location.href = "../login.html";
 }
-window.handleMobileNavLogout = handleLogout;
 
 /* ------------------------------------------------------------------ *
  * Shared helpers
