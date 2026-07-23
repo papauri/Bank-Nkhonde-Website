@@ -538,9 +538,10 @@
       min-width: 120px;
       min-height: 44px;
       background: rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: var(--bn-radius-lg);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: var(--bn-radius-xl);
+      box-shadow: 0 4px 14px rgba(10, 22, 40, 0.14);
       padding: var(--bn-space-4);
       transition: all var(--bn-transition-base);
       display: flex;
@@ -962,11 +963,11 @@
 
     .calendar-day-name {
       text-align: center;
-      font-size: var(--bn-text-sm);
-      font-weight: 600;
+      font-size: var(--bn-text-xs);
+      font-weight: 700;
       color: var(--bn-gray);
       text-transform: uppercase;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.06em;
       padding: var(--bn-space-1);
     }
 
@@ -986,21 +987,23 @@
     }
 
     .calendar-day:hover {
-      background: var(--bn-gray-100);
+      background: var(--bn-gray-50);
     }
 
     .calendar-day.other-month {
-      opacity: 0.3;
+      opacity: 0.35;
     }
 
+    /* Today: a clean solid accent chip (modern calendar convention) rather
+       than a flat gradient square. */
     .calendar-day.today {
-      background: var(--bn-gradient-accent);
+      background: var(--bn-accent);
       color: var(--bn-dark);
       font-weight: 700;
     }
 
     .calendar-day.active {
-      background: var(--bn-gradient-accent);
+      background: var(--bn-accent);
       color: var(--bn-dark);
       font-weight: 700;
     }
@@ -1026,9 +1029,10 @@
 
     .calendar-day-details {
       margin-top: var(--bn-space-4);
-      padding: var(--bn-space-3);
-      border: 1px solid var(--bn-gray-100);
-      border-radius: var(--bn-radius-md);
+      padding: var(--bn-space-4);
+      background: var(--bn-gray-50);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
     }
 
     .calendar-day-details-date {
@@ -2297,9 +2301,13 @@
       <div class="content-card-header" style="padding: var(--bn-space-3) var(--bn-space-4); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--bn-space-2);">
         <h2 class="content-card-title" style="font-size: var(--bn-text-base); margin: 0;">Payment Calendar</h2>
         <div style="display: flex; gap: var(--bn-space-1); align-items: center;">
-          <button class="btn btn-ghost btn-sm" id="calendarPrevMonth" aria-label="Previous month" style="padding: 4px 8px; font-size: 12px; min-width: 44px; min-height: 44px;">&lt;</button>
-          <span id="calendarMonthYear" style="font-weight: 600; min-width: 120px; text-align: center; font-size: var(--bn-text-sm);"></span>
-          <button class="btn btn-ghost btn-sm" id="calendarNextMonth" aria-label="Next month" style="padding: 4px 8px; font-size: 12px; min-width: 44px; min-height: 44px;">&gt;</button>
+          <button class="btn btn-ghost btn-sm" id="calendarPrevMonth" aria-label="Previous month" style="display: inline-flex; align-items: center; justify-content: center; padding: 0; min-width: 44px; min-height: 44px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <span id="calendarMonthYear" style="font-weight: 700; min-width: 130px; text-align: center; font-size: var(--bn-text-base);"></span>
+          <button class="btn btn-ghost btn-sm" id="calendarNextMonth" aria-label="Next month" style="display: inline-flex; align-items: center; justify-content: center; padding: 0; min-width: 44px; min-height: 44px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
         </div>
       </div>
       <div class="content-card-body" style="padding: var(--bn-space-4);">
