@@ -347,6 +347,19 @@ function renderSidebarNav(user, opts, config) {
 
   const topbarRight = document.createElement("div");
   topbarRight.className = "topbar-right";
+  if (footerSwitch) {
+    const topbarSwitch = document.createElement("a");
+    topbarSwitch.href = footerSwitch.href;
+    topbarSwitch.className = "topbar-switch";
+    topbarSwitch.title = footerSwitch.label;
+    topbarSwitch.setAttribute("aria-label", footerSwitch.label);
+    topbarSwitch.appendChild(svgIcon("switchUser"));
+    const topbarSwitchLabel = document.createElement("span");
+    topbarSwitchLabel.className = "topbar-switch-label";
+    topbarSwitchLabel.textContent = "User View";
+    topbarSwitch.appendChild(topbarSwitchLabel);
+    topbarRight.appendChild(topbarSwitch);
+  }
   const notifBtn = document.createElement("button");
   notifBtn.type = "button";
   notifBtn.className = "topbar-btn";
@@ -537,6 +550,25 @@ function injectAdminViewSwitch() {
     span.textContent = "Admin";
     link.appendChild(span);
     mobileItems.appendChild(link);
+  }
+
+  const topbarRight = document.querySelector(".topbar-right");
+  if (
+    topbarRight &&
+    !topbarRight.querySelector('[data-nav="admin-switch-top"]')
+  ) {
+    const topbarLink = document.createElement("a");
+    topbarLink.href = href;
+    topbarLink.className = "topbar-switch";
+    topbarLink.setAttribute("data-nav", "admin-switch-top");
+    topbarLink.title = "Admin View";
+    topbarLink.setAttribute("aria-label", "Admin View");
+    topbarLink.appendChild(svgIcon("switchUser"));
+    const topbarSpan = document.createElement("span");
+    topbarSpan.className = "topbar-switch-label";
+    topbarSpan.textContent = "Admin View";
+    topbarLink.appendChild(topbarSpan);
+    topbarRight.insertBefore(topbarLink, topbarRight.firstChild);
   }
 }
 

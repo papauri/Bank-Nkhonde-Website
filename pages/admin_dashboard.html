@@ -781,6 +781,9 @@
       gap: var(--bn-space-2);
       font-size: var(--bn-text-sm);
       color: var(--bn-gray-700);
+      min-width: 0;
+      max-width: 100%;
+      overflow-wrap: anywhere;
     }
 
     .trend-legend-dot {
@@ -798,13 +801,110 @@
       background: var(--bn-info);
     }
 
-    .trend-bars {
+    /* Plotting region: a fixed, non-scrolling y-axis column of tick labels
+       beside a horizontally-scrollable bars area, so the scale stays put
+       while many months scroll under it. */
+    .trend-plot {
       display: flex;
-      align-items: flex-end;
-      gap: var(--bn-space-3);
-      height: 210px;
+      align-items: stretch;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .trend-yaxis {
+      position: relative;
+      flex: 0 0 auto;
+      width: 56px;
+      max-width: 56px;
+      height: 175px;
+      box-sizing: border-box;
+    }
+
+    /* Positioned (not flex-space-between) so each tick lands on the exact
+       same 0/33.3/66.7/100% offsets as the .trend-gridline dashes below —
+       flex space-between only approximates that against variable text
+       heights. Right-aligned toward the plot so numerals sit against their
+       gridline; --bn-gray reused (not -400, too low-contrast for real
+       data text) to stay AA on white while still reading as secondary. */
+    .trend-yaxis-label {
+      position: absolute;
+      left: 0;
+      right: 0;
+      padding-right: var(--bn-space-2);
+      font-size: var(--bn-text-xs);
+      font-variant-numeric: tabular-nums;
+      color: var(--bn-gray);
+      line-height: 1;
+      white-space: nowrap;
+      text-align: right;
+    }
+
+    .trend-yaxis-label:first-child {
+      top: 0;
+    }
+
+    .trend-yaxis-label:nth-child(2) {
+      top: 33.333%;
+      transform: translateY(-50%);
+    }
+
+    .trend-yaxis-label:nth-child(3) {
+      top: 66.667%;
+      transform: translateY(-50%);
+    }
+
+    .trend-yaxis-label:last-child {
+      top: 100%;
+      transform: translateY(-100%);
+    }
+
+    .trend-bars-scroll {
+      flex: 1 1 auto;
+      min-width: 0;
       overflow-x: auto;
       padding-bottom: var(--bn-space-2);
+    }
+
+    .trend-plot-body {
+      position: relative;
+    }
+
+    /* Gridlines cover only the 175px bar-plotting area (matching
+       .trend-yaxis / .trend-month-bars), not the month-label row below. */
+    .trend-gridlines {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 175px;
+      pointer-events: none;
+    }
+
+    .trend-gridline {
+      position: absolute;
+      left: 0;
+      right: 0;
+      /* was var(--bn-gray-200), a token that doesn't exist anywhere in
+         design-system.css — an invalid var() falls back to the property's
+         initial value (currentcolor), which rendered these dashes in the
+         body text color instead of a faint gray. --bn-gray-lighter is the
+         closest defined step for a subtle, low-contrast gridline. */
+      border-top: 1px dashed var(--bn-gray-lighter);
+    }
+
+    .trend-gridline-base {
+      border-top: 1px solid var(--bn-gray-400);
+    }
+
+    .trend-bars {
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      gap: var(--bn-space-4);
+    }
+
+    .trend-bars.trend-bars-single {
+      justify-content: flex-start;
     }
 
     .trend-month {
@@ -814,13 +914,19 @@
       gap: var(--bn-space-2);
       flex: 1 0 auto;
       min-width: 40px;
+      max-width: var(--bn-space-24);
+    }
+
+    .trend-bars-single .trend-month {
+      flex: 0 0 auto;
+      max-width: 120px;
     }
 
     .trend-month-bars {
       display: flex;
       align-items: flex-end;
       justify-content: center;
-      gap: 4px;
+      gap: var(--bn-space-1);
       height: 175px;
       width: 100%;
     }
@@ -926,6 +1032,8 @@
       margin-top: var(--bn-space-4);
       padding-top: var(--bn-space-4);
       border-top: 1px solid var(--bn-gray-lighter);
+      min-width: 0;
+      overflow-wrap: anywhere;
     }
 
     .legend-item {
@@ -934,6 +1042,7 @@
       gap: var(--bn-space-2);
       font-size: var(--bn-text-sm);
       min-width: 0;
+      overflow-wrap: anywhere;
     }
 
     .legend-dot {
@@ -1720,6 +1829,32 @@
         justify-content: flex-end;
       }
     }
+
+    /* Grid tracks moved out of inline styles so breakpoints below can
+       override them (an inline grid-template-columns beats a media query). */
+    #duePaymentsCards {
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+
+    #chartContainer {
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    @media (max-width: 768px) {
+      #duePaymentsCards {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      #chartContainer {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #duePaymentsCards {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body data-nav-variant="admin" data-nav-active-page="dashboard" data-nav-page-title="Dashboard">
@@ -1851,7 +1986,7 @@
           <a href="manage_payments.html" class="btn btn-ghost btn-sm">View All</a>
         </div>
         <div class="content-card-body">
-          <div id="duePaymentsCards" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--bn-space-3);">
+          <div id="duePaymentsCards" style="display: grid; gap: var(--bn-space-3);">
             <div class="empty-state" style="padding: var(--bn-space-4);">
               <div class="empty-state-icon">📅</div>
               <p class="empty-state-text">Loading due payments...</p>
@@ -1880,7 +2015,7 @@
             </select>
           </div>
           <div class="content-card-body">
-            <div class="charts-grid" id="chartContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--bn-space-6); padding: var(--bn-space-4) 0;">
+            <div class="charts-grid" id="chartContainer" style="display: grid; gap: var(--bn-space-6); padding: var(--bn-space-4) 0;">
               <!-- Pie charts will be inserted here -->
             </div>
           </div>

@@ -551,8 +551,35 @@ function renderCollectionTrends() {
     });
     chart.appendChild(legend);
 
+    // Y-axis: 4 gridlines/ticks at even thirds of maxMinor (100/66/33/0%),
+    // read top-to-bottom so the top tick shows the tallest bar's value. All
+    // values are integer minor-unit fractions of the already-aggregated
+    // maxMinor (no new money math) formatted through the existing short
+    // formatter, and placed via textContent only.
+    const yAxis = document.createElement("div");
+    yAxis.className = "trend-yaxis";
+    [3, 2, 1, 0].forEach((k) => {
+      const tickVal = Math.round((maxMinor * k) / 3);
+      const tick = document.createElement("div");
+      tick.className = "trend-yaxis-label";
+      tick.textContent = formatCurrencyShortFromMinor(tickVal);
+      yAxis.appendChild(tick);
+    });
+
+    const gridlines = document.createElement("div");
+    gridlines.className = "trend-gridlines";
+    // Offsets match .trend-yaxis-label's 0/33.333/66.667/100% exactly so each
+    // gridline lands pixel-for-pixel on its tick label.
+    [0, 33.333, 66.667, 100].forEach((pct) => {
+      const line = document.createElement("div");
+      line.className = pct === 0 ? "trend-gridline trend-gridline-base" : "trend-gridline";
+      line.style.bottom = `${pct}%`;
+      gridlines.appendChild(line);
+    });
+
     const barsRow = document.createElement("div");
     barsRow.className = "trend-bars";
+    if (activeMonths.length === 1) barsRow.classList.add("trend-bars-single");
     activeMonths.forEach((m) => {
       const col = document.createElement("div");
       col.className = "trend-month";
@@ -578,7 +605,20 @@ function renderCollectionTrends() {
 
       barsRow.appendChild(col);
     });
-    chart.appendChild(barsRow);
+
+    const plotBody = document.createElement("div");
+    plotBody.className = "trend-plot-body";
+    plotBody.append(gridlines, barsRow);
+
+    const scroller = document.createElement("div");
+    scroller.className = "trend-bars-scroll";
+    scroller.appendChild(plotBody);
+
+    const plot = document.createElement("div");
+    plot.className = "trend-plot";
+    plot.append(yAxis, scroller);
+
+    chart.appendChild(plot);
     chartContainer.appendChild(chart);
   }
 

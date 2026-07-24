@@ -27,6 +27,7 @@
       padding: var(--bn-space-6);
       box-shadow: var(--bn-shadow-sm);
       border: 1px solid var(--bn-gray-lighter);
+      min-width: 0;
     }
 
     .pie-chart-title {
@@ -93,6 +94,8 @@
       gap: var(--bn-space-2);
       font-size: var(--bn-text-sm);
       color: var(--bn-gray-700);
+      min-width: 0;
+      overflow-wrap: anywhere;
     }
 
     .legend-dot {
@@ -219,6 +222,12 @@
       word-break: break-word;
     }
 
+    @media (max-width: 768px) {
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
     @media (max-width: 480px) {
       .charts-grid {
         grid-template-columns: 1fr;
@@ -321,6 +330,9 @@
       gap: var(--bn-space-2);
       font-size: var(--bn-text-sm);
       color: var(--bn-gray-700);
+      min-width: 0;
+      max-width: 100%;
+      overflow-wrap: anywhere;
     }
     .fin-legend-dot {
       width: 12px;
