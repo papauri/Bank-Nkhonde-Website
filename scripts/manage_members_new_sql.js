@@ -42,6 +42,7 @@ import {
   redirectToLogin,
   downloadExport,
 } from "./api.js";
+import { makeStatClickable, scrollToId } from "./ui.js";
 
 // ── Global state ────────────────────────────────────────────────────────────
 let currentUser = null;
@@ -83,6 +84,12 @@ if (!window.__bnSpa) {
 
 // ── Event listeners ─────────────────────────────────────────────────────────
 function setupEventListeners() {
+  // Headline tiles now take you to the detail they summarise.
+  makeStatClickable("totalMembers", {onClick: scrollToId("membersList"), label: "Show all members"});
+  makeStatClickable("activeMembers", {onClick: scrollToId("membersList"), label: "Show the members list"});
+  makeStatClickable("adminCount", {onClick: scrollToId("membersList"), label: "Show the members list"});
+  makeStatClickable("pendingMembers", {onClick: scrollToId("membersList"), label: "Show the members list"});
+
   const groupSelect = document.getElementById("groupSelect");
   if (groupSelect) {
     groupSelect.addEventListener("change", (e) => {

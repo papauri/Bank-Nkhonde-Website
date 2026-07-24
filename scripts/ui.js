@@ -187,3 +187,74 @@ export function sectionHead(opts = {}) {
 
   return head;
 }
+
+/**
+ * Make a `.page-stat` summary tile interactive.
+ *
+ * These tiles show the headline figures at the top of most admin pages and
+ * were entirely dead — a user naturally taps "Pending: 4" expecting to be
+ * shown those four things. This wires that expectation up.
+ *
+ * The tile becomes a real button (keyboard-operable, announced as
+ * interactive) rather than a div with a click handler, and is idempotent so a
+ * re-render never double-wires it.
+ *
+ * @param {string} valueElId id of the `.page-stat-value` inside the tile
+ * @param {Object} opts
+ * @param {function()=} opts.onClick in-page action (filter, switch tab…)
+ * @param {string=} opts.href navigate instead
+ * @param {string=} opts.label accessible description of what happens
+ * @param {string=} opts.info optional "i" explainer text
+ * @return {?HTMLElement} the tile, or null when not on this page
+ */
+export function makeStatClickable(valueElId, opts = {}) {
+  const value = document.getElementById(valueElId);
+  const tile = value ? value.closest(".page-stat") : null;
+  if (!tile) return null;
+
+  if (!opts.onClick && !opts.href) return tile;
+
+  // Idempotent — a second call must not stack another listener.
+  if (tile.dataset.bnClickable === "1") return tile;
+  tile.dataset.bnClickable = "1";
+
+  tile.classList.add("is-clickable");
+  tile.setAttribute("role", "button");
+  tile.setAttribute("tabindex", "0");
+  if (opts.label) tile.setAttribute("aria-label", opts.label);
+
+  const activate = () => {
+    if (opts.href) {
+      window.location.href = opts.href;
+    } else if (opts.onClick) {
+      opts.onClick();
+    }
+  };
+
+  tile.addEventListener("click", (e) => {
+    // Never swallow a click meant for the info toggle sitting in the corner.
+    if (e.target.closest(".bn-info-toggle")) return;
+    activate();
+  });
+  tile.addEventListener("keydown", (e) => {
+    if (e.target !== tile) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      activate();
+    }
+  });
+
+  return tile;
+}
+
+/**
+ * Scroll an element into view — the honest destination for a summary figure
+ * whose detail is already further down the same page.
+ * @param {string} id
+ * @return {function()}
+ */
+export function scrollToId(id) {
+  return () => {
+    document.getElementById(id)?.scrollIntoView({behavior: "smooth", block: "start"});
+  };
+}

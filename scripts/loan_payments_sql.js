@@ -615,6 +615,28 @@ async function renderLoanSchedule(loanId) {
     (r) => numberOf(r.amountPaid) < numberOf(r.totalDue)
   );
 
+  // ACCOUNTING FIX: pre-fill the amount from the ACTUAL next instalment, not
+  // loans.monthlyPayment. That column is totalRepayment / period — a flat
+  // average which, under this app's reducing-balance schedule, matches no real
+  // instalment. On LN-0001 it reads 21,111.11 while the true instalments are
+  // 21,666.67 / 21,666.67 / 19,999.99, so a member paying the pre-filled figure
+  // would UNDERPAY month 2 by 555.56 and think they were square.
+  if (nextIndex >= 0) {
+    const next = rows[nextIndex];
+    const stillDue = numberOf(next.totalDue) - numberOf(next.amountPaid);
+    const input = document.getElementById("paymentAmount");
+    const hint = document.getElementById("paymentAmountHint");
+    if (input && stillDue > 0) {
+      input.value = String(stillDue);
+      if (hint) {
+        hint.textContent =
+          `Pre-filled with instalment ${next.month} (${formatCurrency(stillDue)}). `
+          + `You can pay any amount up to your full outstanding balance. `
+          + `Payments clear penalties first, then interest, then the principal.`;
+      }
+    }
+  }
+
   rows.forEach((r, i) => {
     const due = numberOf(r.totalDue);
     const paid = numberOf(r.amountPaid);

@@ -25,6 +25,7 @@
 
 import {apiGet, requireSession, listMyGroups, ApiError, redirectToLogin} from "./api.js";
 import { formatCurrency } from "./utils_financial.js";
+import { makeStatClickable } from "./ui.js";
 
 const SEED_MONEY_ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
 
@@ -39,6 +40,29 @@ const seedMoneyList = () => document.getElementById("seedMoneyList");
 const spinner = () => document.getElementById("spinner");
 
 export async function init() {
+  // Headline tiles drill into the matching filter — "Unpaid: 3" should show
+  // those three members, not sit there inert.
+  const applyAndScroll = (filter) => () => {
+    document.querySelectorAll(".tab[data-filter]").forEach((t) => {
+      t.classList.toggle("active", t.dataset.filter === filter);
+    });
+    applyFilter(filter);
+    document.getElementById("seedMoneyTable")
+      ?.scrollIntoView({behavior: "smooth", block: "start"});
+  };
+  makeStatClickable("paidCount", {
+    onClick: applyAndScroll("paid"), label: "Show members who have paid seed money",
+  });
+  makeStatClickable("unpaidCount", {
+    onClick: applyAndScroll("pending"), label: "Show members who have not paid seed money",
+  });
+  makeStatClickable("totalCollected", {
+    onClick: applyAndScroll("paid"), label: "Show the payments this total comes from",
+  });
+  makeStatClickable("pendingAmount", {
+    onClick: applyAndScroll("pending"), label: "Show what is still outstanding",
+  });
+
   document.querySelectorAll(".tab[data-filter]").forEach((tab) => {
     tab.addEventListener("click", () => {
       document.querySelectorAll(".tab[data-filter]").forEach((t) => t.classList.remove("active"));

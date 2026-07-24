@@ -2339,3 +2339,22 @@ summary:focus-visible,
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+
+/* Clickable summary tiles (.page-stat + .is-clickable, wired by ui.js's
+   makeStatClickable). These tiles were dead across most admin pages — a user
+   taps "Pending: 4" expecting to see those four. The affordance has to be
+   visible, or the interaction stays undiscoverable. */
+.page-stat.is-clickable {
+  cursor: pointer;
+}
+
+.page-stat.is-clickable:hover {
+  border-color: var(--bn-accent);
+  box-shadow: var(--bn-shadow-md);
+  transform: translateY(-2px);
+}
+
+.page-stat.is-clickable:focus-visible {
+  outline: 2px solid var(--bn-accent);
+  outline-offset: 2px;
+}

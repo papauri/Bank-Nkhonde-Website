@@ -54,6 +54,7 @@ import {
 } from "./api.js";
 import { formatCurrency } from "./utils_financial.js";
 import { attachCardInfo } from "./card_info.js";
+import { makeStatClickable } from "./ui.js";
 
 // ── Global state ────────────────────────────────────────────────────────────
 let currentUser = null;
@@ -125,6 +126,32 @@ function setupEventListeners() {
       return;
     }
     downloadExport("exports.loans", {groupId: selectedGroupId});
+  });
+
+  // The four headline tiles drill into the matching tab — tapping "Pending: 4"
+  // should show those four loans, not do nothing.
+  const jumpToTab = (tab) => () => {
+    currentTab = tab;
+    document.querySelectorAll(".action-tab").forEach((t) => {
+      t.classList.toggle("active", t.dataset.tab === tab);
+    });
+    const dd = document.getElementById("loanFilterDropdown");
+    if (dd && dd.value !== "all") dd.value = tab;
+    renderLoans();
+    document.getElementById("loansContainer")
+      ?.scrollIntoView({behavior: "smooth", block: "start"});
+  };
+  makeStatClickable("pendingCount", {
+    onClick: jumpToTab("pending"), label: "Show pending loan requests",
+  });
+  makeStatClickable("activeCount", {
+    onClick: jumpToTab("active"), label: "Show active loans",
+  });
+  makeStatClickable("totalDisbursed", {
+    onClick: jumpToTab("active"), label: "Show the loans this was paid out on",
+  });
+  makeStatClickable("totalOutstanding", {
+    onClick: jumpToTab("overdue"), label: "Show overdue loans",
   });
 
   document.querySelectorAll(".action-tab").forEach((tab) => {

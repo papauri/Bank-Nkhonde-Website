@@ -53,6 +53,7 @@
  */
 
 import {apiGet, requireSession, listMyGroups, ApiError, redirectToLogin} from "./api.js";
+import { makeStatClickable, scrollToId } from "./ui.js";
 import { formatCurrency } from "./utils_financial.js";
 import { attachCardInfo } from "./card_info.js";
 
@@ -123,6 +124,12 @@ if (!window.__bnSpa) {
 }
 
 function setupEventListeners() {
+  // Headline tiles now take you to the detail they summarise.
+  makeStatClickable("totalIncome", {onClick: scrollToId("accountingFiguresBlock"), label: "Show the accounting breakdown"});
+  makeStatClickable("totalExpenses", {onClick: scrollToId("accountingFiguresBlock"), label: "Show the accounting breakdown"});
+  makeStatClickable("netProfit", {onClick: scrollToId("accountingFiguresBlock"), label: "Show the accounting breakdown"});
+  makeStatClickable("loanInterest", {onClick: scrollToId("accountingFiguresBlock"), label: "Show the accounting breakdown"});
+
   groupSelector()?.addEventListener("change", async (e) => {
     currentGroupId = e.target.value;
     if (currentGroupId) {

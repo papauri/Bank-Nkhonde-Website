@@ -44,6 +44,7 @@ import {
   ApiError,
   redirectToLogin,
 } from "./api.js";
+import { makeStatClickable, scrollToId } from "./ui.js";
 
 // ── Global state ────────────────────────────────────────────────────────────
 let currentUser = null;
@@ -80,6 +81,11 @@ if (!window.__bnSpa) {
 
 // ── Event listeners ─────────────────────────────────────────────────────────
 function setupEventListeners() {
+  // Headline tiles now take you to the detail they summarise.
+  makeStatClickable("pendingCount", {onClick: scrollToId("pendingList"), label: "Show pending registrations"});
+  makeStatClickable("approvedCount", {onClick: scrollToId("pendingList"), label: "Show the registrations list"});
+  makeStatClickable("rejectedCount", {onClick: scrollToId("pendingList"), label: "Show the registrations list"});
+
   const groupSelect = document.getElementById("groupSelector") || document.getElementById("groupSelect");
   if (groupSelect) {
     groupSelect.addEventListener("change", (e) => {
