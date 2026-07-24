@@ -251,7 +251,7 @@ async function loadPendingPenalties() {
           memberName: member.fullName || "Unknown",
           type: "Seed Money",
           amount: seedArrears,
-          penaltyAccrued: numberOf(obligations.seedMoney?.penalty?.amountAccrued),
+          penaltyAccrued: numberOf(penaltyOwed(obligations.seedMoney?.penalty)),
           dueDate: obligations.seedMoney?.dueDate || null,
         });
       }
@@ -265,7 +265,7 @@ async function loadPendingPenalties() {
               memberName: member.fullName || "Unknown",
               type: `Monthly Contribution (${month.month})`,
               amount: arrears,
-              penaltyAccrued: numberOf(month.penalty?.amountAccrued),
+              penaltyAccrued: numberOf(penaltyOwed(month.penalty)),
               dueDate: month.dueDate || null,
             });
           }
@@ -278,7 +278,7 @@ async function loadPendingPenalties() {
           memberName: member.fullName || "Unknown",
           type: "Service Fee",
           amount: feeArrears,
-          penaltyAccrued: numberOf(obligations.serviceFee?.penalty?.amountAccrued),
+          penaltyAccrued: numberOf(penaltyOwed(obligations.serviceFee?.penalty)),
           dueDate: obligations.serviceFee?.dueDate || null,
         });
       }
@@ -678,4 +678,16 @@ function showToast(message, type = "info") {
     toast.classList.remove("show");
     setTimeout(() => toast.remove(), 300);
   }, 5000);
+}
+
+/**
+ * The penalty still OWED — net of anything paid or waived. amountAccrued is
+ * the GROSS charge and ignores waivers, so using it where the figure means
+ * "owed" would keep billing a member for a penalty already written off.
+ * @param {Object} penalty
+ * @return {string}
+ */
+function penaltyOwed(penalty) {
+  if (!penalty) return "0.00";
+  return penalty.amountOutstanding != null ? penalty.amountOutstanding : penalty.amountAccrued;
 }

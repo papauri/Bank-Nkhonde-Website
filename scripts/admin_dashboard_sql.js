@@ -443,7 +443,7 @@ function renderCollectionTrends() {
   const membersWithPayments = payingMembers.size;
   const arrearsMinor = rangedPayments.reduce((acc, p) => {
     let v = toMinor(p.arrears);
-    if (p.penalty) v += toMinor(p.penalty.amountAccrued);
+    if (p.penalty) v += toMinor(penaltyOwed(p.penalty));
     return acc + v;
   }, 0);
 
@@ -1143,7 +1143,7 @@ function buildArrearsItems() {
   const byMember = new Map();
   for (const p of groupData.payments) {
     let owedMinor = toMinor(p.arrears);
-    if (p.penalty) owedMinor += toMinor(p.penalty.amountAccrued);
+    if (p.penalty) owedMinor += toMinor(penaltyOwed(p.penalty));
     if (owedMinor <= 0) continue;
 
     const uid = String(p.uid);
@@ -1917,4 +1917,20 @@ function parseServerDate(value) {
  */
 function formatDateShort(date) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/**
+ * The penalty a member still OWES — net of anything already paid or waived.
+ *
+ * Use this anywhere the figure means "owed". amountAccrued is the GROSS charge
+ * and ignores waivers, so showing it as owed would keep billing a member for a
+ * penalty an admin already wrote off.
+ * @param {Object} penalty payment.penalty from the server
+ * @return {string} money string
+ */
+function penaltyOwed(penalty) {
+  if (!penalty) return "0.00";
+  return penalty.amountOutstanding != null
+    ? penalty.amountOutstanding
+    : penalty.amountAccrued;
 }

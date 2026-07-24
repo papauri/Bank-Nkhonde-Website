@@ -652,7 +652,7 @@ function renderCategoryBreakdown(period) {
         outstanding += owed;
         behind.add(p.uid);
       }
-      if (p.penalty) penalties += numberOf(p.penalty.amountAccrued);
+      if (p.penalty) penalties += numberOf(penaltyOwed(p.penalty));
     });
 
     return {cat, collected, outstanding, penalties, behind: behind.size, present};
@@ -1065,11 +1065,11 @@ function createPaymentRow(payment, showActions = true) {
 
   const detailsCell = el("td");
   const penalty = payment.penalty;
-  if (penalty && numberOf(penalty.amountAccrued) > 0) {
+  if (penalty && numberOf(penaltyOwed(penalty)) > 0) {
     const penaltyNote = el("div");
     penaltyNote.style.cssText = "font-size: var(--bn-text-sm); color: var(--bn-danger);";
     penaltyNote.textContent =
-      `Live penalty: ${formatCurrency(penalty.amountAccrued)} (${describePenaltyBasis(penalty)})`;
+      `Live penalty: ${formatCurrency(penaltyOwed(penalty))} (${describePenaltyBasis(penalty)})`;
     detailsCell.appendChild(penaltyNote);
   }
   if (payment.notes) {
@@ -1801,4 +1801,20 @@ function showToast(message, type = "info") {
     toast.classList.remove("show");
     setTimeout(() => toast.remove(), 300);
   }, 5000);
+}
+
+/**
+ * The penalty a member still OWES — net of anything already paid or waived.
+ *
+ * Use this anywhere the figure means "owed". amountAccrued is the GROSS charge
+ * and ignores waivers, so showing it as owed would keep billing a member for a
+ * penalty an admin already wrote off.
+ * @param {Object} penalty payment.penalty from the server
+ * @return {string} money string
+ */
+function penaltyOwed(penalty) {
+  if (!penalty) return "0.00";
+  return penalty.amountOutstanding != null
+    ? penalty.amountOutstanding
+    : penalty.amountAccrued;
 }

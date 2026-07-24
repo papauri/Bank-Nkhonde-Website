@@ -72,7 +72,10 @@ export function closeInfoPanel() {
   if (!openToggle) return;
   openToggle.setAttribute("aria-expanded", "false");
   openToggle = null;
-  if (panel) panel.hidden = true;
+  if (panel) {
+    panel.hidden = true;
+    panel.classList.remove("is-open");
+  }
 }
 
 /**
@@ -86,6 +89,7 @@ function openFor(toggle, build) {
   build(p);
   if (!p.childNodes.length) return; // nothing to say — don't flash an empty box
   p.hidden = false;
+  p.classList.add("is-open");
   place(toggle);
   toggle.setAttribute("aria-expanded", "true");
   openToggle = toggle;

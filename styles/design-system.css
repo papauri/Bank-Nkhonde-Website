@@ -2077,6 +2077,11 @@ summary:focus-visible,
 }
 
 .bn-info-panel {
+  /* Hidden by default and shown via .is-open. Relying on the [hidden]
+     attribute alone was fragile: any author rule setting a display on this
+     element would silently defeat it, and the panel would stay invisible with
+     no error. An explicit class makes the open state unambiguous. */
+  display: none;
   position: fixed;
   z-index: var(--z-tooltip);
   max-width: min(300px, calc(100vw - var(--bn-space-8)));
@@ -2091,7 +2096,7 @@ summary:focus-visible,
   text-align: left;
 }
 
-.bn-info-panel[hidden] { display: none; }
+.bn-info-panel.is-open { display: block; }
 
 /* Rows, when a caller builds a label/value breakdown into the panel. */
 .bn-info-row {

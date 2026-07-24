@@ -563,12 +563,17 @@ function renderLoanMaths(loan, remaining) {
 
   const note = document.createElement("div");
   note.className = "loan-maths-note";
-  const scheduled = numberOf(loan.monthlyPayment);
-  if (months > 0 && scheduled > 0) {
+  // Deliberately NOT quoting loans.monthlyPayment as "your monthly payment":
+  // that column is totalRepayment / period, a flat average. Under this app's
+  // reducing-balance schedule the real instalments differ month to month (on
+  // LN-0001: 21,666.67 / 21,666.67 / 19,999.99 against an average of
+  // 21,111.11), so quoting it would misstate what is actually owed. The exact
+  // per-month figures are listed in the schedule below.
+  if (months > 0) {
     note.textContent =
-      `Scheduled as ${months} monthly payment${months === 1 ? "" : "s"} of about `
-      + `${formatCurrency(scheduled)}. Interest is charged on the balance still `
-      + `outstanding, so paying early reduces what you pay overall.`;
+      `Repaid over ${months} month${months === 1 ? "" : "s"}. Interest is charged `
+      + `on the balance still outstanding, so each instalment differs — the exact `
+      + `amounts are listed below, and paying early reduces what you pay overall.`;
   } else {
     note.textContent =
       "Interest is charged on the balance still outstanding, so paying early "
