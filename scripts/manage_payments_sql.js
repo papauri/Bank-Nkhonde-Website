@@ -64,6 +64,7 @@ import {
   downloadExport,
 } from "./api.js";
 import { formatCurrency, formatCurrencyFromMinor } from "./utils_financial.js";
+import { attachCardInfo } from "./card_info.js";
 
 // ── Global state ────────────────────────────────────────────────────────────
 let currentUser = null;
@@ -312,6 +313,7 @@ async function loadGroupData() {
     await loadGroupRules();
     updateStats();
     renderAccountantSummary();
+    await loadCompliance();
     renderCurrentTab();
     renderPendingPreview();
   } catch (error) {
@@ -423,9 +425,26 @@ function inAcctPeriod(dateStr, period) {
   }
 }
 
-function acctTotalTile(label, value, cls) {
-  const tile = document.createElement("div");
-  tile.className = "acct-total";
+/**
+ * One figure tile in the accounting summary.
+ *
+ * @param {string} label
+ * @param {string} value
+ * @param {string} cls emphasis class ("pos" | "neg" | "warn" | "")
+ * @param {{onClick: (function()|undefined), info: (string|undefined)}=} opts
+ *     onClick makes the whole tile a button that drills into the matching
+ *     list; info adds the "i" explainer.
+ */
+function acctTotalTile(label, value, cls, opts = {}) {
+  // A tile that drills down is a real <button> so it is keyboard-operable and
+  // announced as interactive — not a div with a click handler.
+  const tile = document.createElement(opts.onClick ? "button" : "div");
+  tile.className = "acct-total" + (opts.onClick ? " is-clickable" : "");
+  if (opts.onClick) {
+    tile.type = "button";
+    tile.addEventListener("click", opts.onClick);
+  }
+
   const l = document.createElement("div");
   l.className = "acct-total-label";
   l.textContent = label;
@@ -433,7 +452,127 @@ function acctTotalTile(label, value, cls) {
   v.className = "acct-total-value" + (cls ? " " + cls : "");
   v.textContent = value;
   tile.append(l, v);
+
+  if (opts.info) {
+    attachCardInfo(tile, {label: `About ${label}`, content: opts.info});
+  }
   return tile;
+}
+
+/** Latest payments.compliance response for the selected group, or null. */
+let complianceData = null;
+
+/**
+ * Load the group's rule-based position for the current month — what the rules
+ * say SHOULD come in, what actually has, and exactly who is short. Every figure
+ * is computed server-side; this only renders.
+ */
+async function loadCompliance() {
+  if (!selectedGroupId) return;
+  try {
+    complianceData = await apiGet("payments.compliance", {groupId: selectedGroupId});
+  } catch (error) {
+    // A group with no rules configured yet legitimately has nothing to compare
+    // against — that's not an error worth interrupting the page for.
+    complianceData = null;
+  }
+  renderCompliance();
+}
+
+/** Render the "this month vs expected" panel + who is short. */
+function renderCompliance() {
+  const host = document.getElementById("acctCompliance");
+  if (!host) return;
+  host.textContent = "";
+
+  const d = complianceData;
+  // Nothing to compare against unless the group actually sets a monthly due.
+  if (!d || !d.monthlyDuePerMember) return;
+
+  const panel = document.createElement("div");
+  panel.className = "compliance";
+
+  const head = document.createElement("div");
+  head.className = "compliance-head";
+  const title = document.createElement("span");
+  title.className = "compliance-title";
+  title.textContent = `${d.month} ${d.year} — collected vs expected`;
+  const figures = document.createElement("span");
+  figures.className = "compliance-figures";
+  const collected = document.createElement("strong");
+  collected.textContent = formatCurrency(d.collectedThisMonth);
+  figures.append(collected, document.createTextNode(` of ${formatCurrency(d.expectedThisMonth)}`));
+  head.append(title, figures);
+  panel.appendChild(head);
+
+  const pct = Number(d.percentCollected) || 0;
+  const track = document.createElement("div");
+  track.className = "compliance-track";
+  const fill = document.createElement("span");
+  fill.className = "compliance-fill" + (pct < 50 ? " low" : pct < 90 ? " mid" : "");
+  fill.style.width = `${Math.max(pct, 0)}%`;
+  track.appendChild(fill);
+  panel.appendChild(track);
+
+  const note = document.createElement("div");
+  note.className = "compliance-note";
+  if (Number(d.membersBehind) === 0) {
+    note.textContent = `${pct}% collected · all ${d.memberCount} members are up to date.`;
+  } else {
+    const behindEl = document.createElement("strong");
+    behindEl.textContent = `${d.membersBehind} of ${d.memberCount} members`;
+    note.append(
+      document.createTextNode(`${pct}% collected · `),
+      behindEl,
+      document.createTextNode(
+        ` behind · ${formatCurrency(d.shortfallThisMonth)} short this month.`
+      )
+    );
+  }
+  panel.appendChild(note);
+
+  // Exactly who, and which fee they're missing.
+  if (Array.isArray(d.behind) && d.behind.length) {
+    const list = document.createElement("div");
+    list.className = "acct-followups-list";
+    list.style.marginTop = "var(--bn-space-4)";
+    d.behind.slice(0, 8).forEach((m) => {
+      const row = document.createElement("div");
+      row.className = "acct-followup-row";
+
+      const who = document.createElement("span");
+      who.className = "acct-followup-name";
+      who.textContent = m.name;
+
+      const what = document.createElement("span");
+      what.className = "field-hint";
+      what.style.margin = "0";
+      what.textContent = Array.isArray(m.missing) ? m.missing.join(", ") : "";
+
+      const amt = document.createElement("span");
+      amt.className = "acct-followup-amt";
+      amt.textContent = formatCurrency(m.owed);
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn-ghost btn-sm";
+      btn.textContent = "Remind";
+      btn.addEventListener("click", () => openSendRemindersModal());
+
+      row.append(who, what, amt, btn);
+      list.appendChild(row);
+    });
+    panel.appendChild(list);
+
+    if (d.behind.length > 8) {
+      const more = document.createElement("div");
+      more.className = "acct-followup-more";
+      more.textContent = `+${d.behind.length - 8} more behind`;
+      panel.appendChild(more);
+    }
+  }
+
+  host.appendChild(panel);
 }
 
 /**
@@ -640,11 +779,31 @@ function renderAccountantSummary() {
   const totals = document.getElementById("acctTotals");
   if (totals) {
     totals.textContent = "";
+    const jump = (tab) => () => {
+      activateTab(tab);
+      document.getElementById("pendingPaymentsList")
+        ?.scrollIntoView({behavior: "smooth", block: "start"});
+    };
+
     totals.append(
-      acctTotalTile("Collected", formatCurrency(collected), "pos"),
-      acctTotalTile("Payments recorded", String(recorded), ""),
-      acctTotalTile("Pending approval", String(pending), pending > 0 ? "warn" : ""),
-      acctTotalTile("Outstanding arrears", formatCurrency(totalArrears), totalArrears > 0 ? "neg" : ""),
+      acctTotalTile("Collected", formatCurrency(collected), "pos", {
+        onClick: jump("recent"),
+        info: "Money actually received in the selected period — payments approved or completed. "
+          + "Pending payments are not counted until an admin approves them.",
+      }),
+      acctTotalTile("Payments recorded", String(recorded), "", {
+        onClick: jump("recent"),
+        info: "How many payment entries were logged in the selected period, whatever their status.",
+      }),
+      acctTotalTile("Pending approval", String(pending), pending > 0 ? "warn" : "", {
+        onClick: jump("pending"),
+        info: "Payments members have submitted that still need an admin to approve or reject them.",
+      }),
+      acctTotalTile("Outstanding arrears", formatCurrency(totalArrears), totalArrears > 0 ? "neg" : "", {
+        onClick: jump("arrears"),
+        info: "Total still owed across the group right now. This is today's position, not the "
+          + "selected period — it is what members currently owe.",
+      }),
     );
   }
 

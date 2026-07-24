@@ -466,11 +466,10 @@
     /* ============================================
        DASHBOARD CONTENT
        ============================================ */
-    .dashboard-content {
-      padding: var(--bn-space-8);
-      max-width: 1400px;
-      margin: 0 auto;
-    }
+    /* .dashboard-content sizing (max-width + centring + padding) now lives in
+       the shared admin-layout.css so every page matches. The per-page override
+       that used to sit here is removed deliberately — it was the reason this
+       page's container differed from every other page's. */
 
     /* System Alerts */
     .system-alerts {

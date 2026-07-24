@@ -454,10 +454,30 @@
       margin-bottom: var(--bn-space-4);
     }
     .acct-total {
+      position: relative;
+      display: block;
+      width: 100%;
       background: var(--bn-gray-50);
       border: 1px solid var(--bn-gray-lighter);
       border-radius: var(--bn-radius-lg);
-      padding: var(--bn-space-4);
+      /* Room for the "i" toggle in the corner. */
+      padding: var(--bn-space-4) calc(var(--bn-space-6) + 18px) var(--bn-space-4) var(--bn-space-4);
+      /* Reset so a <button> tile matches a <div> tile exactly. */
+      font: inherit;
+      text-align: left;
+      color: inherit;
+      transition:
+        transform var(--bn-transition-base),
+        box-shadow var(--bn-transition-base),
+        border-color var(--bn-transition-base);
+    }
+    .acct-total.is-clickable {
+      cursor: pointer;
+    }
+    .acct-total.is-clickable:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--bn-shadow-md);
+      border-color: var(--bn-accent);
     }
     .acct-total-label {
       font-size: var(--bn-text-xs);

@@ -1289,6 +1289,165 @@ if (!function_exists('group_arrears_summary')) {
     }
 }
 
+if (!function_exists('group_compliance_summary')) {
+    /**
+     * GET payments.compliance — "who is keeping up, and who isn't".
+     * ADMIN-EQUIVALENT ONLY.
+     *
+     * Answers the questions a treasurer actually asks each month:
+     *   - what SHOULD this month bring in, per the group's own rules?
+     *   - what has actually come in?
+     *   - who specifically hasn't paid, and which fee are they missing?
+     *
+     * Expected figures come from the group's configured rule amounts multiplied
+     * by the ACTIVE member count — the same rule amounts and the same
+     * active-members-only scope group_arrears_summary() uses, so the two agree.
+     * Every figure is computed here in integer minor units and emitted as a
+     * money string; the client renders, it never calculates.
+     *
+     * The per-member list is capped by the group's own size (30 members), so
+     * returning detail rather than just totals is cheap.
+     */
+    function group_compliance_summary(): void
+    {
+        $groupId = (string) ($_GET['groupId'] ?? '');
+        if ($groupId === '') {
+            json_error('groupId is required.', 422);
+        }
+
+        require_role($groupId, PAYMENT_ADMIN_ROLES);
+
+        $year = (int) date('Y');
+        if (isset($_GET['year']) && $_GET['year'] !== '') {
+            $year = (int) $_GET['year'];
+            if ($year < 2000 || $year > 2100) {
+                json_error('Invalid year.', 422);
+            }
+        }
+
+        // Which month to assess. Defaults to the current calendar month.
+        $monthIndex = (int) date('n') - 1;
+        if (isset($_GET['month']) && $_GET['month'] !== '') {
+            $wanted = (string) $_GET['month'];
+            $found = array_search($wanted, PAYMENT_MONTHS, true);
+            if ($found === false) {
+                json_error('Invalid month.', 422);
+            }
+            $monthIndex = (int) $found;
+        }
+        $month = PAYMENT_MONTHS[$monthIndex];
+
+        $pdo = getDbConnection();
+        $rules = payment_fetch_rules($pdo, $groupId);
+
+        // Active members only, with their names for the follow-up list.
+        $memStmt = $pdo->prepare(
+            "SELECT m.uid, u.fullName FROM members m "
+            . "LEFT JOIN users u ON u.uid = m.uid "
+            . "WHERE m.groupId = :groupId AND m.status = 'active'"
+        );
+        $memStmt->execute([':groupId' => $groupId]);
+        $members = $memStmt->fetchAll();
+
+        $seedDueMinor = payment_rule_amount_minor($rules, 'seed_money');
+        $monthlyDueMinor = payment_rule_amount_minor($rules, 'monthly_contribution');
+        $feeRequired = (int) ($rules['serviceFeeRequired'] ?? 0) === 1;
+        $feeDueMinor = $feeRequired ? payment_rule_amount_minor($rules, 'service_fee') : null;
+
+        $monthCollectedMinor = 0;
+        $seedCollectedMinor = 0;
+        $feeCollectedMinor = 0;
+        $behind = [];
+
+        foreach ($members as $m) {
+            $uid = (string) $m['uid'];
+            $missing = [];
+            $owedMinor = 0;
+
+            // This month's contribution.
+            if ($monthlyDueMinor !== null) {
+                $paid = payment_settled_minor(
+                    $pdo,
+                    $groupId,
+                    $uid,
+                    'monthly_contribution',
+                    $year,
+                    $month
+                );
+                $monthCollectedMinor += $paid;
+                $short = max(0, $monthlyDueMinor - $paid);
+                if ($short > 0) {
+                    $missing[] = 'Monthly contribution';
+                    $owedMinor += $short;
+                }
+            }
+
+            // Seed money is a once-per-cycle obligation, not per-month.
+            if ($seedDueMinor !== null) {
+                $paid = payment_settled_minor($pdo, $groupId, $uid, 'seed_money');
+                $seedCollectedMinor += $paid;
+                $short = max(0, $seedDueMinor - $paid);
+                if ($short > 0) {
+                    $missing[] = 'Seed money';
+                    $owedMinor += $short;
+                }
+            }
+
+            if ($feeRequired && $feeDueMinor !== null) {
+                $paid = payment_settled_minor($pdo, $groupId, $uid, 'service_fee', $year);
+                $feeCollectedMinor += $paid;
+                $short = max(0, $feeDueMinor - $paid);
+                if ($short > 0) {
+                    $missing[] = 'Service fee';
+                    $owedMinor += $short;
+                }
+            }
+
+            if ($owedMinor > 0) {
+                $behind[] = [
+                    'uid' => $uid,
+                    'name' => $m['fullName'] !== null ? (string) $m['fullName'] : 'Unknown',
+                    'missing' => $missing,
+                    'owed' => money_from_minor($owedMinor),
+                    'owedMinor' => $owedMinor,
+                ];
+            }
+        }
+
+        // Most-owing first — the order a treasurer works the list in.
+        usort($behind, static fn($a, $b) => $b['owedMinor'] <=> $a['owedMinor']);
+        foreach ($behind as &$row) {
+            unset($row['owedMinor']);
+        }
+        unset($row);
+
+        $memberCount = count($members);
+        $expectedMonthMinor = $monthlyDueMinor === null ? 0 : $monthlyDueMinor * $memberCount;
+        $shortfallMinor = max(0, $expectedMonthMinor - $monthCollectedMinor);
+
+        json_response([
+            'month' => $month,
+            'year' => $year,
+            'memberCount' => $memberCount,
+            'monthlyDuePerMember' => $monthlyDueMinor === null ? null : money_from_minor($monthlyDueMinor),
+            'expectedThisMonth' => money_from_minor($expectedMonthMinor),
+            'collectedThisMonth' => money_from_minor($monthCollectedMinor),
+            'shortfallThisMonth' => money_from_minor($shortfallMinor),
+            // Percent complete, integer 0-100, computed server-side so the
+            // client never divides money.
+            'percentCollected' => $expectedMonthMinor > 0
+                ? (int) min(100, intdiv($monthCollectedMinor * 100, $expectedMonthMinor))
+                : 100,
+            'seedCollected' => money_from_minor($seedCollectedMinor),
+            'serviceFeeCollected' => money_from_minor($feeCollectedMinor),
+            'serviceFeeRequired' => $feeRequired,
+            'membersBehind' => count($behind),
+            'membersOnTrack' => $memberCount - count($behind),
+            'behind' => $behind,
+        ]);
+    }
+}
+
 if (!function_exists('group_accounting_summary')) {
     /**
      * GET payments.accountingSummary — the group's FULL financial position,

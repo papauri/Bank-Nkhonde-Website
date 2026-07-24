@@ -53,6 +53,7 @@ import {
   downloadExport,
 } from "./api.js";
 import { formatCurrency } from "./utils_financial.js";
+import { attachCardInfo } from "./card_info.js";
 
 // ── Global state ────────────────────────────────────────────────────────────
 let currentUser = null;
@@ -549,9 +550,23 @@ function inAcctPeriod(dateStr, period) {
   }
 }
 
-function acctTotalTile(label, value, cls) {
-  const tile = document.createElement("div");
-  tile.className = "acct-total";
+/**
+ * One figure tile in the accounting summary. A tile that drills down is a real
+ * <button> (keyboard-operable, announced as interactive), and `info` adds the
+ * shared "i" explainer.
+ * @param {string} label
+ * @param {string} value
+ * @param {string} cls emphasis class ("pos" | "neg" | "warn" | "")
+ * @param {{onClick: (function()|undefined), info: (string|undefined)}=} opts
+ */
+function acctTotalTile(label, value, cls, opts = {}) {
+  const tile = document.createElement(opts.onClick ? "button" : "div");
+  tile.className = "acct-total" + (opts.onClick ? " is-clickable" : "");
+  if (opts.onClick) {
+    tile.type = "button";
+    tile.addEventListener("click", opts.onClick);
+  }
+
   const l = document.createElement("div");
   l.className = "acct-total-label";
   l.textContent = label;
@@ -559,6 +574,10 @@ function acctTotalTile(label, value, cls) {
   v.className = "acct-total-value" + (cls ? " " + cls : "");
   v.textContent = value;
   tile.append(l, v);
+
+  if (opts.info) {
+    attachCardInfo(tile, {label: `About ${label}`, content: opts.info});
+  }
   return tile;
 }
 
@@ -839,11 +858,37 @@ function renderAccountantSummary() {
   const totals = document.getElementById("acctTotals");
   if (totals) {
     totals.textContent = "";
+    const jump = (tab) => () => {
+      currentTab = tab;
+      document.querySelectorAll(".action-tab").forEach((t) => {
+        t.classList.toggle("active", t.dataset.tab === tab);
+      });
+      const dd = document.getElementById("loanFilterDropdown");
+      if (dd && dd.value !== "all") dd.value = tab;
+      renderLoans();
+      document.getElementById("loansContainer")
+        ?.scrollIntoView({behavior: "smooth", block: "start"});
+    };
+
     totals.append(
-      acctTotalTile("Disbursed", formatCurrency(disbursed), "pos"),
-      acctTotalTile("Loans disbursed", String(disbursedCount), ""),
-      acctTotalTile("Active loans", String(activeCount), ""),
-      acctTotalTile("Outstanding", formatCurrency(outstanding), outstanding > 0 ? "neg" : ""),
+      acctTotalTile("Disbursed", formatCurrency(disbursed), "pos", {
+        onClick: jump("active"),
+        info: "Loan principal paid out in the selected period (approved, disbursed or completed "
+          + "loans). Pending requests are not counted — no money has moved yet.",
+      }),
+      acctTotalTile("Loans disbursed", String(disbursedCount), "", {
+        onClick: jump("active"),
+        info: "How many loans had money paid out in the selected period.",
+      }),
+      acctTotalTile("Active loans", String(activeCount), "", {
+        onClick: jump("active"),
+        info: "Loans currently being repaid — approved or disbursed, not yet fully repaid.",
+      }),
+      acctTotalTile("Outstanding", formatCurrency(outstanding), outstanding > 0 ? "neg" : "", {
+        onClick: jump("overdue"),
+        info: "Total still owed on active loans right now. This is today's position, not the "
+          + "selected period.",
+      }),
     );
   }
 

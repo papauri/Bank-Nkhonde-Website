@@ -389,10 +389,30 @@
       margin-bottom: var(--bn-space-4);
     }
     .acct-total {
+      position: relative;
+      display: block;
+      width: 100%;
       background: var(--bn-gray-50);
       border: 1px solid var(--bn-gray-lighter);
       border-radius: var(--bn-radius-lg);
-      padding: var(--bn-space-4);
+      /* Room for the "i" toggle in the corner. */
+      padding: var(--bn-space-4) calc(var(--bn-space-6) + 18px) var(--bn-space-4) var(--bn-space-4);
+      /* Reset so a <button> tile matches a <div> tile exactly. */
+      font: inherit;
+      text-align: left;
+      color: inherit;
+      transition:
+        transform var(--bn-transition-base),
+        box-shadow var(--bn-transition-base),
+        border-color var(--bn-transition-base);
+    }
+    .acct-total.is-clickable {
+      cursor: pointer;
+    }
+    .acct-total.is-clickable:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--bn-shadow-md);
+      border-color: var(--bn-accent);
     }
     .acct-total-label {
       font-size: var(--bn-text-xs);
@@ -453,6 +473,57 @@
       color: var(--bn-gray);
       padding: var(--bn-space-2) var(--bn-space-1);
     }
+
+    /* This month vs. what the group's rules expect. */
+    .compliance {
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-space-5);
+      margin-bottom: var(--bn-space-5);
+    }
+    .compliance-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: var(--bn-space-2);
+      margin-bottom: var(--bn-space-3);
+    }
+    .compliance-title {
+      font-weight: 800;
+      color: var(--bn-dark);
+    }
+    .compliance-figures {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
+      font-variant-numeric: tabular-nums;
+    }
+    .compliance-figures strong {
+      color: var(--bn-dark);
+      font-weight: 800;
+    }
+    .compliance-track {
+      height: 10px;
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-full);
+      overflow: hidden;
+      margin-bottom: var(--bn-space-2);
+    }
+    .compliance-fill {
+      display: block;
+      height: 100%;
+      border-radius: var(--bn-radius-full);
+      background: var(--bn-success);
+      transition: width var(--bn-transition-slow);
+    }
+    .compliance-fill.low { background: var(--bn-danger); }
+    .compliance-fill.mid { background: var(--bn-warning); }
+    .compliance-note {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
+    }
+    .compliance-note strong { color: var(--bn-dark); }
 
     /* Payment category breakdown — one card per payment type. */
     .acct-categories {
@@ -580,6 +651,7 @@
           </select>
         </div>
         <div id="acctStatusBanner"></div>
+        <div id="acctCompliance"></div>
         <div class="acct-totals" id="acctTotals"></div>
         <div class="section-label" id="acctCategoriesLabel" style="display: none;">By payment category</div>
         <div class="acct-categories" id="acctCategories"></div>

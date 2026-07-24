@@ -508,6 +508,13 @@ body {
 .dashboard-content {
   padding: var(--bn-space-6) var(--bn-space-8);
   position: relative;
+  /* Capped and centred so content doesn't stretch to absurd line lengths on a
+     wide monitor. admin_dashboard.html previously set this on its own, which
+     made it the ONLY page with a measure — every other page ran full-bleed.
+     Promoted here so all pages share one content width. */
+  max-width: 1400px;
+  margin-inline: auto;
+  width: 100%;
 }
 
 /* ============================================

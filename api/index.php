@@ -88,6 +88,7 @@ const ROUTES = [
     'payments.groupArrears' => ['GET', 'group_arrears_summary'],
     'payments.accountingSummary' => ['GET', 'group_accounting_summary'],
     'payments.groupStats'  => ['GET', 'member_group_stats'],
+    'payments.compliance'  => ['GET', 'group_compliance_summary'],
 
     'statement.get' => ['GET', 'get_statement'],
 

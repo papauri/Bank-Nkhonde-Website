@@ -2021,3 +2021,105 @@ summary:focus-visible,
   color: var(--bn-dark);
   font-variant-numeric: tabular-nums;
 }
+
+/* ============================================
+   CARD INFO ("i") — shared, body-rendered panel
+   ============================================
+   Pairs with scripts/card_info.js. The PANEL is a child of <body>, never of
+   the card, so no ancestor overflow/transform/stacking context can clip it —
+   the failure mode every in-card popover hit. The TOGGLE sits in the card. */
+
+.bn-info-toggle {
+  position: absolute;
+  top: var(--bn-space-2);
+  right: var(--bn-space-2);
+  z-index: 2;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-family: inherit;
+  font-size: var(--bn-text-xs);
+  font-weight: 800;
+  font-style: italic;
+  line-height: 1;
+  color: var(--bn-gray-700);
+  background: var(--bn-gray-100);
+  border: 1px solid var(--bn-gray-lighter);
+  border-radius: var(--bn-radius-full);
+  cursor: pointer;
+  transition: background-color var(--bn-transition-fast), color var(--bn-transition-fast);
+}
+
+/* A comfortable tap target without a 44px disc dominating a small card: the
+   button paints at 26px but its hit area is padded out to 44px. */
+.bn-info-toggle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+.bn-info-toggle:hover {
+  background: var(--bn-accent);
+  color: var(--bn-dark);
+}
+
+.bn-info-toggle[aria-expanded="true"] {
+  background: var(--bn-accent);
+  color: var(--bn-dark);
+  border-color: var(--bn-accent);
+}
+
+.bn-info-panel {
+  position: fixed;
+  z-index: var(--z-tooltip);
+  max-width: min(300px, calc(100vw - var(--bn-space-8)));
+  padding: var(--bn-space-3) var(--bn-space-4);
+  background: var(--bn-white);
+  color: var(--bn-gray-700);
+  border: 1px solid var(--bn-gray-lighter);
+  border-radius: var(--bn-radius-md);
+  box-shadow: var(--bn-shadow-lg);
+  font-size: var(--bn-text-sm);
+  line-height: 1.5;
+  text-align: left;
+}
+
+.bn-info-panel[hidden] { display: none; }
+
+/* Rows, when a caller builds a label/value breakdown into the panel. */
+.bn-info-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--bn-space-3);
+  padding: var(--bn-space-1) 0;
+}
+.bn-info-row:not(:last-child) {
+  border-bottom: 1px solid var(--bn-gray-100);
+}
+.bn-info-row-label { color: var(--bn-gray); }
+.bn-info-row-value {
+  font-weight: 700;
+  color: var(--bn-dark);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.bn-info-title {
+  font-weight: 800;
+  color: var(--bn-dark);
+  margin-bottom: var(--bn-space-2);
+}
+
+/* Any card hosting an info toggle needs a positioning context and room for it. */
+.acct-total,
+.acct-category,
+.bn-has-info {
+  position: relative;
+}
