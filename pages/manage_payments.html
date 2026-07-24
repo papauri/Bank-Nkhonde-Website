@@ -453,6 +453,77 @@
       color: var(--bn-gray);
       padding: var(--bn-space-2) var(--bn-space-1);
     }
+
+    /* Payment category breakdown — one card per payment type. */
+    .acct-categories {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: var(--bn-space-3);
+      margin-bottom: var(--bn-space-5);
+    }
+    .acct-category {
+      display: flex;
+      flex-direction: column;
+      gap: var(--bn-space-2);
+      padding: var(--bn-space-4);
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      box-shadow: var(--bn-shadow-xs);
+      text-align: left;
+      font: inherit;
+      cursor: pointer;
+      transition:
+        transform var(--bn-transition-base),
+        box-shadow var(--bn-transition-base),
+        border-color var(--bn-transition-base);
+    }
+    .acct-category:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--bn-shadow-md);
+      border-color: var(--bn-accent);
+    }
+    .acct-category-head {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+    }
+    .acct-category-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .acct-category-dot.seed { background: var(--bn-warning); }
+    .acct-category-dot.monthly { background: var(--bn-success); }
+    .acct-category-dot.servicefee { background: var(--bn-info); }
+    .acct-category-name {
+      font-weight: 700;
+      color: var(--bn-dark);
+      font-size: var(--bn-text-sm);
+    }
+    .acct-category-amount {
+      font-size: var(--bn-text-xl);
+      font-weight: 800;
+      color: var(--bn-dark);
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+    }
+    .acct-category-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--bn-space-1) var(--bn-space-3);
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+    .acct-category-flag {
+      font-weight: 700;
+      color: var(--bn-danger-dark);
+    }
+    .acct-category-ok {
+      font-weight: 700;
+      color: var(--bn-success-dark);
+    }
   </style>
 </head>
 <body data-nav-variant="admin" data-nav-active-page="payments" data-nav-page-title="Manage Payments">
@@ -510,6 +581,8 @@
         </div>
         <div id="acctStatusBanner"></div>
         <div class="acct-totals" id="acctTotals"></div>
+        <div class="section-label" id="acctCategoriesLabel" style="display: none;">By payment category</div>
+        <div class="acct-categories" id="acctCategories"></div>
         <div id="acctFollowups"></div>
       </section>
 

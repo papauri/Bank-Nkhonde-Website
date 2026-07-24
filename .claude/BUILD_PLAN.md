@@ -2,6 +2,19 @@
 
 Owned by `build-planner`. One objective per cycle. Specialists read their dispatch brief, not this file.
 
+## APPLIED DDL — loan types (2026-07-24, owner-directed, applied to the LIVE DB)
+```sql
+ALTER TABLE loans ADD COLUMN loanType VARCHAR(40) NOT NULL DEFAULT 'Other';
+```
+Additive and behaviour-preserving: every pre-existing row takes the `'Other'` default, **no existing row was updated** (verified: 2 rows at time of change, none altered). Applied idempotently (guarded by `SHOW COLUMNS ... LIKE 'loanType'`).
+
+**Why:** loans previously had only a free-text `purpose`, so lending could not be reported by category. `loanType` is now written by both loan paths (`request_loan`, `force_loan`) and returned by both read paths (`loan_fetch_row`, `list_loans`).
+
+**Vocabulary (server allowlist `LOAN_TYPES`, api/handlers/loans.php):** Business · Education · Medical · Emergency · Agriculture · Home Improvement · Other. This is the SAME set the member loan-request form already offered, promoted to the shared vocabulary so members, admins and the server categorise identically. `loan_type_or_other()` accepts the member form's slugs (`home_improvement`) and the admin form's display values (`Home Improvement`); anything unrecognised falls back to `'Other'` rather than being trusted into the column.
+
+**Legacy rows:** the client's `loanTypeOf()` prefers the column, and falls back to parsing the leading segment of `purpose` for loans booked before the column existed — so historical loans are still categorised instead of all showing as "Other". No bulk `UPDATE` was run against the live money table.
+
+
 ## RUN DIRECTIVE (owner, cycle 20): CONTINUOUS TO COMPLETION
 Do not stop between tasks. Keep looping — build endpoint → QA → re-wire client → next port — until the ENTIRE M3.2 port list is done and M4 cutover is reached. Stop ONLY for: a genuine owner money/product decision with no other unblocked work; a task that failed QA twice; a safety-rail action (commit/push, destructive SQL, file deletion — all need sign-off); or M4 (delete Firebase) which needs explicit sign-off. Report a STATUS block per cycle and keep going.
 

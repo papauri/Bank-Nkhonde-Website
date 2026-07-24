@@ -30,6 +30,48 @@ const LOAN_FALLBACK_MAX_ACTIVE_LOANS = 1;
 // Statuses that count against a member's active-loan allowance.
 const LOAN_ACTIVE_STATUSES = ['pending', 'approved', 'disbursed'];
 
+// What a loan is FOR. Stored on loans.loanType (VARCHAR(40) NOT NULL DEFAULT
+// 'Other') so lending can be reported by purpose. Server-side allowlist: an
+// unrecognised or absent value falls back to 'Other' rather than being trusted
+// into the column, so this stays a closed set the reporting UI can rely on.
+// This is the SAME set the member-facing loan-request form has always offered
+// (user_dashboard.html's purpose select), promoted to the shared vocabulary so
+// members and admins categorise loans identically.
+const LOAN_TYPES = [
+    'Business',
+    'Education',
+    'Medical',
+    'Emergency',
+    'Agriculture',
+    'Home Improvement',
+    'Other',
+];
+
+if (!function_exists('loan_type_or_other')) {
+    /**
+     * Normalise a client-supplied loan type against the allowlist.
+     *
+     * Accepts either the display form ("Home Improvement") or the slug the
+     * member form posts ("home_improvement") — underscores/hyphens are treated
+     * as spaces — so both clients can send their natural value. Anything
+     * unrecognised becomes 'Other' rather than being trusted into the column.
+     * @param mixed $raw
+     */
+    function loan_type_or_other($raw): string
+    {
+        $value = trim((string) ($raw ?? ''));
+        $value = str_replace(['_', '-'], ' ', $value);
+        $value = preg_replace('/\s+/', ' ', $value) ?? $value;
+
+        foreach (LOAN_TYPES as $type) {
+            if (strcasecmp($value, $type) === 0) {
+                return $type;
+            }
+        }
+        return 'Other';
+    }
+}
+
 if (!function_exists('loan_money_input_to_string')) {
     /**
      * Normalise a JSON-decoded money input into a decimal string for
@@ -65,7 +107,7 @@ if (!function_exists('loan_fetch_row')) {
             . 'interestRateMonth1, interestRateMonth2, interestRateMonth3, '
             . 'totalInterest, totalRepayment, monthlyPayment, disbursedAmount, disbursedAt, '
             . 'disbursedBy, disbursementMethod, requestedAt, approvedBy, approvedAt, rejectedBy, '
-            . 'rejectedAt, rejectionReason, purpose, collateral, guarantorName, guarantorPhone, '
+            . 'rejectedAt, rejectionReason, purpose, loanType, collateral, guarantorName, guarantorPhone, '
             . 'guarantorRelationship, amountRepaid, remainingBalance, penaltiesCharged, '
             . 'createdAt, updatedAt, completedAt '
             . 'FROM loans WHERE loanId = :loanId LIMIT 1'
@@ -162,7 +204,7 @@ if (!function_exists('list_loans')) {
             . 'principalAmount, approvedAmount, status, repaymentPeriod, '
             . 'interestRateMonth1, interestRateMonth2, interestRateMonth3, '
             . 'totalInterest, totalRepayment, monthlyPayment, disbursedAmount, disbursedAt, '
-            . 'requestedAt, approvedAt, rejectedAt, rejectionReason, purpose, '
+            . 'requestedAt, approvedAt, rejectedAt, rejectionReason, purpose, loanType, '
             . 'amountRepaid, remainingBalance, penaltiesCharged, createdAt, updatedAt, completedAt '
             . 'FROM loans WHERE groupId = :groupId';
         $params = [':groupId' => $groupId];
@@ -254,6 +296,7 @@ if (!function_exists('request_loan')) {
         $principal = loan_money_input_to_string($body['principalAmount'] ?? '');
         $period = (int) ($body['repaymentPeriod'] ?? 0);
         $purpose = trim((string) ($body['purpose'] ?? ''));
+        $loanType = loan_type_or_other($body['loanType'] ?? null);
 
         try {
             $principalMinor = money_to_minor($principal);
@@ -326,13 +369,13 @@ if (!function_exists('request_loan')) {
             . '(loanId, groupId, loanNumber, borrowerId, borrowerName, borrowerEmail, '
             . 'principalAmount, status, repaymentPeriod, '
             . 'interestRateMonth1, interestRateMonth2, interestRateMonth3, '
-            . 'totalInterest, totalRepayment, monthlyPayment, requestedAt, purpose, '
+            . 'totalInterest, totalRepayment, monthlyPayment, requestedAt, purpose, loanType, '
             . 'collateral, guarantorName, guarantorPhone, guarantorRelationship, '
             . 'amountRepaid, remainingBalance, penaltiesCharged, createdAt, updatedAt) '
             . 'VALUES (:loanId, :groupId, :loanNumber, :borrowerId, :borrowerName, :borrowerEmail, '
             . ":principalAmount, 'pending', :repaymentPeriod, "
             . ':rate1, :rate2, :rate3, '
-            . ":totalInterest, :totalRepayment, :monthlyPayment, NOW(), :purpose, "
+            . ":totalInterest, :totalRepayment, :monthlyPayment, NOW(), :purpose, :loanType, "
             . ':collateral, :guarantorName, :guarantorPhone, :guarantorRelationship, '
             . ":amountRepaid, :remainingBalance, :penaltiesCharged, NOW(), NOW())"
         );
@@ -355,6 +398,7 @@ if (!function_exists('request_loan')) {
             ':totalRepayment' => '0.00',
             ':monthlyPayment' => '0.00',
             ':purpose' => $purpose,
+            ':loanType' => $loanType,
             ':collateral' => loan_optional_text($body['collateral'] ?? null),
             ':guarantorName' => loan_optional_text($body['guarantorName'] ?? null),
             ':guarantorPhone' => loan_optional_text($body['guarantorPhone'] ?? null),
@@ -885,14 +929,14 @@ if (!function_exists('force_loan')) {
                 . 'interestRateMonth1, interestRateMonth2, interestRateMonth3, '
                 . 'totalInterest, totalRepayment, monthlyPayment, '
                 . 'isForced, forcedBy, forcedReason, '
-                . 'requestedAt, approvedBy, approvedAt, purpose, '
+                . 'requestedAt, approvedBy, approvedAt, purpose, loanType, '
                 . 'amountRepaid, remainingBalance, penaltiesCharged, createdAt, updatedAt) '
                 . 'VALUES (:loanId, :groupId, :loanNumber, :borrowerId, :borrowerName, :borrowerEmail, '
                 . ":principalAmount, :approvedAmount, 'approved', :repaymentPeriod, "
                 . ':rate1, :rate2, :rate3, '
                 . ':totalInterest, :totalRepayment, :monthlyPayment, '
                 . '1, :forcedBy, :forcedReason, '
-                . 'NOW(), :approvedBy, NOW(), :purpose, '
+                . 'NOW(), :approvedBy, NOW(), :purpose, :loanType, '
                 . ":amountRepaid, :remainingBalance, :penaltiesCharged, NOW(), NOW())"
             );
             $insertStmt->execute([
@@ -915,6 +959,7 @@ if (!function_exists('force_loan')) {
                 ':forcedReason' => $forcedReason,
                 ':approvedBy' => $caller['uid'],
                 ':purpose' => 'Forced loan: ' . $forcedReason,
+                ':loanType' => loan_type_or_other($body['loanType'] ?? null),
                 ':amountRepaid' => '0.00',
                 ':remainingBalance' => $computed['totalRepayment'],
                 ':penaltiesCharged' => '0.00',

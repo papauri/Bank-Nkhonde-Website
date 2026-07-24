@@ -1922,3 +1922,102 @@ summary:focus-visible,
     overflow-wrap: break-word;
   }
 }
+
+/* ============================================
+   STANDARD VOCABULARY COMPLETION
+   ============================================
+   Fills the gaps that were forcing pages into one-off inline styles, and
+   promotes the most-repeated inline patterns (a section label, a field hint,
+   a space-between row) into named, token-based classes so every page shares
+   ONE vocabulary. Purely additive — nothing existing is altered. */
+
+/* ── Spacing utilities (complete the scale) ────────────────────────────── */
+.mt-5 { margin-top: var(--bn-space-5); }
+.mb-5 { margin-bottom: var(--bn-space-5); }
+.mt-auto { margin-top: auto; }
+.mb-0 { margin-bottom: 0; }
+.ml-auto { margin-left: auto; }
+.mr-auto { margin-right: auto; }
+.mx-auto { margin-left: auto; margin-right: auto; }
+.p-2 { padding: var(--bn-space-2); }
+.p-3 { padding: var(--bn-space-3); }
+.p-5 { padding: var(--bn-space-5); }
+.gap-0 { gap: 0; }
+
+/* ── Layout shortcuts ──────────────────────────────────────────────────── */
+.flex-1 { flex: 1; }
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bn-space-3);
+}
+.flex-center {
+  display: flex;
+  align-items: center;
+  gap: var(--bn-space-2);
+}
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+.min-w-0 { min-width: 0; }
+.relative { position: relative; }
+.nowrap { white-space: nowrap; }
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Text utilities ────────────────────────────────────────────────────── */
+.text-xs { font-size: var(--bn-text-xs); }
+.text-sm { font-size: var(--bn-text-sm); }
+.text-base { font-size: var(--bn-text-base); }
+.text-lg { font-size: var(--bn-text-lg); }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
+.font-extrabold { font-weight: 800; }
+.text-success { color: var(--bn-success-dark); }
+.text-warning { color: var(--bn-warning-dark); }
+.text-danger { color: var(--bn-danger-dark); }
+.text-info { color: var(--bn-info); }
+
+/* ── Repeated component patterns → named classes ───────────────────────── */
+/* An uppercase section/field label (appeared 7× inline, verbatim). */
+.section-label {
+  font-size: var(--bn-text-xs);
+  font-weight: 700;
+  color: var(--bn-gray);
+  text-transform: uppercase;
+  letter-spacing: var(--bn-tracking-wider);
+  margin-bottom: var(--bn-space-2);
+}
+
+/* Small muted helper text under a field/value (appeared 8× inline). */
+.field-hint {
+  display: block;
+  font-size: var(--bn-text-xs);
+  color: var(--bn-gray);
+  margin-top: var(--bn-space-1);
+  line-height: 1.4;
+}
+
+/* A label:value row that pushes the value to the right (appeared 4×+). */
+.detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bn-space-2);
+  padding: var(--bn-space-2) 0;
+}
+.detail-row:not(:last-child) {
+  border-bottom: 1px solid var(--bn-gray-100);
+}
+.detail-row-label {
+  color: var(--bn-gray);
+  font-size: var(--bn-text-sm);
+}
+.detail-row-value {
+  font-weight: 600;
+  color: var(--bn-dark);
+  font-variant-numeric: tabular-nums;
+}

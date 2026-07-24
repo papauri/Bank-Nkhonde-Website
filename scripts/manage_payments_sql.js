@@ -436,6 +436,155 @@ function acctTotalTile(label, value, cls) {
   return tile;
 }
 
+/**
+ * Plain-language explanation of HOW a live penalty was arrived at, so the
+ * figure is never an unexplained number. Handles both configured modes:
+ * 'fixed' (a flat amount per day) and 'percentage' (a rate per day or month).
+ * Falls back to the day-count alone when the server sends no type — older
+ * responses, and the all-zero "nothing owed" shape.
+ * @param {Object} penalty the payment.penalty object from the server
+ * @return {string}
+ */
+function describePenaltyBasis(penalty) {
+  const periods = Number(penalty.periodsCharged ?? penalty.daysCharged ?? 0);
+  if (penalty.penaltyType === "percentage" && penalty.rate) {
+    const unit = penalty.ratePeriod === "month" ? "month" : "day";
+    return `${penalty.rate}% of arrears x ${periods} ${unit}${periods === 1 ? "" : "s"}`;
+  }
+  if (penalty.penaltyType === "fixed" || penalty.dailyAmount) {
+    return `${periods} day${periods === 1 ? "" : "s"} at ${formatCurrency(penalty.dailyAmount)}/day`;
+  }
+  return `${periods} day${periods === 1 ? "" : "s"} late`;
+}
+
+// The payment categories a group collects, in the order a treasurer thinks
+// about them: joining money first, then the recurring dues.
+const PAYMENT_CATEGORIES = [
+  {type: "seed_money", label: "Seed Money", cls: "seed", tab: "seed"},
+  {type: "monthly_contribution", label: "Monthly Contributions", cls: "monthly", tab: "monthly"},
+  {type: "service_fee", label: "Service Fee", cls: "servicefee", tab: "servicefee"},
+];
+
+/**
+ * One card per payment category showing what's been collected in the selected
+ * period, plus what's still owed and how many members are behind — so an admin
+ * can see each category's health at a glance instead of reading the whole
+ * table. Clicking a card jumps to that category's tab.
+ *
+ * Penalties shown here are the server's own live-computed figures
+ * (payment.penalty.amountAccrued) — this adds no client-side penalty maths.
+ * @param {string} period the selected reporting period
+ */
+function renderCategoryBreakdown(period) {
+  const host = document.getElementById("acctCategories");
+  const label = document.getElementById("acctCategoriesLabel");
+  if (!host) return;
+  host.textContent = "";
+
+  const rows = PAYMENT_CATEGORIES.map((cat) => {
+    let collected = 0;
+    let outstanding = 0;
+    let penalties = 0;
+    const behind = new Set();
+    let present = false;
+
+    allPayments.forEach((p) => {
+      if (String(p.paymentType) !== cat.type) return;
+      present = true;
+      if (
+        SETTLED_STATUSES.includes(p.approvalStatus) &&
+        inAcctPeriod(p.paidAt || p.createdAt, period)
+      ) {
+        collected += numberOf(p.amountPaid);
+      }
+      // Arrears/penalties are the CURRENT receivable — deliberately not
+      // period-scoped, so "who is behind" is always today's truth.
+      const owed = numberOf(p.arrears);
+      if (owed > 0) {
+        outstanding += owed;
+        behind.add(p.uid);
+      }
+      if (p.penalty) penalties += numberOf(p.penalty.amountAccrued);
+    });
+
+    return {cat, collected, outstanding, penalties, behind: behind.size, present};
+  }).filter((r) => r.present);
+
+  if (label) label.style.display = rows.length ? "" : "none";
+
+  // The "Service Fee" tab ships hidden (style="display:none") and no code ever
+  // revealed it — so a group that DOES collect service fees had no way to view
+  // that category. Reveal it exactly when such payments exist, so the tab the
+  // category card links to is actually reachable.
+  const hasServiceFee = rows.some((r) => r.cat.type === "service_fee");
+  const serviceFeeTab = document.querySelector('.payment-tab[data-tab="servicefee"]');
+  if (serviceFeeTab && hasServiceFee) serviceFeeTab.style.display = "";
+
+  if (!rows.length) return;
+
+  rows.forEach((r) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "acct-category";
+    card.setAttribute(
+      "aria-label",
+      `${r.cat.label}: ${formatCurrency(r.collected)} collected. Open ${r.cat.label} payments.`
+    );
+
+    const head = document.createElement("div");
+    head.className = "acct-category-head";
+    const dot = document.createElement("span");
+    dot.className = `acct-category-dot ${r.cat.cls}`;
+    const name = document.createElement("span");
+    name.className = "acct-category-name";
+    name.textContent = r.cat.label;
+    head.append(dot, name);
+
+    const amount = document.createElement("div");
+    amount.className = "acct-category-amount";
+    amount.textContent = formatCurrency(r.collected);
+
+    const meta = document.createElement("div");
+    meta.className = "acct-category-meta";
+
+    const collectedNote = document.createElement("span");
+    collectedNote.textContent = "collected";
+    meta.appendChild(collectedNote);
+
+    if (r.outstanding > 0) {
+      const owed = document.createElement("span");
+      owed.className = "acct-category-flag";
+      owed.textContent = `${formatCurrency(r.outstanding)} owed`;
+      meta.appendChild(owed);
+
+      const who = document.createElement("span");
+      who.className = "acct-category-flag";
+      who.textContent = `${r.behind} behind`;
+      meta.appendChild(who);
+    } else {
+      const ok = document.createElement("span");
+      ok.className = "acct-category-ok";
+      ok.textContent = "✓ all paid";
+      meta.appendChild(ok);
+    }
+
+    if (r.penalties > 0) {
+      const pen = document.createElement("span");
+      pen.className = "acct-category-flag";
+      pen.textContent = `${formatCurrency(r.penalties)} penalties`;
+      meta.appendChild(pen);
+    }
+
+    card.append(head, amount, meta);
+    card.addEventListener("click", () => {
+      activateTab(r.cat.tab);
+      document.getElementById("pendingPaymentsList")
+        ?.scrollIntoView({behavior: "smooth", block: "start"});
+    });
+    host.appendChild(card);
+  });
+}
+
 function renderAccountantSummary() {
   const section = document.getElementById("accountantSummary");
   if (!section) return;
@@ -498,6 +647,8 @@ function renderAccountantSummary() {
       acctTotalTile("Outstanding arrears", formatCurrency(totalArrears), totalArrears > 0 ? "neg" : ""),
     );
   }
+
+  renderCategoryBreakdown(period);
 
   // Follow-up list.
   const fu = document.getElementById("acctFollowups");
@@ -682,7 +833,8 @@ function createPaymentRow(payment, showActions = true) {
   if (penalty && numberOf(penalty.amountAccrued) > 0) {
     const penaltyNote = el("div");
     penaltyNote.style.cssText = "font-size: var(--bn-text-sm); color: var(--bn-danger);";
-    penaltyNote.textContent = `Live penalty: ${formatCurrency(penalty.amountAccrued)} (${penalty.daysCharged} day(s) at ${formatCurrency(penalty.dailyAmount)}/day)`;
+    penaltyNote.textContent =
+      `Live penalty: ${formatCurrency(penalty.amountAccrued)} (${describePenaltyBasis(penalty)})`;
     detailsCell.appendChild(penaltyNote);
   }
   if (payment.notes) {

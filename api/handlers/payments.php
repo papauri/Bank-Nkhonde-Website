@@ -122,19 +122,29 @@ if (!function_exists('compute_contribution_penalty')) {
     /**
      * Live penalty position for ONE contribution obligation.
      *
-     * THE RULE (same engine shape as the loan penalty):
-     *   An obligation still in arrears after its grace period accrues a FIXED MWK
-     *   AMOUNT PER DAY until the arrears are cleared.
+     * THE RULE — two configured modes, sharing one grace/accrual shape:
      *
-     *     firstChargeable = dueDate + gracePeriodDays
-     *     daysCharged     = whole days between firstChargeable and today
-     *     accrued         = dailyAmount * MAX(0, daysCharged)
+     *   firstChargeable = dueDate + gracePeriodDays   (both modes)
      *
-     *   * A fixed cash amount per day — NOT a percentage of the arrears, and not
-     *     a one-off charge.
+     *   'fixed'      A flat MWK amount per day late:
+     *                  accrued = dailyAmount * MAX(0, daysCharged)
+     *
+     *   'percentage' A percentage OF THE ARREARS per elapsed period:
+     *                  accrued = arrears * rate% * periodsCharged
+     *                The schema carries both a daily and a monthly rate; a
+     *                non-zero DAILY rate wins, else the MONTHLY rate applies
+     *                (counted in WHOLE elapsed months). The two are never
+     *                combined — that would bill the same lateness twice.
+     *                The arithmetic is integer-only, using the same
+     *                rate-in-hundredths / divide-by-10000 / round-half-up
+     *                convention as compute_loan_schedule()'s interest.
+     *
+     *   Both modes:
      *   * Zero while inside the grace period.
      *   * Zero once the arrears are cleared: the charge accrues only while money
      *     is actually owed.
+     *   * A mode configured with no amount/rate THROWS rather than charging
+     *     zero — silently charging nothing is as wrong as charging wrongly.
      *
      * COMPUTED ON READ. It grows every night and there is no cron in this system,
      * so any persisted running total is stale by morning. Only SETTLED penalties
@@ -171,6 +181,10 @@ if (!function_exists('compute_contribution_penalty')) {
         $asOfDay = payment_day($asOf ?? 'now');
 
         $zero = [
+            'penaltyType' => null,
+            'rate' => null,
+            'ratePeriod' => null,
+            'periodsCharged' => 0,
             'dailyAmount' => '0.00',
             'gracePeriodDays' => 0,
             'firstChargeableDay' => null,
@@ -193,34 +207,11 @@ if (!function_exists('compute_contribution_penalty')) {
 
         $type = (string) ($rules['contributionPenaltyType'] ?? '');
 
-        // Percentage penalties are implemented NOWHERE in this codebase. Guessing
-        // at the maths would invent charges against real members, so the engine
-        // refuses outright and the handler surfaces it as a 501. It does not fall
-        // back to zero: silently charging nothing is as wrong as charging wrongly.
-        if ($type === 'percentage') {
-            throw new RuntimeException('Percentage contribution penalties are not implemented.');
-        }
-        if ($type !== 'fixed') {
+        if ($type !== 'fixed' && $type !== 'percentage') {
             throw new RuntimeException('Unknown contribution penalty type in this group\'s rules.');
         }
 
-        $dailyRaw = $rules['contributionPenaltyDailyAmount'] ?? null;
-
-        // Configured 'fixed' but with no daily amount set: the group intended to
-        // charge something and has not said how much. Never quietly charge 0.
-        if ($dailyRaw === null || $dailyRaw === '') {
-            throw new RuntimeException(
-                'This group charges a fixed daily contribution penalty but '
-                . 'contributionPenaltyDailyAmount is not set.'
-            );
-        }
-
-        try {
-            $dailyMinor = money_to_minor((string) $dailyRaw);
-        } catch (InvalidArgumentException $e) {
-            throw new RuntimeException('contributionPenaltyDailyAmount is not a valid money value.');
-        }
-
+        // Grace + first chargeable day are identical for both modes.
         $graceDays = (int) ($rules['contributionPenaltyGracePeriodDays'] ?? 0);
         if ($graceDays < 0) {
             $graceDays = 0;
@@ -235,7 +226,98 @@ if (!function_exists('compute_contribution_penalty')) {
             ? (int) $firstChargeable->diff($asOfDay)->days
             : 0;
 
-        $accruedMinor = $dailyMinor * $daysCharged;
+        // Defaults for the fields that only one mode populates, so the return
+        // contract below is identical in shape for both.
+        $dailyMinor = 0;
+        $rateUsed = null;
+        $ratePeriod = null;
+        $periodsCharged = $daysCharged;
+
+        if ($type === 'fixed') {
+            $dailyRaw = $rules['contributionPenaltyDailyAmount'] ?? null;
+
+            // Configured 'fixed' but with no daily amount set: the group intended
+            // to charge something and has not said how much. Never quietly
+            // charge 0.
+            if ($dailyRaw === null || $dailyRaw === '') {
+                throw new RuntimeException(
+                    'This group charges a fixed daily contribution penalty but '
+                    . 'contributionPenaltyDailyAmount is not set.'
+                );
+            }
+
+            try {
+                $dailyMinor = money_to_minor((string) $dailyRaw);
+            } catch (InvalidArgumentException $e) {
+                throw new RuntimeException('contributionPenaltyDailyAmount is not a valid money value.');
+            }
+
+            $accruedMinor = $dailyMinor * $daysCharged;
+        } else {
+            // PERCENTAGE MODE.
+            //
+            // THE RULE: arrears still owed after the grace period accrue a
+            // PERCENTAGE OF THOSE ARREARS per elapsed period —
+            //
+            //     accrued = arrears x rate% x periodsCharged
+            //
+            // The rate is charged on what is still owed (not on the original
+            // instalment), so clearing part of the debt reduces the ongoing
+            // charge — the same "accrues only while money is owed" principle the
+            // fixed mode follows.
+            //
+            // WHICH RATE: the schema carries both a daily and a monthly rate.
+            // A non-zero daily rate wins; otherwise the monthly rate applies.
+            // They are never combined — charging both would bill the same
+            // lateness twice.
+            $dailyRateRaw = trim((string) ($rules['contributionPenaltyDailyRate'] ?? ''));
+            $monthlyRateRaw = trim((string) ($rules['contributionPenaltyMonthlyRate'] ?? ''));
+
+            $useDaily = $dailyRateRaw !== '' && money_rate_to_hundredths($dailyRateRaw) > 0;
+            $useMonthly = !$useDaily
+                && $monthlyRateRaw !== ''
+                && money_rate_to_hundredths($monthlyRateRaw) > 0;
+
+            // Configured 'percentage' with no usable rate: same reasoning as the
+            // fixed branch — the group meant to charge and hasn't said how much,
+            // so refuse rather than silently charge nothing.
+            if (!$useDaily && !$useMonthly) {
+                throw new RuntimeException(
+                    'This group charges a percentage contribution penalty but neither '
+                    . 'contributionPenaltyDailyRate nor contributionPenaltyMonthlyRate is set.'
+                );
+            }
+
+            if ($useDaily) {
+                $rateUsed = $dailyRateRaw;
+                $ratePeriod = 'day';
+                $periodsCharged = $daysCharged;
+            } else {
+                $rateUsed = $monthlyRateRaw;
+                $ratePeriod = 'month';
+                // WHOLE elapsed months only — a member is not charged a further
+                // month until that month has actually passed.
+                $monthsDiff = $firstChargeable->diff($asOfDay);
+                $periodsCharged = $firstChargeable < $asOfDay
+                    ? ($monthsDiff->y * 12) + $monthsDiff->m
+                    : 0;
+            }
+
+            try {
+                $rateHundredths = money_rate_to_hundredths($rateUsed);
+            } catch (InvalidArgumentException $e) {
+                throw new RuntimeException('The contribution penalty rate is not a valid percentage.');
+            }
+
+            // Integer-only, exactly the convention compute_loan_schedule() uses
+            // for interest: rate carried in hundredths of a percent, so the
+            // divisor is 100 (percent) x 100 (hundredths) = 10000, with one
+            // half-up rounding at the very end. No float ever touches money.
+            $accruedMinor = money_div_round_half_up(
+                $arrearsMinor * $rateHundredths * $periodsCharged,
+                10000
+            );
+        }
 
         // Penalties already settled against this payment — paid or waived — have
         // stopped accruing and are facts on the ledger. Netting them off is what
@@ -267,6 +349,13 @@ if (!function_exists('compute_contribution_penalty')) {
         }
 
         return [
+            // penaltyType/rate/ratePeriod/periodsCharged are ADDITIVE — every
+            // pre-existing key keeps its meaning, so callers that only read the
+            // fixed-mode fields continue to work unchanged.
+            'penaltyType' => $type,
+            'rate' => $rateUsed,
+            'ratePeriod' => $ratePeriod,
+            'periodsCharged' => $periodsCharged,
             'dailyAmount' => money_from_minor($dailyMinor),
             'gracePeriodDays' => $graceDays,
             'firstChargeableDay' => $firstChargeable->format('Y-m-d'),

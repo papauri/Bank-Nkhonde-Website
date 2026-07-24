@@ -566,6 +566,215 @@ function loanBorrowerName(borrowerId) {
   return members.find((m) => m.uid === borrowerId)?.fullName || "Unknown";
 }
 
+/**
+ * The shared loan-type vocabulary — identical to the member-facing request
+ * form's purpose list and to LOAN_TYPES in api/handlers/loans.php, so members,
+ * admins and the server all categorise loans the same way.
+ */
+const LOAN_TYPES = [
+  "Business",
+  "Education",
+  "Medical",
+  "Emergency",
+  "Agriculture",
+  "Home Improvement",
+];
+
+/**
+ * The type a loan belongs to.
+ *
+ * Prefers the loans.loanType column (the authority for anything booked since
+ * types shipped). Loans created BEFORE that column existed all carry its
+ * 'Other' default, so for those we fall back to reading the leading segment of
+ * the stored purpose — which is where the type was written — rather than
+ * showing every historical loan as "Other".
+ * @param {Object} loan
+ * @return {string}
+ */
+function loanTypeOf(loan) {
+  const stored = String(loan.loanType || "").trim();
+  if (stored && stored.toLowerCase() !== "other") {
+    return LOAN_TYPES.find((t) => t.toLowerCase() === stored.toLowerCase()) || "Other";
+  }
+
+  let purpose = String(loan.purpose || "").trim();
+  if (!purpose) return "Other";
+  // Admin-originated loans are stored by the server as
+  // "Forced loan: <reason>" (loans.php force_loan), so the type sits AFTER
+  // that prefix. Strip it before matching, or every forced loan would fall
+  // into "Other".
+  purpose = purpose.replace(/^forced loan:\s*/i, "");
+  const head = purpose.split("—")[0].trim();
+  return LOAN_TYPES.find((t) => t.toLowerCase() === head.toLowerCase()) || "Other";
+}
+
+/**
+ * A compact "by loan type" strip showing how the group's lending splits across
+ * purposes — the lending equivalent of the payment-category cards. Read-only
+ * summary of already-loaded loans; adds no fetch and no money maths beyond
+ * summing figures the page already displays.
+ */
+function renderLoanTypeBreakdown() {
+  const host = document.getElementById("acctLoanTypes");
+  const label = document.getElementById("acctLoanTypesLabel");
+  if (!host) return;
+  host.textContent = "";
+
+  // Only loans where money actually moved — a pending request isn't lending yet.
+  const issued = loans.filter((l) =>
+    ["approved", "disbursed", "completed", "defaulted"].includes(String(l.status))
+  );
+
+  const byType = new Map();
+  issued.forEach((l) => {
+    const t = loanTypeOf(l);
+    const prev = byType.get(t) || {count: 0, amount: 0};
+    prev.count += 1;
+    prev.amount += numberOf(l.approvedAmount ?? l.principalAmount);
+    byType.set(t, prev);
+  });
+
+  const rows = Array.from(byType.entries())
+    .map(([type, v]) => ({type, ...v}))
+    .sort((a, b) => b.amount - a.amount);
+
+  if (label) label.style.display = rows.length ? "" : "none";
+  if (!rows.length) return;
+
+  const total = rows.reduce((s, r) => s + r.amount, 0);
+
+  rows.forEach((r) => {
+    const item = document.createElement("div");
+    item.className = "loan-type-row";
+
+    const name = document.createElement("span");
+    name.className = "loan-type-name";
+    name.textContent = r.type;
+
+    const bar = document.createElement("span");
+    bar.className = "loan-type-bar";
+    const fill = document.createElement("span");
+    fill.className = "loan-type-fill";
+    fill.style.width = total > 0 ? `${Math.max((r.amount / total) * 100, 2)}%` : "0%";
+    bar.appendChild(fill);
+
+    const amt = document.createElement("span");
+    amt.className = "loan-type-amt";
+    amt.textContent = `${formatCurrency(r.amount)} · ${r.count}`;
+
+    item.append(name, bar, amt);
+    host.appendChild(item);
+  });
+}
+
+/**
+ * One card per loan state — the categories a treasurer manages loans by.
+ * Each shows the money in that state and how many loans, and jumps to the
+ * matching tab. Amounts reuse the same figures the tabs/stats already show;
+ * no new money maths.
+ */
+function renderLoanCategoryBreakdown() {
+  const host = document.getElementById("acctCategories");
+  const label = document.getElementById("acctCategoriesLabel");
+  if (!host) return;
+  host.textContent = "";
+
+  const principalOf = (l) => numberOf(l.approvedAmount ?? l.principalAmount);
+  const overdue = loans.filter(isLoanOverdue);
+  const overdueIds = new Set(overdue.map((l) => l.loanId ?? l.loanNumber));
+
+  const groups = [
+    {
+      key: "pending", label: "Pending Requests", cls: "pending", tab: "pending",
+      rows: loans.filter((l) => l.status === "pending"),
+      amount: (rs) => rs.reduce((s, l) => s + principalOf(l), 0),
+      note: "requested",
+    },
+    {
+      key: "active", label: "Active Loans", cls: "active", tab: "active",
+      rows: loans.filter((l) => l.status === "approved" || l.status === "disbursed"),
+      amount: (rs) => rs.reduce((s, l) => s + numberOf(l.remainingBalance), 0),
+      note: "outstanding",
+    },
+    {
+      key: "overdue", label: "Overdue", cls: "overdue", tab: "overdue",
+      rows: overdue,
+      amount: (rs) => rs.reduce((s, l) => s + numberOf(l.remainingBalance), 0),
+      note: "past due",
+    },
+    {
+      key: "repaid", label: "Fully Repaid", cls: "repaid", tab: "repaid",
+      rows: loans.filter((l) => l.status === "completed"),
+      amount: (rs) => rs.reduce((s, l) => s + principalOf(l), 0),
+      note: "repaid",
+    },
+  ].filter((g) => g.rows.length > 0);
+
+  if (label) label.style.display = groups.length ? "" : "none";
+  if (!groups.length) return;
+
+  groups.forEach((g) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "acct-category";
+    card.setAttribute("aria-label", `${g.label}: ${g.rows.length}. Open ${g.label}.`);
+
+    const head = document.createElement("div");
+    head.className = "acct-category-head";
+    const dot = document.createElement("span");
+    dot.className = `acct-category-dot ${g.cls}`;
+    const name = document.createElement("span");
+    name.className = "acct-category-name";
+    name.textContent = g.label;
+    head.append(dot, name);
+
+    const amount = document.createElement("div");
+    amount.className = "acct-category-amount";
+    amount.textContent = formatCurrency(g.amount(g.rows));
+
+    const meta = document.createElement("div");
+    meta.className = "acct-category-meta";
+    const count = document.createElement("span");
+    count.textContent = `${g.rows.length} loan${g.rows.length === 1 ? "" : "s"} · ${g.note}`;
+    meta.appendChild(count);
+
+    // Flag active loans that are also overdue, so "Active" never looks healthy
+    // while some of it is actually past due.
+    if (g.key === "active") {
+      const alsoOverdue = g.rows.filter(
+        (l) => overdueIds.has(l.loanId ?? l.loanNumber)
+      ).length;
+      const flag = document.createElement("span");
+      if (alsoOverdue > 0) {
+        flag.className = "acct-category-flag";
+        flag.textContent = `${alsoOverdue} overdue`;
+      } else {
+        flag.className = "acct-category-ok";
+        flag.textContent = "✓ on track";
+      }
+      meta.appendChild(flag);
+    }
+
+    card.append(head, amount, meta);
+    card.addEventListener("click", () => {
+      currentTab = g.tab;
+      document.querySelectorAll(".action-tab").forEach((t) => {
+        t.classList.toggle("active", t.dataset.tab === g.tab);
+      });
+      // Keep the filter dropdown in step with the tab, matching what the
+      // existing .action-tab click handler does.
+      const filterDropdown = document.getElementById("loanFilterDropdown");
+      if (filterDropdown && filterDropdown.value !== "all") {
+        filterDropdown.value = g.tab;
+      }
+      renderLoans();
+      document.getElementById("loansContainer")
+        ?.scrollIntoView({behavior: "smooth", block: "start"});
+    });
+    host.appendChild(card);
+  });
+}
+
 function renderAccountantSummary() {
   const section = document.getElementById("accountantSummary");
   if (!section) return;
@@ -637,6 +846,9 @@ function renderAccountantSummary() {
       acctTotalTile("Outstanding", formatCurrency(outstanding), outstanding > 0 ? "neg" : ""),
     );
   }
+
+  renderLoanCategoryBreakdown();
+  renderLoanTypeBreakdown();
 
   // Follow-up list.
   const fu = document.getElementById("acctFollowups");
@@ -1120,7 +1332,14 @@ async function handleNewLoan(e) {
   const memberId = document.getElementById("loanMember")?.value;
   const amount = parseFloat(document.getElementById("loanAmount")?.value || 0);
   const period = parseInt(document.getElementById("loanPeriod")?.value || 1, 10);
-  const purpose = document.getElementById("loanPurpose")?.value || "";
+  const notes = document.getElementById("loanPurpose")?.value.trim() || "";
+  const loanType = document.getElementById("loanType")?.value || "Other";
+  // loanType is now a real column and is sent as its own field (the server
+  // re-validates it against its allowlist). The human-readable purpose still
+  // leads with the type, because the server stores it as the
+  // "Forced loan: <reason>" line the loan detail view shows — and forcedReason
+  // must be non-empty.
+  const purpose = notes ? `${loanType} — ${notes}` : loanType;
 
   if (!memberId || !amount) {
     showToast("Please fill in all required fields", "error");
@@ -1134,6 +1353,7 @@ async function handleNewLoan(e) {
       borrowerId: memberId,
       principalAmount: amount,
       repaymentPeriod: period,
+      loanType,
       forcedReason: purpose || "Admin-originated loan",
     });
     hideModal("newLoanModal");

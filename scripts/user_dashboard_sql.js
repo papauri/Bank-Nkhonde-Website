@@ -2872,6 +2872,10 @@ async function handleLoanSubmit(event) {
       principalAmount,
       repaymentPeriod: Number(repaymentPeriod),
       purpose,
+      // The chosen purpose IS the loan's type — sent as its own field so the
+      // server can store it on loans.loanType and lending can be reported by
+      // type. The server re-validates it against its own allowlist.
+      loanType: purpose,
     });
 
     closeLoanModal();

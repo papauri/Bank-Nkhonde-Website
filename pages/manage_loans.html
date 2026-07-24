@@ -518,6 +518,127 @@
       color: var(--bn-gray);
       padding: var(--bn-space-2) var(--bn-space-1);
     }
+
+    /* Loan category breakdown — one card per loan state. */
+    .acct-categories {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: var(--bn-space-3);
+      margin-bottom: var(--bn-space-5);
+    }
+    .acct-category {
+      display: flex;
+      flex-direction: column;
+      gap: var(--bn-space-2);
+      padding: var(--bn-space-4);
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      box-shadow: var(--bn-shadow-xs);
+      text-align: left;
+      font: inherit;
+      cursor: pointer;
+      transition:
+        transform var(--bn-transition-base),
+        box-shadow var(--bn-transition-base),
+        border-color var(--bn-transition-base);
+    }
+    .acct-category:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--bn-shadow-md);
+      border-color: var(--bn-accent);
+    }
+    .acct-category-head {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+    }
+    .acct-category-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .acct-category-dot.pending { background: var(--bn-warning); }
+    .acct-category-dot.active { background: var(--bn-info); }
+    .acct-category-dot.overdue { background: var(--bn-danger); }
+    .acct-category-dot.repaid { background: var(--bn-success); }
+    .acct-category-name {
+      font-weight: 700;
+      color: var(--bn-dark);
+      font-size: var(--bn-text-sm);
+    }
+    .acct-category-amount {
+      font-size: var(--bn-text-xl);
+      font-weight: 800;
+      color: var(--bn-dark);
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+    }
+    .acct-category-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--bn-space-1) var(--bn-space-3);
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+    .acct-category-flag {
+      font-weight: 700;
+      color: var(--bn-danger-dark);
+    }
+    .acct-category-ok {
+      font-weight: 700;
+      color: var(--bn-success-dark);
+    }
+
+    /* Lending split by loan type — a compact labelled bar per type. */
+    .loan-types {
+      display: flex;
+      flex-direction: column;
+      gap: var(--bn-space-2);
+      margin-bottom: var(--bn-space-5);
+    }
+    .loan-type-row {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+    }
+    .loan-type-name {
+      flex: 0 0 130px;
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-gray-700);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .loan-type-bar {
+      flex: 1;
+      min-width: 40px;
+      height: 8px;
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-full);
+      overflow: hidden;
+    }
+    .loan-type-fill {
+      display: block;
+      height: 100%;
+      background: var(--bn-info);
+      border-radius: var(--bn-radius-full);
+      transition: width var(--bn-transition-slow);
+    }
+    .loan-type-amt {
+      flex: 0 0 auto;
+      font-size: var(--bn-text-xs);
+      font-weight: 700;
+      color: var(--bn-dark);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 480px) {
+      .loan-type-name { flex-basis: 88px; }
+    }
   </style>
 </head>
 <body data-nav-variant="admin" data-nav-active-page="loans" data-nav-page-title="Manage Loans">
@@ -575,6 +696,10 @@
         </div>
         <div id="acctStatusBanner"></div>
         <div class="acct-totals" id="acctTotals"></div>
+        <div class="section-label" id="acctCategoriesLabel" style="display: none;">By loan status</div>
+        <div class="acct-categories" id="acctCategories"></div>
+        <div class="section-label" id="acctLoanTypesLabel" style="display: none;">By loan type</div>
+        <div class="loan-types" id="acctLoanTypes"></div>
         <div id="acctFollowups"></div>
       </section>
 
@@ -809,8 +934,21 @@
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Purpose / Notes</label>
-            <textarea class="form-textarea" id="loanPurpose" rows="2" placeholder="Loan purpose or notes..."></textarea>
+            <label class="form-label" for="loanType">Loan Type *</label>
+            <select class="form-select" id="loanType">
+              <option value="Business">Business</option>
+              <option value="Education">Education</option>
+              <option value="Medical">Medical</option>
+              <option value="Emergency">Emergency</option>
+              <option value="Agriculture">Agriculture</option>
+              <option value="Home Improvement">Home Improvement</option>
+              <option value="Other">Other</option>
+            </select>
+            <span class="field-hint">Categorises the loan so it can be tracked by type.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="loanPurpose">Notes</label>
+            <textarea class="form-textarea" id="loanPurpose" rows="2" placeholder="Optional detail (e.g. what the loan is for)..."></textarea>
           </div>
           <div class="form-group" style="background: var(--bn-gray-100); padding: var(--bn-space-4); border-radius: var(--bn-radius-lg);">
             <div style="display: flex; justify-content: space-between; margin-bottom: var(--bn-space-2);">
