@@ -66,6 +66,7 @@ import {
 } from "./api.js";
 import { formatCurrency, formatCurrencyFromMinor } from "./utils_financial.js";
 import { attachCardInfo } from "./card_info.js";
+import { emptyState, skeletonRows } from "./ui.js";
 
 // ── Global state ────────────────────────────────────────────────────────────
 let currentUser = null;
@@ -307,6 +308,13 @@ async function loadAdminGroups() {
 // ── Load group data ──────────────────────────────────────────────────────────
 async function loadGroupData() {
   if (!selectedGroupId) return;
+  // Content-shaped placeholders while the data is in flight, so the table
+  // holds its shape instead of collapsing and snapping back.
+  const list = pendingPaymentsList();
+  if (list) {
+    list.textContent = "";
+    list.appendChild(skeletonRows(5, 5));
+  }
   showSpinner(true);
   try {
     await loadMembers();
@@ -904,6 +912,73 @@ function filteredPayments() {
   return filtered;
 }
 
+/**
+ * The empty state for a tab, as a full-width table row. Each tab gets wording
+ * and an action that actually fit its situation — an empty "arrears" tab is
+ * GOOD news and should say so, while an empty "pending" tab means there is
+ * simply nothing awaiting approval. Previously every tab showed the same
+ * dead-end "No <tab> payments found".
+ * @param {string} tab
+ * @return {HTMLElement}
+ */
+function emptyStateRow(tab) {
+  const tr = document.createElement("tr");
+  const td = document.createElement("td");
+  td.colSpan = 5;
+  td.style.padding = "0";
+
+  const record = {
+    label: "Record a payment",
+    variant: "accent",
+    onClick: () => openRecordPaymentModal(),
+  };
+
+  const byTab = {
+    pending: {
+      icon: "✅",
+      title: "Nothing awaiting approval",
+      description: "Every submitted payment has been reviewed.",
+      good: true,
+      actions: [record],
+    },
+    arrears: {
+      icon: "✅",
+      title: "No one is in arrears",
+      description: "Every member is up to date on what they owe.",
+      good: true,
+      actions: [],
+    },
+    seed: {
+      icon: "🌱",
+      title: "No seed money recorded yet",
+      description: "Seed money is the joining contribution each member pays once.",
+      actions: [record],
+    },
+    monthly: {
+      icon: "📅",
+      title: "No monthly contributions yet",
+      description: "Monthly contributions will appear here as members pay them.",
+      actions: [record],
+    },
+    servicefee: {
+      icon: "🧾",
+      title: "No service fees recorded",
+      description: "Service fees appear here once the group starts collecting them.",
+      actions: [record],
+    },
+    recent: {
+      icon: "📄",
+      title: "No payment activity yet",
+      description: "Recorded payments will show here, newest first.",
+      actions: [record],
+    },
+  };
+
+  td.appendChild(emptyState(byTab[tab] || byTab.recent));
+  tr.appendChild(td);
+  return tr;
+}
+
 function renderCurrentTab() {
   const container = pendingPaymentsList();
   if (!container) return;
@@ -912,7 +987,7 @@ function renderCurrentTab() {
   container.textContent = "";
 
   if (filtered.length === 0) {
-    container.appendChild(emptyTableRow(`No ${currentTab} payments found`));
+    container.appendChild(emptyStateRow(currentTab));
     return;
   }
 

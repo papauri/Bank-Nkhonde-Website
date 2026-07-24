@@ -2123,3 +2123,219 @@ summary:focus-visible,
 .bn-has-info {
   position: relative;
 }
+
+/* ============================================
+   SURFACE ELEVATION SCALE
+   ============================================
+   The app had one flat card treatment, so a nested card read the same as the
+   section containing it and pages had no visual "order". These three levels
+   give every screen a readable hierarchy: the page sits on L0, primary
+   sections on L1, cards inside them on L2, and anything nested deeper drops
+   back to a recessed tint rather than stacking more shadow. */
+
+.surface-1 {
+  background: var(--bn-white);
+  border: 1px solid var(--bn-gray-lighter);
+  border-radius: var(--bn-radius-xl);
+  box-shadow: var(--bn-shadow-sm);
+}
+
+.surface-2 {
+  background: var(--bn-white);
+  border: 1px solid var(--bn-gray-lighter);
+  border-radius: var(--bn-radius-lg);
+  box-shadow: var(--bn-shadow-xs);
+}
+
+/* Recessed: for a panel INSIDE a card. Depth by tint, not by more shadow —
+   stacking shadows at this level is what makes dense screens look muddy. */
+.surface-sunken {
+  background: var(--bn-gray-50, #f9fafb);
+  border: 1px solid var(--bn-gray-lighter);
+  border-radius: var(--bn-radius-lg);
+  box-shadow: none;
+}
+
+/* ============================================
+   SECTION HEADER — one consistent header shape
+   ============================================ */
+.section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--bn-space-3);
+  margin-bottom: var(--bn-space-4);
+}
+
+.section-head-text { min-width: 0; }
+
+.section-head-title {
+  font-size: var(--bn-text-lg);
+  font-weight: 800;
+  color: var(--bn-dark);
+  letter-spacing: var(--bn-tracking-tight);
+  line-height: 1.25;
+}
+
+/* The line that turns a bare title into something a user can act on. */
+.section-head-desc {
+  margin-top: 2px;
+  font-size: var(--bn-text-sm);
+  color: var(--bn-gray);
+  line-height: 1.5;
+}
+
+.section-head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--bn-space-2);
+  flex-shrink: 0;
+}
+
+/* ============================================
+   SKELETON LOADING
+   ============================================
+   A full-page spinner overlay hides the layout, then everything snaps in at
+   once. Content-shaped skeletons keep the page structure visible while data
+   loads, so nothing jumps. Built on the existing .skeleton shimmer. */
+
+.sk {
+  background: linear-gradient(90deg, var(--bn-gray-100) 25%, var(--bn-gray-lighter) 50%, var(--bn-gray-100) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--bn-radius-sm);
+  /* Skeletons are decoration standing in for content — never read them out. */
+  user-select: none;
+}
+
+.sk-line {
+  height: 12px;
+  margin-bottom: var(--bn-space-2);
+}
+.sk-line:last-child { margin-bottom: 0; }
+.sk-line.w-25 { width: 25%; }
+.sk-line.w-40 { width: 40%; }
+.sk-line.w-60 { width: 60%; }
+.sk-line.w-80 { width: 80%; }
+
+.sk-title {
+  height: 18px;
+  width: 45%;
+  margin-bottom: var(--bn-space-3);
+  border-radius: var(--bn-radius-sm);
+}
+
+.sk-figure {
+  height: 26px;
+  width: 60%;
+  margin-bottom: var(--bn-space-2);
+}
+
+.sk-circle {
+  border-radius: var(--bn-radius-full);
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+/* A skeleton shaped like a stat tile / table row, so the real content lands
+   in the same place it was standing in. */
+.sk-tile {
+  padding: var(--bn-space-4);
+  border: 1px solid var(--bn-gray-lighter);
+  border-radius: var(--bn-radius-lg);
+  background: var(--bn-white);
+}
+
+.sk-row {
+  display: flex;
+  align-items: center;
+  gap: var(--bn-space-3);
+  padding: var(--bn-space-3) var(--bn-space-4);
+  border-bottom: 1px solid var(--bn-gray-lighter);
+}
+.sk-row:last-child { border-bottom: 0; }
+.sk-row .sk-line { margin-bottom: 0; }
+
+/* ============================================
+   EMPTY STATES — with somewhere to go
+   ============================================
+   Empty states previously ended at an icon and a sentence, which tells a user
+   nothing about what to do. This adds a proper action slot. */
+
+.empty-state-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--bn-space-2);
+  margin-top: var(--bn-space-5);
+}
+
+/* An empty state that means "nothing is wrong, you're just done" reads
+   positive rather than like a missing-data error. */
+.empty-state.is-good .empty-state-icon { opacity: 0.85; }
+.empty-state.is-good .empty-state-title { color: var(--bn-success-dark); }
+
+/* ============================================
+   STATUS PILL — state that reads at a glance
+   ============================================
+   A dot carries the state alongside the word, so status is never colour-alone
+   (colour-blind users, greyscale printing) and scans faster in a dense table. */
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bn-space-2);
+  padding: 3px var(--bn-space-3) 3px var(--bn-space-2);
+  border-radius: var(--bn-radius-full);
+  font-size: var(--bn-text-xs);
+  font-weight: 700;
+  line-height: 1.6;
+  white-space: nowrap;
+  background: var(--bn-gray-100);
+  color: var(--bn-gray-700);
+}
+
+.status-pill::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.status-pill.is-success { background: var(--bn-success-light); color: var(--bn-success-dark); }
+.status-pill.is-warning { background: var(--bn-warning-light); color: var(--bn-warning-dark); }
+.status-pill.is-danger  { background: var(--bn-danger-light);  color: var(--bn-danger-dark); }
+.status-pill.is-info    { background: var(--bn-info-light);    color: var(--bn-info); }
+
+/* ============================================
+   TABLE REFINEMENT
+   ============================================ */
+
+/* The header stays put while a long list scrolls — otherwise a user loses
+   which column they're reading halfway down a members or payments table. */
+.table-container {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.table thead th,
+.data-table table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* Money and counts right-align so magnitudes line up and are comparable down
+   the column — the single biggest readability win in a financial table. */
+.table td.num,
+.table th.num,
+.data-table table td.num,
+.data-table table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
