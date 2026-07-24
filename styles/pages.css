@@ -174,32 +174,46 @@ body {
   padding-bottom: var(--bn-space-2);
 }
 
+/* These tiles were originally authored to sit on the dark .page-header band
+   (white text on a translucent-white fill). That band has since been retired
+   from every page — the tiles now live inside the LIGHT .dashboard-content
+   area, where white text/label rendered effectively invisible. Restyled as
+   proper light-surface cards, using the AA-compliant `-dark` semantic tokens
+   for the value colours. */
 .page-stat {
   flex: 1;
   min-width: 100px;
   text-align: center;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bn-white);
+  border: 1px solid var(--bn-gray-lighter);
   border-radius: var(--bn-radius-lg);
-  padding: var(--bn-space-3);
+  box-shadow: var(--bn-shadow-xs);
+  padding: var(--bn-space-4) var(--bn-space-3);
+  transition:
+    transform var(--bn-transition-base),
+    box-shadow var(--bn-transition-base),
+    border-color var(--bn-transition-base);
 }
 
 .page-stat-value {
-  font-size: var(--bn-text-lg);
+  font-size: var(--bn-text-xl);
   font-weight: 800;
-  color: var(--bn-white);
+  color: var(--bn-dark);
   font-feature-settings: 'tnum' 1;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  line-height: 1.2;
 }
 
-.page-stat-value.success { color: #34D399; }
-.page-stat-value.warning { color: #FBBF24; }
-.page-stat-value.danger { color: #F87171; }
-.page-stat-value.info { color: #60A5FA; }
+.page-stat-value.success { color: var(--bn-success-dark); }
+.page-stat-value.warning { color: var(--bn-warning-dark); }
+.page-stat-value.danger  { color: var(--bn-danger-dark); }
+.page-stat-value.info    { color: var(--bn-info); }
 
 .page-stat-label {
-  font-size: 10px;
+  font-size: var(--bn-text-xs);
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--bn-gray);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-top: var(--bn-space-1);

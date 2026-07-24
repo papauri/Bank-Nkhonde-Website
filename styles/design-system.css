@@ -1685,3 +1685,240 @@ table.data-table tbody tr:last-child td {
   xl: 1024px - 1279px (desktop small)
   2xl: 1280px+ (desktop large)
 */
+
+/* ============================================
+   MOTION & INTERACTION POLISH  (app-wide layer)
+   ============================================
+   Applies to every page via the shared sheet. Entrance motion is gated behind
+   `prefers-reduced-motion: no-preference` so it never plays for users who ask
+   for less motion; the interaction/hover refinements below are motion-light
+   and safe in both modes. Purely presentational — no layout-shifting
+   properties are animated (transform/opacity/color only). */
+
+/* ── Page entrance ─────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes bn-rise-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* Top-level page blocks ease in with a short natural stagger. Scoped to
+     direct children of the content region so nested cards don't double-animate
+     (and so runtime-injected nav/sidebar chrome is never touched). */
+  .dashboard-content > .content-card,
+  .dashboard-content > .content-section,
+  .dashboard-content > .hero-section,
+  .dashboard-content > .page-stats,
+  .dashboard-content > .quick-action-grid,
+  .dashboard-content > .stats-grid,
+  .dashboard-content > .page-group-selector,
+  .dashboard-content > .action-tabs,
+  .dashboard-content > .payment-tabs,
+  .dashboard-content > .charts-grid,
+  .dashboard-content > .table-container {
+    animation: bn-rise-in 420ms var(--bn-ease-out) both;
+  }
+  .dashboard-content > *:nth-child(1) { animation-delay: 0ms; }
+  .dashboard-content > *:nth-child(2) { animation-delay: 45ms; }
+  .dashboard-content > *:nth-child(3) { animation-delay: 90ms; }
+  .dashboard-content > *:nth-child(4) { animation-delay: 135ms; }
+  .dashboard-content > *:nth-child(5) { animation-delay: 175ms; }
+  .dashboard-content > *:nth-child(n+6) { animation-delay: 210ms; }
+
+  /* Pre-auth pages (invitation / registration / complete-profile) are
+     shell-less — no .dashboard-content — so their own containers get the same
+     entrance so the app feels consistent from the very first screen. */
+  .invitation-container,
+  .registration-container,
+  .profile-container {
+    animation: bn-rise-in 420ms var(--bn-ease-out) both;
+  }
+}
+
+/* NOTE: modal entrance is deliberately NOT animated here. Modals already have
+   their own entrance motion — a scale/translate transition in this sheet
+   (.modal-content) and a mobile bottom-sheet slide in mobile-modals.css that
+   uses !important. Adding a keyframe animation on transform would override the
+   former and fight the latter, so the existing behaviour is left untouched. */
+
+/* ── Buttons: crisper press + hover feedback ───────────────────────────── */
+.btn {
+  transition:
+    background-color var(--bn-transition-base),
+    border-color var(--bn-transition-base),
+    color var(--bn-transition-base),
+    box-shadow var(--bn-transition-base),
+    transform var(--bn-transition-fast),
+    opacity var(--bn-transition-base);
+}
+.btn:not(:disabled):active {
+  transform: translateY(1px) scale(0.985);
+}
+.btn:focus-visible {
+  outline: 2px solid var(--bn-accent);
+  outline-offset: 2px;
+}
+
+/* ── Cards: softer, more deliberate lift ───────────────────────────────── */
+.content-card,
+.card,
+.stat-card {
+  transition:
+    transform var(--bn-transition-base),
+    box-shadow var(--bn-transition-base),
+    border-color var(--bn-transition-base);
+}
+
+/* ── Tables: readable row affordance ───────────────────────────────────── */
+.table tbody tr,
+.data-table table tbody tr {
+  transition: background-color var(--bn-transition-fast);
+}
+
+/* ── Forms: calmer focus ring ──────────────────────────────────────────── */
+.form-input,
+.form-select,
+.form-textarea {
+  transition:
+    border-color var(--bn-transition-fast),
+    box-shadow var(--bn-transition-fast),
+    background-color var(--bn-transition-fast);
+}
+
+/* ── Links & interactive icons ─────────────────────────────────────────── */
+.sidebar-nav-item,
+.mobile-nav-item,
+.topbar-btn {
+  transition:
+    background-color var(--bn-transition-fast),
+    color var(--bn-transition-fast),
+    transform var(--bn-transition-fast);
+}
+
+/* ── Global reduced-motion guard ───────────────────────────────────────── */
+/* The app previously had no blanket guard (only one loader-specific rule), so
+   every decorative transition/animation ran regardless of the OS setting.
+   This makes the whole app honour it. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Accounting-grade numerals ─────────────────────────────────────────── */
+/* Money and counts render with tabular (fixed-width) figures so digits line up
+   vertically in tables and stat rows — the convention every accounting UI
+   uses. Applies to table cells and the app's figure-bearing display classes. */
+.table td,
+.data-table table td,
+table.data-table td,
+.stat-value,
+.page-stat-value,
+.hero-stat-value,
+.acct-total-value,
+.fin-kpi-value,
+.trend-month-label,
+.breakdown-card-value,
+.pie-chart-center-value,
+.summary-value,
+.metric-value {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ── Refined scrollbars ────────────────────────────────────────────────── */
+/* The app had no scrollbar styling: every scroll region (tables, long lists,
+   the sidebar) fell back to the heavy OS default. These are slim and recede
+   until hovered. Firefox uses the standard properties; WebKit/Blink the
+   vendor pseudo-elements. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bn-gray-light) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--bn-gray-light);
+  border-radius: var(--bn-radius-full);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--bn-gray-400);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ── Branded text selection ────────────────────────────────────────────── */
+::selection {
+  background: var(--bn-accent-light);
+  color: var(--bn-dark);
+}
+
+/* ── Keyboard focus baseline ───────────────────────────────────────────── */
+/* The sheet previously defined a single focus-visible rule, so most
+   interactive elements relied on the browser default (or on `outline: none`
+   set by a component with no replacement). This guarantees every keyboard
+   user gets a consistent, high-contrast focus ring. Mouse users are
+   unaffected — :focus-visible only matches keyboard/AT focus. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 2px solid var(--bn-accent);
+  outline-offset: 2px;
+}
+
+/* ── Empty states: calmer, less "big emoji" ────────────────────────────── */
+.empty-state-icon {
+  font-size: 40px;
+  opacity: 0.5;
+  line-height: 1;
+}
+
+/* ── Small-screen guards ───────────────────────────────────────────────── */
+/* NOTE: no blanket grid override is applied here. Audited every auto-fit grid
+   in the app — .card-grid (pages.css), .charts-grid (analytics), .stats-grid
+   (user_analytics, deliberately 2-up on mobile), .quick-action-grid (also
+   deliberately 2-up) and contacts' grid (gated to >=769px) all already
+   declare correct small-screen behaviour. A global `!important` collapse
+   would have overridden those intentional layouts, so only the genuinely
+   unhandled grid is fixed, below. */
+
+@media (max-width: 480px) {
+  /* contributions_overview's monthly grid is the one auto-fit grid with no
+     small-screen rule of its own; its 280px min track can exceed the content
+     box on a 320px device once page and card padding are subtracted. */
+  .monthly-breakdown-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Long unbroken figures shouldn't force horizontal scroll. */
+  .stat-value,
+  .page-stat-value,
+  .hero-stat-value,
+  .acct-total-value,
+  .fin-kpi-value {
+    overflow-wrap: break-word;
+  }
+}
