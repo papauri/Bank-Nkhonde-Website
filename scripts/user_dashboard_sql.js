@@ -27,6 +27,7 @@
  */
 
 import { requireSession, apiGet, apiPost, logout, ApiError, redirectToLogin, listMyGroups, apiUrl } from "./api.js";
+import { attachCardInfo } from "./card_info.js";
 import { formatCurrency } from "./utils_financial.js";
 
 // Admin-equivalent roles: decide the admin toggle and the admin-switch button.
@@ -1774,16 +1775,17 @@ function wireStaticHandlers() {
   // Hero-stat popovers: hover/focus-within (CSS) already covers mouse and
   // keyboard; the click-toggle below is the touch fallback (no :hover there).
   // "Arrears" excludes the amount itself so it keeps opening the full modal.
-  initHeroStatPopover("nextPaymentStat", "nextPaymentPopover", {
-    ignoreSelector: "#nextPaymentBadge",
-  });
+  // ignoreSelector is no longer needed: the info toggle is its own button and
+  // stops propagation, so a card's primary action can never be hijacked by it.
+  initHeroStatPopover("nextPaymentStat", "nextPaymentPopover");
   initHeroStatPopover("pendingPaymentsStat", "pendingPaymentsPopover");
-  initHeroStatPopover("totalArrearsStat", "totalArrearsPopover", {
-    ignoreSelector: "#totalArrears",
-  });
-  initHeroStatPopover("activeLoansStat", "activeLoansPopover", {
-    ignoreSelector: "#activeLoansBadge",
-  });
+  initHeroStatPopover("totalArrearsStat", "totalArrearsPopover");
+  initHeroStatPopover("activeLoansStat", "activeLoansPopover");
+  // These two previously had NO toggle at all — their popovers were reachable
+  // only by mouse-hover/keyboard-focus, so touch users could never read them.
+  // Now they get the same explicit "i" as every other tile.
+  initHeroStatPopover("membersStat", "membersPopover");
+  initHeroStatPopover("totalContributedStat", "totalContributedPopover");
   document
     .getElementById("closeArrearsModal")
     ?.addEventListener("click", hideArrearsModal);
@@ -2052,50 +2054,32 @@ function setText(id, value) {
  */
 function initHeroStatPopover(cardId, popoverId, opts = {}) {
   const card = document.getElementById(cardId);
-  const popover = document.getElementById(popoverId);
-  if (!card || !popover) return;
-  const ignoreSelector = opts.ignoreSelector;
+  const source = document.getElementById(popoverId);
+  if (!card || !source) return;
 
-  const setOpen = (open) => {
-    card.classList.toggle("popover-open", open);
-    card.setAttribute("aria-expanded", String(open));
-    if (open) {
-      // The helper renders below the card and can fall below the fold — bring
-      // it fully into view so it is always visible the moment it's opened,
-      // without the user having to scroll.
-      requestAnimationFrame(() => {
-        popover.scrollIntoView({block: "nearest", behavior: "smooth"});
-      });
-    }
-  };
-  card.setAttribute("aria-expanded", "false");
+  // The in-card .hero-stat-popover div stays as the CONTENT SOURCE — the
+  // render functions on this page (renderPendingPopover, renderArrearsPopover,
+  // the next-payment builder) already fill it — but it is no longer what the
+  // user sees.
+  //
+  // WHY: nested inside .hero-stat it was clipped by the stat band and confined
+  // by the hero's own stacking/transform context, so it opened cut off. The
+  // shared card_info module renders on <body>, which nothing can clip.
+  source.hidden = true;
 
-  card.addEventListener("click", (e) => {
-    if (ignoreSelector && e.target.closest(ignoreSelector)) return;
-    setOpen(!card.classList.contains("popover-open"));
-  });
-
-  card.addEventListener("keydown", (e) => {
-    if (e.target !== card) return;
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      setOpen(!card.classList.contains("popover-open"));
-    } else if (e.key === "Escape") {
-      setOpen(false);
-    }
+  // The card keeps its own primary action (navigate / open modal) — the info
+  // toggle is a separate button that stops propagation, so the two never
+  // collide. That also makes the old `ignoreSelector` workaround unnecessary.
+  const label = card.querySelector(".hero-stat-label")?.textContent?.trim();
+  attachCardInfo(card, {
+    label: label ? `About ${label}` : "More information",
+    // Read lazily on each open, so content written later by a re-render (or a
+    // month-filter change) is always the content shown.
+    content: (host) => {
+      source.childNodes.forEach((n) => host.appendChild(n.cloneNode(true)));
+    },
   });
 }
-
-// Close any open hero-stat popover on an outside tap/click — the touch
-// equivalent of a hover ending.
-document.addEventListener("click", (e) => {
-  document.querySelectorAll(".hero-stat.popover-open").forEach((card) => {
-    if (!card.contains(e.target)) {
-      card.classList.remove("popover-open");
-      card.setAttribute("aria-expanded", "false");
-    }
-  });
-});
 
 /**
  * The monthly-contribution obligation rows, or an empty array.

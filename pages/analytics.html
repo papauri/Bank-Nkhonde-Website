@@ -186,7 +186,7 @@
        neighbouring .breakdown-card siblings in the .charts-grid. */
     .breakdown-card:hover,
     .breakdown-card:focus-within,
-    .breakdown-card:has(.stat-card-popover.open) {
+    .breakdown-card:has(.bn-info-toggle[aria-expanded="true"]) {
       z-index: 2;
     }
 
@@ -200,7 +200,7 @@
          a long title — e.g. "Outstanding Loan Balances", "Penalties
          Outstanding" in the denser #accountingFiguresBlock grid — wraps
          inside the header instead of running under the button. */
-      padding-right: calc(44px + var(--bn-space-2));
+      padding-right: calc(26px + var(--bn-space-4));
     }
 
     .breakdown-card-title {
@@ -267,66 +267,14 @@
        breakpoints already own) reserves room for the toggle without
        fighting those breakpoints. */
     .page-stats .page-stat {
-      padding-right: calc(44px + var(--bn-space-2));
+      padding-right: calc(26px + var(--bn-space-4));
     }
 
-    .stat-card-info-toggle {
-      position: absolute;
-      top: var(--bn-space-2);
-      right: var(--bn-space-2);
-      z-index: 10;
-      width: 44px;
-      height: 44px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: inherit;
-      font-size: var(--bn-text-sm);
-      font-weight: 700;
-      font-style: italic;
-      color: var(--bn-gray-700);
-      background: var(--bn-gray-100);
-      border: none;
-      border-radius: var(--bn-radius-full);
-      cursor: pointer;
-      transition: all var(--bn-transition-fast);
-    }
-    .stat-card-info-toggle:hover {
-      background: var(--bn-gray-lighter);
-      color: var(--bn-dark);
-    }
-    .stat-card-info-toggle:focus-visible {
-      outline: 2px solid var(--bn-accent);
-      outline-offset: 2px;
-    }
-    /* Compact popover anchored to the top-right, just under the "i" toggle.
-       Click-toggle ONLY (no hover/focus reveal) so a second click closes it
-       completely and it never re-appears on hover. */
-    .stat-card-popover {
-      position: absolute;
-      top: calc(var(--bn-space-2) + 40px);
-      right: var(--bn-space-2);
-      left: auto;
-      z-index: var(--z-dropdown);
-      display: none;
-      width: max-content;
-      max-width: min(260px, calc(100vw - var(--bn-space-8)));
-      background: var(--bn-white);
-      color: var(--bn-gray-700);
-      border: 1px solid var(--bn-gray-lighter);
-      border-radius: var(--bn-radius-md);
-      box-shadow: 0 6px 20px rgba(10, 22, 40, 0.20);
-      padding: var(--bn-space-3) var(--bn-space-4);
-      text-align: left;
-      font-size: var(--bn-text-sm);
-      line-height: 1.5;
-    }
-    .stat-card-popover.open {
-      display: block;
-    }
-    .stat-card-popover:empty {
-      display: none;
-    }
+    /* Card-info popovers are rendered on <body> by scripts/card_info.js and
+       styled by the shared .bn-info-* rules in design-system.css. The old
+       in-card .stat-card-info-toggle / .stat-card-popover rules were removed:
+       a panel nested in the card was clipped by ancestor overflow and trapped
+       by the hover transform, which is why it never displayed in full. */
 
     /* Monthly financial trend — KPI summary + axis/gridlines + grouped bars. */
     .fin-kpis {

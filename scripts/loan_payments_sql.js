@@ -18,6 +18,7 @@
  */
 
 import {apiGet, apiPost, requireSession, listMyGroups, ApiError, redirectToLogin, logout, apiUrl} from "./api.js";
+import { emptyState as uiEmptyState, skeletonRows } from "./ui.js";
 import { formatCurrency } from "./utils_financial.js";
 
 let currentUser = null;
@@ -133,6 +134,14 @@ async function loadUserGroups() {
 async function loadLoanData() {
   if (!currentGroupId) return;
 
+  // Hold the table's shape while the two requests are in flight, so the page
+  // doesn't collapse to nothing and then snap back.
+  const loansList = document.getElementById("loansList");
+  if (loansList) {
+    loansList.textContent = "";
+    loansList.appendChild(skeletonRows(3, 7));
+  }
+
   try {
     const [loansResp, paymentsResp] = await Promise.all([
       apiGet("loans.list", {groupId: currentGroupId}),
@@ -216,7 +225,7 @@ function displayLoansByTab(filterValue = null) {
   loansList.textContent = "";
 
   if (filtered.length === 0) {
-    loansList.appendChild(emptyTableRow(`No ${activeFilter === "all" ? "" : activeFilter} loans found`));
+    loansList.appendChild(loansEmptyRow(activeFilter));
     return;
   }
 
@@ -337,6 +346,57 @@ function createLoanRow(loan) {
   return row;
 }
 
+/**
+ * Empty state for the loans table, worded for the filter in play. An empty
+ * "repaid" tab is a neutral fact; an empty "all" tab means this member simply
+ * has no loans yet and should be told where to request one.
+ * @param {string} filter the active status filter
+ * @return {HTMLElement} a full-width table row
+ */
+function loansEmptyRow(filter) {
+  const row = el("tr");
+  const cell = el("td");
+  cell.colSpan = 7;
+  cell.dataset.label = "";
+  cell.style.padding = "0";
+
+  const byFilter = {
+    pending: {
+      icon: "⏳",
+      title: "No loan requests waiting",
+      description: "Requests you submit stay here until an admin approves them.",
+    },
+    approved: {
+      icon: "📄",
+      title: "No approved loans",
+      description: "Approved loans appear here once an admin signs them off.",
+    },
+    active: {
+      icon: "✅",
+      title: "No active loans",
+      description: "You have nothing to repay right now.",
+      good: true,
+    },
+    repaid: {
+      icon: "🎉",
+      title: "No loans fully repaid yet",
+      description: "Loans you finish paying off are kept here as a record.",
+    },
+  };
+
+  const fallback = {
+    icon: "💰",
+    title: "You have no loans yet",
+    description: "When you request a loan and it is approved, it will show here "
+      + "with its repayment schedule.",
+    actions: [{label: "Go to dashboard", href: "user_dashboard.html", variant: "accent"}],
+  };
+
+  cell.appendChild(uiEmptyState(byFilter[filter] || fallback));
+  row.appendChild(cell);
+  return row;
+}
+
 function emptyTableRow(text) {
   const row = el("tr");
   const cell = el("td");
@@ -355,7 +415,12 @@ function displayPendingPayments() {
   list.textContent = "";
 
   if (pendingPayments.length === 0) {
-    list.appendChild(emptyState("⏳", "No pending payments"));
+    list.appendChild(uiEmptyState({
+      icon: "✅",
+      title: "No payments awaiting approval",
+      description: "Payments you submit appear here until an admin approves them.",
+      good: true,
+    }));
     return;
   }
   pendingPayments.forEach((p) => list.appendChild(createPaymentRow(p, "pending")));
@@ -367,7 +432,11 @@ function displayPaymentHistory() {
   list.textContent = "";
 
   if (paymentHistory.length === 0) {
-    list.appendChild(emptyState("📋", "No payment history"));
+    list.appendChild(uiEmptyState({
+      icon: "📋",
+      title: "No payments yet",
+      description: "Once you make a repayment it will be listed here with its date and amount.",
+    }));
     return;
   }
   paymentHistory.slice(0, 10).forEach((p) => list.appendChild(createPaymentRow(p, p.status)));
@@ -508,6 +577,91 @@ function renderLoanMaths(loan, remaining) {
   host.appendChild(note);
 }
 
+/**
+ * Load and render this loan's month-by-month repayment schedule.
+ *
+ * The schedule is NOT computed here — it is stored server-side in
+ * loan_repayment_schedule (written when the loan is approved) and returned by
+ * loans.get. Each row already carries its due date, its principal/interest
+ * split, how much has been paid against it, and its status. This only formats
+ * that, so the months shown always agree with what the server will actually
+ * charge.
+ * @param {string} loanId
+ */
+async function renderLoanSchedule(loanId) {
+  const host = document.getElementById("loanSchedule");
+  if (!host) return;
+  host.textContent = "";
+
+  let rows;
+  try {
+    const data = await apiGet("loans.get", {loanId});
+    rows = Array.isArray(data && data.schedule) ? data.schedule : [];
+  } catch (error) {
+    // The payment form is still perfectly usable without the schedule, so a
+    // failure here must not block it — show nothing rather than an error wall.
+    return;
+  }
+  if (!rows.length) return;
+
+  const title = document.createElement("div");
+  title.className = "loan-schedule-title";
+  title.textContent = "Payment schedule";
+  host.appendChild(title);
+
+  // The next instalment = the first that isn't fully settled. Highlighted so
+  // the member can see at a glance what to pay now.
+  const nextIndex = rows.findIndex(
+    (r) => numberOf(r.amountPaid) < numberOf(r.totalDue)
+  );
+
+  rows.forEach((r, i) => {
+    const due = numberOf(r.totalDue);
+    const paid = numberOf(r.amountPaid);
+    const settled = paid >= due && due > 0;
+
+    const row = document.createElement("div");
+    row.className = "sched-row"
+      + (i === nextIndex ? " is-next" : "")
+      + (settled ? " is-paid" : "");
+
+    const month = document.createElement("span");
+    month.className = "sched-month";
+    month.textContent = `Month ${r.month}`;
+
+    const when = document.createElement("span");
+    when.className = "sched-date";
+    const d = r.dueDate ? new Date(String(r.dueDate).replace(" ", "T")) : null;
+    const dateText = d && !Number.isNaN(d.getTime())
+      ? d.toLocaleDateString(undefined, {day: "numeric", month: "short", year: "numeric"})
+      : "";
+    if (settled) {
+      when.textContent = dateText ? `Paid · due ${dateText}` : "Paid";
+    } else if (i === nextIndex) {
+      when.textContent = dateText ? `Next payment · due ${dateText}` : "Next payment";
+    } else {
+      when.textContent = dateText ? `Due ${dateText}` : "";
+    }
+
+    const amount = document.createElement("span");
+    amount.className = "sched-amount";
+    amount.textContent = formatCurrency(due);
+    // Show WHY the instalment is that size — principal vs interest — which is
+    // the part members most often ask about.
+    const interest = numberOf(r.interestDue);
+    if (interest > 0) {
+      const split = document.createElement("span");
+      split.className = "sched-split";
+      split.textContent =
+        `${formatCurrency(numberOf(r.principalDue))} principal + ${formatCurrency(interest)} interest`;
+      amount.appendChild(split);
+    }
+
+    row.append(month, when, amount);
+    host.appendChild(row);
+  });
+}
+
 function openPaymentModal(loan) {
   if (!loan) return;
 
@@ -521,6 +675,9 @@ function openPaymentModal(loan) {
   setText("totalLoanAmount", formatCurrency(numberOf(loan.totalRepayment)));
 
   renderLoanMaths(loan, remaining);
+  // Fire-and-forget: the schedule fills in when it arrives; the form is usable
+  // immediately either way.
+  renderLoanSchedule(loan.loanId);
 
   // Pre-fill with the scheduled instalment (or the remaining balance when
   // that's smaller — never suggest paying more than is owed). The field stays

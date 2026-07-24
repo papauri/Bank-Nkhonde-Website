@@ -37,6 +37,7 @@
 
 import { requireSession, apiGet, logout, ApiError, redirectToLogin } from "./api.js";
 import { formatCurrency, formatCurrencyFromMinor } from "./utils_financial.js";
+import { attachCardInfo } from "./card_info.js";
 
 // Admin-equivalent roles: who may see the admin dashboard for a group.
 const ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
@@ -1462,38 +1463,34 @@ function setupEventListeners() {
  * document-level listener closes any open popover on an outside click.
  */
 function setupStatCardPopovers() {
-  const closeAll = (except) => {
-    document.querySelectorAll(".stat-card-popover.open").forEach((p) => {
-      if (p === except) return;
-      p.classList.remove("open");
-      const toggle = document.querySelector(`[aria-controls="${p.id}"]`);
-      if (toggle) toggle.setAttribute("aria-expanded", "false");
-    });
-  };
-
   document.querySelectorAll(".stat-card-wrap").forEach((wrap) => {
-    const popover = wrap.querySelector(".stat-card-popover");
-    const toggle = wrap.querySelector(".stat-card-info-toggle");
-    if (!popover || !toggle) return;
-    toggle.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const willOpen = !popover.classList.contains("open");
-      closeAll(willOpen ? popover : null);
-      popover.classList.toggle("open", willOpen);
-      toggle.setAttribute("aria-expanded", String(willOpen));
-      if (willOpen) {
-        // Bring the just-opened helper fully into view so it is always
-        // visible without the user having to scroll down to find it.
-        requestAnimationFrame(() => {
-          popover.scrollIntoView({block: "nearest", behavior: "smooth"});
-        });
-      }
-    });
-  });
+    // The in-card .stat-card-popover div is no longer DISPLAYED — it is kept
+    // purely as the content source, because renderStatCardPopovers() already
+    // fills it with the per-card detail lines. We hide it and mirror its
+    // children into the shared body-rendered panel instead.
+    //
+    // WHY: nested in the card, the panel was clipped by .stats-grid's
+    // horizontal overflow and confined by the card's own stacking context, so
+    // longer content was cut off. Rendering on <body> removes every one of
+    // those constraints.
+    const source = wrap.querySelector(".stat-card-popover");
+    const oldToggle = wrap.querySelector(".stat-card-info-toggle");
+    if (!source) return;
 
-  document.addEventListener("click", (e) => {
-    if (e.target.closest(".stat-card-wrap")) return;
-    closeAll(null);
+    source.hidden = true;
+    // The markup's own toggle is replaced by the shared one, so there is never
+    // a second, dead "i" button sitting next to the working one.
+    if (oldToggle) oldToggle.remove();
+
+    const label = wrap.querySelector(".stat-label")?.textContent?.trim();
+    attachCardInfo(wrap, {
+      label: label ? `About ${label}` : "More information",
+      content: (host) => {
+        // Clone so the source keeps its content for the next open — and so a
+        // re-render that rewrites the source is picked up next time.
+        source.childNodes.forEach((n) => host.appendChild(n.cloneNode(true)));
+      },
+    });
   });
 }
 

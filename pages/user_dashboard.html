@@ -692,39 +692,12 @@
       font-weight: 400;
     }
 
-    /* Hero-stat popover: informational detail on hover/focus (mouse + keyboard)
-       and on tap via the .popover-open class toggled in JS (touch devices,
-       which have no :hover). Sits on the dark hero gradient, so — unlike the
-       translucent .hero-stat card it hangs off — it's a solid, opaque light
-       panel for guaranteed contrast, reusing the same floating-panel
-       convention (shadow/radius/z-index) as .current-group-menu and the
-       admin dashboard's stat-card popovers. */
-    .hero-stat-popover {
-      display: none;
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: calc(100% + var(--bn-space-2));
-      z-index: var(--z-dropdown);
-      text-align: left;
-      background: var(--bn-white);
-      color: var(--bn-gray-700);
-      border: 1px solid var(--bn-gray-lighter);
-      border-radius: var(--bn-radius-md);
-      box-shadow: 0 4px 16px rgba(10, 22, 40, 0.18);
-      padding: var(--bn-space-3) var(--bn-space-4);
-      max-width: calc(100vw - var(--bn-space-8));
-    }
-
-    .hero-stat.popover-open .hero-stat-popover,
-    .hero-stat:hover .hero-stat-popover,
-    .hero-stat:focus-within .hero-stat-popover {
-      display: block;
-    }
-
-    .hero-stat-popover:empty {
-      display: none;
-    }
+    /* The hero-stat popover PANEL is now rendered on <body> by
+       scripts/card_info.js (styled by the shared .bn-info-* rules), because
+       nested in .hero-stat it was clipped by the stat band and confined by the
+       hero's stacking context. The in-card div is kept hidden as the content
+       SOURCE only, so the -title / -more / -row rules BELOW are deliberately
+       retained — the cloned nodes carry those classes into the shared panel. */
 
     .hero-stat-popover-title,
     .hero-stat-popover-more {

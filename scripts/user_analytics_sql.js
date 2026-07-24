@@ -53,6 +53,8 @@
 
 import {apiGet, requireSession, listMyGroups, ApiError, redirectToLogin, logout, downloadExport} from "./api.js";
 import { formatCurrency } from "./utils_financial.js";
+import { emptyState as uiEmptyState } from "./ui.js";
+import { attachCardInfo } from "./card_info.js";
 
 /**
  * Loan statuses where the loan was actually ISSUED (money left the box).
@@ -277,86 +279,36 @@ function renderTopStats() {
 // Adapted to take structured [label, valueString] rows instead of a single
 // text blob, since these cards break a total down into server-computed
 // line items rather than one sentence of context.
-let popoverIdCounter = 0;
-
 /**
- * Build and attach a "i" info-toggle button + popover to a card element.
- * Uses createElement/textContent only — never innerHTML.
- * @param {HTMLElement} cardEl - positioned ancestor (.page-stat or .stat-card)
- * @param {string} ariaLabel - accessible name for the toggle button
- * @param {Array<[string, string]>} rows - [label, valueString] pairs, each
- *   already formatted server-computed text (no client money math here).
+ * Attach the "i" info affordance to a card, showing structured label/value rows.
+ *
+ * Delegates to the SHARED card_info module, which renders the panel on <body>.
+ * The previous in-card panel was clipped by ancestor overflow and trapped by
+ * the card hover transform, so it never displayed in full.
+ * @param {HTMLElement} cardEl the card to attach to
+ * @param {string} ariaLabel accessible name for the toggle
+ * @param {Array<Array<string>>} rows [label, value] pairs, already formatted
  */
 function attachCardPopover(cardEl, ariaLabel, rows) {
   if (!cardEl || !Array.isArray(rows) || rows.length === 0) return;
-
-  const popoverId = `stat-card-popover-${++popoverIdCounter}`;
-
-  const toggle = document.createElement("button");
-  toggle.type = "button";
-  toggle.className = "stat-card-info-toggle";
-  toggle.textContent = "i";
-  toggle.setAttribute("aria-expanded", "false");
-  toggle.setAttribute("aria-label", ariaLabel);
-  toggle.setAttribute("aria-controls", popoverId);
-
-  const popover = document.createElement("div");
-  popover.className = "stat-card-popover";
-  popover.id = popoverId;
-  popover.setAttribute("role", "status");
-  rows.forEach(([label, val]) => {
-    const r = document.createElement("div");
-    r.textContent = label + ": " + val;
-    popover.appendChild(r);
-  });
-
-  toggle.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const willOpen = !popover.classList.contains("open");
-    closeAllCardPopovers(willOpen ? popover : null);
-    popover.classList.toggle("open", willOpen);
-    toggle.setAttribute("aria-expanded", String(willOpen));
-    if (willOpen) {
-      // Bring the just-opened helper fully into view so it is always visible
-      // without the user having to scroll down to find it.
-      requestAnimationFrame(() => {
-        popover.scrollIntoView({block: "nearest", behavior: "smooth"});
+  attachCardInfo(cardEl, {
+    label: ariaLabel,
+    content: (host) => {
+      rows.forEach(([label, value]) => {
+        const row = document.createElement("div");
+        row.className = "bn-info-row";
+        const l = document.createElement("span");
+        l.className = "bn-info-row-label";
+        l.textContent = label;
+        const v = document.createElement("span");
+        v.className = "bn-info-row-value";
+        v.textContent = value;
+        row.append(l, v);
+        host.appendChild(row);
       });
-    }
-  });
-
-  toggle.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
-      e.preventDefault();
-      toggle.click();
-    } else if (e.key === "Escape") {
-      popover.classList.remove("open");
-      toggle.setAttribute("aria-expanded", "false");
-    }
-  });
-
-  cardEl.append(toggle, popover);
-}
-
-/**
- * Close every open card popover except the one passed (if any).
- * @param {HTMLElement|null} except
- */
-function closeAllCardPopovers(except) {
-  document.querySelectorAll(".stat-card-popover.open").forEach((p) => {
-    if (p === except) return;
-    p.classList.remove("open");
-    const toggle = document.querySelector(`[aria-controls="${p.id}"]`);
-    if (toggle) toggle.setAttribute("aria-expanded", "false");
+    },
   });
 }
-
-// Single module-scope outside-click listener — closes any open popover when
-// the click lands outside every card container type this page uses.
-document.addEventListener("click", (e) => {
-  if (e.target.closest(".page-stat") || e.target.closest(".stat-card") || e.target.closest(".breakdown-card")) return;
-  closeAllCardPopovers(null);
-});
 
 // Re-attaches the 4 breakdown popovers against the current `obligations`
 // figures. Idempotent: removes any toggle+popover a previous render left
@@ -385,8 +337,9 @@ function attachBreakdown(valueElId, wrapSelector, ariaLabel, rows) {
   const valueEl = document.getElementById(valueElId);
   const wrap = valueEl?.closest(wrapSelector);
   if (!wrap) return;
-  wrap.querySelector(".stat-card-info-toggle")?.remove();
-  wrap.querySelector(".stat-card-popover")?.remove();
+  // attachCardInfo() is itself idempotent (it removes any existing toggle
+  // before adding a new one), so no manual cleanup is needed here — the panel
+  // now lives on <body>, not in the card.
   attachCardPopover(wrap, ariaLabel, rows);
 }
 
@@ -398,7 +351,12 @@ function renderContributionTrendChart() {
 
   const months = obligations?.monthlyContributions?.months || [];
   if (months.length === 0) {
-    container.appendChild(emptyState("📊", "No contribution data available yet"));
+    container.appendChild(uiEmptyState({
+      icon: "📊",
+      title: "No contributions recorded yet",
+      description: "Once you start making monthly contributions, your trend will build up here.",
+      actions: [{label: "Go to dashboard", href: "user_dashboard.html", variant: "accent"}],
+    }));
     return;
   }
 
@@ -486,7 +444,11 @@ function renderRepaymentHistory() {
   }
 
   if (myRepayments.length === 0) {
-    container.appendChild(emptyState("📊", "No recent activity"));
+    container.appendChild(uiEmptyState({
+      icon: "🗓️",
+      title: "No activity yet",
+      description: "Your payments and loan repayments will appear here as you make them.",
+    }));
     return;
   }
 

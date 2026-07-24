@@ -54,6 +54,7 @@
 
 import {apiGet, requireSession, listMyGroups, ApiError, redirectToLogin} from "./api.js";
 import { formatCurrency } from "./utils_financial.js";
+import { attachCardInfo } from "./card_info.js";
 
 const ANALYTICS_ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
 const MONTH_NAMES = [
@@ -657,81 +658,22 @@ const STATIC_TILE_INFO = [
     "Interest paid into the group's interest pool from loan repayments this cycle."],
 ];
 
-let popoverIdCounter = 0;
-
 /**
- * Build and attach a "i" info-toggle button + popover to a card element.
- * Uses createElement/textContent only — never innerHTML.
- * @param {HTMLElement} cardEl - positioned ancestor (.page-stat or .breakdown-card)
- * @param {string} infoText - plain-text explanation, set via textContent
- * @param {string} ariaLabel - accessible name for the toggle button
+ * Attach the "i" info affordance to a card.
+ *
+ * Delegates to the SHARED card_info module, which renders the panel on
+ * <body> rather than inside the card. The previous in-card implementation was
+ * clipped by ancestor overflow (the stat row and chart grid scroll) and
+ * trapped by the cards' hover transform, which creates a containing block
+ * that even position:fixed cannot escape — so the panel was cut off.
+ * @param {HTMLElement} cardEl the card to attach to
+ * @param {string} infoText plain-text explanation
+ * @param {string} ariaLabel accessible name for the toggle
  */
 function attachCardPopover(cardEl, infoText, ariaLabel) {
   if (!cardEl || !infoText) return;
-
-  const popoverId = `stat-card-popover-${++popoverIdCounter}`;
-
-  const toggle = document.createElement("button");
-  toggle.type = "button";
-  toggle.className = "stat-card-info-toggle";
-  toggle.textContent = "i";
-  toggle.setAttribute("aria-expanded", "false");
-  toggle.setAttribute("aria-label", ariaLabel);
-  toggle.setAttribute("aria-controls", popoverId);
-
-  const popover = document.createElement("div");
-  popover.className = "stat-card-popover";
-  popover.id = popoverId;
-  popover.setAttribute("role", "status");
-  popover.textContent = infoText;
-
-  toggle.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const willOpen = !popover.classList.contains("open");
-    closeAllCardPopovers(willOpen ? popover : null);
-    popover.classList.toggle("open", willOpen);
-    toggle.setAttribute("aria-expanded", String(willOpen));
-    if (willOpen) {
-      // Bring the just-opened helper fully into view so it is always visible
-      // without the user having to scroll down to find it.
-      requestAnimationFrame(() => {
-        popover.scrollIntoView({block: "nearest", behavior: "smooth"});
-      });
-    }
-  });
-
-  toggle.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
-      e.preventDefault();
-      toggle.click();
-    } else if (e.key === "Escape") {
-      popover.classList.remove("open");
-      toggle.setAttribute("aria-expanded", "false");
-    }
-  });
-
-  cardEl.append(toggle, popover);
+  attachCardInfo(cardEl, {label: ariaLabel, content: infoText});
 }
-
-/**
- * Close every open card popover except the one passed (if any).
- * @param {HTMLElement|null} except
- */
-function closeAllCardPopovers(except) {
-  document.querySelectorAll(".stat-card-popover.open").forEach((p) => {
-    if (p === except) return;
-    p.classList.remove("open");
-    const toggle = document.querySelector(`[aria-controls="${p.id}"]`);
-    if (toggle) toggle.setAttribute("aria-expanded", "false");
-  });
-}
-
-// Single module-scope outside-click listener — closes any open popover when
-// the click lands outside both card container types.
-document.addEventListener("click", (e) => {
-  if (e.target.closest(".page-stat") || e.target.closest(".breakdown-card")) return;
-  closeAllCardPopovers(null);
-});
 
 /**
  * One-shot init: attach the "i" popover to each of the 4 static summary

@@ -218,6 +218,67 @@
       color: var(--bn-gray);
       line-height: 1.5;
     }
+
+    /* Month-by-month repayment schedule. */
+    .loan-schedule { margin-top: var(--bn-space-4); }
+    .loan-schedule-title {
+      font-size: var(--bn-text-xs);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--bn-gray);
+      margin-bottom: var(--bn-space-2);
+    }
+    .sched-row {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+      padding: var(--bn-space-2) var(--bn-space-3);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-md);
+      margin-bottom: var(--bn-space-2);
+      background: var(--bn-white);
+    }
+    .sched-row:last-child { margin-bottom: 0; }
+    /* The instalment the member should pay next — the one thing they're
+       looking for when they open this modal. */
+    .sched-row.is-next {
+      border-color: var(--bn-accent);
+      background: var(--bn-accent-subtle);
+      box-shadow: 0 0 0 1px var(--bn-accent);
+    }
+    .sched-row.is-paid { opacity: 0.62; }
+    .sched-month {
+      flex: 0 0 auto;
+      min-width: 74px;
+      font-weight: 700;
+      font-size: var(--bn-text-sm);
+      color: var(--bn-dark);
+    }
+    .sched-date {
+      flex: 1;
+      min-width: 0;
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+    .sched-amount {
+      flex: 0 0 auto;
+      font-weight: 700;
+      font-size: var(--bn-text-sm);
+      color: var(--bn-dark);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .sched-split {
+      display: block;
+      font-weight: 500;
+      font-size: 10px;
+      color: var(--bn-gray);
+    }
+    .loan-schedule-empty {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
   </style>
 </head>
 <body class="user-page" data-nav-variant="user-sidebar" data-nav-active-page="loan_payments">
@@ -382,6 +443,8 @@
             <!-- How the total was arrived at: borrowed + interest, with the
                  per-month rates spelled out. Filled by openPaymentModal(). -->
             <div class="loan-maths" id="loanMaths"></div>
+            <!-- Month-by-month repayment schedule, loaded from loans.get. -->
+            <div class="loan-schedule" id="loanSchedule"></div>
           </div>
           
           <div class="form-group">

@@ -611,31 +611,10 @@
       outline: 2px solid var(--bn-accent);
       outline-offset: 2px;
     }
-    /* Compact popover anchored to the top-right, just under the "i" toggle.
-       Click-toggle ONLY (no hover/focus reveal) so a second click closes it
-       completely and it never re-appears on hover. */
-    .stat-card-popover {
-      position: absolute;
-      top: calc(var(--bn-space-2) + 40px);
-      right: var(--bn-space-2);
-      left: auto;
-      z-index: var(--z-dropdown);
-      display: none;
-      width: max-content;
-      max-width: min(280px, calc(100vw - var(--bn-space-8)));
-      background: var(--bn-white);
-      border: 1px solid var(--bn-gray-lighter);
-      border-radius: var(--bn-radius-md);
-      box-shadow: 0 6px 20px rgba(10, 22, 40, 0.20);
-      padding: var(--bn-space-3) var(--bn-space-4);
-      text-align: left;
-    }
-    .stat-card-popover.open {
-      display: block;
-    }
-    .stat-card-popover:empty {
-      display: none;
-    }
+    /* The stat-card popover PANEL now renders on <body> via
+       scripts/card_info.js (shared .bn-info-* styles). The in-card div is kept
+       hidden as the content SOURCE only, so the .stat-card-popover-line rules
+       below are retained — cloned nodes carry that class into the panel. */
     .stat-card-popover-line {
       margin: 0;
       padding: var(--bn-space-2) 0;
