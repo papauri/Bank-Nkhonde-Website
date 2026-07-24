@@ -147,24 +147,26 @@
       font-weight: 600;
     }
 
+    /* Status badges use the app's semantic tokens so these states match the
+       same states on every other page. */
     .status-badge.completed {
-      background: rgba(34, 197, 94, 0.1);
-      color: #166534;
+      background: var(--bn-success-light);
+      color: var(--bn-success-dark);
     }
 
     .status-badge.pending {
-      background: rgba(249, 115, 22, 0.1);
-      color: #9a3412;
+      background: var(--bn-warning-light);
+      color: var(--bn-warning-dark);
     }
 
     .status-badge.unpaid {
-      background: rgba(239, 68, 68, 0.1);
-      color: #b91c1c;
+      background: var(--bn-danger-light);
+      color: var(--bn-danger-dark);
     }
 
     .status-badge.partial {
-      background: rgba(59, 130, 246, 0.1);
-      color: #3b82f6;
+      background: var(--bn-info-light);
+      color: var(--bn-info);
     }
 
     /* History Section */

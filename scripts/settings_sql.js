@@ -22,6 +22,7 @@
  */
 
 import {apiGet, apiPost, requireSession, logout, ApiError, redirectToLogin, apiUrl} from "./api.js";
+import { cardInfoEnabled, setCardInfoEnabled } from "./card_info.js";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // matches the server's cap
 
@@ -43,6 +44,20 @@ if (!window.__bnSpa) {
 }
 
 function setupEventListeners() {
+  // Display > "Show info buttons on cards". A per-device viewing preference,
+  // so it is stored locally and needs no server round-trip.
+  const cardInfoSwitch = document.getElementById("prefShowCardInfo");
+  if (cardInfoSwitch) {
+    cardInfoSwitch.checked = cardInfoEnabled();
+    cardInfoSwitch.addEventListener("change", (e) => {
+      setCardInfoEnabled(e.target.checked);
+      showToast(
+        e.target.checked ? "Info buttons shown on cards." : "Info buttons hidden.",
+        "success"
+      );
+    });
+  }
+
   document.getElementById("personalForm")?.addEventListener("submit", savePersonalInfo);
   document.getElementById("professionalForm")?.addEventListener("submit", savePersonalInfo);
   document.getElementById("securityForm")?.addEventListener("submit", saveSecurityInfo);

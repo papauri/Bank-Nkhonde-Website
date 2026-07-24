@@ -2363,3 +2363,117 @@ summary:focus-visible,
   outline: 2px solid var(--bn-accent);
   outline-offset: 2px;
 }
+
+/* Settings > Display > "Show info buttons on cards" = off.
+   The module also skips creating them, but this guarantees none can appear
+   during an SPA content swap or before the preference is read. */
+.bn-no-card-info .bn-info-toggle,
+.bn-no-card-info .bn-info-panel {
+  display: none !important;
+}
+
+/* Settings preference row. */
+.pref-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--bn-space-4);
+  padding: var(--bn-space-4) 0;
+  cursor: pointer;
+}
+.pref-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pref-title { font-weight: 600; color: var(--bn-dark); }
+.pref-desc { font-size: var(--bn-text-sm); color: var(--bn-gray); line-height: 1.5; }
+.pref-switch { width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; cursor: pointer; accent-color: var(--bn-accent); }
+
+/* ============================================
+   MOBILE & TABLET REFINEMENT
+   ============================================ */
+
+@media (max-width: 768px) {
+  /* The bottom bar is fixed, so the last card on every page was sitting
+     underneath it and could not be scrolled clear. */
+  .dashboard-content {
+    padding: var(--bn-space-4) var(--bn-space-4)
+             calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Wide tables scroll inside their own container rather than pushing the
+     whole page sideways — the usual cause of "content going outside". */
+  .table-container {
+    max-height: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Sticky headers cost more than they give on a short screen. */
+  .table thead th,
+  .data-table table thead th {
+    position: static;
+  }
+
+  /* Full-width actions read better than a cramped row of small buttons. */
+  .section-head,
+  .acct-summary-head,
+  .content-card-header,
+  .content-section-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .section-head-actions,
+  .acct-summary-head .form-select {
+    width: 100%;
+  }
+
+  /* Headline figures shrink so long amounts don't wrap mid-number. */
+  .acct-total-value,
+  .fin-kpi-value {
+    font-size: var(--bn-text-lg);
+  }
+
+  /* Tap targets: anything interactive clears the 44px minimum. */
+  .btn,
+  .tab,
+  .action-tab,
+  .payment-tab,
+  .settings-tab {
+    min-height: 44px;
+  }
+
+  /* A modal behaves as a sheet — full width, never taller than the viewport. */
+  .modal-content {
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Two-up is the most a phone can show without truncating a money figure. */
+  .acct-totals,
+  .acct-categories {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* The follow-up row stacks so the name is never squeezed to an ellipsis
+     beside the amount and the action button. */
+  .acct-followup-row {
+    flex-wrap: wrap;
+  }
+  .acct-followup-name {
+    flex: 1 1 100%;
+  }
+
+  .dashboard-content {
+    padding-left: var(--bn-space-3);
+    padding-right: var(--bn-space-3);
+  }
+}
+
+/* Tablet: the sidebar shell has room for two columns, but not the desktop
+   three — without this, cards were stretching to awkward widths. */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .acct-totals,
+  .acct-categories,
+  .charts-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

@@ -59,16 +59,19 @@
       opacity: 1;
     }
 
-    .stat-card:nth-child(1) .stat-value { color: #10b981; }
-    .stat-card:nth-child(1)::before { background: linear-gradient(90deg, #10b981, #059669); }
+    /* Accent bars use the app's own semantic tokens, not Tailwind-default
+       hexes — the greens/reds/blues here previously differed from the same
+       colours everywhere else in the app. */
+    .stat-card:nth-child(1) .stat-value { color: var(--bn-success-dark); }
+    .stat-card:nth-child(1)::before { background: linear-gradient(90deg, var(--bn-success), var(--bn-success-dark)); }
     .stat-card:nth-child(2) .stat-value { color: var(--bn-primary); }
     .stat-card:nth-child(2)::before { background: var(--bn-gradient-primary); }
-    .stat-card:nth-child(3) .stat-value { color: #f59e0b; }
-    .stat-card:nth-child(3)::before { background: linear-gradient(90deg, #f59e0b, #d97706); }
-    .stat-card:nth-child(4) .stat-value { color: #ef4444; }
-    .stat-card:nth-child(4)::before { background: linear-gradient(90deg, #ef4444, #dc2626); }
-    .stat-card:nth-child(5) .stat-value { color: #3b82f6; }
-    .stat-card:nth-child(5)::before { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+    .stat-card:nth-child(3) .stat-value { color: var(--bn-warning-dark); }
+    .stat-card:nth-child(3)::before { background: linear-gradient(90deg, var(--bn-warning), var(--bn-warning-dark)); }
+    .stat-card:nth-child(4) .stat-value { color: var(--bn-danger-dark); }
+    .stat-card:nth-child(4)::before { background: linear-gradient(90deg, var(--bn-danger), var(--bn-danger-dark)); }
+    .stat-card:nth-child(5) .stat-value { color: var(--bn-info); }
+    .stat-card:nth-child(5)::before { background: linear-gradient(90deg, var(--bn-info), #1D4ED8); }
     .stat-card:nth-child(6) .stat-value { color: var(--bn-accent); }
     .stat-card:nth-child(6)::before { background: var(--bn-gradient-accent); }
 

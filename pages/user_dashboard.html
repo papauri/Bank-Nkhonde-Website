@@ -149,7 +149,7 @@
       min-width: 14px;
       height: 14px;
       padding: 0 3px;
-      background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+      background: linear-gradient(135deg, var(--bn-danger) 0%, var(--bn-danger-dark) 100%);
       color: var(--bn-white);
       border-radius: 8px;
       border: 1.5px solid var(--bn-dark);
@@ -402,7 +402,7 @@
     }
     
     .mobile-menu-item.danger {
-      color: #ef4444;
+      color: var(--bn-danger);
     }
     
     .mobile-menu-item.danger:hover {
@@ -1117,25 +1117,27 @@
       display: block;
     }
 
-    /* Color classes for dots */
+    /* Category dot colours — mapped to the app's semantic tokens so they match
+       the same statuses elsewhere. Service fee has no semantic token, so it
+       keeps a distinct purple. */
     .calendar-event-note.monthly {
-      background: #10b981;
+      background: var(--bn-success);
     }
 
     .calendar-event-note.seed {
-      background: #f59e0b;
+      background: var(--bn-warning);
     }
 
     .calendar-event-note.loan {
-      background: #3b82f6;
+      background: var(--bn-info);
     }
 
     .calendar-event-note.servicefee {
-      background: #8b5cf6;
+      background: #7C3AED;
     }
 
     .calendar-event-note.overdue {
-      background: #ef4444;
+      background: var(--bn-danger);
     }
 
     /* "Paid" dots — same type color, plus a white ring so "paid" reads as a

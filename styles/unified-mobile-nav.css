@@ -198,3 +198,32 @@
   padding: 0;
   border-radius: 50%;
 }
+
+/* ── SVG icons in the bottom bar ────────────────────────────────────────── */
+/* This sheet was authored when the bar used EMOJI icons (.mobile-nav-icon,
+   sized by font-size). nav_sql.js now injects real <svg> elements, for which
+   there was NO rule at all — and an SVG is a replaced element that will shrink
+   to nothing inside a `flex: 1; min-width: 0` item, so the icons vanished.
+   Explicit size + flex-shrink:0 is what makes them appear. */
+.mobile-nav-item svg {
+  width: 22px !important;
+  height: 22px !important;
+  flex-shrink: 0 !important;
+  display: block !important;
+  stroke: currentColor !important;
+  fill: none !important;
+}
+
+/* The label sits under the icon and must never push it out. */
+.mobile-nav-item span {
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+/* Comfortable, thumb-reachable target on a phone. */
+.mobile-nav-item {
+  min-height: 56px !important;
+  gap: 3px !important;
+}

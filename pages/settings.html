@@ -357,6 +357,21 @@
 
     <!-- Personal Information Panel -->
     <div class="settings-panel active" id="personalPanel">
+      <!-- Display preferences. Stored locally per device — this is a viewing
+           preference, not account data, so it needs no server round-trip. -->
+      <section class="content-section">
+        <div class="content-section-body">
+          <h4 class="form-section-title">Display</h4>
+          <label class="pref-row" for="prefShowCardInfo">
+            <span class="pref-text">
+              <span class="pref-title">Show info buttons on cards</span>
+              <span class="pref-desc">The small “i” on summary cards that explains what each figure means. Turn off for a cleaner screen.</span>
+            </span>
+            <input type="checkbox" id="prefShowCardInfo" class="pref-switch" checked>
+          </label>
+        </div>
+      </section>
+
       <section class="content-section">
         <div class="content-section-body">
           <form id="personalForm">

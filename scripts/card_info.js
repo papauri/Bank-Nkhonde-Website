@@ -28,6 +28,48 @@ let panel = null;
 /** The toggle whose content is currently shown, or null when closed. */
 let openToggle = null;
 
+
+/** localStorage key for the "show info buttons" display preference. */
+const PREF_KEY = "bn.showCardInfo";
+
+/**
+ * Whether card info toggles should be shown. Defaults to ON — the explainers
+ * are the point of the feature, so a user opts OUT via Settings > Display.
+ * Read fresh on each attach so a change takes effect on the next render
+ * without a reload. Wrapped because localStorage throws in some privacy modes.
+ * @return {boolean}
+ */
+export function cardInfoEnabled() {
+  try {
+    return localStorage.getItem(PREF_KEY) !== "off";
+  } catch (e) {
+    return true;
+  }
+}
+
+/**
+ * Persist the preference and apply it immediately across the page.
+ * @param {boolean} on
+ */
+export function setCardInfoEnabled(on) {
+  try {
+    localStorage.setItem(PREF_KEY, on ? "on" : "off");
+  } catch (e) {
+    // A device refusing storage still gets the live effect below.
+  }
+  document.documentElement.classList.toggle("bn-no-card-info", !on);
+  if (!on) {
+    closeInfoPanel();
+    document.querySelectorAll(".bn-info-toggle").forEach((t) => t.remove());
+  }
+}
+
+// Apply the stored preference as early as possible, so a user who turned the
+// toggles off never sees them flash in before being removed.
+if (!cardInfoEnabled()) {
+  document.documentElement.classList.add("bn-no-card-info");
+}
+
 const GAP = 8;
 const MARGIN = 8;
 
@@ -107,6 +149,8 @@ function openFor(toggle, build) {
  */
 export function attachCardInfo(card, opts) {
   if (!card || !opts || !opts.content) return null;
+  // Honour the Display preference — no toggle is created when it is off.
+  if (!cardInfoEnabled()) return null;
 
   // Idempotent: re-running a render must not stack duplicate toggles.
   const existing = card.querySelector(":scope > .bn-info-toggle");
