@@ -19,7 +19,7 @@
  * No data-bearing innerHTML — the photo preview uses createElement.
  */
 
-import {apiGet, apiPost, requireSession, listMyGroups, ApiError, redirectToLogin} from "./api.js";
+import {apiGet, apiPost, requireSession, listMyGroups, ApiError, redirectToLogin, apiUrl} from "./api.js";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -196,7 +196,7 @@ async function uploadFile(file) {
 
   let response;
   try {
-    response = await fetch("/api/index.php?action=files.upload", {
+    response = await fetch(apiUrl("files.upload"), {
       method: "POST",
       credentials: "same-origin",
       body: form,

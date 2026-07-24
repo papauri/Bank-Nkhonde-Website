@@ -26,7 +26,7 @@
  * rather than silently doing nothing. See the report for the named gaps.
  */
 
-import { requireSession, apiGet, apiPost, logout, ApiError, redirectToLogin, listMyGroups } from "./api.js";
+import { requireSession, apiGet, apiPost, logout, ApiError, redirectToLogin, listMyGroups, apiUrl } from "./api.js";
 import { formatCurrency } from "./utils_financial.js";
 
 // Admin-equivalent roles: decide the admin toggle and the admin-switch button.
@@ -2490,7 +2490,7 @@ async function uploadProof(file, groupId) {
 
   let response;
   try {
-    response = await fetch("/api/index.php?action=files.upload", {
+    response = await fetch(apiUrl("files.upload"), {
       method: "POST",
       credentials: "same-origin",
       body: form, // no Content-Type — the browser sets the multipart boundary

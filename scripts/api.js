@@ -24,6 +24,23 @@ const BASE_PATH = _scriptsDir + '/';
 /** API endpoint - auto-detected based on deployment location. */
 const API_BASE = BASE_PATH + "api/index.php";
 
+/**
+ * The resolved API endpoint, for callers that must bypass apiGet/apiPost —
+ * multipart uploads, which need their own fetch so the browser can set the
+ * form-data boundary.
+ *
+ * EXPORTED DELIBERATELY: those callers used to hardcode "/api/index.php",
+ * which is the DOMAIN ROOT. That works only when the app is deployed at the
+ * root; in a subdirectory deployment every normal call resolved correctly via
+ * BASE_PATH while the uploads alone shot at the wrong host path and 404'd.
+ * Always build upload URLs from this.
+ * @param {string} action the ?action= value
+ * @return {string}
+ */
+export function apiUrl(action) {
+  return `${API_BASE}?action=${encodeURIComponent(action)}`;
+}
+
 /** Where an unauthenticated caller gets sent. */
 const LOGIN_URL = BASE_PATH + "login.html";
 

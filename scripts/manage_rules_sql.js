@@ -17,7 +17,7 @@
  * textContent only.
  */
 
-import {apiGet, apiPost, requireSession, listMyGroups, ApiError, redirectToLogin} from "./api.js";
+import {apiGet, apiPost, requireSession, listMyGroups, ApiError, redirectToLogin, apiUrl} from "./api.js";
 import {updateActiveNav} from "./nav_sql.js?v=20260722";
 
 const MAX_PDF_BYTES = 5 * 1024 * 1024; // matches the server's UPLOAD_MAX_BYTES
@@ -304,7 +304,7 @@ async function uploadFile(file, groupId) {
 
   let response;
   try {
-    response = await fetch("/api/index.php?action=files.upload", {
+    response = await fetch(apiUrl("files.upload"), {
       method: "POST",
       credentials: "same-origin",
       body: form, // no Content-Type — the browser sets the multipart boundary

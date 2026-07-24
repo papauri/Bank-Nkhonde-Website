@@ -60,6 +60,7 @@ import {
   requireSession,
   listMyGroups,
   ApiError,
+  apiUrl,
   redirectToLogin,
   downloadExport,
 } from "./api.js";
@@ -1316,7 +1317,7 @@ async function uploadProof(file, groupId) {
 
   let response;
   try {
-    response = await fetch("/api/index.php?action=files.upload", {
+    response = await fetch(apiUrl("files.upload"), {
       method: "POST",
       credentials: "same-origin",
       body: form,

@@ -21,7 +21,7 @@
  * No data-bearing innerHTML — every value via textContent.
  */
 
-import {apiGet, apiPost, requireSession, logout, ApiError, redirectToLogin} from "./api.js";
+import {apiGet, apiPost, requireSession, logout, ApiError, redirectToLogin, apiUrl} from "./api.js";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // matches the server's cap
 
@@ -359,7 +359,7 @@ async function uploadFile(file) {
 
   let response;
   try {
-    response = await fetch("/api/index.php?action=files.upload", {
+    response = await fetch(apiUrl("files.upload"), {
       method: "POST",
       credentials: "same-origin",
       body: form, // no Content-Type — the browser sets the multipart boundary

@@ -17,7 +17,7 @@
  * are rebuilt with createElement + textContent.
  */
 
-import {apiGet, apiPost, requireSession, listMyGroups, ApiError, redirectToLogin, logout} from "./api.js";
+import {apiGet, apiPost, requireSession, listMyGroups, ApiError, redirectToLogin, logout, apiUrl} from "./api.js";
 import { formatCurrency } from "./utils_financial.js";
 
 let currentUser = null;
@@ -432,6 +432,82 @@ function createPaymentRow(payment, status) {
 }
 
 // ── Payment modal ───────────────────────────────────────────────────────────
+/**
+ * "How this loan adds up", in plain language: what was borrowed, what the
+ * interest came to (with the per-month rates spelled out, since they differ by
+ * month), the total repayable, what's been paid, and what's still owed.
+ *
+ * IMPORTANT: every figure here is read straight off the loan row — all of it
+ * was computed server-side at approval (api/lib/money.php). Nothing on this
+ * screen recalculates money; it only formats what the server already decided.
+ * @param {Object} loan
+ * @param {number} remaining loan.remainingBalance, already parsed
+ */
+function renderLoanMaths(loan, remaining) {
+  const host = document.getElementById("loanMaths");
+  if (!host) return;
+  host.textContent = "";
+
+  const principal = numberOf(loan.principalAmount ?? loan.approvedAmount);
+  const interest = numberOf(loan.totalInterest);
+  const total = numberOf(loan.totalRepayment);
+  const paid = numberOf(loan.amountRepaid);
+  const months = parseInt(loan.repaymentPeriod, 10) || 0;
+
+  // Nothing meaningful to show until the loan has been priced at approval.
+  if (total <= 0 && principal <= 0) return;
+
+  const title = document.createElement("div");
+  title.className = "loan-maths-title";
+  title.textContent = "How this loan adds up";
+  host.appendChild(title);
+
+  const row = (label, value, cls) => {
+    const r = document.createElement("div");
+    r.className = "loan-maths-row" + (cls ? ` ${cls}` : "");
+    const l = document.createElement("span");
+    l.className = "lm-label";
+    l.textContent = label;
+    const v = document.createElement("span");
+    v.className = "lm-value";
+    v.textContent = value;
+    r.append(l, v);
+    host.appendChild(r);
+  };
+
+  row("Amount borrowed", formatCurrency(principal));
+
+  // The group charges a different rate per month of the term, so name them
+  // rather than showing one blended number the member can't reconcile.
+  const rates = [loan.interestRateMonth1, loan.interestRateMonth2, loan.interestRateMonth3]
+    .slice(0, months > 0 ? months : 3)
+    .map((r) => (r === null || r === undefined || r === "" ? null : `${numberOf(r)}%`))
+    .filter(Boolean);
+  const rateLabel = rates.length
+    ? `Interest (${rates.join(" → ")} per month)`
+    : "Interest";
+  row(rateLabel, formatCurrency(interest));
+
+  row("Total to repay", formatCurrency(total), "is-total");
+  row("Paid so far", formatCurrency(paid));
+  row("Still owed", formatCurrency(remaining), "is-owing");
+
+  const note = document.createElement("div");
+  note.className = "loan-maths-note";
+  const scheduled = numberOf(loan.monthlyPayment);
+  if (months > 0 && scheduled > 0) {
+    note.textContent =
+      `Scheduled as ${months} monthly payment${months === 1 ? "" : "s"} of about `
+      + `${formatCurrency(scheduled)}. Interest is charged on the balance still `
+      + `outstanding, so paying early reduces what you pay overall.`;
+  } else {
+    note.textContent =
+      "Interest is charged on the balance still outstanding, so paying early "
+      + "reduces what you pay overall.";
+  }
+  host.appendChild(note);
+}
+
 function openPaymentModal(loan) {
   if (!loan) return;
 
@@ -444,9 +520,17 @@ function openPaymentModal(loan) {
   setText("totalPaidAmount", formatCurrency(numberOf(loan.amountRepaid)));
   setText("totalLoanAmount", formatCurrency(numberOf(loan.totalRepayment)));
 
+  renderLoanMaths(loan, remaining);
+
+  // Pre-fill with the scheduled instalment (or the remaining balance when
+  // that's smaller — never suggest paying more than is owed). The field stays
+  // editable; this is a starting point, not a constraint.
+  const scheduled = numberOf(loan.monthlyPayment);
+  const suggested = scheduled > 0 && scheduled < remaining ? scheduled : remaining;
+
   const amountInput = document.getElementById("paymentAmount");
   if (amountInput) {
-    amountInput.value = "";
+    amountInput.value = suggested > 0 ? String(suggested) : "";
     amountInput.max = remaining;
     amountInput.placeholder = `Max: ${formatCurrency(remaining)}`;
   }
@@ -454,7 +538,12 @@ function openPaymentModal(loan) {
   if (hint) {
     // The server computes the penalty/interest/principal split on submission —
     // do not preview a breakdown here, it would be a client-side guess.
-    hint.textContent = `Maximum: ${formatCurrency(remaining)}. Your payment is applied to penalty, then interest, then principal.`;
+    const lead = scheduled > 0 && scheduled < remaining
+      ? `Pre-filled with your scheduled instalment (${formatCurrency(scheduled)}). `
+      : `Pre-filled with your full outstanding balance. `;
+    hint.textContent =
+      `${lead}You can pay any amount up to ${formatCurrency(remaining)}. `
+      + `Payments clear penalties first, then interest, then the principal.`;
   }
 
   const dateInput = document.getElementById("paymentDate");
@@ -542,7 +631,7 @@ async function uploadProof(file, groupId) {
 
   let response;
   try {
-    response = await fetch("/api/index.php?action=files.upload", {
+    response = await fetch(apiUrl("files.upload"), {
       method: "POST",
       credentials: "same-origin",
       body: form, // no Content-Type header — the browser sets the multipart boundary
