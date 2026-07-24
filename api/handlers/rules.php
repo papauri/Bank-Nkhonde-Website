@@ -25,8 +25,10 @@ const RULES_SELECT_COLUMNS = 'groupId, '
     . 'loanInterestRateMonth1, loanInterestRateMonth2, loanInterestRateMonth3, '
     . 'loanInterestCalculationMethod, loanInterestMaxRepaymentMonths, '
     . 'loanPenaltyRate, loanPenaltyType, loanPenaltyGracePeriodDays, loanPenaltyDailyAmount, '
+    . 'loanPenaltyPeriod, loanPenaltyMonthlyAmount, '
     . 'contributionPenaltyDailyRate, contributionPenaltyMonthlyRate, contributionPenaltyType, '
     . 'contributionPenaltyGracePeriodDays, contributionPenaltyDailyAmount, shareOutPenalties, '
+    . 'contributionPenaltyPeriod, contributionPenaltyMonthlyAmount, '
     . 'cycleDurationStartDate, cycleDurationEndDate, cycleDurationMonths, cycleDurationAutoRenew, '
     . 'loanRulesMaxLoanAmount, loanRulesMinCycleLoanAmount, loanRulesMaxActiveLoansByMember, '
     . 'loanRulesRequireCollateral, loanRulesMinRepaymentMonths, loanRulesMaxRepaymentMonths, '
@@ -43,6 +45,47 @@ if (!function_exists('rules_select_row')) {
         $row = $stmt->fetch();
 
         return $row === false ? null : $row;
+    }
+}
+
+if (!function_exists('rules_ensure_row')) {
+    /**
+     * Ensure a group_rules row exists for $groupId — idempotent upsert via the
+     * table's uq_group_rules_groupId UNIQUE key, so calling this against a
+     * group that already has a rules row is a no-op.
+     *
+     * Used by create_group() to give every group a rules row from birth, and
+     * by get_rules()/update_rules() to self-heal a group created before that
+     * insert existed. Only groupId and cycleDurationStartDate lack a schema
+     * default; every other money/rate/grace column falls back to the DEFAULT
+     * already declared in database/migrations/001, so this does not invent
+     * any money figure — 0.00/disabled until an admin explicitly configures
+     * it via rules.update.
+     *
+     * Exception: loanPenaltyType / contributionPenaltyType. Their schema
+     * DEFAULT is 'percentage' (migrations/001, widened by /005), but
+     * api/lib/penalty.php and api/handlers/payments.php implement ONLY the
+     * 'fixed' daily-amount mode — 'percentage' throws and the penalty
+     * endpoints 501. Leaving the schema default in place would mean every
+     * new group is born with a penalty policy the app cannot compute.
+     * Overriding it here to 'fixed' is deliberately targeted at just these
+     * two columns, the same way migration 005 changed only the columns it
+     * needed to rather than rewriting the schema DEFAULT — an admin can
+     * still switch a group to 'percentage' later via rules.update once/if
+     * that mode is implemented.
+     *
+     * Takes the caller's PDO and never opens its own transaction/commit/
+     * rollback, so it is safe to call both inside create_group()'s existing
+     * transaction and standalone from get_rules()/update_rules().
+     */
+    function rules_ensure_row(PDO $pdo, string $groupId): void
+    {
+        $stmt = $pdo->prepare(
+            'INSERT INTO group_rules (groupId, cycleDurationStartDate, loanPenaltyType, contributionPenaltyType) '
+            . "VALUES (:groupId, NOW(), 'fixed', 'fixed') "
+            . 'ON DUPLICATE KEY UPDATE groupId = groupId'
+        );
+        $stmt->execute([':groupId' => $groupId]);
     }
 }
 
@@ -109,6 +152,29 @@ if (!function_exists('rules_rate_string')) {
     }
 }
 
+if (!function_exists('rules_penalty_rate_string')) {
+    /**
+     * Validate a client-supplied PENALTY rate (DECIMAL(5,2)) and return its
+     * normalised decimal string. Unlike rules_rate_string() (used for interest
+     * and forced-loan percentages, which the schema allows up to 999.99),
+     * penalty rates are additionally capped at 100 — an owner decision (see
+     * BUILD_PLAN.md "Penalty rate bound (J2)"): a per-period penalty rate
+     * above 100% is almost certainly an input error, and the cap can be
+     * raised later if a group genuinely wants one. Rejects at 422, never
+     * silently truncates or clamps.
+     */
+    function rules_penalty_rate_string($value, string $field): string
+    {
+        $str = rules_rate_string($value, $field);
+
+        if (money_to_minor($str) > 10000) {
+            json_error($field . ' cannot exceed 100 percent.', 422);
+        }
+
+        return $str;
+    }
+}
+
 if (!function_exists('rules_nonneg_int')) {
     /**
      * Validate a client-supplied value as a non-negative integer (grace
@@ -147,13 +213,24 @@ if (!function_exists('get_rules')) {
             json_error('groupId is required.', 422);
         }
 
-        require_role($groupId, ['member', 'admin', 'senior_admin', 'treasurer']);
+        $caller = require_role($groupId, ['member', 'admin', 'senior_admin', 'treasurer']);
 
         $pdo = getDbConnection();
         $rules = rules_select_row($pdo, $groupId);
 
         if ($rules === null) {
-            json_error('This group has no rules configured yet.', 404);
+            // Self-heal only for senior_admin — this is the same privilege
+            // level that can write rules via update_rules(). A plain
+            // member/admin/treasurer read must never trigger a write, so
+            // they keep the original 404 verbatim.
+            if ($caller['role'] === 'senior_admin') {
+                rules_ensure_row($pdo, $groupId);
+                $rules = rules_select_row($pdo, $groupId);
+            }
+
+            if ($rules === null) {
+                json_error('This group has no rules configured yet.', 404);
+            }
         }
 
         json_response($rules);
@@ -181,7 +258,11 @@ if (!function_exists('update_rules')) {
 
         $existing = rules_select_row($pdo, $groupId);
         if ($existing === null) {
-            json_error('This group has no rules configured yet.', 404);
+            // Caller is already senior_admin-gated above, so self-healing a
+            // missing row here (a group created before create_group() wrote
+            // one) needs no additional check.
+            rules_ensure_row($pdo, $groupId);
+            $existing = rules_select_row($pdo, $groupId);
         }
 
         // Explicit whitelist of literal column fragments — never build the SET
@@ -243,17 +324,22 @@ if (!function_exists('update_rules')) {
 
         // loanPenaltyType / contributionPenaltyType: ENUM('percentage','fixed')
         // per database/migrations/001 (loanPenaltyType) and /005 (widened
-        // contributionPenaltyType). The engine (api/lib/penalty.php,
-        // api/handlers/payments.php) implements ONLY 'fixed' — 'percentage'
-        // throws a RuntimeException that the handler surfaces as a 501. Both
-        // values are still accepted here rather than restricted to 'fixed':
-        // rejecting 'percentage' at the whitelist would make it impossible for
-        // an admin to even SEE the value their group is misconfigured with
-        // (rules.get returns whatever is in the column), and a future cycle may
-        // implement percentage penalties, at which point this whitelist should
-        // not need to change. The actual guard against the broken mode lives at
-        // the point of use (the 501), which is the correct place to block real
-        // money computation — not here, where it would only block visibility.
+        // contributionPenaltyType).
+        //
+        // As of J2 Slice 1A (cycle 120), api/lib/penalty.php implements BOTH
+        // modes for LOANS (fixed and percentage, each in day or month period —
+        // see loanPenaltyPeriod below). The CONTRIBUTION engine
+        // (api/handlers/payments.php) still implements only 'fixed';
+        // 'percentage' there still throws a RuntimeException the handler
+        // surfaces as a 501 — that engine change is J2 Slice 1B, dispatched
+        // separately. Both values are accepted here regardless: rejecting
+        // 'percentage' at the whitelist would make it impossible for an admin
+        // to even SEE the value their group is misconfigured with (rules.get
+        // returns whatever is in the column), and the config landing once here
+        // means 1B needs no further whitelist change. The actual guard against
+        // an unimplemented mode lives at the point of use, which is the
+        // correct place to block real money computation — not here, where it
+        // would only block visibility.
         if (array_key_exists('loanPenaltyType', $body)) {
             $type = $body['loanPenaltyType'];
             if ($type !== 'percentage' && $type !== 'fixed') {
@@ -272,6 +358,28 @@ if (!function_exists('update_rules')) {
             $params[':contributionPenaltyType'] = $type;
         }
 
+        // loanPenaltyPeriod / contributionPenaltyPeriod: ENUM('day','month')
+        // NOT NULL DEFAULT 'day' (J2 Slice 1A DDL). Selects which charging
+        // period a group's penalty (fixed OR percentage) accrues against —
+        // validated exactly like the type ENUM blocks above.
+        if (array_key_exists('loanPenaltyPeriod', $body)) {
+            $period = $body['loanPenaltyPeriod'];
+            if ($period !== 'day' && $period !== 'month') {
+                json_error("loanPenaltyPeriod must be exactly 'day' or 'month'.", 422);
+            }
+            $updates[] = 'loanPenaltyPeriod = :loanPenaltyPeriod';
+            $params[':loanPenaltyPeriod'] = $period;
+        }
+
+        if (array_key_exists('contributionPenaltyPeriod', $body)) {
+            $period = $body['contributionPenaltyPeriod'];
+            if ($period !== 'day' && $period !== 'month') {
+                json_error("contributionPenaltyPeriod must be exactly 'day' or 'month'.", 422);
+            }
+            $updates[] = 'contributionPenaltyPeriod = :contributionPenaltyPeriod';
+            $params[':contributionPenaltyPeriod'] = $period;
+        }
+
         if (array_key_exists('loanPenaltyDailyAmount', $body)) {
             $updates[] = 'loanPenaltyDailyAmount = :loanPenaltyDailyAmount';
             $params[':loanPenaltyDailyAmount'] = rules_money_string(
@@ -280,11 +388,63 @@ if (!function_exists('update_rules')) {
             );
         }
 
+        if (array_key_exists('loanPenaltyMonthlyAmount', $body)) {
+            if ($body['loanPenaltyMonthlyAmount'] === null) {
+                $updates[] = 'loanPenaltyMonthlyAmount = NULL';
+            } else {
+                $updates[] = 'loanPenaltyMonthlyAmount = :loanPenaltyMonthlyAmount';
+                $params[':loanPenaltyMonthlyAmount'] = rules_money_string(
+                    $body['loanPenaltyMonthlyAmount'],
+                    'loanPenaltyMonthlyAmount'
+                );
+            }
+        }
+
+        // loanPenaltyRate: the DEAD DECIMAL(5,2) column, reused as the loan
+        // percentage penalty rate (J2 — no new loanPenaltyDailyRate column).
+        // Capped at 100% by rules_penalty_rate_string(), unlike the interest
+        // rate columns above.
+        if (array_key_exists('loanPenaltyRate', $body)) {
+            $updates[] = 'loanPenaltyRate = :loanPenaltyRate';
+            $params[':loanPenaltyRate'] = rules_penalty_rate_string(
+                $body['loanPenaltyRate'],
+                'loanPenaltyRate'
+            );
+        }
+
         if (array_key_exists('contributionPenaltyDailyAmount', $body)) {
             $updates[] = 'contributionPenaltyDailyAmount = :contributionPenaltyDailyAmount';
             $params[':contributionPenaltyDailyAmount'] = rules_money_string(
                 $body['contributionPenaltyDailyAmount'],
                 'contributionPenaltyDailyAmount'
+            );
+        }
+
+        if (array_key_exists('contributionPenaltyMonthlyAmount', $body)) {
+            if ($body['contributionPenaltyMonthlyAmount'] === null) {
+                $updates[] = 'contributionPenaltyMonthlyAmount = NULL';
+            } else {
+                $updates[] = 'contributionPenaltyMonthlyAmount = :contributionPenaltyMonthlyAmount';
+                $params[':contributionPenaltyMonthlyAmount'] = rules_money_string(
+                    $body['contributionPenaltyMonthlyAmount'],
+                    'contributionPenaltyMonthlyAmount'
+                );
+            }
+        }
+
+        if (array_key_exists('contributionPenaltyDailyRate', $body)) {
+            $updates[] = 'contributionPenaltyDailyRate = :contributionPenaltyDailyRate';
+            $params[':contributionPenaltyDailyRate'] = rules_penalty_rate_string(
+                $body['contributionPenaltyDailyRate'],
+                'contributionPenaltyDailyRate'
+            );
+        }
+
+        if (array_key_exists('contributionPenaltyMonthlyRate', $body)) {
+            $updates[] = 'contributionPenaltyMonthlyRate = :contributionPenaltyMonthlyRate';
+            $params[':contributionPenaltyMonthlyRate'] = rules_penalty_rate_string(
+                $body['contributionPenaltyMonthlyRate'],
+                'contributionPenaltyMonthlyRate'
             );
         }
 

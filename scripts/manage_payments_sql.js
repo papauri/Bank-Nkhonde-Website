@@ -1613,7 +1613,7 @@ function renderAllPaymentDetailsTable() {
     : allPayments;
 
   if (rows.length === 0) {
-    container.appendChild(emptyState("📋", "No payments found"));
+    container.appendChild(emptyState({ icon: "📋", title: "No payments found" }));
     return;
   }
 
@@ -1714,16 +1714,6 @@ function el(tag, className) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   return node;
-}
-
-function emptyState(icon, text) {
-  const wrap = el("div", "empty-state");
-  const i = el("div", "empty-state-icon");
-  i.textContent = icon;
-  const p = el("p", "empty-state-text");
-  p.textContent = text;
-  wrap.append(i, p);
-  return wrap;
 }
 
 function numberOf(value) {

@@ -9,6 +9,7 @@
 require_once __DIR__ . '/../lib/http.php';
 require_once __DIR__ . '/../lib/session.php';
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/rules.php';
 
 if (!function_exists('list_my_groups')) {
     function list_my_groups(): void
@@ -121,29 +122,12 @@ if (!function_exists('create_group')) {
 
             // Every group needs its group_rules row from birth — rules.update
             // only UPDATEs an existing row, it never creates one. Without this
-            // insert a new group could never have its money rules set at all.
-            // Only groupId and cycleDurationStartDate lack a schema default;
-            // every other column (amounts, rates, grace periods) falls back to
-            // the DEFAULT already declared in database/migrations/001, so this
-            // does not invent any money figure — 0.00/disabled until an admin
-            // explicitly configures it via rules.update.
-            //
-            // Exception: loanPenaltyType / contributionPenaltyType. Their schema
-            // DEFAULT is 'percentage' (migrations/001, widened by /005), but
-            // api/lib/penalty.php and api/handlers/payments.php implement ONLY
-            // the 'fixed' daily-amount mode — 'percentage' throws and the penalty
-            // endpoints 501. Leaving the schema default in place would mean every
-            // new group is born with a penalty policy the app cannot compute.
-            // Overriding it here to 'fixed' is deliberately targeted at just
-            // these two columns, the same way migration 005 changed only the
-            // columns it needed to rather than rewriting the schema DEFAULT — an
-            // admin can still switch a group to 'percentage' later via
-            // rules.update once/if that mode is implemented.
-            $insertRules = $pdo->prepare(
-                'INSERT INTO group_rules (groupId, cycleDurationStartDate, loanPenaltyType, contributionPenaltyType) '
-                . "VALUES (:groupId, NOW(), 'fixed', 'fixed')"
-            );
-            $insertRules->execute([':groupId' => $groupId]);
+            // call a new group could never have its money rules set at all.
+            // Shared with get_rules()/update_rules() (api/handlers/rules.php)
+            // so a group created before this existed can self-heal the same
+            // way — see rules_ensure_row() for the full rationale on the
+            // column defaults and the 'fixed'/'fixed' override.
+            rules_ensure_row($pdo, $groupId);
 
             $pdo->commit();
         } catch (Throwable $e) {

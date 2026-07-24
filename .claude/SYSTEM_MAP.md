@@ -1,16 +1,38 @@
 # SYSTEM_MAP.md — Bank Nkhonde
 
-> Owned by `codebase-scout`. One `##` section per directory tree, appended per scout call.
-> **Status: EMPTY — Phase 0 has not run yet.** The planner must dispatch scouts before dispatching any specialist.
+> Written by `codebase-scout` (one dated `##` section per surface, appended per scout call). Curated by `doc-curator`.
+> **Status: POPULATED — 16 sections, cycles 1–109.** The header formerly read "EMPTY — Phase 0 has not run yet" for the file's entire life; it was wrong from cycle 1 onward.
 
-Format per section:
+**How to use this file.** Find your surface in the table of contents, check its status, read only that section. **A `SUPERSEDED` section describes a stack or a state that no longer exists — never build against it.** A `CURRENT` section is true as of its cycle: anything built after that cycle is outside its claim, so if you know work has landed on that surface since, treat it as a scout candidate rather than a fact.
 
-| Feature | Page | Script(s) | Firestore collections | Callable fn | Auth gate | Notes |
-|---|---|---|---|---|---|---|
+Per-section format (live stack): `| Feature | Page | Script(s) | Endpoint(s) ?action= | Handler fn:line | DB table(s)/columns | Auth (role) | Notes |`, followed by **GAPS** (referenced but wired to nothing) and **DEAD** (unreferenced files, `_new` twins, orphaned CSS), each with the grep that proves it.
 
-Followed by **GAPS** (referenced but missing / wired to nothing) and **DEAD** (unreferenced files, `_new` twins, orphaned CSS).
+## Table of contents
+
+| Section | Surface it covers | Cycle | Status |
+|---|---|---|---|
+| Known before scanning | Pre-scan guesses: page/script/style counts, Firestore collections | 0 | ⚠ SUPERSEDED — Firebase-era, unverified |
+| functions/ + deploy config | Cloud Functions callables, email senders, deploy config | 1 | ⚠ SUPERSEDED — `functions/` was deleted at D2 |
+| Data model (for SQL migration) | The 32-table schema proposal extracted from Firebase-era docs | 3 | ⚠ PARTIAL — a pre-build *proposal*. The live schema is authoritative: later scout sections + BUILD_PLAN §5 (APPLIED DDL) |
+| Navigation shell cluster | `nav_sql.js`, the sidebar app-shell, topbar, mobile nav | 93 | CURRENT — but the topbar gained `.topbar-switch` in cycle 110 |
+| Account-statement ledger sources | `statement.php`, ledger sources, settlement columns | 92 | CURRENT |
+| Loan eligibility surface | `loans.php`, `rules.php`, `payments.php`, `group_rules` columns | 90 | CURRENT — `group_rules` gained two gate columns (BUILD_PLAN §5) |
+| Dark-on-light contrast sweep | Inline `<style>` blocks across all 21 pages | 81 | CURRENT (historical audit result) |
+| Admin loan-approval UI surface | `manage_loans` approve/reject UI | 91 | CURRENT |
+| Button/nav wiring audit | Clickable controls on the 4 dashboard/analytics pages + shell | 98 | ⚠ SUPERSEDED by "Interaction & view-switch re-audit (cycle 109)" — cycles 99–108 added substantial markup after it ran |
+| Dashboard data→summary pipeline | `user_dashboard` + `admin_dashboard` fetch→render pipeline | 99 | CURRENT |
+| Summary — Audit Results | Tail of the cycle-98 button audit | 98 | ⚠ SUPERSEDED — same as the cycle-98 audit above |
+| Analytics Financial Trends pipeline | `analytics.html` data→render, `payments.accountingSummary` reuse | 100 | CURRENT |
+| I5 tooltip-rollout scoping | Card "i" popover mechanism + rollout targets | 101 | CURRENT |
+| user_analytics.html data & content pipeline | Member analytics page fetch→render | 104 | CURRENT |
+| Interaction & view-switch re-audit | Clickable-surface + admin↔user switch, re-audited live | 109 | CURRENT — supersedes the cycle-98 audit. Note: its "data-dead group-stat cards" finding was **disproved** on live re-read (BUILD_PLAN cycle-111 note) |
+| Visual & responsive audit | Overflow culprits + Collection Trends chart | 109 | CURRENT — note: its "disconnected pie charts" reading of the trend chart was **wrong**; the chart is a grouped bar chart and only the pie helper was read |
+| Member loan-origination surface | Member-initiated loan request UI + endpoint contract | 118 | CURRENT |
+| group_rules penalty schema & live values | Live penalty columns, types, defaults + per-group values for J2 DDL | 119 | CURRENT |
 
 ## Known before scanning (from setup scan, unverified detail)
+
+> ⚠ **SUPERSEDED (Firebase-era, cycle 0).** Pre-scan guesses about a stack that no longer exists. Kept for history; do not build on this.
 
 - Pages: 21 in `pages/` + `index.html`, `login.html`, `404.html` at root.
 - Scripts: 55 in `scripts/`. Barrel is `firebaseConfig.js`.
@@ -19,6 +41,8 @@ Followed by **GAPS** (referenced but missing / wired to nothing) and **DEAD** (u
 - Collections seen in `firestore.rules`: `users`, `groups`, `groups/{groupId}/members`. Loan/payment/contribution paths **not yet confirmed** — a scout must establish them.
 
 ## functions/ + deploy config
+
+> ⚠ **SUPERSEDED (Firebase-era, cycle 1).** The entire `functions/` directory, `firebaseConfig.js`, `firestore.rules` and `firestore.indexes.json` were **deleted** at deliverable D2 (cycle 46, owner sign-off). Email now goes through SMTP from `.env`; the auth gate is `require_role()` in `api/lib/session.php`. Kept for history; do not build on this.
 
 ### Cloud Functions Surface
 
@@ -72,6 +96,8 @@ None found in `functions/`.
 ---
 
 ## Data model (for SQL migration)
+
+> ⚠ **PARTIAL — this is a pre-build *proposal*, not the live schema (cycle 3).** It was extracted from Firebase-era documentation before the tables existed, and the live database has diverged (e.g. `payments` is a single table, not the three-table structure proposed here; `group_rules`, `loans` and `users` have gained columns). **Authoritative sources for the live schema, in order: a `DESCRIBE` against the live DB → BUILD_PLAN §5 (APPLIED DDL) → the later scout sections.** Use this only for intent and field naming.
 
 Source: `DATABASE_DOCUMENTATION.md` (1395 lines) + `firestore.rules`. Extracted cycle 3.
 **32 tables · ~280 fields · 47 MONEY fields (all DECIMAL(15,2), never FLOAT) · 14 enums · 13 unknowns.**
@@ -893,6 +919,8 @@ None in scope.
 
 ## Button/nav wiring audit (cycle 98 scout)
 
+> ⚠ **SUPERSEDED by "Interaction & view-switch re-audit (cycle 109 scout)".** This audit declared every control wired, and was accurate on the day it ran — but cycles 99–108 added a large amount of new markup afterwards (an accounting-figures block, 5 loan cards, 3 group-stats cards, breakdown popovers, 18 card popovers), and by cycle 109 the owner was hitting real problems on surfaces this section vouches for. Kept for history; do not cite it as current wiring.
+
 **Scope:** pages/user_dashboard.html, admin_dashboard.html, analytics.html, user_analytics.html + paired _sql.js scripts + shared nav_sql.js and notifications-handler_sql.js.
 
 ### Q1: notificationsBtn — Status: WIRED ✓
@@ -1085,6 +1113,8 @@ None in scope.
 ---
 
 ## Summary — Audit Results
+
+> ⚠ **SUPERSEDED — this is the tail of the cycle-98 button audit above.** See that section's banner for why. Superseded by "Interaction & view-switch re-audit (cycle 109 scout)".
 
 **WIRED CONTROLS (all functional, no gaps):**
 1. ✓ notificationsBtn — bell icon, dropdown, polling badge refresh every 60s
@@ -1735,3 +1765,356 @@ None in scope.
 | Due payment grid overflow | admin_dashboard.html:1770 inline | `#duePaymentsCards` | `minmax(200px, 1fr)` | Add `@media (max-width: 768px) { grid-template-columns: repeat(2, 1fr); }` OR `1fr` | 768px |
 | Legend text squeeze | admin_dashboard_sql.js:580–583 (inline HTML) | `.legend-item` / span containing label | Inline flex, label left/value right, no constraint | Add `overflow-wrap: break-word; word-break: break-word;` to `.legend-item` CSS OR constrain flex children width | N/A (CSS only) |
 | Duplicate chart styles | analytics.html:24–102 | `.pie-chart-*` selectors | Inline `<style>` duplicating admin_dashboard rules | Move to shared stylesheet (e.g., design-system.css or new chart-common.css) | N/A (consolidation) |
+
+---
+
+## Member loan-origination surface (cycle 118 scout)
+
+**CRITICAL FINDING:** The inherited claim underpinning BL-4 ("no member-facing flow calls `loans.request`; only admin `loans.force` originates loans") is **FALSE**. G1 shipped a fully-wired member loan-request modal on `user_dashboard.html` that calls the enforced endpoint `loans.request` with valid body fields. The member-facing origination flow is ALREADY LIVE and connected to the server-side gate.
+
+### Q1. Member-facing loan REQUEST form — YES, WIRED
+
+**Location:** `pages/user_dashboard.html` lines 2376–2462 (modal markup) + `scripts/user_dashboard_sql.js` lines 2515–2874 (modal logic)
+
+**Modal ID:** `loanModal` (user_dashboard.html:2376)
+
+**Form ID:** `loanRequestForm` (user_dashboard.html:2383)
+
+**Open handler:** `openLoanModal()` (user_dashboard_sql.js:2534–2567) — triggered by click on `#requestLoanBtn` (user_dashboard.html:2243, wired at user_dashboard_sql.js:1837)
+
+**Submit handler:** `handleLoanSubmit(event)` (user_dashboard_sql.js:2815–2874) — calls `apiPost("loans.request", {...})` at line 2854
+
+**Form fields collected:** `groupId`, `principalAmount`, `repaymentPeriod` (as number), `purpose` (combined from purpose select + optional description textarea), `loanType` (set to the purpose value per line 2862 comment)
+
+**Request body shape (lines 2854–2863):**
+```
+{
+  groupId: string,
+  principalAmount: string (from input value),
+  repaymentPeriod: number,
+  purpose: string,
+  loanType: string (= purpose value)
+}
+```
+
+---
+
+### Q2. G1 eligibility/standing panel — rendered into #loanStandingPanel
+
+**Panel element:** `#loanStandingPanel` (user_dashboard.html:2384, bare `<div>`)
+
+**Data fetch:** `loadLoanStanding()` (user_dashboard_sql.js:2584–2619) calls `await apiGet("loans.eligibility", { groupId })` at line 2605
+
+**Render handler:** `renderLoanStanding(elig)` (user_dashboard_sql.js:2634–2740) — builds the panel with createElement/textContent only (line 2632 comment), displaying:
+- `elig.activeLoanCount` + list of active loans (status, balance)
+- `elig.arrears` (formatted via `formatCurrency`)
+- `elig.penalties` (formatted via `formatCurrency`)
+- If ineligible (`!elig.eligible`), renders red warning box with `elig.reasons` list (lines 2708–2732) and disables submit button
+
+---
+
+### Q3. loan_payments.html modal pattern & "Request a loan" entry point
+
+**Existing modal markup (lines 380–479):**
+- `<div class="modal-overlay hidden" id="paymentModal">` (line 380)
+- `<div class="modal-content modal-wide">` (line 381)
+- `<div class="modal-header">` with `.modal-title` and `.modal-close` (lines 382–385)
+- `<div class="modal-body">` containing `<form id="loanPaymentForm">` (lines 386–387)
+- Form `.form-group` blocks (line 389+) with `.form-label`, `.form-input`, `.form-textarea`, `.form-select`
+
+**"Request a loan" entry point:** NOT PRESENT on loan_payments.html. No button, no header section, no anchor link to user_dashboard's loan modal. Candidate for a Quick Actions area or modal trigger button, but not yet added.
+
+---
+
+### Q4. user_dashboard.html Quick Actions block — lines 2239–2271
+
+**Container:** `<div class="hero-quick-actions">` (line 2240)
+
+**Label:** `<div class="hero-quick-actions-label">Quick Actions</div>` (line 2241)
+
+**Action buttons** (all inside `.quick-actions` grid, lines 2243–2269):
+
+| Button ID | Type | Label | Handler/Link |
+|---|---|---|---|
+| `requestLoanBtn` | `<button>` | "Request Loan" | click → `openLoanModal()` (wired at user_dashboard_sql.js:1837) |
+| `uploadPaymentBtn` | `<button>` | "Upload Payment" | click → `openPaymentModal()` (wired at user_dashboard_sql.js:1893) |
+| `upcomingPaymentsBtn` | `<button>` | "Upcoming Payments" | click → `openUpcomingPaymentsModal()` (wired at user_dashboard_sql.js:1895) |
+| `viewPaymentDetailsBtn` | `<button>` | "Payment Details" | click → `openPaymentDetailsModal()` (wired at user_dashboard_sql.js:1897) |
+| `viewMembersBtn` | `<a>` | "Members" | href="contacts.html" |
+| `viewRulesBtn` | `<a>` | "Rules" | href="view_rules.html" |
+| Analytics | `<a>` | "Analytics" | href="user_analytics.html" |
+| `viewGroupsBtn` | `<button>` | "Groups" | click handler (wired at user_dashboard_sql.js:1900) |
+| Settings | `<a>` | "Settings" | href="settings.html" |
+
+---
+
+### Q5. loans.request — REQUIRED/OPTIONAL fields & response shapes
+
+**Endpoint:** `api/index.php?action=loans.request` (route at api/index.php:68: `'loans.request' => ['POST', 'request_loan']`)
+
+**Handler:** `request_loan()` (api/handlers/loans.php:285–412)
+
+**Auth:** Line 294 — `require_role($groupId, ['member', 'admin', 'senior_admin', 'treasurer'])` — a plain member **is permitted**
+
+**Request body — REQUIRED fields:**
+- `groupId` (string) — line 288; validated not empty at line 290
+- `principalAmount` (string/number) — line 296; passed through `loan_money_input_to_string()` (validation at lines 302–308)
+- `repaymentPeriod` (int) — line 297; validated 1–3 months (line 328)
+- `purpose` (string) — line 298; validated not empty (line 310)
+
+**Request body — OPTIONAL fields:**
+- `loanType` (string) — line 299; validated via `loan_type_or_other()` against `LOAN_TYPES` allowlist (falls back to `'Other'`)
+- `collateral` (string) — line 402; stored NULL if absent/blank
+- `guarantorName` (string) — line 403; stored NULL if absent/blank
+- `guarantorPhone` (string) — line 404; stored NULL if absent/blank
+- `guarantorRelationship` (string) — line 405; stored NULL if absent/blank
+
+**Validation checks (lines 302–341):**
+1. Principal > 0 (line 307)
+2. Purpose not empty (line 310)
+3. Principal ≤ group's `loanRulesMaxLoanAmount` (line 322)
+4. Repayment period within group's min/max (line 328)
+5. Borrower eligibility via `loan_eligibility_check()` (lines 337–341) — same gate used by `loans.eligibility` preview
+
+**Success response (line 411):**
+```
+{
+  "data": {
+    "loan": {
+      loanId, groupId, loanNumber, borrowerId, borrowerName, borrowerEmail,
+      principalAmount, status ('pending'), repaymentPeriod,
+      interestRateMonth1/2/3, totalInterest ('0.00'), totalRepayment ('0.00'),
+      monthlyPayment ('0.00'), requestedAt (NOW()), purpose, loanType,
+      collateral, guarantorName, guarantorPhone, guarantorRelationship,
+      amountRepaid ('0.00'), remainingBalance ('0.00'), penaltiesCharged ('0.00'),
+      createdAt, updatedAt
+    }
+  },
+  "status": 201
+}
+```
+
+**Error responses:**
+- `422` validation error — missing/empty required field, principal ≤ 0, exceeds max, period out of range, invalid amount format
+- `409` eligibility check failed — returns `json_error(implode(' ', $eligibility['reasons']), 409)` — member is ineligible per gate
+- `404` borrower profile not found (users table)
+- `401` auth session invalid/expired
+
+---
+
+### Q6. DOM builders, toast, form-submit helpers — available on user_dashboard_sql.js
+
+**Modal open/close helpers (file: user_dashboard_sql.js):**
+
+| Helper | Line | Signature | Notes |
+|---|---|---|---|
+| `openLoanModal()` | 2534 | async function → sets modal display, resets form, calls `loadLoanStanding()` | Populates loanGroup select + loanTargetMonth select dynamically |
+| `closeLoanModal()` | 2804 | function → hides modal, removes display styles | Plain DOM manipulation |
+| `handleLoanSubmit(event)` | 2815 | async function(event) → validates fields, calls `apiPost("loans.request", ...)`, closes modal on success | Calls `showToast()` on error; re-loads dashboard on success (line 2870) |
+
+**Eligibility preview helpers (file: user_dashboard_sql.js):**
+
+| Helper | Line | Signature | Notes |
+|---|---|---|---|
+| `loadLoanStanding()` | 2584 | async function → fetches `loans.eligibility`, renders into `#loanStandingPanel` | Never throws; gracefully handles fetch errors (lines 2607–2617) |
+| `renderLoanStanding(elig)` | 2634 | function(elig) → builds panel DOM with createElement only (line 2632 comment) | No innerHTML; uses textContent for user strings; formatCurrency for money |
+| `setLoanSubmitDisabled(disabled)` | 2622 | function(disabled) → querySel button[type=submit] in loanRequestForm, sets disabled property | Guards against ineligible submissions |
+| `updateLoanPreview()` | 2748 | function → debounced (400ms) call to `fetchLoanPreview()` | Triggered by input/change on amount/period fields (lines 1852–1856) |
+| `fetchLoanPreview()` | 2753 | async function → calls `apiGet("loans.eligibility", { principal, repaymentPeriod })`, populates calc-summary spans | Never throws; uses resetLoanCalculationSummary() on error |
+
+**Toast notification helper (file: user_dashboard_sql.js):**
+
+| Helper | Line | Signature | Notes |
+|---|---|---|---|
+| `showToast(message, type)` | 2887 | function(message, type='info') → creates div.toast, appends to #toastContainer, auto-dismisses after 4s | Types: 'info', 'danger', 'success' (used in code: line 2820, 2867); container created by nav_sql.js:431–435 |
+
+**API helpers (imported from scripts/api.js):**
+
+| Helper | Usage in handleLoanSubmit | Signature |
+|---|---|---|
+| `apiPost(action, body)` | Line 2854 | `async function → throws ApiError on 4xx/5xx, returns unwrapped data on 2xx` |
+| `apiGet(action, params)` | Line 2605, 2769 | `async function → fetches ?action= with query params, unwraps envelope` |
+
+**Currency formatter (imported from scripts/utils_financial.js):**
+
+| Helper | Usage | Signature |
+|---|---|---|
+| `formatCurrency(amount)` | Line 2673, 2688, 2701, 2781–2790 | `function(amount: string|number) → string 'MWK X,XXX.XX' format` |
+
+**Form selectors/DOM refs used in modal:**
+
+| Element | ID/Class | Retrieved by | Used for |
+|---|---|---|---|
+| Modal | `#loanModal` | `document.getElementById("loanModal")` | Open/close, overlay click dismiss (line 1845) |
+| Form | `#loanRequestForm` | Queried in init (line 1849) | Form reset, submit wiring (line 1850) |
+| Group select | `#loanGroup` | `document.getElementById("loanGroup")` | Set selected group, read on preview/submit (lines 2540, 2754, 2825) |
+| Amount input | `#loanAmount` | `document.getElementById("loanAmount")` | Input change → preview trigger, read on submit (lines 1852, 2758, 2829) |
+| Period select | `#loanRepaymentPeriod` | `document.getElementById("loanRepaymentPeriod")` | Change → preview trigger, read on submit (lines 1855, 2760, 2830) |
+| Purpose select | `#loanPurpose` | `document.getElementById("loanPurpose")` | Read on submit (line 2832) |
+| Description textarea | `#loanDescription` | `document.getElementById("loanDescription")` | Read & combine with purpose (line 2833) |
+| Standing panel | `#loanStandingPanel` | `document.getElementById("loanStandingPanel")` | Rendered by renderLoanStanding() (line 2585) |
+| Calc-summary displays | `#loanPrincipalDisplay`, `#loanInterestDisplay`, `#loanTotalDisplay` | querySel by ID in resetLoanCalculationSummary() + fetchLoanPreview() | Display server-priced totals (lines 2571–2576, 2775–2790) |
+
+---
+
+### GAPS
+
+None found. All referenced endpoints, DOM elements, and handlers are present and wired. The member loan-request flow is complete end-to-end.
+
+### DEAD
+
+1. **No "Request Loan" entry point on loan_payments.html** — the modal lives only on user_dashboard.html; loan_payments.html has no link, button, or modal to request a new loan. This is not dead code (the modal code is used), but a UX gap: a member viewing their loan payments cannot request a new loan from that page without navigating away. Candidate for a follow-on enhancement.
+
+**Evidence:** Grep `"requestLoan\|Request.*[Ll]oan\|request.*loan"` in loan_payments.html returns no matches (all in user_dashboard* only).
+
+---
+
+### VERIFICATION OF THE CLAIM
+
+**BL-4 inherited claim:** "No member-facing flow calls `loans.request`; only admin `loans.force` originates loans."
+
+**Evidence that the claim is FALSE:**
+
+1. **Member CAN call loans.request:** Auth check at loans.php:294 includes `'member'` in the role list: `require_role($groupId, ['member', 'admin', 'senior_admin', 'treasurer'])` — a plain member is permitted.
+
+2. **Member DOES call loans.request:** Grep `"loans\.request"` across scripts/*_sql.js returns 4 matches in user_dashboard_sql.js only: line 1832 (comment), 1839 (comment), 2515 (section header), 2854 (the apiPost call). All comments explicitly document it as member-initiated: "Members may book a loan per the group rulebook" (line 1839). No admin-only gating on the call site.
+
+3. **The flow is LIVE:** modal opens on user_dashboard.html (member page), eligibility checked by the same gate that guards the endpoint, form collects real fields per the contract.
+
+**Consequence for BL-4/J1:** The inherited premise was wrong. J1's outcome ("a member can request their own loan but has to be approved by the admin") is **already implemented and live** — both the UI and the enforced server-side gate exist. The cycle-119 frontend build is not building new functionality; it is confirming an existing (and already working) feature. This unblocks J1 immediately.
+
+---
+
+## group_rules penalty schema & live values (cycle 119 scout)
+
+**Scope:** Ground-truth read of the live `group_rules` penalty schema and all live groups' current penalty values, so J2's additive DDL extends existing columns without duplication and preserves what each group charges today.
+
+**Method:** Single throwaway PHP script reading the live DB via `config/database.php::getDbConnection()` + queries: `DESCRIBE group_rules` (filtered to penalty/period columns) and `SELECT` all groups' penalty values. Read-only: `SHOW`/`DESCRIBE`/`SELECT` only, no write operations.
+
+---
+
+### KEY FINDING — Would any group start being charged when loan-percentage ships?
+
+**ANSWER: NO. Neither of the two live groups would suddenly be charged.**
+
+| Group ID | Loan Penalty Type | Loan Rate | Would charge? | Contribution Type | Daily Rate | Monthly Rate | Would charge? |
+|---|---|---|---|---|---|---|---|
+| `8e833bfe645c83597a9e6d0ddcd0c58a` | fixed | 0.00 | **NO** | fixed | 0.00 | 0.00 | **NO** |
+| `cf4156a12ed6e0c1c371f1ddbe0cb1c1` | fixed | 0.00 | **NO** | fixed | 0.00 | 0.00 | **NO** |
+
+**Rationale:** Both groups explicitly configure `penaltyType = 'fixed'` (not 'percentage'), and both have rate columns at 0.00. Therefore, launching a percentage-penalty engine affects neither group until an admin explicitly reconfigures a group to use percentage-basis penalties.
+
+---
+
+### 1. SCHEMA — `group_rules` columns with 'enalty' or 'Period' in the name
+
+**Source:** Live `DESCRIBE group_rules` filtered to penalty/period columns (cycle 119, 2026-07-25).
+
+| Field | Type | Null | Default |
+|---|---|---|---|
+| `loanPenaltyRate` | DECIMAL(5,2) | NO | 0.00 |
+| `loanPenaltyDailyAmount` | DECIMAL(15,2) | YES | NULL |
+| `loanPenaltyType` | ENUM('percentage','fixed') | NO | 'percentage' |
+| `loanPenaltyGracePeriodDays` | INT | NO | 0 |
+| `contributionPenaltyDailyRate` | DECIMAL(5,2) | NO | 0.00 |
+| `contributionPenaltyDailyAmount` | DECIMAL(15,2) | YES | NULL |
+| `contributionPenaltyMonthlyRate` | DECIMAL(5,2) | NO | 0.00 |
+| `contributionPenaltyType` | ENUM('percentage','fixed') | NO | 'percentage' |
+| `contributionPenaltyGracePeriodDays` | INT | NO | 0 |
+
+**Key observations:**
+1. **ENUM defaults are 'percentage' in the schema**, but all live groups have 'fixed' (see live values below). This means schema defaults apply only to rows created by `rules_ensure_row()` (new groups or self-healed rows), not to pre-existing groups.
+2. **Daily/monthly distinction is implicit, not explicit:** period is determined by which rate column is non-zero (contribution engine at payments.php:276–279), not by a separate `*PenaltyPeriod` column.
+3. **`loanPenaltyRate` exists but is unused:** the loan penalty engine reads `loanPenaltyDailyAmount` (penalty.php:124), not `loanPenaltyRate`. This is a schema artifact, likely from an earlier design phase.
+4. **No fixed-per-month amount columns exist** — checked and confirmed absent: `loanPenaltyMonthlyAmount`, `contributionPenaltyMonthlyAmount`, `loanPenaltyPeriod`, `contributionPenaltyPeriod` all return 0 hits via live table inspect. Negative claim evidence: query `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='group_rules' AND (COLUMN_NAME LIKE '%MonthlyAmount%' OR COLUMN_NAME LIKE '%Period%')` on the live DB returned no rows for these names.
+
+---
+
+### 2. LIVE VALUES — all groups in `group_rules`, penalty columns only
+
+**Source:** Live `SELECT groupId, loanPenaltyRate, loanPenaltyDailyAmount, loanPenaltyType, loanPenaltyGracePeriodDays, contributionPenaltyDailyRate, contributionPenaltyDailyAmount, contributionPenaltyMonthlyRate, contributionPenaltyType, contributionPenaltyGracePeriodDays FROM group_rules ORDER BY groupId` (cycle 119, 2026-07-25).
+
+**Total groups:** 2 (both test/QA as per BUILD_PLAN §1 observation).
+
+#### Group `8e833bfe645c83597a9e6d0ddcd0c58a` (QA Test Savings Group)
+
+| Column | Value |
+|---|---|
+| `loanPenaltyRate` | 0.00 |
+| `loanPenaltyDailyAmount` | NULL |
+| `loanPenaltyType` | fixed |
+| `loanPenaltyGracePeriodDays` | 0 |
+| `contributionPenaltyDailyRate` | 0.00 |
+| `contributionPenaltyDailyAmount` | NULL |
+| `contributionPenaltyMonthlyRate` | 0.00 |
+| `contributionPenaltyType` | fixed |
+| `contributionPenaltyGracePeriodDays` | 0 |
+
+**Interpretation:** No penalties configured at all. This group is in a "disabled-all" state: type is 'fixed' but both daily-amount and rate columns are 0/NULL, so the penalty engines would throw (they require a non-zero amount/rate when type is configured). This group is safe; no charges apply until an admin sets real values.
+
+#### Group `cf4156a12ed6e0c1c371f1ddbe0cb1c1` ([QA VERIFY - safe to delete] Filter Check Group)
+
+| Column | Value |
+|---|---|
+| `loanPenaltyRate` | 0.00 |
+| `loanPenaltyDailyAmount` | 500.00 |
+| `loanPenaltyType` | fixed |
+| `loanPenaltyGracePeriodDays` | 5 |
+| `contributionPenaltyDailyRate` | 0.00 |
+| `contributionPenaltyDailyAmount` | 200.00 |
+| `contributionPenaltyMonthlyRate` | 0.00 |
+| `contributionPenaltyType` | fixed |
+| `contributionPenaltyGracePeriodDays` | 5 |
+
+**Interpretation:** Both loan and contribution penalties are configured as 'fixed' with non-zero daily amounts (MWK 500/day for loans, MWK 200/day for contributions), grace periods of 5 days, and zero rates. This group is in an active-fixed-penalties state. A 5-day grace applies to both; after grace, daily charges accrue. Safe; no change when percentage engine ships.
+
+---
+
+### 3. CODE FACTS — confirmed by reading live code
+
+**File:** `api/lib/penalty.php` lines 88–224 (compute_loan_penalty)
+- **Line 111:** Reads `$rules['loanPenaltyType']` as the type discriminator.
+- **Lines 117–119:** If type is 'percentage', **throws**: `throw new RuntimeException('Percentage penalties are not implemented.');`
+- **Line 124:** If type is 'fixed', reads `loanPenaltyDailyAmount` (NOT `loanPenaltyRate`).
+- **Line 140:** Reads `loanPenaltyGracePeriodDays`.
+- **Effect:** Loan penalties TODAY accept only 'fixed' basis; percentage is rejected with a 501 (`repayments.php:112` surfaces it). `loanPenaltyRate` is never used.
+
+**File:** `api/handlers/payments.php` lines 174–369 (compute_contribution_penalty)
+- **Line 208:** Reads `$rules['contributionPenaltyType']` as the type discriminator.
+- **Lines 210–212:** Validates type is 'fixed' or 'percentage' (does NOT throw on percentage).
+- **Lines 236–255:** If type is 'fixed', reads `contributionPenaltyDailyAmount` and charges a flat daily amount.
+- **Lines 256–320:** If type is 'percentage', reads either `contributionPenaltyDailyRate` (line 273) or `contributionPenaltyMonthlyRate` (line 274) and charges `arrears × rate% × periodsCharged`.
+- **Line 215:** Reads `contributionPenaltyGracePeriodDays`.
+- **Effect:** Contribution penalties TODAY implement percentage, BUT they charge on `arrears` (still-owed), not the full obligation. Per BL-6(b), this is a basis change J2 must make.
+
+**Conclusion for J2 DDL:** The engine split is real and intentional (per BL-6):
+- **Loan percentage:** does not exist; must be built.
+- **Contribution percentage:** exists; basis must change from arrears to full obligation.
+
+---
+
+### GAPS
+
+None. All penalty columns and groups have been read and reported.
+
+### DEAD
+
+None. All columns in the penalty schema are referenced by at least one live code path (penalty.php or payments.php).
+
+---
+
+### IMPLICATIONS FOR J2 DDL
+
+1. **No schema collision:** No `loanPenaltyMonthlyAmount`, `contributionPenaltyMonthlyAmount`, or explicit period columns exist. The schema is ready to be extended with these or alternative designs (e.g. a single `*PenaltyPeriodUnit` column selecting 'daily'/'monthly').
+
+2. **Defaults are behaviour-preserving:** The schema ENUM defaults are 'percentage', but all live rows are 'fixed'. Any new additive column (e.g. a period selector) should default to whichever matches today's implicit behaviour for that group. For now, all are fixed, so a period selector would default to 'daily' (the only period currently in use).
+
+3. **No migration risk:** Launching J2's dual engines (loan-percentage + contribution-basis-change) affects neither group until an admin manually reconfigures. Both would need to change `penaltyType` from 'fixed' to 'percentage' **and** set a non-zero rate to start charging. This is a conscious admin action, not a silent flip.
+
+4. **Config column is not whitelisted:** The `update_rules()` handler (rules.php) does not include `loanPenaltyRate`, `loanPenaltyDailyAmount`, `contributionPenaltyDailyRate`, or `contributionPenaltyMonthlyRate` in its input validation whitelist (RULES_SELECT_COLUMNS). J2 slice 1 must add these to make them configurable by the admin.
+
+---
+
+### VERIFICATION NOTES
+
+This is a read-only ground-truth pass. No rows were inserted, updated, or altered. The query used was single-connection, reused to avoid remote-host throttling (`SQLSTATE[HY000] [2002]`). Both `DESCRIBE` and row selects completed without error over the live cPanel MySQL.

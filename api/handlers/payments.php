@@ -108,7 +108,9 @@ if (!function_exists('payment_fetch_rules')) {
             . 'monthlyContributionRequired, monthlyContributionAllowPartialPayment, '
             . 'serviceFeeAmount, serviceFeeRequired, serviceFeeDueDate, '
             . 'contributionPenaltyType, contributionPenaltyDailyAmount, '
-            . 'contributionPenaltyGracePeriodDays '
+            . 'contributionPenaltyGracePeriodDays, contributionPenaltyDailyRate, '
+            . 'contributionPenaltyMonthlyRate, contributionPenaltyMonthlyAmount, '
+            . 'contributionPenaltyPeriod '
             . 'FROM group_rules WHERE groupId = :groupId LIMIT 1'
         );
         $stmt->execute([':groupId' => $groupId]);
@@ -129,12 +131,21 @@ if (!function_exists('compute_contribution_penalty')) {
      *   'fixed'      A flat MWK amount per day late:
      *                  accrued = dailyAmount * MAX(0, daysCharged)
      *
-     *   'percentage' A percentage OF THE ARREARS per elapsed period:
-     *                  accrued = arrears * rate% * periodsCharged
-     *                The schema carries both a daily and a monthly rate; a
-     *                non-zero DAILY rate wins, else the MONTHLY rate applies
-     *                (counted in WHOLE elapsed months). The two are never
-     *                combined — that would bill the same lateness twice.
+     *   'percentage' A percentage OF THE FULL OBLIGATION per elapsed period:
+     *                  accrued = obligation * rate% * periodsCharged
+     *                DELIBERATE OWNER DECISION (BL-6(b)): the percentage basis is
+     *                the obligation's FULL amount (what the payment type costs per
+     *                group_rules), NOT the member's remaining arrears. Do not
+     *                "simplify" this back to arrears — a member who has paid down
+     *                most of an obligation still owes the same percentage charge
+     *                on the full amount that was due, by design. Whether a
+     *                penalty applies at all is unaffected: that gate is still
+     *                "is anything still owed and late" ($arrearsMinor <= 0 below).
+     *                The PERIOD is the group's explicit contributionPenaltyPeriod
+     *                selector ('day' uses contributionPenaltyDailyRate +
+     *                daysCharged; 'month' uses contributionPenaltyMonthlyRate +
+     *                whole elapsed months) — no more inferring the period from
+     *                which rate happens to be non-zero.
      *                The arithmetic is integer-only, using the same
      *                rate-in-hundredths / divide-by-10000 / round-half-up
      *                convention as compute_loan_schedule()'s interest.
@@ -152,16 +163,23 @@ if (!function_exists('compute_contribution_penalty')) {
      * because a settlement is a fact that has stopped accruing. This mirrors
      * compute_loan_penalty()'s loanId-scoped netting exactly.
      *
-     * @param array|null  $rules        group_rules row, or null when the group has none.
-     * @param string|null $dueDate      The obligation's due date; null when unscheduled.
-     * @param int         $arrearsMinor What is still owed, in minor units.
-     * @param string|null $paymentId    The obligation's payments row id, when one
-     *                                  exists, so already-settled amounts can be
-     *                                  netted off. Null when no row exists yet
-     *                                  (an obligation never claimed has nothing to
-     *                                  net against, and amountOutstanding equals
-     *                                  amountAccrued).
-     * @param string|null $asOf         Defaults to today.
+     * @param array|null  $rules          group_rules row, or null when the group has none.
+     * @param string|null $dueDate        The obligation's due date; null when unscheduled.
+     * @param int         $arrearsMinor   What is still owed, in minor units. Still
+     *                                    the gate for WHETHER a penalty applies.
+     * @param int         $obligationMinor The obligation's FULL amount (the payment
+     *                                    type's rule cost), in minor units. THE
+     *                                    PERCENTAGE BASIS (BL-6(b)) — required, no
+     *                                    fallback, so a missed call site fails
+     *                                    loudly rather than silently charging on
+     *                                    arrears.
+     * @param string|null $paymentId      The obligation's payments row id, when one
+     *                                    exists, so already-settled amounts can be
+     *                                    netted off. Null when no row exists yet
+     *                                    (an obligation never claimed has nothing to
+     *                                    net against, and amountOutstanding equals
+     *                                    amountAccrued).
+     * @param string|null $asOf           Defaults to today.
      *
      * @return array{
      *     dailyAmount:string, gracePeriodDays:int, firstChargeableDay:?string,
@@ -175,6 +193,7 @@ if (!function_exists('compute_contribution_penalty')) {
         ?array $rules,
         ?string $dueDate,
         int $arrearsMinor,
+        int $obligationMinor,
         ?string $paymentId = null,
         ?string $asOf = null
     ): array {
@@ -226,95 +245,130 @@ if (!function_exists('compute_contribution_penalty')) {
             ? (int) $firstChargeable->diff($asOfDay)->days
             : 0;
 
+        // WHOLE elapsed months only — a member is not charged a further month
+        // until that month has actually passed. Computed unconditionally (not
+        // just for percentage/month) so fixed/month and percentage/month share
+        // the identical months-elapsed arithmetic.
+        $monthsDiff = $firstChargeable->diff($asOfDay);
+        $monthsElapsed = $firstChargeable < $asOfDay
+            ? ($monthsDiff->y * 12) + $monthsDiff->m
+            : 0;
+
+        // THE EXPLICIT PERIOD SELECTOR. Which cadence applies is read straight
+        // from the group's own contributionPenaltyPeriod choice — no more
+        // inferring it from which rate/amount happens to be non-zero. Unset or
+        // unrecognised values fall back to 'day', which is both the column's own
+        // schema DEFAULT and the only cadence that existed before this column
+        // was introduced, so a group that never touched this setting sees no
+        // change in behaviour.
+        $period = (string) ($rules['contributionPenaltyPeriod'] ?? 'day');
+        if ($period !== 'day' && $period !== 'month') {
+            $period = 'day';
+        }
+        $periodsCharged = $period === 'month' ? $monthsElapsed : $daysCharged;
+
         // Defaults for the fields that only one mode populates, so the return
         // contract below is identical in shape for both.
         $dailyMinor = 0;
         $rateUsed = null;
         $ratePeriod = null;
-        $periodsCharged = $daysCharged;
 
         if ($type === 'fixed') {
-            $dailyRaw = $rules['contributionPenaltyDailyAmount'] ?? null;
+            if ($period === 'month') {
+                // FIXED/MONTH. New sub-mode this slice — a flat MWK amount per
+                // WHOLE elapsed month late, the month analogue of fixed/day.
+                $monthlyRaw = $rules['contributionPenaltyMonthlyAmount'] ?? null;
 
-            // Configured 'fixed' but with no daily amount set: the group intended
-            // to charge something and has not said how much. Never quietly
-            // charge 0.
-            if ($dailyRaw === null || $dailyRaw === '') {
-                throw new RuntimeException(
-                    'This group charges a fixed daily contribution penalty but '
-                    . 'contributionPenaltyDailyAmount is not set.'
-                );
+                // Configured 'fixed' + period 'month' but with no monthly amount
+                // set: the group intended to charge something and has not said
+                // how much. Never quietly charge 0.
+                if ($monthlyRaw === null || $monthlyRaw === '') {
+                    throw new RuntimeException(
+                        'This group charges a fixed monthly contribution penalty but '
+                        . 'contributionPenaltyMonthlyAmount is not set.'
+                    );
+                }
+
+                try {
+                    $dailyMinor = money_to_minor((string) $monthlyRaw);
+                } catch (InvalidArgumentException $e) {
+                    throw new RuntimeException('contributionPenaltyMonthlyAmount is not a valid money value.');
+                }
+
+                $accruedMinor = $dailyMinor * $periodsCharged;
+            } else {
+                // FIXED/DAY. BYTE-IDENTICAL to this engine's behaviour before this
+                // slice: a flat MWK amount per day late. Do not restructure.
+                $dailyRaw = $rules['contributionPenaltyDailyAmount'] ?? null;
+
+                // Configured 'fixed' but with no daily amount set: the group intended
+                // to charge something and has not said how much. Never quietly
+                // charge 0.
+                if ($dailyRaw === null || $dailyRaw === '') {
+                    throw new RuntimeException(
+                        'This group charges a fixed daily contribution penalty but '
+                        . 'contributionPenaltyDailyAmount is not set.'
+                    );
+                }
+
+                try {
+                    $dailyMinor = money_to_minor((string) $dailyRaw);
+                } catch (InvalidArgumentException $e) {
+                    throw new RuntimeException('contributionPenaltyDailyAmount is not a valid money value.');
+                }
+
+                $accruedMinor = $dailyMinor * $daysCharged;
             }
-
-            try {
-                $dailyMinor = money_to_minor((string) $dailyRaw);
-            } catch (InvalidArgumentException $e) {
-                throw new RuntimeException('contributionPenaltyDailyAmount is not a valid money value.');
-            }
-
-            $accruedMinor = $dailyMinor * $daysCharged;
         } else {
             // PERCENTAGE MODE.
             //
-            // THE RULE: arrears still owed after the grace period accrue a
-            // PERCENTAGE OF THOSE ARREARS per elapsed period —
+            // DELIBERATE OWNER DECISION (BL-6(b)) — see the docblock above. The
+            // basis is the obligation's FULL amount, not the member's remaining
+            // arrears. Do not "simplify" this back to $arrearsMinor.
             //
-            //     accrued = arrears x rate% x periodsCharged
+            //     accrued = obligation x rate% x periodsCharged
             //
-            // The rate is charged on what is still owed (not on the original
-            // instalment), so clearing part of the debt reduces the ongoing
-            // charge — the same "accrues only while money is owed" principle the
-            // fixed mode follows.
-            //
-            // WHICH RATE: the schema carries both a daily and a monthly rate.
-            // A non-zero daily rate wins; otherwise the monthly rate applies.
-            // They are never combined — charging both would bill the same
-            // lateness twice.
-            $dailyRateRaw = trim((string) ($rules['contributionPenaltyDailyRate'] ?? ''));
-            $monthlyRateRaw = trim((string) ($rules['contributionPenaltyMonthlyRate'] ?? ''));
+            // WHICH RATE: selected by the SAME explicit contributionPenaltyPeriod
+            // choice used above — 'day' uses contributionPenaltyDailyRate,
+            // 'month' uses contributionPenaltyMonthlyRate. They are never
+            // combined — charging both would bill the same lateness twice.
+            $rateColumn = $period === 'month' ? 'contributionPenaltyMonthlyRate' : 'contributionPenaltyDailyRate';
+            $rateRaw = trim((string) ($rules[$rateColumn] ?? ''));
 
-            $useDaily = $dailyRateRaw !== '' && money_rate_to_hundredths($dailyRateRaw) > 0;
-            $useMonthly = !$useDaily
-                && $monthlyRateRaw !== ''
-                && money_rate_to_hundredths($monthlyRateRaw) > 0;
-
-            // Configured 'percentage' with no usable rate: same reasoning as the
-            // fixed branch — the group meant to charge and hasn't said how much,
-            // so refuse rather than silently charge nothing.
-            if (!$useDaily && !$useMonthly) {
+            // Configured 'percentage' with no usable rate for the configured
+            // period: same reasoning as the fixed branch — the group meant to
+            // charge and hasn't said how much, so refuse rather than silently
+            // charge nothing.
+            if ($rateRaw === '') {
                 throw new RuntimeException(
-                    'This group charges a percentage contribution penalty but neither '
-                    . 'contributionPenaltyDailyRate nor contributionPenaltyMonthlyRate is set.'
+                    "This group charges a percentage contribution penalty per {$period} but "
+                    . "{$rateColumn} is not set."
                 );
             }
 
-            if ($useDaily) {
-                $rateUsed = $dailyRateRaw;
-                $ratePeriod = 'day';
-                $periodsCharged = $daysCharged;
-            } else {
-                $rateUsed = $monthlyRateRaw;
-                $ratePeriod = 'month';
-                // WHOLE elapsed months only — a member is not charged a further
-                // month until that month has actually passed.
-                $monthsDiff = $firstChargeable->diff($asOfDay);
-                $periodsCharged = $firstChargeable < $asOfDay
-                    ? ($monthsDiff->y * 12) + $monthsDiff->m
-                    : 0;
-            }
-
             try {
-                $rateHundredths = money_rate_to_hundredths($rateUsed);
+                $rateHundredths = money_rate_to_hundredths($rateRaw);
             } catch (InvalidArgumentException $e) {
                 throw new RuntimeException('The contribution penalty rate is not a valid percentage.');
             }
+
+            if ($rateHundredths <= 0) {
+                throw new RuntimeException(
+                    "This group charges a percentage contribution penalty per {$period} but "
+                    . "{$rateColumn} is not set."
+                );
+            }
+
+            $rateUsed = $rateRaw;
+            $ratePeriod = $period;
 
             // Integer-only, exactly the convention compute_loan_schedule() uses
             // for interest: rate carried in hundredths of a percent, so the
             // divisor is 100 (percent) x 100 (hundredths) = 10000, with one
             // half-up rounding at the very end. No float ever touches money.
+            // BL-6(b): $obligationMinor, NOT $arrearsMinor, is the basis.
             $accruedMinor = money_div_round_half_up(
-                $arrearsMinor * $rateHundredths * $periodsCharged,
+                $obligationMinor * $rateHundredths * $periodsCharged,
                 10000
             );
         }
@@ -380,10 +434,11 @@ if (!function_exists('payment_penalty_or_501')) {
         ?array $rules,
         ?string $dueDate,
         int $arrearsMinor,
+        int $obligationMinor,
         ?string $paymentId = null
     ): array {
         try {
-            return compute_contribution_penalty($rules, $dueDate, $arrearsMinor, $paymentId);
+            return compute_contribution_penalty($rules, $dueDate, $arrearsMinor, $obligationMinor, $paymentId);
         } catch (RuntimeException $e) {
             json_error($e->getMessage(), 501);
         }
@@ -437,8 +492,13 @@ if (!function_exists('waive_contribution_penalty')) {
 
         $rules = payment_fetch_rules($pdo, (string) $payment['groupId']);
         $arrearsMinor = money_to_minor(trim((string) $payment['arrears']));
+        // BL-6(b): the percentage basis is this row's own FULL obligation
+        // (totalAmount) — the same snapshot that produced $arrearsMinor above,
+        // not a freshly re-read rule value that could have moved since this row
+        // was recorded/updated.
+        $obligationMinor = money_to_minor(trim((string) $payment['totalAmount']));
         $dueDate = $payment['dueDate'] === null ? null : (string) $payment['dueDate'];
-        $penalty = payment_penalty_or_501($rules, $dueDate, $arrearsMinor, $paymentId);
+        $penalty = payment_penalty_or_501($rules, $dueDate, $arrearsMinor, $obligationMinor, $paymentId);
 
         $outstandingMinor = money_to_minor($penalty['amountOutstanding']);
         if ($outstandingMinor <= 0) {
@@ -481,7 +541,7 @@ if (!function_exists('waive_contribution_penalty')) {
         // Recomputed on read: the waiver has netted the outstanding penalty to zero.
         json_response([
             'paymentId' => $paymentId,
-            'penalty' => payment_penalty_or_501($rules, $dueDate, $arrearsMinor, $paymentId),
+            'penalty' => payment_penalty_or_501($rules, $dueDate, $arrearsMinor, $obligationMinor, $paymentId),
         ]);
     }
 }
@@ -811,12 +871,16 @@ if (!function_exists('list_payments')) {
         $penaltyAccruedMinor = 0;
         foreach ($stmt->fetchAll() as $row) {
             $arrearsMinor = money_to_minor(trim((string) $row['arrears']));
+            // BL-6(b): this row's own FULL obligation (totalAmount) — the same
+            // snapshot that produced this row's persisted arrears.
+            $obligationMinor = money_to_minor(trim((string) $row['totalAmount']));
 
             // Computed on read — the charge grows every night and nothing stores it.
             $row['penalty'] = payment_penalty_or_501(
                 $rules,
                 $row['dueDate'] === null ? null : (string) $row['dueDate'],
                 $arrearsMinor,
+                $obligationMinor,
                 (string) $row['paymentId']
             );
 
@@ -924,10 +988,14 @@ if (!function_exists('member_arrears_penalties_minor')) {
         $seed = [
             'amountPaid' => money_from_minor($seedPaidMinor),
             'arrears' => money_from_minor($seedArrearsMinor),
+            // BL-6(b): the percentage basis is the payment type's rule cost —
+            // the same $seedDueMinor that produced $seedArrearsMinor above, so
+            // arrears and obligation basis are always the same snapshot.
             'penalty' => payment_penalty_or_501(
                 $rules,
                 $seedDueDate,
                 $seedArrearsMinor,
+                $seedDueMinor ?? 0,
                 $seedRow === null ? null : (string) $seedRow['paymentId']
             ),
         ];
@@ -945,10 +1013,13 @@ if (!function_exists('member_arrears_penalties_minor')) {
             $months[] = [
                 'amountPaid' => money_from_minor($paidMinor),
                 'arrears' => money_from_minor($arrearsMinor),
+                // BL-6(b): full obligation basis = $monthlyDueMinor, same source
+                // as $arrearsMinor above.
                 'penalty' => payment_penalty_or_501(
                     $rules,
                     $dueDate,
                     $arrearsMinor,
+                    $monthlyDueMinor ?? 0,
                     $row === null ? null : (string) $row['paymentId']
                 ),
             ];
@@ -966,10 +1037,13 @@ if (!function_exists('member_arrears_penalties_minor')) {
             $serviceFee = [
                 'amountPaid' => money_from_minor($feePaidMinor),
                 'arrears' => money_from_minor($feeArrearsMinor),
+                // BL-6(b): full obligation basis = $feeDueMinor, same source as
+                // $feeArrearsMinor above.
                 'penalty' => payment_penalty_or_501(
                     $rules,
                     $feeDueDate,
                     $feeArrearsMinor,
+                    $feeDueMinor ?? 0,
                     $feeRow === null ? null : (string) $feeRow['paymentId']
                 ),
             ];
@@ -1054,10 +1128,13 @@ if (!function_exists('my_obligations')) {
             'amountPaid' => money_from_minor($seedPaidMinor),
             'arrears' => money_from_minor($seedArrearsMinor),
             'dueDate' => $seedDueDate,
+            // BL-6(b): obligation basis = $seedDueMinor, same source as
+            // $seedArrearsMinor above.
             'penalty' => payment_penalty_or_501(
                 $rules,
                 $seedDueDate,
                 $seedArrearsMinor,
+                $seedDueMinor ?? 0,
                 $seedRow === null ? null : (string) $seedRow['paymentId']
             ),
         ];
@@ -1087,10 +1164,13 @@ if (!function_exists('my_obligations')) {
                 'arrears' => money_from_minor($arrearsMinor),
                 'dueDate' => $dueDate,
                 'approvalStatus' => $row === null ? 'unpaid' : (string) $row['approvalStatus'],
+                // BL-6(b): obligation basis = $monthlyDueMinor, same source as
+                // $arrearsMinor above.
                 'penalty' => payment_penalty_or_501(
                     $rules,
                     $dueDate,
                     $arrearsMinor,
+                    $monthlyDueMinor ?? 0,
                     $row === null ? null : (string) $row['paymentId']
                 ),
             ];
@@ -1114,10 +1194,13 @@ if (!function_exists('my_obligations')) {
                 'amountPaid' => money_from_minor($feePaidMinor),
                 'arrears' => money_from_minor($feeArrearsMinor),
                 'dueDate' => $feeDueDate,
+                // BL-6(b): obligation basis = $feeDueMinor, same source as
+                // $feeArrearsMinor above.
                 'penalty' => payment_penalty_or_501(
                     $rules,
                     $feeDueDate,
                     $feeArrearsMinor,
+                    $feeDueMinor ?? 0,
                     $feeRow === null ? null : (string) $feeRow['paymentId']
                 ),
             ];
@@ -1230,10 +1313,13 @@ if (!function_exists('group_arrears_summary')) {
                 $a = max(0, $seedDueMinor - $paid);
                 $arrearsMinor += $a;
                 $row = payment_fetch_row($pdo, $groupId, $uid, 'seed_money', $year, null);
+                // BL-6(b): obligation basis = $seedDueMinor (guaranteed non-null
+                // in this branch), same source as $a (arrears) above.
                 $pen = payment_penalty_or_501(
                     $rules,
                     $seedDueDate,
                     $a,
+                    $seedDueMinor,
                     $row === null ? null : (string) $row['paymentId']
                 );
                 $penaltyMinor += money_to_minor($pen['amountOutstanding']);
@@ -1254,10 +1340,13 @@ if (!function_exists('group_arrears_summary')) {
                     $arrearsMinor += $a;
                     $dueDate = payment_due_date($rules, 'monthly_contribution', $month, $year);
                     $row = payment_fetch_row($pdo, $groupId, $uid, 'monthly_contribution', $year, $month);
+                    // BL-6(b): obligation basis = $monthlyDueMinor (guaranteed
+                    // non-null in this branch), same source as $a (arrears).
                     $pen = payment_penalty_or_501(
                         $rules,
                         $dueDate,
                         $a,
+                        $monthlyDueMinor,
                         $row === null ? null : (string) $row['paymentId']
                     );
                     $penaltyMinor += money_to_minor($pen['amountOutstanding']);
@@ -1270,10 +1359,13 @@ if (!function_exists('group_arrears_summary')) {
                 $a = max(0, $feeDueMinor - $paid);
                 $arrearsMinor += $a;
                 $row = payment_fetch_row($pdo, $groupId, $uid, 'service_fee', $year, null);
+                // BL-6(b): obligation basis = $feeDueMinor (guaranteed non-null
+                // in this branch), same source as $a (arrears) above.
                 $pen = payment_penalty_or_501(
                     $rules,
                     $feeDueDate,
                     $a,
+                    $feeDueMinor,
                     $row === null ? null : (string) $row['paymentId']
                 );
                 $penaltyMinor += money_to_minor($pen['amountOutstanding']);
@@ -1858,7 +1950,10 @@ if (!function_exists('record_payment')) {
             'payment' => $payment,
             // The claim is NOT yet money. Say so plainly.
             'awaitingApproval' => true,
-            'penalty' => payment_penalty_or_501($rules, $rowDueDate, $arrearsMinor, $paymentId),
+            // BL-6(b): obligation basis = $totalMinor, the same full-obligation
+            // value (from payment_rule_amount_minor) that produced $arrearsMinor
+            // above (line ~1749: max(0, $totalMinor - $newPaidMinor)).
+            'penalty' => payment_penalty_or_501($rules, $rowDueDate, $arrearsMinor, $totalMinor, $paymentId),
         ], 201);
     }
 }
