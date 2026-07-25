@@ -86,8 +86,9 @@ function svgIcon(key, size = "20") {
   svg.setAttribute("stroke-linejoin", "round");
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("focusable", "false");
-  // Static, hardcoded icon markup only — never interpolated user/DB data.
-  svg.innerHTML = ICONS[key] || "";
+  // Support both key lookup (e.g. "dashboard") and direct path strings
+  // (e.g. when nav items store ICONS.dashboard directly).
+  svg.innerHTML = ICONS[key] || key || "";
   return svg;
 }
 
