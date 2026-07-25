@@ -750,8 +750,31 @@ body {
     padding: var(--bn-space-4);
   }
 
+  /* Two-up, not one-up. .card-grid holds .info-card figure tiles (title,
+     one value, one line of meta) — at full width they wasted most of a
+     phone screen per card and turned the Financial Reports / Interest &
+     Penalties summaries into a long scroll of near-empty boxes.
+     minmax(0, 1fr) so a long "MWK 1,250,000" can't widen its own track
+     past the viewport. */
   .card-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--bn-space-3);
+  }
+}
+
+@media (max-width: 480px) {
+  .card-grid {
+    gap: var(--bn-space-2);
+  }
+
+  .info-card {
+    padding: var(--bn-space-3);
+  }
+
+  /* text-2xl in a half-width tile breaks a currency figure over three
+     lines; one step down keeps it to one or two. */
+  .info-card-value {
+    font-size: var(--bn-text-lg);
   }
 }
 

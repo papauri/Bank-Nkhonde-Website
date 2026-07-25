@@ -551,7 +551,7 @@ const ACCOUNTING_FIGURES = [
   ["penaltiesCharged", "Penalties Charged", "Total penalties levied on late contributions and loans."],
   ["penaltiesCollected", "Penalties Collected", "Penalty amounts members have actually paid."],
   ["penaltiesWaived", "Penalties Waived", "Penalty amounts an admin has cancelled."],
-  ["penaltiesOutstanding", "Penalties Outstanding", "Recorded penalties charged but not yet collected or waived."],
+  ["penaltiesOutstanding", "Penalties Outstanding", "Live outstanding penalties across contributions and loans — accrued and not yet collected or waived."],
   ["cashPosition", "Cash Position", "Total contributed and repaid minus total disbursed — the group's net cash on hand."],
 ];
 

@@ -226,6 +226,11 @@ if (!function_exists('list_loans')) {
         $totalOutstandingMinor = 0;
         $totalInterestMinor = 0;
         $activePrincipalMinor = 0;
+        // J5: sum of principal for loans that were actually issued (approved,
+        // disbursed, completed, or defaulted) — uses the SAME server-computed
+        // $principalMinor (approvedAmount ?? principalAmount) as every other
+        // total in this loop.
+        $issuedPrincipalMinor = 0;
         foreach ($rows as $row) {
             $principalMinor = money_to_minor(
                 trim((string) ($row['approvedAmount'] ?? $row['principalAmount']))
@@ -236,6 +241,9 @@ if (!function_exists('list_loans')) {
             if (in_array((string) $row['status'], ['approved', 'disbursed'], true)) {
                 $activePrincipalMinor += $principalMinor;
             }
+            if (in_array((string) $row['status'], ['approved', 'disbursed', 'completed', 'defaulted'], true)) {
+                $issuedPrincipalMinor += $principalMinor;
+            }
         }
 
         json_response([
@@ -245,6 +253,7 @@ if (!function_exists('list_loans')) {
                 'totalOutstanding' => money_from_minor($totalOutstandingMinor),
                 'totalInterest' => money_from_minor($totalInterestMinor),
                 'activePrincipal' => money_from_minor($activePrincipalMinor),
+                'issuedPrincipal' => money_from_minor($issuedPrincipalMinor),
             ],
         ]);
     }

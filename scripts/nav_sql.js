@@ -247,6 +247,16 @@ function renderSidebarNav(user, opts, config) {
     a.appendChild(label);
     sidebarNav.appendChild(a);
   });
+
+  // Landing slot for page-owned actions on mobile. Stays empty (and CSS-
+  // hidden) unless a page moves its own controls in here — user_dashboard
+  // relocates its hero Quick Actions into it below 1025px, so the drawer
+  // becomes the action surface on a phone instead of the hero.
+  const sidebarQuickActions = document.createElement("div");
+  sidebarQuickActions.className = "sidebar-quick-actions";
+  sidebarQuickActions.id = "sidebarQuickActions";
+  sidebarNav.appendChild(sidebarQuickActions);
+
   sidebar.appendChild(sidebarNav);
 
   const sidebarFooter = document.createElement("div");

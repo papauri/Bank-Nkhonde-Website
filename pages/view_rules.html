@@ -184,8 +184,15 @@
         justify-content: center;
       }
 
+      /* Two-up. These cards are a label and a short value ("Interest Rate /
+         10%"), so one per row wasted most of the screen. */
       .rules-stat-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--bn-space-3);
+      }
+
+      .rules-stat-card {
+        padding: var(--bn-space-3);
       }
     }
 

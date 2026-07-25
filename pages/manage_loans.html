@@ -257,6 +257,190 @@
       box-shadow: var(--bn-shadow-sm);
     }
 
+    /* ── Borrower filter bar ──────────────────────────────────────────────
+       Replaces the unlabelled two-select row. One labelled control plus a
+       reset that only appears when a filter is actually applied. */
+    .loan-filter-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+      flex-wrap: wrap;
+      margin-bottom: var(--bn-space-4);
+    }
+
+    .loan-filter-label {
+      font-size: var(--bn-text-xs);
+      font-weight: 700;
+      color: var(--bn-gray);
+      text-transform: uppercase;
+      letter-spacing: var(--bn-tracking-wider);
+    }
+
+    .loan-filter-select {
+      min-width: 220px;
+      max-width: 100%;
+    }
+
+    @media (max-width: 768px) {
+      /* A 220px select next to a label overflows a phone's content box;
+         the control takes the full measure and the label sits above it. */
+      .loan-filter-bar {
+        gap: var(--bn-space-2);
+      }
+
+      .loan-filter-label {
+        flex-basis: 100%;
+      }
+
+      .loan-filter-select {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+      /* Tabs are a horizontal scroller on mobile — give the row a visible
+         edge inset so a half-cut tab reads as "scroll me". */
+      .action-tabs {
+        margin-bottom: var(--bn-space-4);
+        scroll-padding-inline: var(--bn-space-2);
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .action-tab {
+        padding: var(--bn-space-3) var(--bn-space-4);
+        font-size: var(--bn-text-xs);
+      }
+    }
+
+    /* ── Collapsed admin tool panel (foot of page) ────────────────────────
+       Neutral by design: this is configuration, not an alert. The old red
+       2px border made a settings panel shout louder than the pending-payments
+       queue directly above it. */
+    .admin-tool-panel {
+      margin-top: var(--bn-space-8);
+      margin-bottom: var(--bn-space-6);
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-xl);
+      overflow: hidden;
+    }
+
+    .admin-tool-panel[open] {
+      box-shadow: var(--bn-shadow-sm);
+    }
+
+    .admin-tool-summary {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-3);
+      min-height: 44px;
+      padding: var(--bn-space-4) var(--bn-space-5);
+      cursor: pointer;
+      list-style: none;
+      transition: background var(--bn-transition-fast);
+    }
+
+    .admin-tool-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .admin-tool-summary:hover {
+      background: var(--bn-gray-50);
+    }
+
+    .admin-tool-summary:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: -2px;
+    }
+
+    .admin-tool-summary-icon {
+      font-size: 20px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .admin-tool-summary-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .admin-tool-summary-title {
+      font-size: var(--bn-text-base);
+      font-weight: 700;
+      color: var(--bn-dark);
+    }
+
+    .admin-tool-summary-desc {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+
+    .admin-tool-summary-state {
+      flex-shrink: 0;
+      font-size: var(--bn-text-xs);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: var(--bn-tracking-wider);
+      color: var(--bn-gray);
+      background: var(--bn-gray-100);
+      border-radius: var(--bn-radius-full);
+      padding: 4px var(--bn-space-3);
+    }
+
+    /* Enabled reads gold, matching how the app marks an active setting. */
+    .admin-tool-summary-state[data-state="on"] {
+      color: var(--bn-dark);
+      background: var(--bn-accent);
+    }
+
+    /* Disclosure chevron, rotated when open. */
+    .admin-tool-summary::after {
+      content: "";
+      flex-shrink: 0;
+      width: 10px;
+      height: 10px;
+      border-right: 2px solid var(--bn-gray);
+      border-bottom: 2px solid var(--bn-gray);
+      transform: rotate(45deg) translate(-2px, -2px);
+      transition: transform var(--bn-transition-fast);
+    }
+
+    .admin-tool-panel[open] .admin-tool-summary::after {
+      transform: rotate(-135deg) translate(-2px, -2px);
+    }
+
+    .admin-tool-panel > #forcedLoansSection {
+      padding-inline: var(--bn-space-5);
+      padding-bottom: var(--bn-space-5);
+      border-top: 1px solid var(--bn-gray-lighter);
+    }
+
+    @media (max-width: 768px) {
+      .admin-tool-summary {
+        padding: var(--bn-space-4);
+        gap: var(--bn-space-2);
+      }
+
+      .admin-tool-summary-desc {
+        display: none;
+      }
+
+      .admin-tool-panel > #forcedLoansSection {
+        padding-inline: var(--bn-space-4);
+        padding-bottom: var(--bn-space-4);
+      }
+
+      /* The section's own header row was a desktop space-between layout;
+         stack it so the toggle doesn't get crushed against the title. */
+      .admin-tool-panel > #forcedLoansSection > div:first-child {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--bn-space-3);
+      }
+    }
+
     .quick-action-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -745,32 +929,45 @@
         <div class="quick-action-title">Communications</div>
         <div class="quick-action-desc">Send reminders</div>
       </div>
+      <!-- Entry point for the relocated Forced Loans panel at the foot of
+           the page: opens it and scrolls to it. -->
+      <div class="quick-action-card" id="forcedLoansShortcut">
+        <div class="quick-action-icon">⚡</div>
+        <div class="quick-action-title">Forced Loans</div>
+        <div class="quick-action-desc">Interest deficit rules</div>
+      </div>
     </div>
 
-    <!-- Action Tabs -->
+    <!-- Status tabs. "All Loans" was previously only reachable from the
+         removed #loanFilterDropdown; it is a tab now so status filtering
+         lives in exactly one control. -->
     <div class="action-tabs">
+      <button class="action-tab" data-tab="all">All Loans</button>
       <button class="action-tab active" data-tab="pending">Pending Requests</button>
       <button class="action-tab" data-tab="active">Active Loans</button>
       <button class="action-tab" data-tab="repaid">Repaid</button>
       <button class="action-tab" data-tab="cancelled">Cancelled</button>
       <button class="action-tab" data-tab="overdue">Overdue</button>
     </div>
-    
-    <!-- Filter Dropdown -->
-    <div style="margin-bottom: var(--bn-space-4); display: flex; gap: var(--bn-space-3); flex-wrap: wrap; align-items: center;">
-      <select id="loanFilterDropdown" class="form-select" style="min-width: 200px;">
-        <option value="all">All Loans</option>
-        <option value="pending">Pending Only</option>
-        <option value="approved">Approved Only</option>
-        <option value="disbursed">Disbursed Only</option>
-        <option value="active">Active Only</option>
-        <option value="repaid">Repaid Only</option>
-        <option value="cancelled">Cancelled Only</option>
-        <option value="overdue">Overdue Only</option>
-      </select>
-      <select id="borrowerFilterDropdown" class="form-select" style="min-width: 200px;">
+
+    <!-- Borrower filter.
+         #loanFilterDropdown used to sit here as a SECOND status filter and
+         was removed: it duplicated the tabs above, and it was broken in two
+         ways — "All Loans" was a no-op (the handler ignored the value "all",
+         so the previous tab stayed applied), and "Approved Only"/"Disbursed
+         Only" had no case in renderLoans()'s switch, so they silently fell
+         through to "show everything" while deselecting every tab. Two
+         controls writing one `currentTab` is what produced that; the tabs
+         are now the single source of status. Borrower is an independent
+         axis, so it keeps its own control — labelled, and with a reset. -->
+    <div class="loan-filter-bar">
+      <label for="borrowerFilterDropdown" class="loan-filter-label">Borrower</label>
+      <select id="borrowerFilterDropdown" class="form-select loan-filter-select">
         <option value="all">All Borrowers</option>
       </select>
+      <button type="button" class="btn btn-ghost btn-sm" id="clearLoanFiltersBtn" hidden>
+        Clear filter
+      </button>
     </div>
 
     <!-- Pending Loan Payments Section -->
@@ -804,8 +1001,53 @@
       </div>
     </div>
 
-    <!-- Forced Loans Management Section -->
-    <div id="forcedLoansSection" style="margin-bottom: var(--bn-space-6); padding: var(--bn-space-5); background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(239, 68, 68, 0.02) 100%); border: 2px solid rgba(239, 68, 68, 0.3); border-radius: var(--bn-radius-xl);">
+    <!-- Loans List -->
+    <div class="table-container">
+      <table class="table table-responsive" id="loansTable">
+        <thead>
+          <tr>
+            <th>Borrower</th>
+            <th>Applied</th>
+            <th>Status</th>
+            <th class="cell-right">Principal</th>
+            <th class="cell-right">Interest</th>
+            <th class="cell-right">Repaid</th>
+            <th class="cell-right">Remaining</th>
+            <th>Progress</th>
+            <th>Details</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="loansContainer">
+          <tr>
+            <td colspan="10" style="text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);">Select a group to manage loans</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Forced Loans Management — RELOCATED.
+         It used to sit above the loans table, between the pending-payments
+         panel and the list, styled as a red alert box. That gave a rarely-used
+         configuration tool the most urgent styling and the most valuable
+         position on the page, pushing the actual loans list below the fold on
+         every visit — and on mobile it was several screens of scrolling before
+         a single loan appeared. It is a group SETTING, not a queue, so it now
+         lives at the foot of the page as a collapsed admin tool panel, opened
+         either from here or from the "Forced Loans" quick action at the top.
+         The markup inside is unchanged: manage_loans_sql.js addresses its
+         children by id (#forcedLoansToggle, #forcedLoansConfig,
+         #forcedLoansResults, ...) and never references the section itself. -->
+    <details class="admin-tool-panel" id="forcedLoansPanel">
+      <summary class="admin-tool-summary">
+        <span class="admin-tool-summary-icon" aria-hidden="true">⚡</span>
+        <span class="admin-tool-summary-text">
+          <span class="admin-tool-summary-title">Forced Loans</span>
+          <span class="admin-tool-summary-desc">Automatic loans for members with interest payment deficits</span>
+        </span>
+        <span class="admin-tool-summary-state" id="forcedLoansSummaryState">Advanced</span>
+      </summary>
+    <div id="forcedLoansSection" style="padding: var(--bn-space-5) 0 0;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--bn-space-4);">
         <div>
           <h3 style="font-size: var(--bn-text-lg); font-weight: 700; color: var(--bn-dark); margin-bottom: var(--bn-space-1);">⚡ Forced Loans Management</h3>
@@ -886,31 +1128,7 @@
         </div>
       </div>
     </div>
-
-    <!-- Loans List -->
-    <div class="table-container">
-      <table class="table table-responsive" id="loansTable">
-        <thead>
-          <tr>
-            <th>Borrower</th>
-            <th>Applied</th>
-            <th>Status</th>
-            <th class="cell-right">Principal</th>
-            <th class="cell-right">Interest</th>
-            <th class="cell-right">Repaid</th>
-            <th class="cell-right">Remaining</th>
-            <th>Progress</th>
-            <th>Details</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="loansContainer">
-          <tr>
-            <td colspan="10" style="text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);">Select a group to manage loans</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    </details>
     </div>
   </main>
 

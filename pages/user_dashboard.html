@@ -246,16 +246,7 @@
       .top-nav-btn#logoutBtn {
         display: none !important;
       }
-      
-      /* Show burger menu on mobile - ensure it's visible */
-      .mobile-menu-btn {
-        display: flex !important;
-        position: relative;
-        z-index: 10;
-        visibility: visible;
-        opacity: 1;
-      }
-      
+
       .top-nav-actions {
         gap: var(--bn-space-2);
       }
@@ -266,36 +257,18 @@
       }
     }
     
-    /* Mobile Menu Button (hidden on desktop) */
-    .mobile-menu-btn {
-      display: none;
-      flex-direction: column;
-      gap: 4px;
-      width: 40px;
-      height: 40px;
-      padding: 8px;
-      background: rgba(255, 255, 255, 0.1);
-      border: none;
-      border-radius: var(--bn-radius-md);
-      cursor: pointer;
-      justify-content: center;
-      align-items: center;
-      transition: all var(--bn-transition-fast);
-      flex-shrink: 0;
-    }
-    
-    .mobile-menu-btn:hover {
-      background: rgba(255, 255, 255, 0.15);
-    }
-    
-    .mobile-menu-btn span {
-      width: 20px;
-      height: 2px;
-      background: var(--bn-white);
-      border-radius: 2px;
-      transition: all var(--bn-transition-fast);
-    }
-    
+    /* NOTE — the page-local .mobile-menu-btn block that used to live here was
+       removed (cycle: mobile UI pass). It was written for the retired
+       top-nav, where the burger sat on a DARK bar, so it painted the three
+       bars white and defaulted the button to display:none. Because this
+       inline <style> is the last sheet on the page it beat
+       admin-layout.css's `@media (max-width:1024px) { .mobile-menu-btn
+       { display:flex } }`, so between 641px and 1024px the burger was hidden
+       outright, and below 640px it was "shown" as white bars on the injected
+       WHITE topbar — invisible either way. With no reachable burger the
+       injected .sidebar could never get its .open class on mobile, which is
+       why this page appeared to have no drawer at all. The shared
+       admin-layout.css rules (dark bars, shown ≤1024px) now apply unopposed. */
     .mobile-menu-btn.active span:nth-child(1) {
       transform: rotate(45deg) translate(5px, 5px);
     }
@@ -413,91 +386,104 @@
     /* ============================================
        HERO SECTION
        ============================================ */
+    /* ── Hero, redesigned (centred composition) ──────────────────────────
+       Previously a left-weighted band: greeting hard-left, period select
+       hard-right, stats spanning the full 1200px measure. On a phone that
+       read as three unrelated left-edge fragments, and on a wide monitor
+       the greeting and the filter drifted so far apart they stopped
+       reading as one header.
+       Everything is now composed around the centre line at every width —
+       greeting, filter, stats and actions share one axis and one capped
+       measure — so the panel holds together identically from 320px to
+       ultrawide. Colour moved from "corner-lit navy" to a deeper indigo
+       body with a gold aurora above the centre and a cool blue lift below
+       it, so the light source agrees with the centred layout.
+       Deliberately NOT overflow:hidden: that would clip .hero-stat-popover,
+       which is a child of .hero-stat and must escape the card's bottom edge
+       (cycle-94 fix). The decorative layers clip themselves instead. */
     .hero-section {
-      /* Now a card inside .dashboard-content (admin-layout.css), not a
-         body-level full-bleed band — rounded like the other content-cards
-         on this page, with the same inter-card gap. Keeps its dark
-         gradient background so the white-on-dark hero text stays correct.
-         Shadow matches .content-card's elevation so it reads as a card
-         among cards; no border (a light .content-card hairline would read
-         as a stray line on the dark gradient — the hero already has its
-         own light edge via the translucent .hero-stat/.action-btn borders
-         inside it, which is enough definition against the page's gray-100
-         background).
-         Deliberately NOT overflow:hidden here: the ::before radial isn't
-         clipped by the section (it clips itself, see below) because
-         overflow:hidden on this element would also clip .hero-stat-popover,
-         which is a child of .hero-stat and needs to escape the card's
-         bottom edge (cycle-94 fix). */
-      /* Layered surface: the brand gradient plus two soft light sources, which
-         gives the panel depth instead of reading as one flat navy block. */
-      background:
-        radial-gradient(ellipse 80% 60% at 15% 0%, rgba(201, 162, 39, 0.18) 0%, transparent 60%),
-        radial-gradient(ellipse 70% 70% at 100% 100%, rgba(37, 99, 235, 0.16) 0%, transparent 60%),
-        var(--bn-gradient-primary);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: var(--bn-radius-2xl);
-      box-shadow: var(--bn-shadow-xl);
-      padding: var(--bn-space-6);
-      margin-bottom: var(--bn-space-6);
+      /* No `isolation: isolate` here — it would trap .hero-stat-popover in
+         the hero's own stacking context and stop it painting over the cards
+         below. */
       position: relative;
+      background:
+        radial-gradient(120% 150% at 50% -20%, rgba(201, 162, 39, 0.22) 0%, transparent 58%),
+        radial-gradient(90% 120% at 50% 118%, rgba(37, 99, 235, 0.20) 0%, transparent 60%),
+        linear-gradient(168deg, #0C1C34 0%, #14294B 46%, #0A1628 100%);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      border-radius: var(--bn-radius-2xl);
+      box-shadow: var(--bn-shadow-xl), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      padding: var(--bn-space-8) var(--bn-space-6);
+      margin-bottom: var(--bn-space-6);
+      text-align: center;
     }
 
+    /* Gold hairline along the top edge — the one asymmetric detail, and it
+       runs through the centre rather than pooling in a corner. Clips itself
+       to the card's top rounding. */
     .hero-section::before {
       content: '';
       position: absolute;
-      top: 0;
-      right: 0;
-      width: 60%;
-      height: 100%;
-      /* Matches the section's own top-right/bottom-right rounding so the
-         decorative radial never shows a square corner poking past the
-         card's rounded edge — clips itself instead of relying on
-         overflow:hidden on the parent (which would also clip the
-         hero-stat popovers). */
-      border-radius: 0 var(--bn-radius-xl) var(--bn-radius-xl) 0;
-      background: radial-gradient(ellipse at 70% 30%, rgba(201, 162, 39, 0.1) 0%, transparent 60%);
+      inset: 0 0 auto 0;
+      height: 2px;
+      border-radius: var(--bn-radius-2xl) var(--bn-radius-2xl) 0 0;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(201, 162, 39, 0.05) 18%,
+        rgba(228, 200, 83, 0.85) 50%,
+        rgba(201, 162, 39, 0.05) 82%,
+        transparent 100%);
       pointer-events: none;
     }
 
     .hero-container {
-      max-width: 1200px;
+      max-width: 960px;
       margin: 0 auto;
       position: relative;
       z-index: 1;
     }
 
-    /* Header row: identity on the left, period control on the right. These
-       used to stack, which pushed the stat band well below the fold and left a
-       lot of dead space in the hero. */
+    /* Header stack: greeting over period control, both on the centre line.
+       Column at every width — the old row split them to opposite edges of a
+       1200px measure, which is the "off-centre" look this replaces. */
     .hero-top {
       display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      flex-wrap: wrap;
+      flex-direction: column;
+      align-items: center;
       gap: var(--bn-space-4);
       margin-bottom: var(--bn-space-6);
     }
 
     .hero-greeting {
       min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     .hero-greeting-text {
       font-size: var(--bn-text-xs);
       font-weight: 600;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: rgba(255, 255, 255, 0.55);
-      margin-bottom: var(--bn-space-1);
+      color: rgba(228, 200, 83, 0.75);
+      margin-bottom: var(--bn-space-2);
     }
 
     .hero-greeting-name {
-      font-size: clamp(1.5rem, 4vw, 2rem);
+      font-size: clamp(1.6rem, 5vw, 2.5rem);
       font-weight: 800;
-      line-height: 1.15;
-      letter-spacing: -0.02em;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
       color: var(--bn-white);
+      text-wrap: balance;
+    }
+
+    /* The group chip sits under the name, centred, as the third line of the
+       identity stack. */
+    .hero-greeting .current-group-display {
+      justify-content: center;
+      margin-top: var(--bn-space-3);
     }
 
     /* Month filter — sits on the hero's dark gradient, so it reuses the
@@ -507,6 +493,7 @@
     .hero-month-filter {
       display: flex;
       align-items: center;
+      justify-content: center;
       flex-wrap: wrap;
       gap: var(--bn-space-2);
       flex-shrink: 0;
@@ -552,30 +539,41 @@
     }
 
     /* A wrapping GRID, not a horizontal scroller: every tile stays visible
-       instead of the last ones hiding off the right edge. */
+       instead of the last ones hiding off the right edge. Capped and
+       centred so six tiles form a balanced block under the greeting rather
+       than a wide strip pinned to the panel's edges. */
     .hero-stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: var(--bn-space-3);
       align-items: stretch;
+      justify-content: center;
+      max-width: 900px;
+      margin-inline: auto;
       overflow: visible;
     }
 
     .hero-stat {
       min-width: 0;
       min-height: 44px;
-      background: rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.07);
       backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: var(--bn-radius-xl);
-      box-shadow: 0 4px 14px rgba(10, 22, 40, 0.14);
+      box-shadow: 0 4px 14px rgba(10, 22, 40, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.07);
       padding: var(--bn-space-4);
       transition: all var(--bn-transition-base);
       display: flex;
       flex-direction: column;
-      justify-content: flex-start;
+      justify-content: center;
+      /* stretch, NOT center: centring on the cross axis would shrink-wrap
+         every child, and .hero-stat-details draws a border-top as its
+         divider — that rule would then span only the text instead of the
+         card. Contents are centred with text-align below, which leaves the
+         children full-width. */
+      align-items: stretch;
       font: inherit;
-      text-align: inherit;
+      text-align: center;
       color: inherit;
     }
 
@@ -688,7 +686,9 @@
       font-size: var(--bn-text-xs);
       color: rgba(255, 255, 255, 0.65);
       line-height: 1.5;
-      text-align: left;
+      /* Centred with the rest of the tile (was left) now that the hero is a
+         centred composition. */
+      text-align: center;
       font-weight: 400;
     }
 
@@ -834,34 +834,85 @@
     /* Quick Actions inside the dark hero band — light-on-dark treatment,
        modeled on .hero-stat's rgba(255,255,255,...) pattern. */
     .hero-quick-actions {
-      margin-top: var(--bn-space-6);
+      margin-top: var(--bn-space-8);
+      padding-top: var(--bn-space-6);
+      /* Centred divider rule instead of a full-width border, so the
+         separator reads as part of the centred composition. */
+      border-top: 1px solid rgba(255, 255, 255, 0.10);
     }
 
     .hero-quick-actions-label {
       font-size: 10px;
-      font-weight: 600;
-      color: rgba(255, 255, 255, 0.6);
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.55);
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: var(--bn-space-2);
+      letter-spacing: 0.14em;
+      text-align: center;
+      margin-bottom: var(--bn-space-4);
     }
 
-    .hero-section .quick-actions .action-btn {
+    .hero-quick-actions .quick-actions {
+      max-width: 900px;
+      margin-inline: auto;
+      justify-content: center;
+    }
+
+    /* Light-on-dark treatment for the action buttons. Scoped to BOTH homes
+       the block can occupy: the hero on desktop, and the (equally dark)
+       sidebar drawer once it is relocated there on mobile — see
+       placeQuickActions() in user_dashboard_sql.js. */
+    .hero-section .quick-actions .action-btn,
+    .sidebar .quick-actions .action-btn {
       background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.12);
     }
 
-    .hero-section .quick-actions .action-btn:hover {
+    .hero-section .quick-actions .action-btn:hover,
+    .sidebar .quick-actions .action-btn:hover {
       background: var(--bn-accent);
       border-color: var(--bn-accent);
     }
 
-    .hero-section .quick-actions .action-label {
+    .hero-section .quick-actions .action-label,
+    .sidebar .quick-actions .action-label {
       color: var(--bn-white);
     }
 
-    .hero-section .quick-actions .action-btn:hover .action-label {
+    .hero-section .quick-actions .action-btn:hover .action-label,
+    .sidebar .quick-actions .action-btn:hover .action-label {
       color: var(--bn-dark);
+    }
+
+    /* Quick Actions in their relocated (sidebar) home. The drawer is narrow,
+       so two compact columns rather than the hero's wide auto-fit row. */
+    .sidebar .hero-quick-actions {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: none;
+    }
+
+    .sidebar .hero-quick-actions-label {
+      text-align: left;
+      padding-inline: var(--bn-space-4);
+      margin-bottom: var(--bn-space-3);
+    }
+
+    /* No inline padding: .sidebar-nav already insets its children, so zero
+       here lines the cards up with the nav items' hover backgrounds. */
+    .sidebar .quick-actions {
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--bn-space-2);
+    }
+
+    .sidebar .quick-actions .action-btn {
+      min-height: 52px;
+      padding: var(--bn-space-3) var(--bn-space-2);
+      border-radius: var(--bn-radius-md);
+    }
+
+    .sidebar .quick-actions .action-label {
+      font-size: var(--bn-text-xs);
+      line-height: 1.25;
     }
 
     /* Notifications - Dashboard List */
@@ -1850,12 +1901,16 @@
 
       .hero-stats {
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: var(--bn-space-3);
-        /* Two-column grid never needs horizontal scroll — drop the desktop
-           overflow-x:auto so it can't implicitly clip the popover on the Y
-           axis (overflow-x/overflow-y pairing rule turns a paired "visible"
-           into "auto"). */
+        /* THREE columns on a tablet/large phone, not two. Six tiles then
+           form two tidy rows instead of three, which is what stops the hero
+           pushing the rest of the dashboard below the fold. Drops back to
+           two below 480px (see next block).
+           Explicit grid (not auto-fit) and no overflow-x: a fixed column
+           count never needs horizontal scroll, and an overflow-x:auto here
+           would implicitly turn the paired overflow-y into "auto" and clip
+           .hero-stat-popover. */
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--bn-space-2);
         overflow: visible;
       }
 
@@ -1900,20 +1955,38 @@
         box-sizing: border-box;
       }
 
+      /* Stays 2-up (the base rule) down to 480px — a group card is a name,
+         a role and two figures, which fits a half-width tile on anything
+         tablet-sized, and one-up wasted the whole screen per group. */
       .groups-grid {
-        grid-template-columns: 1fr;
+        gap: var(--bn-space-3);
       }
     }
 
     /* Mobile-specific enhancements */
     @media (max-width: 480px) {
+      .hero-section {
+        padding: var(--bn-space-6) var(--bn-space-3);
+      }
+
+      /* Below 480 the group name and its badge collide at half width. */
+      .groups-grid {
+        grid-template-columns: 1fr;
+      }
+
       .hero-greeting-name {
         font-size: var(--bn-text-2xl);
       }
 
+      /* Two columns on a phone — three would squeeze a currency value like
+         "MWK 12,500" onto three lines. */
+      .hero-stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
       .hero-stat {
-        padding: var(--bn-space-2);
-        min-width: 100px;
+        padding: var(--bn-space-3) var(--bn-space-2);
+        min-width: 0;
       }
 
       .hero-stat-value {

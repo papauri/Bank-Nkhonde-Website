@@ -281,6 +281,21 @@
         padding: var(--bn-space-2) var(--bn-space-3);
       }
 
+      /* Two-up from 400px: these month cards were the worst offender for
+         dead space on a phone — one card per screenful of scrolling. Below
+         400px they still need the full measure to stay readable, hence the
+         floor rather than a flat two columns. */
+      .monthly-breakdown-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--bn-space-3);
+      }
+
+      .breakdown-card {
+        padding: var(--bn-space-4) var(--bn-space-3);
+      }
+    }
+
+    @media (max-width: 399px) {
       .monthly-breakdown-grid {
         grid-template-columns: 1fr;
       }

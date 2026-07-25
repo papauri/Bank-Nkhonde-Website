@@ -59,7 +59,52 @@ let selectedCalendarDayKey = null;
 
 export async function init() {
   wireStaticHandlers();
+  setupQuickActionsRelocation();
   loadUserDashboardEntry();
+}
+
+/**
+ * Move the hero's Quick Actions block into the sidebar drawer on mobile, and
+ * back into the hero on desktop.
+ *
+ * The block is MOVED, never cloned: every button in it is wired by id
+ * (#requestLoanBtn, #uploadPaymentBtn, ...), so a copy would duplicate those
+ * ids and only one of each pair would keep working. appendChild relocates the
+ * live nodes with their listeners intact.
+ *
+ * Why: on a phone the hero was carrying a greeting, a period select, six stat
+ * tiles AND nine action buttons, which pushed the actual dashboard cards far
+ * below the fold. The drawer is empty space that only exists on mobile, so the
+ * actions live there and the hero stays a summary.
+ *
+ * The slot (#sidebarQuickActions) is created by nav_sql.js, which may not have
+ * injected the sidebar yet when this runs — hence the observer.
+ */
+function setupQuickActionsRelocation() {
+  const mq = window.matchMedia("(max-width: 1024px)");
+
+  const place = () => {
+    const block = document.querySelector(".hero-quick-actions");
+    if (!block) return;
+    const target = mq.matches
+      ? document.getElementById("sidebarQuickActions")
+      : document.querySelector(".hero-container");
+    if (target && block.parentElement !== target) target.appendChild(block);
+  };
+
+  place();
+  mq.addEventListener("change", place);
+
+  if (!document.getElementById("sidebarQuickActions")) {
+    const observer = new MutationObserver(() => {
+      if (!document.getElementById("sidebarQuickActions")) return;
+      observer.disconnect();
+      place();
+    });
+    observer.observe(document.body, {childList: true, subtree: true});
+    // Give up rather than observing the whole document for the page's life.
+    setTimeout(() => observer.disconnect(), 5000);
+  }
 }
 if (!window.__bnSpa) {
   document.addEventListener("DOMContentLoaded", () => { init(); });
@@ -401,12 +446,13 @@ async function loadDashboard(groupId) {
   const paymentRows = payments && Array.isArray(payments.payments)
     ? payments.payments
     : [];
+  const paymentsSummary = (payments && payments.summary) || {};
   const loanRows = loans && Array.isArray(loans.loans) ? loans.loans : [];
   const memberRows = members && Array.isArray(members.members)
     ? members.members
     : [];
 
-  renderFinancialOverview(obligationRows, paymentRows, loanRows);
+  renderFinancialOverview(obligationRows, paymentRows, loanRows, paymentsSummary);
   renderGroupMembers(memberRows);
   renderNextMonthlyPayment(obligationRows);
   renderUpcomingPayments(obligationRows);
@@ -469,8 +515,9 @@ function warnFetchFailure() {
  * @param {Object} ob obligations payload
  * @param {Array<Object>} payments payment rows
  * @param {Array<Object>} loans loan rows
+ * @param {Object} paymentsSummary payments.list summary (member-scoped)
  */
-function renderFinancialOverview(ob, payments, loans) {
+function renderFinancialOverview(ob, payments, loans, paymentsSummary) {
   // Total VERIFIED contributions (seed + months + service fee) and total
   // arrears (arrears + accrued live penalties), read directly from the
   // server-computed summary — matches this card's scope exactly, so the old
@@ -478,20 +525,15 @@ function renderFinancialOverview(ob, payments, loans) {
   const summary = (ob && ob.summary) || {};
   setText("totalContributed", formatCurrency(summary.contributed));
 
-  // Pending = un-adjudicated claims (approvalStatus 'pending') from the ledger.
-  let pendingMinor = 0;
-  for (const row of payments) {
-    if (String(row.approvalStatus) === "pending") {
-      pendingMinor += toMinor(row.amountPaid);
-    }
-  }
-  setText("pendingPayments", formatCurrency(fromMinor(pendingMinor)));
+  // Pending = un-adjudicated claims (approvalStatus 'pending'), read directly
+  // from the payments.list server summary — matches the ledger's own scope.
+  setText("pendingPayments", formatCurrency(paymentsSummary.pending));
   renderPendingPopover(payments);
 
   // Arrears = outstanding arrears + accrued live penalties across obligations
-  // (seed + months + service fee).
-  const arrearsMinor = toMinor(summary.arrears) + toMinor(summary.penaltyAccrued);
-  setText("totalArrears", formatCurrency(fromMinor(arrearsMinor)));
+  // (seed + months + service fee), read directly from the server-computed
+  // summary.
+  setText("totalArrears", formatCurrency(summary.totalOwed));
   renderArrearsPopover(summary);
 
   // Active-loans count (approved / disbursed).
@@ -642,7 +684,9 @@ function renderContributionChart(ob) {
 
   const summary = (ob && ob.summary) || {};
   const paidMinor = toMinor(summary.contributed);
-  const outstandingMinor = toMinor(summary.arrears) + toMinor(summary.penaltyAccrued);
+  // outstanding = arrears + accrued penalties, read from the server total
+  // (summary.totalOwed, cycle 123) instead of summing two money fields client-side.
+  const outstandingMinor = toMinor(summary.totalOwed);
   const totalMinor = paidMinor + outstandingMinor;
 
   if (totalMinor <= 0) {
@@ -2365,10 +2409,11 @@ function updatePaymentDueInfo() {
   );
 
   const summary = ob.summary || {};
-  const totalOutstandingMinor = toMinor(summary.arrears) + toMinor(summary.penaltyAccrued);
+  // Read the server-computed total (arrears + accrued penalties) directly —
+  // summary.totalOwed (cycle 123), no client-side money addition.
   panel.appendChild(
     buildDueInfoRow(
-      `Total outstanding across all obligations: ${formatCurrency(fromMinor(totalOutstandingMinor))}`,
+      `Total outstanding across all obligations: ${formatCurrency(summary.totalOwed)}`,
       "payment-due-hint",
     ),
   );

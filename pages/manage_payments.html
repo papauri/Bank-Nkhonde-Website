@@ -474,7 +474,9 @@
       padding: var(--bn-space-2) var(--bn-space-1);
     }
 
-    /* This month vs. what the group's rules expect. */
+    /* Collection position vs. what the group's rules expect. Two stacked rows —
+       the current month, then cycle-to-date — because they answer different
+       questions and must never read as one figure. */
     .compliance {
       background: var(--bn-white);
       border: 1px solid var(--bn-gray-lighter);
@@ -524,6 +526,48 @@
       color: var(--bn-gray);
     }
     .compliance-note strong { color: var(--bn-dark); }
+
+    /* Each scope is its own block, visually separated so the month figure can
+       never be read as the cycle figure. position:relative anchors the "i"
+       explainer, which is absolutely positioned by .bn-info-toggle. */
+    .compliance-row { position: relative; }
+    /* Keeps the figure pair clear of the explainer button in the corner. */
+    .compliance-row.has-info .compliance-head { padding-right: 34px; }
+    .compliance-row + .compliance-row {
+      margin-top: var(--bn-space-5);
+      padding-top: var(--bn-space-5);
+      border-top: 1px solid var(--bn-gray-lighter);
+    }
+    .compliance-list-head {
+      margin-top: var(--bn-space-5);
+      padding-top: var(--bn-space-4);
+      border-top: 1px solid var(--bn-gray-lighter);
+      margin-bottom: var(--bn-space-3);
+      font-weight: 700;
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray-700);
+    }
+    /* Overdue vs merely outstanding — the difference between someone to chase
+       and someone whose deadline has not arrived. */
+    .acct-followup-state {
+      font-size: var(--bn-text-xs);
+      font-weight: 700;
+      white-space: nowrap;
+      padding: 2px var(--bn-space-2);
+      border-radius: var(--bn-radius-full);
+    }
+    .acct-followup-state.is-overdue {
+      color: var(--bn-danger-dark);
+      background: var(--bn-danger-light);
+    }
+    .acct-followup-state.is-pending {
+      color: var(--bn-gray-700);
+      background: var(--bn-gray-100);
+    }
+    @media (max-width: 640px) {
+      .acct-followup-row { flex-wrap: wrap; }
+      .acct-followup-name { flex: 1 1 100%; }
+    }
 
     /* Payment category breakdown — one card per payment type. */
     .acct-categories {

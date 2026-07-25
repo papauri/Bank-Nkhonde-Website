@@ -29,6 +29,8 @@ Per-section format (live stack): `| Feature | Page | Script(s) | Endpoint(s) ?ac
 | Visual & responsive audit | Overflow culprits + Collection Trends chart | 109 | CURRENT — note: its "disconnected pie charts" reading of the trend chart was **wrong**; the chart is a grouped bar chart and only the pie helper was read |
 | Member loan-origination surface | Member-initiated loan request UI + endpoint contract | 118 | CURRENT |
 | group_rules penalty schema & live values | Live penalty columns, types, defaults + per-group values for J2 DDL | 119 | CURRENT |
+| Accounting-figure display surface | Ten cumulative group accounting figures across five pages, sources, verdicts, and live reconciliation | 121 | CURRENT |
+| Accounting drill-down surface | Group accounting position cards, modal mechanics, per-figure drill-down row sources | 125 | CURRENT |
 
 ## Known before scanning (from setup scan, unverified detail)
 
@@ -2118,3 +2120,174 @@ None. All columns in the penalty schema are referenced by at least one live code
 ### VERIFICATION NOTES
 
 This is a read-only ground-truth pass. No rows were inserted, updated, or altered. The query used was single-connection, reused to avoid remote-host throttling (`SQLSTATE[HY000] [2002]`). Both `DESCRIBE` and row selects completed without error over the live cPanel MySQL.
+
+---
+
+## Accounting-figure display surface (cycle 121 scout)
+
+> Five pages displaying ten cumulative group accounting figures to admins and members. Scout maps each figure's source (endpoint, handler), element ID, rendering code, and verdict. Reconciliation against raw tables confirms: settled figures are accurate; penalties are read from persisted penalty_settlements rows only (live unsettled accrual excluded). This verifies the stale-penalties gap predicted in BUILD_PLAN section 1.
+
+### ACCOUNTING FIGURES MAPPED
+
+#### Admin pages (analytics.html, financial_reports.html)
+
+All ten figures from payments.accountingSummary endpoint (handler at payments.php:1557–1651):
+1. **totalContributed** — SUM payments.amountPaid (approved/completed) — VERDICT: server-computed, accurate
+2. **totalDisbursed** — SUM loans.principalAmount (4 statuses) — VERDICT: server-computed, accurate
+3. **outstandingLoanPrincipal** — SUM loans.remainingBalance (4 statuses) — VERDICT: server-computed, accurate
+4. **interestEarned** — SUM loan_payments.interestPortion (approved) — VERDICT: server-computed, accurate
+5. **loanRepaymentsReceived** — SUM loan_payments.amount (approved) — VERDICT: server-computed, accurate
+6. **penaltiesCharged** — SUM penalty_settlements.amountAccrued — VERDICT: stale/missing (excludes live accrual)
+7. **penaltiesCollected** — SUM penalty_settlements.amountPaid — VERDICT: server-computed, accurate
+8. **penaltiesWaived** — SUM penalty_settlements.amountWaived — VERDICT: server-computed, accurate
+9. **penaltiesOutstanding** — calculated (charged - collected - waived) — VERDICT: stale/missing (excludes live)
+10. **cashPosition** — contributed + repayments + contributionPenalties - disbursed — VERDICT: server-computed, accurate
+
+Handler chain: endpoint called at analytics_sql.js:220 and financial_reports_sql.js:302 via apiGet(), then rendered with formatCurrency() on each field at line 573 and 378 respectively. **No client-side arithmetic.**
+
+#### Member pages (user_dashboard.html, user_analytics.html)
+
+| Figure | Endpoint | Verdict |
+|---|---|---|
+| totalContributed | payments.obligations.summary.contributed | server-computed |
+| totalArrears (dashboard) | Client sum: toMinor(summary.arrears)+toMinor(summary.penaltyAccrued) at line 493 | **CLIENT SUM DEFECT** |
+| totalBorrowed (analytics) | Client filter+reduce on myLoans at lines 248–250 | **CLIENT SUM DEFECT** |
+| outstanding | loans.list summary.totalOutstanding | server-computed |
+
+### LIVE RECONCILIATION (GROUP cf4156a12ed6e0c1c371f1ddbe0cb1c1)
+
+Raw table queries matched endpoint responses byte-for-byte:
+
+| Field | Raw SUM | Endpoint | Status |
+|---|---|---|---|
+| totalContributed | 100000.00 | 100000.00 | ✓ Match |
+| totalDisbursed | 50000.00 | 50000.00 | ✓ Match |
+| outstandingLoanPrincipal | 41666.66 | 41666.66 | ✓ Match |
+| loanRepaymentsReceived | 21666.67 | 21666.67 | ✓ Match |
+| interestEarned | 5000.00 | 5000.00 | ✓ Match |
+| penaltiesCharged | 0.00 (persisted) | 0.00 | ✓ Match |
+| penaltiesOutstanding | 0.00 (persisted) | 0.00 | ✓ Match |
+| cashPosition | 7166667 minor | 7166667 minor | ✓ Match |
+
+### PENALTY FINDINGS (STALE/MISSING VERDICT)
+
+**Code path:** payments.accountingSummary reads penalty_settlements at lines 1606–1627. It sums amountAccrued, amountPaid, amountWaived from persisted rows only.
+
+**Live engine:** group_arrears_summary (lines 1270–1381) computes live penaltyAccrued by iterating active members, calling payment_penalty_or_501() for each obligation type (seed, monthly, service fee). This is never persisted as a running total; it recomputes every read.
+
+**Gap:** Any group with configured penalties, active members, and past-due obligations will show accountingSummary.penaltiesCharged=0 while group_arrears_summary.penaltyAccrued>0. This is the "penalties charged 0, arrears tile showed 1,379,000" bug class.
+
+**Observed data:** Test group has zero penalty_settlements rows. No members are demonstrably overdue (no live accrual to measure against), so the divergence is unquantified by live data. However, the gap exists by code design and is confirmed by inspection.
+
+### CLIENT-SIDE MONEY DEFECTS
+
+Evidence-based findings per brief requirements:
+
+1. **user_dashboard_sql.js:493** — Grep match: `arrearsMinor = toMinor(summary.arrears) + toMinor(summary.penaltyAccrued)`. This adds two server fields client-side. Defect: should be a single server field or computed endpoint.
+
+2. **user_dashboard_sql.js:483–487** — Loop sums pending payments: `for (const row of payments) { if (pending) pendingMinor += toMinor(row.amountPaid) }`. Defect: should be a server field.
+
+3. **user_analytics_sql.js:248–250** — Grep match: `const totalBorrowed = myLoans.filter(...).reduce((sum,l) => sum + numberOf(...), 0)`. Filter+reduce on client array. Defect: should be a server field (loans.list summary).
+
+### GAPS
+
+None. All accounting endpoints are wired and functional. admin_dashboard does not display the ten accounting figures, but this is intentional (it displays trends instead); the page is not dead.
+
+### DEAD
+
+None. All accounting figures are referenced by at least one endpoint or display handler.
+
+
+---
+
+## Accounting drill-down surface (cycle 125 scout)
+
+Owner brief: Map the Group Accounting Position drill-down surface — the #accountingFiguresBlock render, the payments.accountingSummary handler internals, the existing modal mechanism to reuse, and per-figure period/row-source table for backend slice.
+
+**STATCARD SIGNATURE TODAY:** analytics_sql.js:530
+```
+statCard(label, value, infoText?)
+```
+Takes 3 parameters: label (display string), value (pre-formatted string), optional infoText. **No click affordance — cards are inert today.** The ten figures are rendered by renderAccountingFigures() (line 558–575) which calls statCard() for each with no click handler.
+
+**PAYMENTS.ACCOUNTINGSUMMARY HANDLER:** api/handlers/payments.php:1615–1747
+- **Route:** `payments.accountingSummary` → GET, handler `group_accounting_summary` (api/index.php:89)
+- **Parameters:** `groupId` only (line 1617: `$_GET['groupId']`) — **NO year/month parameter currently**
+- **Auth:** Line 1622: `require_role($groupId, PAYMENT_ADMIN_ROLES)` where PAYMENT_ADMIN_ROLES = ['admin', 'senior_admin', 'treasurer'] (line 52)
+- **Returns:** 10 money summary strings (lines 1735–1746), NOT row-level data
+
+**EXISTING MODAL ON ANALYTICS.HTML:** NONE
+Grep `"modal\|dialog\|Modal\|Dialog"` on pages/analytics.html returns zero matches. No modal markup exists on this page.
+
+**MODAL PATTERN TO REUSE:** admin_dashboard.html stat-modal
+- **CSS:** Lines 1606–1802 (.stat-modal-overlay, .stat-modal, headers, body, close button, empty state, media queries)
+- **HTML markup:** Lines 2056–2077 (overlay with stop-propagation, header with icon+title+close, body with empty state)
+- **Open function:** admin_dashboard_sql.js:1124–1156 `openStatModal(type)` — adds `.open` class, sets title/icon, builds and renders items
+- **Close function:** Lines 1161–1168 `closeStatModal()` — removes `.open` class, restores body overflow
+- **Overlay click handler:** Lines 1174–1176 `closeStatModalOnOverlay(event)` — closes if target is overlay
+- **Escape key handler:** Lines 1477–1479 — document keydown listener closes modal on Escape
+
+---
+
+### Per-Figure Period-Scoping Table
+
+The table below answers for each of the ten figures: (1) what table/columns/WHERE filter today, (2) what date column it can be scoped by, (3) what rows would appear in a drill-down table, (4) whether a row-returning server source exists.
+
+| Figure | Source table(s) + column(s) + WHERE | Date column for period-scoping | Underlying drill-down rows | Row-returning source exists? |
+|---|---|---|---|---|
+| **totalContributed** | `payments.amountPaid WHERE groupId & approvalStatus IN ('approved', 'completed')` | `payments.year` (INT, 4 non-null rows in cf41) OR `payments.month` (ENUM, 2 non-null rows) | payment_id, member_uid, amountPaid, approvalStatus, year, month, approvedAt, createdAt | YES: `payments.list?year=YYYY` (lines 846–852 of payments.php) |
+| **totalDisbursed** | `loans.principalAmount WHERE groupId & status IN ('approved', 'disbursed', 'completed', 'defaulted')` | `loans.approvedAt` (DATETIME, 1 non-null row in cf41) OR `loans.disbursedAt` (DATETIME column exists, 0 non-null rows in cf41) | loanId, borrowerId, principalAmount, approvedAmount, status, approvedAt, disbursedAt, requestedAt | YES: `loans.list` (lines 192–223 of loans.php) — no year param but can filter on approvedAt client/server-side |
+| **outstandingLoanPrincipal** | `loans.remainingBalance WHERE groupId & status IN ('approved', 'disbursed', 'completed', 'defaulted')` | `loans.approvedAt` (1 row in cf41) OR `loans.disbursedAt` (0 non-null rows in cf41) | loanId, borrowerId, remainingBalance, status, approvedAt, disbursedAt, requestedAt, createdAt | YES: `loans.list` (same handler as totalDisbursed) |
+| **interestEarned** | `loan_payments.interestPortion WHERE groupId & status = 'approved'` | `loan_payments.approvedAt` (DATETIME, 1 non-null row in cf41) | loan_payment_id, loanId, borrowerId, amount, interestPortion, principalPortion, penaltyPortion, status, approvedAt, paidAt | **NO — no loan_payments row-returning endpoint exists today** |
+| **loanRepaymentsReceived** | `loan_payments.amount WHERE groupId & status = 'approved'` (same query as interestEarned) | `loan_payments.approvedAt` (1 row in cf41) | loan_payment_id, loanId, borrowerId, amount, interestPortion, principalPortion, penaltyPortion, status, approvedAt, paidAt | **NO — no loan_payments row-returning endpoint exists today** |
+| **penaltiesCharged** | Derived: `collected + waived + outstanding` (line 1728 of payments.php) — **not a direct table query** | **Cannot period-scope from single column** — derived from sub-components below | Must drill to sub-components (collected, waived, outstanding separately) | **NO — derived formula, no row source** |
+| **penaltiesCollected** | `penalty_settlements.amountPaid WHERE groupId & paymentId IS NOT NULL` (contribution penalties, lines 1679–1680 of payments.php) | `penalty_settlements.settledAt` (DATETIME exists, 0 non-null rows in cf41) OR `penalty_settlements.accruedFrom/accruedTo` (DATETIME range) | penalty_settlement_id, paymentId, loanId, amountPaid, amountWaived, accruedFrom, accruedTo, settledAt | **NO — no penalty_settlements row-returning endpoint exists today** |
+| **penaltiesWaived** | `penalty_settlements.amountWaived WHERE groupId` (same query as penaltiesCollected, lines 1664–1682) | `penalty_settlements.settledAt` (0 non-null rows in cf41) OR `accruedFrom/accruedTo` | penalty_settlement_id, paymentId, loanId, amountWaived, accruedFrom, accruedTo, settledAt | **NO — no penalty_settlements row-returning endpoint exists today** |
+| **penaltiesOutstanding** | Live-computed: `group_live_contribution_penalty_minor($pdo, $groupId, $rules, $year)` (line 1700–1701) + loop of `compute_loan_penalty()` per loan (line 1714–1725). **Contribution engine HARDCODED to current year at line 1698:** `$year = (int) date('Y');` **Loan penalties are per-loan all-time with no period column.** | **CANNOT period-scope from existing columns** — contribution engine year-only, loan engine has no date persistence | Contribution penalties: member contributions without full penalty paid. Loan penalties: each loan's live penalty_amount minus settlements | **NO — live engine year-scoped (contributions) / per-loan all-time (loans); no period-scopable row source** |
+| **cashPosition** | Derived: `totalContributed + loanRepaymentsReceived + contributionPenaltiesCollected - totalDisbursed` (lines 1730–1733 of payments.php) — **not a direct table query** | **Cannot period-scope from single column** — derived from sub-components | Must drill to sub-components (contributed, repaid, collected, disbursed separately) | **NO — derived formula, no row source** |
+
+**Key findings:**
+1. **Fully period-scopable with live data in cf41:** totalContributed (payments.year: 4 rows), totalDisbursed (loans.approvedAt: 1 row), interestEarned (loan_payments.approvedAt: 1 row), loanRepaymentsReceived (loan_payments.approvedAt: 1 row)
+2. **Period-scopable but sparse data in cf41:** outstandingLoanPrincipal (loans.disbursedAt: 0 rows), penaltiesCollected (settledAt: 0 rows), penaltiesWaived (settledAt: 0 rows)
+3. **Cannot be period-scoped without extending engines:** penaltiesOutstanding (contribution hardcoded to date('Y'); loan penalties have no date column), penaltiesCharged (derived), cashPosition (derived)
+
+### Row-Returning Sources Available
+
+| Endpoint | Route (api/index.php) | Year/month parameter? | Returns rows? | Coverage |
+|---|---|---|---|---|
+| `payments.list` | Line 82: `['GET', 'list_payments']` | YES: `?year=YYYY` (lines 846–852 of payments.php) | YES: full payment array with year, month, amountPaid, approvalStatus, approvedAt, createdAt | totalContributed, penaltiesCollected (partial: via paymentId scope) |
+| `loans.list` | Line 66: `['GET', 'list_loans']` | NO: no year/month param in handler (lines 192–222 of loans.php) | YES: full loan array with approvedAt, disbursedAt, principalAmount, remainingBalance, status | totalDisbursed, outstandingLoanPrincipal (would need period filter on approvedAt/disbursedAt) |
+| `statement.get` | Line 93: `['GET', 'get_statement']` | YES: `?year=YYYY` via `statement_resolve_year()` (lines 341–351 of statement.php) | YES: member-scoped statement with contributions, loanAccount, penalties arrays | Member-only, NOT group-wide — cannot support group accounting position |
+| **loan_payments query** | **Does not exist as endpoint** | **N/A** | **Would return:** loan_payment_id, loanId, borrowerId, amount, interestPortion, principalPortion, penaltyPortion, status, approvedAt, paidAt | Would support: interestEarned, loanRepaymentsReceived (must be built) |
+| **penalty_settlements query** | **Does not exist as endpoint** | **N/A** | **Would return:** penalty_settlement_id, paymentId, loanId, amountPaid, amountWaived, accruedFrom, accruedTo, settledAt | Would support: penaltiesCollected, penaltiesWaived (must be built) |
+
+### Live Database Confirmation for cf41
+
+Scripted via `getDbConnection()` + DESCRIBE queries + SELECT non-null counts on group `cf4156a12ed6e0c1c371f1ddbe0cb1c1`:
+
+| Table | Column | Type | Non-null rows in cf41 | Period-scopable? |
+|---|---|---|---|---|
+| payments | year | INT | 4 (1 distinct year) | YES |
+| payments | month | ENUM (12 months) | 2 | YES (sparse) |
+| loans | approvedAt | DATETIME | 1 | YES |
+| loans | disbursedAt | DATETIME | 0 | NO (column exists, no data) |
+| loan_payments | approvedAt | DATETIME | 1 | YES |
+| penalty_settlements | accruedFrom | DATETIME | (present in schema) | Partial (depends on rows) |
+| penalty_settlements | accruedTo | DATETIME | (present in schema) | Partial (depends on rows) |
+| penalty_settlements | settledAt | DATETIME | 0 | NO (column exists, no data) |
+
+**Verdict:** All required date columns exist in the MySQL schema. Contribution and loan-repayment figures can be period-scoped with existing data. Penalty figures are schema-ready but have zero settlements in cf41 test group. Live penalties (penaltiesOutstanding) cannot be period-scoped today without extending the live-penalty engines to accept a year parameter.
+
+### GAPS
+
+1. **No row-returning loan_payments endpoint** — group_accounting_summary sums loan_payments rows but returns only totals (lines 1651–1661). To drill down interestEarned/loanRepaymentsReceived by period, a new endpoint or period parameter is required.
+
+2. **No row-returning penalty_settlements endpoint** — group_accounting_summary sums penalty_settlements rows but returns only totals (lines 1664–1682). To drill down penaltiesCollected/penaltiesWaived by period, a new endpoint or period parameter is required.
+
+3. **No period parameter on payments.accountingSummary** — Handler returns group-wide cumulative figures only. Adding `?year` and/or `?month` parameters would enable month/year drill-down; parameters would be passed through to the underlying queries (payments, loans, loan_payments, penalty_settlements).
+
+4. **Live penalties engine does not expose period-scoped data** — group_live_contribution_penalty_minor() is hardcoded to `date('Y')` at line 1698 of payments.php (current year only). compute_loan_penalty() is per-loan with no date parameter; loan penalties have no persistent date column. Period-scoping penaltiesOutstanding without extending the engines or adding a date column is not feasible today.
+
+### DEAD
+
+None. All ten figures are rendered and referenced by renderAccountingFigures() (analytics_sql.js:572–574). Modal markup and handler are wired end-to-end.

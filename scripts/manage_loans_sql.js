@@ -135,8 +135,6 @@ function setupEventListeners() {
     document.querySelectorAll(".action-tab").forEach((t) => {
       t.classList.toggle("active", t.dataset.tab === tab);
     });
-    const dd = document.getElementById("loanFilterDropdown");
-    if (dd && dd.value !== "all") dd.value = tab;
     renderLoans();
     document.getElementById("loansContainer")
       ?.scrollIntoView({behavior: "smooth", block: "start"});
@@ -154,40 +152,39 @@ function setupEventListeners() {
     onClick: jumpToTab("overdue"), label: "Show overdue loans",
   });
 
+  // The tabs are the ONLY status filter now — the duplicate (and broken)
+  // #loanFilterDropdown was removed from the page. See the comment beside
+  // the tab strip in manage_loans.html.
   document.querySelectorAll(".action-tab").forEach((tab) => {
     tab.addEventListener("click", () => {
       document.querySelectorAll(".action-tab").forEach((t) => t.classList.remove("active"));
       tab.classList.add("active");
       currentTab = tab.dataset.tab;
-
-      const filterDropdown = document.getElementById("loanFilterDropdown");
-      if (filterDropdown && filterDropdown.value !== "all") {
-        filterDropdown.value = currentTab;
-      }
-
       renderLoans();
       document.getElementById("loansContainer")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
 
-  const loanFilterDropdown = document.getElementById("loanFilterDropdown");
-  if (loanFilterDropdown) {
-    loanFilterDropdown.addEventListener("change", (e) => {
-      if (e.target.value !== "all") {
-        currentTab = e.target.value;
-        document.querySelectorAll(".action-tab").forEach((t) => {
-          t.classList.remove("active");
-          if (t.dataset.tab === currentTab) t.classList.add("active");
-        });
-      }
-      renderLoans();
-      document.getElementById("loansContainer")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  }
-
   document.getElementById("borrowerFilterDropdown")?.addEventListener("change", () => {
+    syncClearFiltersBtn();
     renderLoans();
     document.getElementById("loansContainer")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  document.getElementById("clearLoanFiltersBtn")?.addEventListener("click", () => {
+    const borrower = document.getElementById("borrowerFilterDropdown");
+    if (borrower) borrower.value = "all";
+    syncClearFiltersBtn();
+    renderLoans();
+  });
+
+  // Quick-action shortcut to the relocated Forced Loans panel at the foot of
+  // the page: open the disclosure, then scroll it into view.
+  document.getElementById("forcedLoansShortcut")?.addEventListener("click", () => {
+    const panel = document.getElementById("forcedLoansPanel");
+    if (!panel) return;
+    panel.open = true;
+    panel.scrollIntoView({behavior: "smooth", block: "start"});
   });
 
   document.getElementById("newLoanBtn")?.addEventListener("click", () => openNewLoanModal());
@@ -333,6 +330,20 @@ function populateBorrowerFilter() {
     option.textContent = member.fullName || "Unknown";
     dropdown.appendChild(option);
   });
+
+  syncClearFiltersBtn();
+}
+
+/**
+ * Show the "Clear filter" button only while a borrower filter is actually
+ * applied — a permanently visible reset next to an unfiltered list is noise,
+ * and its absence is the cue that the list is complete.
+ */
+function syncClearFiltersBtn() {
+  const btn = document.getElementById("clearLoanFiltersBtn");
+  if (!btn) return;
+  const borrower = document.getElementById("borrowerFilterDropdown")?.value;
+  btn.hidden = !borrower || borrower === "all";
 }
 
 async function loadLoans() {
@@ -807,12 +818,6 @@ function renderLoanCategoryBreakdown() {
       document.querySelectorAll(".action-tab").forEach((t) => {
         t.classList.toggle("active", t.dataset.tab === g.tab);
       });
-      // Keep the filter dropdown in step with the tab, matching what the
-      // existing .action-tab click handler does.
-      const filterDropdown = document.getElementById("loanFilterDropdown");
-      if (filterDropdown && filterDropdown.value !== "all") {
-        filterDropdown.value = g.tab;
-      }
       renderLoans();
       document.getElementById("loansContainer")
         ?.scrollIntoView({behavior: "smooth", block: "start"});
@@ -890,8 +895,6 @@ function renderAccountantSummary() {
       document.querySelectorAll(".action-tab").forEach((t) => {
         t.classList.toggle("active", t.dataset.tab === tab);
       });
-      const dd = document.getElementById("loanFilterDropdown");
-      if (dd && dd.value !== "all") dd.value = tab;
       renderLoans();
       document.getElementById("loansContainer")
         ?.scrollIntoView({behavior: "smooth", block: "start"});
@@ -1020,7 +1023,12 @@ function renderLoans() {
   container.textContent = "";
 
   if (filtered.length === 0) {
-    container.appendChild(emptyTableRow(`No ${currentTab} loans found`, 10));
+    // "all" is a tab value, not an adjective — "No all loans found" is not a
+    // sentence.
+    const message = currentTab === "all" || !currentTab
+      ? "No loans found"
+      : `No ${currentTab} loans found`;
+    container.appendChild(emptyTableRow(message, 10));
     return;
   }
 
@@ -1634,6 +1642,14 @@ function updateForcedLoansSectionUI() {
 
   const configDisplay = document.getElementById("forcedLoansConfig");
   if (configDisplay) configDisplay.style.display = enabled ? "block" : "none";
+
+  // The panel is collapsed by default now that it sits at the foot of the
+  // page, so the on/off state has to be readable from its closed summary.
+  const summaryState = document.getElementById("forcedLoansSummaryState");
+  if (summaryState) {
+    summaryState.textContent = enabled ? "Enabled" : "Off";
+    summaryState.dataset.state = enabled ? "on" : "off";
+  }
 
   const emptyState = document.getElementById("forcedLoansEmptyState");
   const resultsEl = document.getElementById("forcedLoansResults");

@@ -241,13 +241,12 @@ function renderTopStats() {
   // rows (`summary.totalOutstanding` — loans.list is already member-scoped)
   // equals this filtered client-side sum.
   const outstanding = myLoansSummary ? numberOf(myLoansSummary.totalOutstanding) : 0;
-  // NOT substituted with `summary.totalPrincipal`/`activePrincipal`: totalPrincipal
-  // sums over ALL rows including pending/rejected (which still carry a nonzero
-  // requested principalAmount), and activePrincipal excludes completed/defaulted.
-  // Neither scope matches ISSUED_LOAN_STATUSES, so this stays a client-side sum.
-  const totalBorrowed = myLoans
-    .filter((l) => ISSUED_LOAN_STATUSES.includes(l.status))
-    .reduce((sum, l) => sum + numberOf(l.principalAmount ?? l.approvedAmount), 0);
+  // Substituted with the server summary: `summary.issuedPrincipal` sums
+  // approvedAmount (falling back to principalAmount) over exactly the
+  // approved/disbursed/completed/defaulted rows — the same scope
+  // ISSUED_LOAN_STATUSES filtered client-side — so the old filter+reduce is
+  // redundant.
+  const totalBorrowed = myLoansSummary ? numberOf(myLoansSummary.issuedPrincipal) : 0;
 
   setText(document.getElementById("totalContributed"), formatCurrency(totalContributed));
   setText(document.getElementById("totalBorrowed"), formatCurrency(totalBorrowed));

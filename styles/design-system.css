@@ -177,12 +177,19 @@
 }
 
 /* ============================================
-   CSS RESET & BASE STYLES
-   ============================================ */
+    CSS RESET & BASE STYLES
+    ============================================ */
 *, *::before, *::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+/* The HTML [hidden] attribute must win over any class-based display rule
+   (e.g. .btn { display: inline-flex }) — otherwise buttons toggled via
+   element.hidden = true in JS stay visible. */
+[hidden] {
+  display: none !important;
 }
 
 html {
@@ -935,6 +942,37 @@ table.data-table tbody tr:last-child td {
   .table-responsive td[data-label=""],
   .table-responsive td:empty {
     display: none;
+  }
+
+  /* A body cell that spans every column is a message, not a labelled field
+     — the empty states ("No pending payments to review") are written as
+     <td colspan="7">. Under the generic td rule above they inherited the
+     80px label gutter on the left AND text-align:right, so the message sat
+     jammed against the right edge of the card instead of centred in it,
+     which is what made the manage-payments table look off-centre on a
+     phone. tbody-scoped so the tfoot totals row keeps its label/value
+     treatment. */
+  .table-responsive tbody td[colspan] {
+    display: block;
+    width: 100%;
+    text-align: center;
+    padding: var(--bn-space-4) var(--bn-space-2);
+    border-bottom: none;
+    color: var(--bn-gray);
+  }
+
+  .table-responsive tbody td[colspan]::before {
+    content: none;
+    display: none;
+  }
+
+  /* The cards themselves are the full measure of their container and carry
+     their own padding — box-sizing keeps that padding inside the 100% so a
+     card can't overhang its container and read as shifted to one side. */
+  .table-responsive tbody tr {
+    box-sizing: border-box;
+    max-width: 100%;
+    margin-inline: auto;
   }
 
   /* Show the column label from data-label attr */
@@ -1925,6 +1963,46 @@ summary:focus-visible,
   .acct-total-value,
   .fin-kpi-value {
     overflow-wrap: break-word;
+  }
+}
+
+/* ── Mobile density: figure cards go 2-up, not 1-up ─────────────────────────
+   The grids below hold COMPACT cards — a title, one figure, one line of meta.
+   Their auto-fit min track (280px) is wider than a phone's content box, so
+   auto-fit resolved to a single column and a screen that could show six
+   figures showed one and a half, turning every summary block into a long
+   scroll of near-empty full-width cards.
+   Scoped deliberately, NOT applied blanket-wide (see the audit note above):
+   only grids whose cards are label+value are listed. Grids holding charts
+   (#chartContainer, #monthlyTrendChart) or dense tables stay single-column,
+   because two 160px-wide charts are unreadable.
+   `minmax(0, 1fr)` rather than `1fr`: a grid item's default min-width:auto
+   would let a long unbroken figure widen its own track and push the row past
+   the viewport.
+
+   Only the grids whose one-column rule lives in THIS sheet's cascade layer
+   are handled here — #accountingFiguresBlock wins on id specificity over
+   analytics.html's inline `.charts-grid { 1fr }`. The equivalent fixes for
+   .card-grid (pages.css) and .monthly-breakdown-grid (page-inline) have to be
+   made in those files, because both load after this one and would otherwise
+   win on source order. */
+@media (max-width: 768px) {
+  #accountingFiguresBlock {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--bn-space-3);
+  }
+
+  /* The block title still spans the full row (analytics.html sets this on
+     the desktop grid; restated here so it survives the column change). */
+  #accountingFiguresBlock > h3 {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 480px) {
+  #accountingFiguresBlock {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--bn-space-2);
   }
 }
 

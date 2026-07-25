@@ -26,7 +26,8 @@
  *   payments.approve      -> POST, {paymentId}. No notes/proof params exist on
  *                            this endpoint — see the deferred list below for
  *                            what the original approve modal offered that this
- *                            endpoint cannot accept.
+ *                            endpoint cannot accept. Returns `penaltySettled`:
+ *                            the penalty banked from the claim's penalty portion.
  *   payments.reject       -> POST, {paymentId, rejectionReason}.
  *   rules.get / rules.update -> group_rules row. update_rules() whitelists a
  *                            SPECIFIC subset of contribution columns (see the
@@ -34,8 +35,11 @@
  *   reminders.send        -> POST, {groupId, recipient:'all'|'specific', uid?,
  *                            subject, message} — identical contract to the one
  *                            already wired in manage_loans_sql.js.
- *   files.upload          -> multipart proof upload, copied verbatim from
- *                            loan_payments_sql.js's uploadProof().
+ *   files.upload          -> multipart proof upload. Replies with the standard
+ *                            {ok, data:{url, fileName, fileSize}} envelope —
+ *                            fetch() is used directly here (multipart), so the
+ *                            envelope must be unwrapped BY HAND. Reading a flat
+ *                            body.url made every proof upload on this page fail.
  *
  * GAP CLOSED (cycle 23): payments.obligations now accepts an optional `uid`, so
  * an admin CAN ask "what does member X currently owe, with their live penalty".
@@ -47,11 +51,19 @@
  *
  * DELIBERATELY DROPPED (client-side money math in the original, forbidden
  * here, and not backed by any endpoint): calculateInterest(),
- * updateInterestDisplay(), updatePaymentAmountFromBase(), the
- * applyInterestCheckbox / interestDetails UI, and the entire "Apply Penalty"
- * bulk-calculation flow (openApplyPenaltyModal's overdueContributionsList +
- * totalPenalties + penaltyRate arithmetic). Penalties are computed live, on
- * read, by the server for every row already — there is nothing to "apply".
+ * updateInterestDisplay(), updatePaymentAmountFromBase(), and the entire
+ * "Apply Penalty" bulk-calculation flow (openApplyPenaltyModal's
+ * overdueContributionsList + totalPenalties + penaltyRate arithmetic).
+ * Penalties are computed live, on read, by the server for every row already —
+ * there is nothing to "apply".
+ *
+ * RESTORED, SERVER-SIDE: the applyInterestCheckbox / interestDetails UI is live
+ * again — but it derives nothing. It DISPLAYS the server's own
+ * payment.penalty.amountOutstanding and, when ticked, sends `penaltyAmount` to
+ * payments.record so the penalty is collected with the contribution and written
+ * to penalty_settlements at approval. See updatePenaltyBreakdown(). The original
+ * was dropped because it did the arithmetic in the browser; this one asks the
+ * server. The dropped thing was the maths, not the capability.
  */
 
 import {
@@ -201,12 +213,27 @@ function setupEventListeners() {
       if (checkbox) checkbox.checked = false;
     }
 
-    updatePaymentOwedInfo();
+    refreshRecordModal();
   });
 
   // The owed info depends on WHO is paying and WHICH month, not just the type.
-  document.getElementById("memberSelect")?.addEventListener("change", updatePaymentOwedInfo);
-  document.getElementById("paymentMonth")?.addEventListener("change", updatePaymentOwedInfo);
+  // A new member invalidates the cached obligations, so the month list is rebuilt
+  // from THAT member's position — otherwise it would still show the last
+  // member's paid/unpaid months.
+  document.getElementById("memberSelect")?.addEventListener("change", () => {
+    recordModalObligations = null;
+    refreshRecordModal();
+  });
+  // The month list itself does not change when the month changes — only the
+  // owed panel and the penalty do. Rebuilding it here would fight the select.
+  document.getElementById("paymentMonth")?.addEventListener("change", () => {
+    refreshRecordModal({reloadMonths: false});
+  });
+
+  // "Apply Interest/Penalty" — see updatePenaltyBreakdown() for what it means.
+  document.getElementById("applyInterestCheckbox")?.addEventListener("change", updatePenaltyBreakdown);
+  // The breakdown's base figure is whatever the admin has typed so far.
+  document.getElementById("paymentAmount")?.addEventListener("input", updatePenaltyBreakdown);
 
   document.getElementById("recordPaymentPOP")?.addEventListener("change", (e) => {
     const file = e.target.files?.[0];
@@ -371,6 +398,54 @@ function populateMemberDropdowns() {
   });
 }
 
+// The month ENUM, in calendar order — matches PAYMENT_MONTHS server-side.
+const PAYMENT_MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+/**
+ * Fill the "Filter by Month" control and reveal its container.
+ *
+ * The select shipped with only an "All Months" placeholder and no code ever
+ * added an option or un-hid #monthFilterContainer, so the filter at
+ * applyFilters() could never match anything — a dead control, same defect as the
+ * record modal's month select.
+ */
+function populateMonthFilter() {
+  const select = document.getElementById("filterByMonth");
+  const container = document.getElementById("monthFilterContainer");
+  if (!select) return;
+
+  const previous = select.value;
+  select.textContent = "";
+
+  const all = document.createElement("option");
+  all.value = "all";
+  all.textContent = "All Months";
+  select.appendChild(all);
+
+  // Only months the group actually has contribution rows for — offering a
+  // filter that can only ever return nothing is worse than not offering it.
+  const present = new Set(
+    allPayments
+      .filter((p) => p.month)
+      .map((p) => String(p.month))
+  );
+  PAYMENT_MONTH_NAMES.filter((m) => present.has(m)).forEach((m) => {
+    const option = document.createElement("option");
+    option.value = m;
+    option.textContent = m;
+    select.appendChild(option);
+  });
+
+  select.value = Array.from(select.options).some((o) => o.value === previous)
+    ? previous
+    : "all";
+
+  if (container) container.style.display = present.size ? "" : "none";
+}
+
 async function loadPayments() {
   try {
     const data = await apiGet("payments.list", {groupId: selectedGroupId});
@@ -379,6 +454,8 @@ async function loadPayments() {
     allPayments = [];
     handleApiError(error, "Failed to load payments");
   }
+  // Depends on the rows just loaded — the filter only offers months that exist.
+  populateMonthFilter();
 }
 
 async function loadGroupRules() {
@@ -488,7 +565,74 @@ async function loadCompliance() {
   renderCompliance();
 }
 
-/** Render the "this month vs expected" panel + who is short. */
+/**
+ * One "collected vs expected" row: a title, a figure pair, a progress track and
+ * a plain-language note. Both scopes of the compliance panel are the same shape,
+ * so they are built by the same function — which is also what stops the two from
+ * drifting into different visual languages.
+ *
+ * @param {string} title
+ * @param {string} collectedText already-formatted money
+ * @param {string} expectedText already-formatted money
+ * @param {number} pct server-computed 0-100
+ * @param {(Node|string)[]} noteParts
+ * @return {HTMLElement}
+ */
+function complianceRow(title, collectedText, expectedText, pct, noteParts) {
+  const row = document.createElement("div");
+  row.className = "compliance-row";
+
+  const head = document.createElement("div");
+  head.className = "compliance-head";
+  const titleEl = document.createElement("span");
+  titleEl.className = "compliance-title";
+  titleEl.textContent = title;
+  const figures = document.createElement("span");
+  figures.className = "compliance-figures";
+  const collected = document.createElement("strong");
+  collected.textContent = collectedText;
+  figures.append(collected, document.createTextNode(` of ${expectedText}`));
+  head.append(titleEl, figures);
+  row.appendChild(head);
+
+  const track = document.createElement("div");
+  track.className = "compliance-track";
+  const fill = document.createElement("span");
+  fill.className = "compliance-fill" + (pct < 50 ? " low" : pct < 90 ? " mid" : "");
+  fill.style.width = `${Math.min(Math.max(pct, 0), 100)}%`;
+  track.appendChild(fill);
+  row.appendChild(track);
+
+  const note = document.createElement("div");
+  note.className = "compliance-note";
+  note.append(...noteParts);
+  row.appendChild(note);
+
+  return row;
+}
+
+/** Short human date for a due date, e.g. "31 Jul". */
+function shortDueDate(value) {
+  if (!value) return "";
+  const d = new Date(String(value).replace(" ", "T"));
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, {day: "numeric", month: "short"});
+}
+
+/**
+ * Render the group's collection position: THIS MONTH and CYCLE-TO-DATE, as two
+ * separate rows, then exactly who owes what.
+ *
+ * WHY TWO ROWS. These are different questions and the panel used to answer them
+ * in one sentence — a month-scoped headline ("0% collected, 50,000 short this
+ * month") sitting directly above a cycle-scoped member list whose rows were
+ * 60,000 each and summed to 220,000. Nothing reconciled, because nothing was
+ * measuring the same thing. The per-member list belongs to the cycle-to-date
+ * row and now sums exactly to that row's outstanding figure (the server
+ * guarantees it — see group_compliance_summary).
+ *
+ * Every figure here is rendered, never derived: no client-side money math.
+ */
 function renderCompliance() {
   const host = document.getElementById("acctCompliance");
   if (!host) return;
@@ -497,54 +641,112 @@ function renderCompliance() {
   const d = complianceData;
   // Nothing to compare against unless the group actually sets a monthly due.
   if (!d || !d.monthlyDuePerMember) return;
+  const toDate = d.toDate || null;
 
   const panel = document.createElement("div");
   panel.className = "compliance";
 
-  const head = document.createElement("div");
-  head.className = "compliance-head";
-  const title = document.createElement("span");
-  title.className = "compliance-title";
-  title.textContent = `${d.month} ${d.year} — collected vs expected`;
-  const figures = document.createElement("span");
-  figures.className = "compliance-figures";
-  const collected = document.createElement("strong");
-  collected.textContent = formatCurrency(d.collectedThisMonth);
-  figures.append(collected, document.createTextNode(` of ${formatCurrency(d.expectedThisMonth)}`));
-  head.append(title, figures);
-  panel.appendChild(head);
-
-  const pct = Number(d.percentCollected) || 0;
-  const track = document.createElement("div");
-  track.className = "compliance-track";
-  const fill = document.createElement("span");
-  fill.className = "compliance-fill" + (pct < 50 ? " low" : pct < 90 ? " mid" : "");
-  fill.style.width = `${Math.max(pct, 0)}%`;
-  track.appendChild(fill);
-  panel.appendChild(track);
-
-  const note = document.createElement("div");
-  note.className = "compliance-note";
-  if (Number(d.membersBehind) === 0) {
-    note.textContent = `${pct}% collected · all ${d.memberCount} members are up to date.`;
+  // ── Row 1: the current month, on its own ──────────────────────────────────
+  const monthPct = Number(d.percentCollected) || 0;
+  const monthNote = [];
+  if (monthPct >= 100) {
+    monthNote.push(document.createTextNode(`100% collected · every member has paid for ${d.month}.`));
+  } else if (d.monthIsOverdue) {
+    const s = document.createElement("strong");
+    s.textContent = formatCurrency(d.shortfallThisMonth);
+    monthNote.push(
+      document.createTextNode(`${monthPct}% collected · `),
+      s,
+      document.createTextNode(" still to come in — this month is past its due date.")
+    );
   } else {
-    const behindEl = document.createElement("strong");
-    behindEl.textContent = `${d.membersBehind} of ${d.memberCount} members`;
-    note.append(
-      document.createTextNode(`${pct}% collected · `),
-      behindEl,
+    // Not yet due: outstanding, but nobody is late. Saying "short" here would
+    // accuse members of missing a deadline that has not arrived.
+    const due = shortDueDate(d.monthDueDate);
+    monthNote.push(
       document.createTextNode(
-        ` behind · ${formatCurrency(d.shortfallThisMonth)} short this month.`
+        `${monthPct}% collected · ${formatCurrency(d.shortfallThisMonth)} still expected` +
+        (due ? ` — not due until ${due}.` : " this month.")
       )
     );
   }
-  panel.appendChild(note);
+  panel.appendChild(
+    complianceRow(
+      `${d.month} ${d.year} — this month`,
+      formatCurrency(d.collectedThisMonth),
+      formatCurrency(d.expectedThisMonth),
+      monthPct,
+      monthNote
+    )
+  );
 
-  // Exactly who, and which fee they're missing.
+  // ── Row 2: cycle-to-date — the row the member list reconciles to ───────────
+  if (toDate) {
+    const toDatePct = Number(toDate.percentCollected) || 0;
+    const monthsCounted = Array.isArray(toDate.monthsCounted) ? toDate.monthsCounted.length : 0;
+    const toDateNote = [];
+
+    if (Number(d.membersOwing) === 0) {
+      toDateNote.push(
+        document.createTextNode(`${toDatePct}% collected · all ${d.memberCount} members are fully paid up.`)
+      );
+    } else {
+      const owingEl = document.createElement("strong");
+      owingEl.textContent = `${d.membersOwing} of ${d.memberCount} members`;
+      toDateNote.push(
+        document.createTextNode(`${toDatePct}% collected · `),
+        owingEl,
+        document.createTextNode(` owe ${formatCurrency(toDate.outstanding)}`)
+      );
+      // Overdue vs not-yet-due is the difference between a follow-up list and a
+      // calendar. Only the overdue half is anybody's fault.
+      if (Number(d.membersBehind) > 0) {
+        const lateEl = document.createElement("strong");
+        lateEl.textContent = `${formatCurrency(toDate.overdue)} overdue`;
+        toDateNote.push(document.createTextNode(" · "), lateEl);
+        toDateNote.push(
+          document.createTextNode(` across ${d.membersBehind} member${Number(d.membersBehind) === 1 ? "" : "s"}.`)
+        );
+      } else {
+        toDateNote.push(document.createTextNode(" · nothing is overdue yet."));
+      }
+    }
+
+    const scopeLabel = monthsCounted === 0
+      ? "Cycle to date — seed money"
+      : `Cycle to date — seed money + ${monthsCounted} month${monthsCounted === 1 ? "" : "s"}`;
+
+    const row = complianceRow(
+      scopeLabel,
+      formatCurrency(toDate.collected),
+      formatCurrency(toDate.expected),
+      toDatePct,
+      toDateNote
+    );
+    row.classList.add("has-info");
+    attachCardInfo(row, {
+      label: "About cycle to date",
+      content:
+        "Everything the group's rules have actually asked for since the cycle began: seed money once per "
+        + "member, plus one contribution per member for each month of the cycle that has started. Months "
+        + "before the cycle started were never owed, and months that have not begun are not counted. "
+        + "The member list below adds up to exactly the outstanding figure on this row.",
+    });
+    panel.appendChild(row);
+  }
+
+  // Exactly who, and which obligation they're missing. This list belongs to the
+  // cycle-to-date row above and sums to its outstanding total.
   if (Array.isArray(d.behind) && d.behind.length) {
+    const listHead = document.createElement("div");
+    listHead.className = "compliance-list-head";
+    listHead.textContent = toDate
+      ? `Who owes what — ${formatCurrency(toDate.outstanding)} in total`
+      : "Who owes what";
+    panel.appendChild(listHead);
+
     const list = document.createElement("div");
     list.className = "acct-followups-list";
-    list.style.marginTop = "var(--bn-space-4)";
     d.behind.slice(0, 8).forEach((m) => {
       const row = document.createElement("div");
       row.className = "acct-followup-row";
@@ -562,13 +764,19 @@ function renderCompliance() {
       amt.className = "acct-followup-amt";
       amt.textContent = formatCurrency(m.owed);
 
+      // A member who owes money that is not yet due is not "behind" — label the
+      // two states differently so the treasurer knows who to actually chase.
+      const state = document.createElement("span");
+      state.className = "acct-followup-state" + (m.isOverdue ? " is-overdue" : " is-pending");
+      state.textContent = m.isOverdue ? `${formatCurrency(m.overdue)} overdue` : "not due yet";
+
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "btn btn-ghost btn-sm";
       btn.textContent = "Remind";
       btn.addEventListener("click", () => openSendRemindersModal());
 
-      row.append(who, what, amt, btn);
+      row.append(who, what, amt, state, btn);
       list.appendChild(row);
     });
     panel.appendChild(list);
@@ -576,7 +784,7 @@ function renderCompliance() {
     if (d.behind.length > 8) {
       const more = document.createElement("div");
       more.className = "acct-followup-more";
-      more.textContent = `+${d.behind.length - 8} more behind`;
+      more.textContent = `+${d.behind.length - 8} more owing`;
       panel.appendChild(more);
     }
   }
@@ -1134,8 +1342,17 @@ function emptyTableRow(text) {
 async function approvePayment(paymentId) {
   showSpinner(true);
   try {
-    await apiPost("payments.approve", {paymentId});
-    showToast("Payment approved", "success");
+    const result = await apiPost("payments.approve", {paymentId});
+    // A claim recorded with "Apply Interest/Penalty" settles its penalty at
+    // approval — say how much was banked rather than leaving the admin to check.
+    const settled = toMinorSafe(result?.penaltySettled);
+    showToast(
+      settled > 0
+        ? `Payment approved — ${formatCurrencyFromMinor(settled)} penalty settled`
+        : "Payment approved",
+      "success"
+    );
+    recordModalObligations = null;
     await loadGroupData();
   } catch (error) {
     handleApiError(error, "Failed to approve payment");
@@ -1165,6 +1382,211 @@ function rejectPayment(payment) {
 }
 
 // ── Record payment ───────────────────────────────────────────────────────────
+
+/**
+ * The obligations payload for the member currently selected in the record modal,
+ * plus whose uid it belongs to. One fetch per member instead of one per keystroke
+ * — the month list, the owed panel and the penalty breakdown all read from it, so
+ * they can never show three different versions of the same member's position.
+ * @type {{uid: string, data: Object}|null}
+ */
+let recordModalObligations = null;
+
+/** The obligation row (seed / a month / service fee) the modal is currently on. */
+function selectedObligationRow() {
+  const ob = recordModalObligations?.data;
+  if (!ob) return null;
+  const type = document.getElementById("paymentType")?.value;
+  if (type === "seed_money") return ob.seedMoney ?? null;
+  if (type === "service_fee") return ob.serviceFee ?? null;
+  if (type === "monthly_contribution") {
+    const month = document.getElementById("paymentMonth")?.value;
+    if (!month) return null;
+    const months = ob.monthlyContributions?.months;
+    return Array.isArray(months)
+      ? months.find((m) => String(m.month) === String(month)) ?? null
+      : null;
+  }
+  return null;
+}
+
+/** Outstanding penalty on a row, as a bare decimal string ("0.00" when none). */
+function rowPenaltyOutstanding(row) {
+  return row?.penalty?.amountOutstanding ?? "0.00";
+}
+
+/** True when this obligation has nothing left to pay. */
+function rowFullyPaid(row) {
+  return !!row && toMinorSafe(row.arrears) <= 0 && toMinorSafe(row.totalAmount) > 0;
+}
+
+/**
+ * Fetch (and cache) the selected member's obligations for the record modal.
+ * @param {boolean} force refetch even if the cache is for this same member
+ */
+async function loadRecordModalObligations(force = false) {
+  const uid = document.getElementById("memberSelect")?.value;
+  if (!selectedGroupId || !uid) {
+    recordModalObligations = null;
+    return null;
+  }
+  if (!force && recordModalObligations && recordModalObligations.uid === uid) {
+    return recordModalObligations.data;
+  }
+  const data = await apiGet("payments.obligations", {groupId: selectedGroupId, uid});
+  recordModalObligations = {uid, data};
+  return data;
+}
+
+/**
+ * Fill the month dropdown from the member's real position — the control was
+ * never populated at all, so choosing "Monthly Contribution" produced an empty
+ * required select and the form could not be submitted.
+ *
+ * Each month is labelled with its actual state, and a month that is already
+ * settled in full is DISABLED: the server refuses the overpayment anyway (409),
+ * but letting an admin pick it, type an amount and only then be refused is a
+ * trap. Months are never hidden — an admin needs to see that March is paid.
+ */
+function populateMonthSelect() {
+  const select = document.getElementById("paymentMonth");
+  if (!select) return;
+
+  const previous = select.value;
+  select.textContent = "";
+
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Select month...";
+  select.appendChild(placeholder);
+
+  const ob = recordModalObligations?.data;
+  const months = ob?.monthlyContributions?.months;
+
+  if (!Array.isArray(months) || !months.length) {
+    placeholder.textContent = ob
+      ? "No monthly contribution is configured for this group"
+      : "Select a member first";
+    return;
+  }
+
+  months.forEach((m) => {
+    const option = document.createElement("option");
+    option.value = m.month;
+
+    const paid = rowFullyPaid(m);
+    const outstanding = formatCurrency(m.arrears ?? "0");
+    const penalty = toMinorSafe(rowPenaltyOutstanding(m));
+
+    if (paid) {
+      option.textContent = `${m.month} — paid in full`;
+      option.disabled = true;
+    } else if (m.approvalStatus === "pending") {
+      // record_payment refuses a second claim while one is un-adjudicated.
+      option.textContent = `${m.month} — awaiting approval`;
+      option.disabled = true;
+    } else if (m.counts === false) {
+      // Outside the group's cycle, or a month that has not begun: payable in
+      // advance, but nothing is owed for it yet.
+      option.textContent = `${m.month} — not yet due (advance)`;
+    } else {
+      option.textContent = `${m.month} — ${outstanding} outstanding`
+        + (penalty > 0 ? ` + ${formatCurrency(rowPenaltyOutstanding(m))} penalty` : "");
+    }
+
+    select.appendChild(option);
+  });
+
+  // Keep the admin's choice across a refresh if it is still selectable;
+  // otherwise land on the first month that can actually be paid.
+  const stillValid = Array.from(select.options).some(
+    (o) => o.value === previous && !o.disabled
+  );
+  if (previous && stillValid) {
+    select.value = previous;
+  } else {
+    const firstPayable = Array.from(select.options).find((o) => o.value && !o.disabled);
+    select.value = firstPayable ? firstPayable.value : "";
+  }
+}
+
+/**
+ * The "Apply Interest/Penalty" breakdown.
+ *
+ * WHAT IT MEANS: this obligation is late, so the group's rules have charged a
+ * penalty on top of the contribution. Ticking the box means the cash being
+ * recorded also settles that penalty — the payment carries both, and on approval
+ * a penalty_settlements row is written so the member stops being charged for
+ * days they have now paid for. Leaving it unticked records the contribution only
+ * and the penalty keeps accruing.
+ *
+ * Every figure is the SERVER's (payment.penalty.amountOutstanding); the only
+ * arithmetic here is adding two already-computed totals for display.
+ */
+function updatePenaltyBreakdown() {
+  const checkbox = document.getElementById("applyInterestCheckbox");
+  const details = document.getElementById("interestDetails");
+  const wrapper = checkbox?.closest(".form-group");
+  if (!checkbox || !details) return;
+
+  const row = selectedObligationRow();
+  const penaltyMinor = toMinorSafe(rowPenaltyOutstanding(row));
+
+  // Nothing late = nothing to apply. Hiding the control beats offering an
+  // action that would be refused.
+  if (penaltyMinor <= 0) {
+    checkbox.checked = false;
+    checkbox.disabled = true;
+    details.style.display = "none";
+    if (wrapper) wrapper.style.display = "none";
+    return;
+  }
+
+  checkbox.disabled = false;
+  if (wrapper) wrapper.style.display = "";
+
+  if (!checkbox.checked) {
+    details.style.display = "none";
+    return;
+  }
+
+  details.style.display = "block";
+
+  const baseMinor = toMinorSafe(document.getElementById("paymentAmount")?.value);
+  const basisEl = details.querySelector("div");
+  if (basisEl && row?.penalty) {
+    basisEl.textContent =
+      `Late-payment penalty charged by this group's rules: ${describePenaltyBasis(row.penalty)}. `
+      + "Ticking this box collects it with this payment and records it as settled once approved.";
+  }
+
+  const baseEl = document.getElementById("interestBaseAmount");
+  const penaltyEl = document.getElementById("interestAmount");
+  const totalEl = document.getElementById("interestTotalAmount");
+  if (baseEl) baseEl.textContent = formatCurrencyFromMinor(baseMinor);
+  if (penaltyEl) penaltyEl.textContent = formatCurrencyFromMinor(penaltyMinor);
+  if (totalEl) totalEl.textContent = formatCurrencyFromMinor(baseMinor + penaltyMinor);
+}
+
+/**
+ * Everything that must re-derive when the member / type / month changes: the
+ * month list, the owed panel and the penalty breakdown, all off ONE fetch.
+ */
+async function refreshRecordModal({reloadMonths = true} = {}) {
+  try {
+    await loadRecordModalObligations();
+  } catch (error) {
+    recordModalObligations = null;
+    if (error instanceof ApiError && error.status === 401) {
+      redirectToLogin();
+      return;
+    }
+  }
+  if (reloadMonths) populateMonthSelect();
+  await updatePaymentOwedInfo();
+  updatePenaltyBreakdown();
+}
+
 function openRecordPaymentModal(preSelectMemberId = null) {
   if (!selectedGroupId) {
     showToast("Please select a group first", "error");
@@ -1172,17 +1594,22 @@ function openRecordPaymentModal(preSelectMemberId = null) {
   }
 
   document.getElementById("recordPaymentForm")?.reset();
+  recordModalObligations = null;
 
   const memberSelect = document.getElementById("memberSelect");
   if (memberSelect && preSelectMemberId) memberSelect.value = preSelectMemberId;
 
   const monthGroup = document.getElementById("monthSelectGroup");
-  if (monthGroup) monthGroup.style.display = "none";
+  if (monthGroup) {
+    monthGroup.style.display =
+      document.getElementById("paymentType")?.value === "monthly_contribution" ? "block" : "none";
+  }
 
   const paymentDate = document.getElementById("paymentDate");
   if (paymentDate) paymentDate.value = new Date().toISOString().split("T")[0];
 
-  updatePaymentOwedInfo();
+  updatePenaltyBreakdown();
+  refreshRecordModal();
 
   showModal("recordPaymentModal");
 }
@@ -1221,10 +1648,9 @@ async function updatePaymentOwedInfo() {
 
   let obligations;
   try {
-    obligations = await apiGet("payments.obligations", {
-      groupId: selectedGroupId,
-      uid: targetUid,
-    });
+    // Shared with the month list and the penalty breakdown — one fetch per
+    // member, so the three cannot disagree about the same position.
+    obligations = await loadRecordModalObligations();
   } catch (error) {
     container.textContent = "";
     if (error instanceof ApiError && error.status === 401) {
@@ -1290,6 +1716,24 @@ async function updatePaymentOwedInfo() {
   outstandingLine.textContent = `Outstanding: ${formatCurrency(row.arrears ?? "0")}`;
 
   container.append(dueLine, paidLine, outstandingLine);
+
+  // Say plainly when there is nothing left to collect, instead of letting the
+  // admin fill the form and be refused by the server.
+  if (rowFullyPaid(row)) {
+    const done = el("p", "text-emphasis");
+    done.textContent = "✓ This obligation is already paid in full — no further payment is due.";
+    container.appendChild(done);
+  }
+
+  // The late-payment penalty on THIS obligation, server-computed.
+  const penaltyMinor = toMinorSafe(rowPenaltyOutstanding(row));
+  if (penaltyMinor > 0) {
+    const penaltyLine = el("p");
+    penaltyLine.textContent =
+      `Penalty outstanding: ${formatCurrencyFromMinor(penaltyMinor)} (${describePenaltyBasis(row.penalty)})`;
+    container.appendChild(penaltyLine);
+  }
+
   appendTotalsLine(container, obligations);
 }
 
@@ -1352,11 +1796,37 @@ async function handleRecordPayment(e) {
     return;
   }
 
+  // Refuse locally what the server would refuse anyway (409/422), so the admin
+  // gets a plain sentence instead of an error toast after filling the form.
+  const row = selectedObligationRow();
+  if (rowFullyPaid(row)) {
+    showToast("That obligation is already paid in full — nothing further is due.", "error");
+    return;
+  }
+  const outstandingMinor = toMinorSafe(row?.arrears);
+  if (row && outstandingMinor > 0 && toMinorSafe(amountRaw) > outstandingMinor) {
+    showToast(
+      `That is more than is outstanding (${formatCurrencyFromMinor(outstandingMinor)}). `
+      + "Overpayments are not held as credit.",
+      "error"
+    );
+    return;
+  }
+
+  // The penalty portion. The checkbox collects the FULL outstanding penalty on
+  // this obligation; the server re-derives and validates the figure, so this is
+  // a request, never an authority.
+  const collectPenalty = !!document.getElementById("applyInterestCheckbox")?.checked;
+  const penaltyOutstanding = rowPenaltyOutstanding(row);
+  const penaltyAmount = collectPenalty && toMinorSafe(penaltyOutstanding) > 0
+    ? penaltyOutstanding
+    : undefined;
+
   showSpinner(true);
   try {
-    let proofUrl;
+    let proof = null;
     if (proofFile) {
-      proofUrl = await uploadProof(proofFile, selectedGroupId);
+      proof = await uploadProof(proofFile, selectedGroupId);
     }
 
     await apiPost("payments.record", {
@@ -1365,14 +1835,24 @@ async function handleRecordPayment(e) {
       paymentType,
       month: paymentType === "monthly_contribution" ? month : undefined,
       amount,
+      penaltyAmount,
       paymentMethod: method,
       notes: notes || undefined,
-      proofOfPaymentImageUrl: proofUrl,
+      proofOfPaymentImageUrl: proof?.url,
+      proofOfPaymentFileName: proof?.fileName ?? undefined,
+      proofOfPaymentFileSize: proof?.fileSize ?? undefined,
       isAdvancedPayment: paymentType === "monthly_contribution" ? !!isAdvanced : undefined,
     });
 
     hideModal("recordPaymentModal");
-    showToast("Payment recorded — awaiting approval", "success");
+    showToast(
+      penaltyAmount
+        ? `Payment recorded with ${formatCurrency(penaltyAmount)} penalty — awaiting approval`
+        : "Payment recorded — awaiting approval",
+      "success"
+    );
+    // The member's position has moved, so the cached obligations are stale.
+    recordModalObligations = null;
     await loadGroupData();
   } catch (error) {
     handleApiError(error, "Failed to record payment");
@@ -1382,8 +1862,8 @@ async function handleRecordPayment(e) {
 }
 
 /**
- * POST the file to files.upload (multipart) and return the stored URL.
- * Copied from loan_payments_sql.js's uploadProof() — same contract.
+ * POST the file to files.upload (multipart) and return {url, fileName, fileSize}.
+ * Same contract as loan_payments_sql.js's uploadProof().
  */
 async function uploadProof(file, groupId) {
   const form = new FormData();
@@ -1413,10 +1893,19 @@ async function uploadProof(file, groupId) {
     const message = (body && (body.message || body.error)) || "Upload failed.";
     throw new ApiError(message, response.status, body);
   }
-  if (!body || !body.url) {
+  // files.upload replies with the standard {ok, data:{url, fileName, fileSize}}
+  // envelope — the url is at body.data.url. Reading a flat body.url made EVERY
+  // proof upload on this page fail with "Upload did not return a file URL."
+  // even though the file had uploaded fine. Flat fallback kept for safety.
+  const payload = (body && body.data) || body || {};
+  if (!payload.url) {
     throw new ApiError("Upload did not return a file URL.", response.status, body);
   }
-  return body.url;
+  return {
+    url: payload.url,
+    fileName: payload.fileName || null,
+    fileSize: payload.fileSize ?? null,
+  };
 }
 
 // ── Payment settings ─────────────────────────────────────────────────────────

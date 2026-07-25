@@ -222,9 +222,30 @@
       word-break: break-word;
     }
 
+    /* Charts stay one-up on mobile — two 160px-wide charts are unreadable.
+       The FIGURE cards in #accountingFiguresBlock are a different animal
+       (title + value only) and go two-up; that column rule lives in
+       design-system.css, which wins on id specificity over this class rule.
+       What belongs here is the card sizing that makes two-up legible. */
     @media (max-width: 768px) {
       .charts-grid {
         grid-template-columns: 1fr;
+      }
+
+      #accountingFiguresBlock .breakdown-card {
+        padding: var(--bn-space-4) var(--bn-space-3);
+      }
+
+      /* Half-width card: the 42px gutter reserved for the info toggle ate
+         most of the title's line. The toggle is still clear of the text at
+         a smaller reservation because the title now wraps to two lines. */
+      #accountingFiguresBlock .breakdown-card-header {
+        padding-right: 26px;
+        margin-bottom: var(--bn-space-2);
+      }
+
+      #accountingFiguresBlock .breakdown-card-value {
+        font-size: var(--bn-text-base);
       }
     }
 
@@ -234,7 +255,12 @@
       }
 
       #accountingFiguresBlock {
-        padding: var(--bn-space-4);
+        padding: var(--bn-space-4) var(--bn-space-3);
+      }
+
+      #accountingFiguresBlock .breakdown-card-title {
+        font-size: 10px;
+        letter-spacing: 0.03em;
       }
     }
 
