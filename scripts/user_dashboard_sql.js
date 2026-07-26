@@ -525,16 +525,58 @@ function renderFinancialOverview(ob, payments, loans, paymentsSummary) {
   const summary = (ob && ob.summary) || {};
   setText("totalContributed", formatCurrency(summary.contributed));
 
+  // Plain‑language breakdown under the tile: what "Contributed" actually means.
+  const contributedDetails = document.getElementById("totalContributedStat");
+  if (contributedDetails) {
+    const detail = contributedDetails.querySelector(".hero-stat-details");
+    if (detail) {
+      const cMinor = toMinor(summary.contributed);
+      detail.textContent = cMinor > 0
+        ? `${formatCurrency(fromMinor(cMinor))} collected so far — all your approved payments`
+        : "No approved payments yet — upload proof to get started";
+    }
+  }
+
   // Pending = un-adjudicated claims (approvalStatus 'pending'), read directly
   // from the payments.list server summary — matches the ledger's own scope.
   setText("pendingPayments", formatCurrency(paymentsSummary.pending));
   renderPendingPopover(payments);
+
+  // Plain‑language breakdown under the tile: what "Pending" means.
+  const pendingDetailEl = document.getElementById("pendingPaymentsStat");
+  if (pendingDetailEl) {
+    const detail = pendingDetailEl.querySelector(".hero-stat-details");
+    if (detail) {
+      const pMinor = toMinor(paymentsSummary.pending);
+      detail.textContent = pMinor > 0
+        ? `Waiting for admin to verify ${formatCurrency(fromMinor(pMinor))} — tap to see details`
+        : "Nothing waiting — every payment is verified";
+    }
+  }
 
   // Arrears = outstanding arrears + accrued live penalties across obligations
   // (seed + months + service fee), read directly from the server-computed
   // summary.
   setText("totalArrears", formatCurrency(summary.totalOwed));
   renderArrearsPopover(summary);
+
+  // Plain‑language breakdown under the tile: split arrears from penalties.
+  const arrearsDetailEl = document.getElementById("totalArrearsStat");
+  if (arrearsDetailEl) {
+    const detail = arrearsDetailEl.querySelector(".hero-stat-details");
+    if (detail) {
+      const owedMinor = toMinor(summary.totalOwed);
+      const penaltyMinor = toMinor(summary.penaltyAccrued);
+      const arrearsOnly = owedMinor - penaltyMinor;
+      if (owedMinor <= 0) {
+        detail.textContent = "All paid up — nothing owed";
+      } else if (penaltyMinor > 0) {
+        detail.textContent = `${formatCurrency(fromMinor(arrearsOnly))} to pay + ${formatCurrency(fromMinor(penaltyMinor))} in late penalties`;
+      } else {
+        detail.textContent = `${formatCurrency(fromMinor(owedMinor))} still to pay`;
+      }
+    }
+  }
 
   // Active-loans count (approved / disbursed).
   const active = loans.filter((l) => isActiveLoan(l.status)).length;

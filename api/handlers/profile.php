@@ -189,7 +189,7 @@ if (!function_exists('update_profile')) {
             // Only a path this server minted (files.upload returns /uploads/...).
             // An arbitrary absolute URL would let a profile image beacon out to,
             // or be swapped by, a third-party host.
-            if ($url !== '' && strpos($url, '/uploads/') !== 0) {
+            if ($url !== '' && strpos($url, upload_web_url()) !== 0) {
                 json_error('A profile image must be a file uploaded to this site.', 422);
             }
             $updates[] = 'profileImageUrl = :profileImageUrl';

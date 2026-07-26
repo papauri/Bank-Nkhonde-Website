@@ -25,9 +25,29 @@ if (ENVIRONMENT === 'PROD') {
     $config['debug'] = true;
 }
 
+// Detect the app's base path from the request so upload URLs (and any other
+// server-generated absolute paths) always resolve correctly whether the app
+// lives at the domain root or in a subdirectory. The constant is safe to use
+// in every handler: it is derived from the server's own SCRIPT_NAME, never
+// from user input, and it never includes a query string or fragment.
+if (!defined('APP_BASE_PATH')) {
+    // API requests hit api/index.php; the app root is one directory above.
+    $scriptPath = $_SERVER['SCRIPT_NAME'] ?? '/index.php';
+    $apiPos = strrpos($scriptPath, '/api/index.php');
+    if ($apiPos !== false) {
+        $appPath = substr($scriptPath, 0, $apiPos);
+    } else {
+        // Fallback: anything up to the last / excluding the file name.
+        $appPath = rtrim(dirname($scriptPath), '/\\');
+    }
+    // Normalise: never end with a slash (makes concatenation predictable).
+    define('APP_BASE_PATH', $appPath !== '' ? $appPath : '');
+}
+
 // Common configuration
 $config['app_name'] = 'Bank Nkhonde';
 $config['firebase_project_id'] = 'banknkonde';
+$config['app_base_path'] = APP_BASE_PATH;
 
 // Make config available globally
 $GLOBALS['config'] = $config;

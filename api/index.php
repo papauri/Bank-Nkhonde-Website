@@ -10,10 +10,18 @@
 
 declare(strict_types=1);
 
+// Boot config early so APP_BASE_PATH is defined before any handler that
+// references it (files.php -> uploads.php, groups.php, profile.php).
+require_once __DIR__ . '/../config.php';
+
 require_once __DIR__ . '/lib/http.php';
 require_once __DIR__ . '/lib/session.php';
 require_once __DIR__ . '/lib/password.php';
 require_once __DIR__ . '/handlers/auth.php';
+// files.php (which loads uploads.php) must come before handlers that
+// validate upload URLs (groups.php, profile.php) — upload_web_url() is
+// defined there and needed by their server-side prefix checks.
+require_once __DIR__ . '/handlers/files.php';
 require_once __DIR__ . '/handlers/groups.php';
 require_once __DIR__ . '/handlers/members.php';
 require_once __DIR__ . '/handlers/loans.php';
@@ -27,7 +35,6 @@ require_once __DIR__ . '/handlers/notifications.php';
 require_once __DIR__ . '/handlers/messages.php';
 require_once __DIR__ . '/handlers/password_reset.php';
 require_once __DIR__ . '/handlers/dashboard.php';
-require_once __DIR__ . '/handlers/files.php';
 require_once __DIR__ . '/handlers/invitations.php';
 require_once __DIR__ . '/handlers/exports.php';
 require_once __DIR__ . '/handlers/statement.php';

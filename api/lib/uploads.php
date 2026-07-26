@@ -60,6 +60,21 @@ if (!function_exists('upload_proofs_dir')) {
     }
 }
 
+if (!function_exists('upload_web_url')) {
+    /**
+     * Web-accessible URL prefix for uploaded files. This returns a path relative
+     * to the domain root, NOT an absolute URL — the scheme/host come from the
+     * page itself. When the app is at the domain root this is just "/uploads/
+     * proofs/". When it's in a subdirectory (e.g. /bank_nkhonde/) the returned
+     * value is "/bank_nkhonde/uploads/proofs/".
+     */
+    function upload_web_url(): string
+    {
+        $base = defined('APP_BASE_PATH') ? APP_BASE_PATH : '';
+        return $base . '/uploads/proofs/';
+    }
+}
+
 if (!function_exists('store_proof_upload')) {
     /**
      * Validate and store one $_FILES entry. Returns
@@ -151,7 +166,9 @@ if (!function_exists('store_proof_upload')) {
 
         return [
             // 7. Web path is served directly; fs path is for later deletion.
-            'url' => '/uploads/proofs/' . $storedName,
+            //    The URL prefix is dynamic — it works at the domain root
+            //    AND in a subdirectory (e.g. /bank_nkhonde/uploads/proofs/).
+            'url' => upload_web_url() . $storedName,
             'path' => $realDest,
             // Display-only echo of the original name: basename() strips any path,
             // control chars are removed. Never used on disk.

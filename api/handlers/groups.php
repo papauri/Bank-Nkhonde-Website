@@ -202,7 +202,7 @@ if (!function_exists('update_group')) {
             // Only a path this server itself minted (files.upload returns
             // /uploads/proofs/<random>.pdf). Refuse an arbitrary absolute URL so a
             // group's "rules document" cannot be pointed at an attacker's site.
-            if ($url !== '' && strpos($url, '/uploads/') !== 0) {
+            if ($url !== '' && strpos($url, upload_web_url()) !== 0) {
                 json_error('A rules document must be a file uploaded to this site.', 422);
             }
             $updates[] = 'rulesDocumentUrl = :rulesDocumentUrl';
