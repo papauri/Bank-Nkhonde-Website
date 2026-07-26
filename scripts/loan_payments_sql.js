@@ -246,7 +246,6 @@ function createLoanRow(loan) {
   const row = el("tr");
 
   const principal = numberOf(loan.principalAmount ?? loan.approvedAmount);
-  const totalRepayment = numberOf(loan.totalRepayment);
   const repaid = numberOf(loan.amountRepaid);
   const remaining = numberOf(loan.remainingBalance);
   const interest = numberOf(loan.totalInterest);
@@ -272,7 +271,8 @@ function createLoanRow(loan) {
 
   const loanCell = el("td");
   loanCell.dataset.label = "Loan";
-  loanCell.textContent = `Loan ${loan.loanNumber || `#${String(loan.loanId || "").substring(0, 8).toUpperCase()}`}`;
+  const loanRef = loan.loanNumber || `#${String(loan.loanId || "").substring(0, 8).toUpperCase()}`;
+  loanCell.textContent = `Loan ${loanRef}`;
   row.appendChild(loanCell);
 
   const statusCell = el("td");
@@ -282,59 +282,32 @@ function createLoanRow(loan) {
   statusCell.appendChild(badge);
   row.appendChild(statusCell);
 
-  const purposeCell = el("td");
-  purposeCell.dataset.label = "Purpose / Date";
-  const purpose = loan.purpose ? `Purpose: ${loan.purpose}` : "Loan";
-  const when = loan.approvedAt || loan.createdAt || loan.requestedAt;
-  purposeCell.textContent = when ? `${purpose} • ${new Date(when).toLocaleDateString()}` : purpose;
-  row.appendChild(purposeCell);
+  const principalCell = el("td", "cell-right");
+  principalCell.dataset.label = "Principal";
+  principalCell.textContent = formatCurrency(principal);
+  row.appendChild(principalCell);
 
-  const amountCell = el("td", "cell-right");
-  amountCell.dataset.label = "Amount";
-  amountCell.textContent = formatCurrency(principal);
-  row.appendChild(amountCell);
+  const remainingCell = el("td", "cell-right" + (remaining > 0 ? " cell-danger" : ""));
+  remainingCell.dataset.label = "Remaining";
+  remainingCell.textContent = formatCurrency(remaining);
+  row.appendChild(remainingCell);
 
   const paidCell = el("td", "cell-right");
   paidCell.dataset.label = "Paid";
   paidCell.textContent = formatCurrency(repaid);
   row.appendChild(paidCell);
 
-  // Details: interest, total repayable, remaining balance, due date — all
-  // conditional, folded into one cell so the table doesn't need a fixed
-  // column for each one.
-  const detailsCell = el("td");
-  if (interest > 0) {
-    const line = el("div");
-    line.textContent = `Interest: ${formatCurrency(interest)}`;
-    detailsCell.appendChild(line);
-  }
-  if (totalRepayment > 0) {
-    const line = el("div");
-    line.textContent = `Total Repayable: ${formatCurrency(totalRepayment)}`;
-    detailsCell.appendChild(line);
-  }
-  if (PAYABLE_STATUSES.includes(loan.status)) {
-    const balanceLine = el("div");
-    balanceLine.textContent = `Remaining Balance: ${formatCurrency(remaining)}`;
-    detailsCell.appendChild(balanceLine);
-    if (loan.dueDate) {
-      const dueLine = el("div");
-      dueLine.textContent = `Due Date: ${new Date(loan.dueDate).toLocaleDateString()}`;
-      detailsCell.appendChild(dueLine);
-    }
-  }
-  // Empty when none of the above apply — data-label="" matches the existing
-  // "hide empty cells on mobile" rule and an empty <td> is simply blank on
-  // desktop (same pattern as manage_payments_sql.js's createPaymentRow()).
-  detailsCell.dataset.label = detailsCell.childNodes.length ? "Details" : "";
-  row.appendChild(detailsCell);
+  const interestCell = el("td", "cell-right");
+  interestCell.dataset.label = "Interest";
+  interestCell.textContent = formatCurrency(interest);
+  row.appendChild(interestCell);
 
-  // Pay button only when the loan is payable AND something is still owed.
+  // Pay button when the loan is payable AND something is still owed.
   const actionsCell = el("td");
   const canPay = PAYABLE_STATUSES.includes(loan.status) && remaining > 0;
   if (canPay) {
     actionsCell.dataset.label = "Actions";
-    const payBtn = el("button", "btn btn-primary btn-sm");
+    const payBtn = el("button", "btn btn-accent btn-sm");
     payBtn.textContent = "Make Payment";
     payBtn.addEventListener("click", () => openPaymentModal(loan));
     actionsCell.appendChild(payBtn);
