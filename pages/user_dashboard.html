@@ -384,28 +384,28 @@
     
 
     /* ============================================
-       HERO SECTION
+       HERO SECTION — clean, modern, light-background
        ============================================ */
     .hero-section {
-      padding: var(--bn-space-6) 0 var(--bn-space-4);
+      padding: var(--bn-space-8) 0 var(--bn-space-6);
       margin-bottom: var(--bn-space-6);
       text-align: center;
+      background: linear-gradient(180deg, #F0F4F8 0%, var(--bn-gray-100) 100%);
+      border-bottom: 1px solid var(--bn-gray-lighter);
     }
 
     .hero-container {
       max-width: 960px;
       margin: 0 auto;
+      padding: 0 var(--bn-space-4);
     }
 
-    /* Header stack: greeting over period control, both on the centre line.
-       Column at every width — the old row split them to opposite edges of a
-       1200px measure, which is the "off-centre" look this replaces. */
     .hero-top {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: var(--bn-space-4);
-      margin-bottom: var(--bn-space-6);
+      margin-bottom: var(--bn-space-8);
     }
 
     .hero-greeting {
@@ -416,93 +416,96 @@
     }
 
     .hero-greeting-text {
-      font-size: var(--bn-text-xs);
+      font-size: var(--bn-text-sm);
       font-weight: 600;
-      letter-spacing: 0.14em;
+      letter-spacing: 0.10em;
       text-transform: uppercase;
-      color: rgba(228, 200, 83, 0.75);
+      color: var(--bn-accent-dark, #A68B1F);
       margin-bottom: var(--bn-space-2);
     }
 
     .hero-greeting-name {
-      font-size: clamp(1.6rem, 5vw, 2.5rem);
+      font-size: clamp(1.8rem, 5vw, 2.6rem);
       font-weight: 800;
-      line-height: 1.1;
+      line-height: 1.15;
       letter-spacing: -0.03em;
-      color: var(--bn-white);
+      color: var(--bn-dark);
       text-wrap: balance;
     }
 
-    /* The group chip sits under the name, centred, as the third line of the
-       identity stack. */
     .hero-greeting .current-group-display {
       justify-content: center;
-      margin-top: var(--bn-space-3);
+      margin-top: var(--bn-space-2);
     }
 
-    /* Month filter — sits on the hero's dark gradient, so it reuses the
-       hero's own translucent-card idiom (.hero-stat: rgba(255,255,255,0.08)
-       bg, faint white border, backdrop blur) rather than the light
-       .form-select treatment used on white-background pages. */
+    .hero-greeting .current-group-display {
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
+      box-shadow: var(--bn-shadow-xs);
+    }
+    .hero-greeting .current-group-display .current-group-name {
+      color: var(--bn-dark);
+    }
+    .hero-greeting .current-group-display .current-group-icon {
+      background: var(--bn-gradient-accent);
+      color: var(--bn-dark);
+    }
+
+    /* Month filter */
     .hero-month-filter {
       display: flex;
       align-items: center;
       justify-content: center;
       flex-wrap: wrap;
-      gap: var(--bn-space-2);
+      gap: var(--bn-space-3);
       flex-shrink: 0;
     }
 
     .hero-month-filter-label {
-      font-size: var(--bn-text-xs);
+      font-size: var(--bn-text-sm);
       font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: rgba(255, 255, 255, 0.55);
-      white-space: nowrap;
+      color: var(--bn-gray);
     }
 
     .hero-month-filter select {
       appearance: none;
       min-height: 44px;
-      min-width: 160px;
+      min-width: 180px;
       padding: var(--bn-space-2) var(--bn-space-12) var(--bn-space-2) var(--bn-space-4);
       font-family: inherit;
       font-size: var(--bn-text-sm);
       font-weight: 600;
-      color: var(--bn-white);
-      background-color: rgba(255, 255, 255, 0.08);
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      color: var(--bn-dark);
+      background-color: var(--bn-white);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: right var(--bn-space-4) center;
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid var(--bn-gray-lighter);
       border-radius: var(--bn-radius-lg);
       cursor: pointer;
-      transition: all var(--bn-transition-base);
+      transition: all var(--bn-transition-fast);
+      box-shadow: var(--bn-shadow-xs);
     }
 
     .hero-month-filter select:hover {
-      background-color: rgba(255, 255, 255, 0.12);
-      border-color: rgba(255, 255, 255, 0.25);
+      border-color: var(--bn-accent);
+      box-shadow: var(--bn-shadow-sm);
     }
 
-    .hero-month-filter select option {
-      color: var(--bn-dark);
-      background: var(--bn-white);
+    .hero-month-filter select:focus-visible {
+      outline: 2px solid var(--bn-accent);
+      outline-offset: 2px;
+      border-color: var(--bn-accent);
     }
 
-    /* A wrapping GRID, not a horizontal scroller: every tile stays visible
-       instead of the last ones hiding off the right edge. Capped and
-       centred so six tiles form a balanced block under the greeting rather
-       than a wide strip pinned to the panel's edges. */
+    /* Stats grid — clean cards on light background */
     .hero-stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: var(--bn-space-3);
+      grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+      gap: var(--bn-space-4);
       align-items: stretch;
       justify-content: center;
-      max-width: 900px;
+      max-width: 960px;
       margin-inline: auto;
       overflow: visible;
     }
@@ -510,21 +513,15 @@
     .hero-stat {
       min-width: 0;
       min-height: 44px;
-      background: rgba(255, 255, 255, 0.07);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
       border-radius: var(--bn-radius-xl);
-      box-shadow: 0 4px 14px rgba(10, 22, 40, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+      box-shadow: var(--bn-shadow-sm);
       padding: var(--bn-space-4);
-      transition: all var(--bn-transition-base);
+      transition: all var(--bn-transition-fast);
       display: flex;
       flex-direction: column;
       justify-content: center;
-      /* stretch, NOT center: centring on the cross axis would shrink-wrap
-         every child, and .hero-stat-details draws a border-top as its
-         divider — that rule would then span only the text instead of the
-         card. Contents are centred with text-align below, which leaves the
-         children full-width. */
       align-items: stretch;
       font: inherit;
       text-align: center;
@@ -532,20 +529,16 @@
     }
 
     .hero-stat:hover {
-      background: rgba(255, 255, 255, 0.12);
+      border-color: var(--bn-accent);
+      box-shadow: var(--bn-shadow-md);
+      transform: translateY(-2px);
     }
 
     .hero-stat.clickable {
       cursor: pointer;
     }
 
-    .hero-stat.clickable:hover {
-      background: rgba(255, 255, 255, 0.15);
-      transform: translateY(-2px);
-    }
-
     button.hero-stat {
-      border: 1px solid rgba(255, 255, 255, 0.1);
       cursor: pointer;
       width: 100%;
     }
@@ -554,39 +547,27 @@
     .action-btn:focus-visible,
     #calendarPrevMonth:focus-visible,
     #calendarNextMonth:focus-visible,
-    .calendar-day:focus-visible,
-    .hero-month-filter select:focus-visible {
+    .calendar-day:focus-visible {
       outline: 2px solid var(--bn-accent);
       outline-offset: 2px;
     }
 
     .hero-stat-status {
-      font-size: 9px;
+      font-size: 10px;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.04em;
       margin-top: var(--bn-space-1);
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 4px;
     }
 
-    .hero-stat-status.paid {
-      color: rgba(16, 185, 129, 0.9);
-    }
-
-    .hero-stat-status.pending {
-      color: rgba(251, 191, 36, 0.9);
-    }
-
-    .hero-stat-status.due {
-      color: rgba(239, 68, 68, 0.9);
-    }
-
-    .hero-stat-status.overdue {
-      color: rgba(239, 68, 68, 1);
-      animation: pulse 2s ease-in-out infinite;
-    }
+    .hero-stat-status.paid { color: var(--bn-success); }
+    .hero-stat-status.pending { color: var(--bn-warning); }
+    .hero-stat-status.due { color: var(--bn-danger); }
+    .hero-stat-status.overdue { color: var(--bn-danger); font-weight: 700; }
 
     .hero-stat.flash {
       animation: cardFlash 2s ease-in-out infinite;
@@ -594,23 +575,19 @@
 
     @keyframes cardFlash {
       0%, 100% {
-        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
-        border-color: rgba(255, 255, 255, 0.1);
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.15);
+        border-color: var(--bn-gray-lighter);
       }
       50% {
-        box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
-        border-color: rgba(239, 68, 68, 0.3);
+        box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
+        border-color: var(--bn-danger);
       }
-    }
-
-    .hero-stat-badge {
-      animation: pulse 2s ease-in-out infinite;
     }
 
     .hero-stat-value {
-      font-size: var(--bn-text-lg);
+      font-size: var(--bn-text-xl);
       font-weight: 800;
-      color: var(--bn-white);
+      color: var(--bn-dark);
       font-feature-settings: 'tnum' 1;
       margin-bottom: var(--bn-space-1);
       white-space: nowrap;
@@ -623,25 +600,20 @@
     .hero-stat-label {
       font-size: 10px;
       font-weight: 600;
-      color: rgba(255, 255, 255, 0.6);
+      color: var(--bn-gray);
       text-transform: uppercase;
       letter-spacing: 0.05em;
       margin-top: 0;
-      /* #totalContributedLabel / #pendingPaymentsLabel can grow to e.g.
-         "Contributed (Jul)" once the month filter is applied — wrap inside
-         the card instead of overflowing it. */
       overflow-wrap: break-word;
     }
 
     .hero-stat-details {
       margin-top: var(--bn-space-2);
       padding-top: var(--bn-space-2);
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      border-top: 1px solid var(--bn-gray-lighter);
       font-size: var(--bn-text-xs);
-      color: rgba(255, 255, 255, 0.65);
+      color: var(--bn-gray-600);
       line-height: 1.5;
-      /* Centred with the rest of the tile (was left) now that the hero is a
-         centred composition. */
       text-align: center;
       font-weight: 400;
     }
@@ -785,22 +757,18 @@
       transition: color var(--bn-transition-fast);
     }
 
-    /* Quick Actions inside the dark hero band — light-on-dark treatment,
-       modeled on .hero-stat's rgba(255,255,255,...) pattern. */
     .hero-quick-actions {
       margin-top: var(--bn-space-8);
       padding-top: var(--bn-space-6);
-      /* Centred divider rule instead of a full-width border, so the
-         separator reads as part of the centred composition. */
-      border-top: 1px solid rgba(255, 255, 255, 0.10);
+      border-top: 1px solid var(--bn-gray-lighter);
     }
 
     .hero-quick-actions-label {
       font-size: 10px;
       font-weight: 700;
-      color: rgba(255, 255, 255, 0.55);
+      color: var(--bn-gray);
       text-transform: uppercase;
-      letter-spacing: 0.14em;
+      letter-spacing: 0.10em;
       text-align: center;
       margin-bottom: var(--bn-space-4);
     }
@@ -809,32 +777,6 @@
       max-width: 900px;
       margin-inline: auto;
       justify-content: center;
-    }
-
-    /* Light-on-dark treatment for the action buttons. Scoped to BOTH homes
-       the block can occupy: the hero on desktop, and the (equally dark)
-       sidebar drawer once it is relocated there on mobile — see
-       placeQuickActions() in user_dashboard_sql.js. */
-    .hero-section .quick-actions .action-btn,
-    .sidebar .quick-actions .action-btn {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-    }
-
-    .hero-section .quick-actions .action-btn:hover,
-    .sidebar .quick-actions .action-btn:hover {
-      background: var(--bn-accent);
-      border-color: var(--bn-accent);
-    }
-
-    .hero-section .quick-actions .action-label,
-    .sidebar .quick-actions .action-label {
-      color: var(--bn-white);
-    }
-
-    .hero-section .quick-actions .action-btn:hover .action-label,
-    .sidebar .quick-actions .action-btn:hover .action-label {
-      color: var(--bn-dark);
     }
 
     /* Quick Actions in their relocated (sidebar) home. The drawer is narrow,
