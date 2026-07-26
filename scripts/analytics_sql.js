@@ -577,7 +577,7 @@ function renderMemberParticipation() {
 
   const rows = Array.isArray(cycleEquity?.members) ? cycleEquity.members : [];
   if (rows.length === 0) {
-    container.appendChild(emptyTableRow("No member equity data available", 5));
+    container.appendChild(emptyTableRow("No member equity data available", 6));
     return;
   }
 
@@ -603,10 +603,18 @@ function createParticipationRow(row) {
   borrowedCell.textContent = formatCurrency(row.totalBorrowed);
   tr.appendChild(borrowedCell);
 
-  const interestCell = el("td", "cell-right");
-  interestCell.dataset.label = "Interest Paid";
-  interestCell.textContent = formatCurrency(row.totalInterestPaid);
-  tr.appendChild(interestCell);
+  const interestPaidCell = el("td", "cell-right");
+  interestPaidCell.dataset.label = "Interest Paid";
+  interestPaidCell.textContent = formatCurrency(row.totalInterestPaid);
+  tr.appendChild(interestPaidCell);
+
+  // Money the member still owes in loan interest — contractually agreed,
+  // not yet collected. An accountant reads this as "interest receivable".
+  const interestOwed = numberOf(row.interestOwed);
+  const interestOwedCell = el("td", "cell-right" + (interestOwed > 0 ? " cell-danger" : ""));
+  interestOwedCell.dataset.label = "Interest Owed";
+  interestOwedCell.textContent = formatCurrency(row.interestOwed);
+  tr.appendChild(interestOwedCell);
 
   const statusCell = el("td");
   statusCell.dataset.label = "Status";
