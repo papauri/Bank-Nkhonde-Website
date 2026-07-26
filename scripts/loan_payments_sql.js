@@ -139,7 +139,7 @@ async function loadLoanData() {
   const loansList = document.getElementById("loansList");
   if (loansList) {
     loansList.textContent = "";
-    loansList.appendChild(skeletonRows(3, 7));
+    loansList.appendChild(skeletonRows(3, 8));
   }
 
   try {
@@ -302,21 +302,136 @@ function createLoanRow(loan) {
   interestCell.textContent = formatCurrency(interest);
   row.appendChild(interestCell);
 
-  // Pay button when the loan is payable AND something is still owed.
+  // Next payment date — loans.list returns dueDate. For active loans with
+  // a remaining balance, show whether the next scheduled date is overdue.
+  const nextCell = el("td");
+  nextCell.dataset.label = "Next Payment";
+  if (PAYABLE_STATUSES.includes(loan.status) && loan.dueDate) {
+    const due = new Date(String(loan.dueDate).replace(" ", "T"));
+    if (!Number.isNaN(due.getTime())) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const isOverdue = due < today;
+      const dayStr = due.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+      const yearStr = due.getFullYear() !== today.getFullYear()
+        ? ` ${due.getFullYear()}` : "";
+      if (isOverdue) {
+        const days = Math.floor((today - due) / 86400000);
+        const span = el("span", "badge badge-danger");
+        span.textContent = `Overdue ${days}d`;
+        const detail = el("div");
+        detail.style.cssText = "font-size: 10px; color: var(--bn-gray);";
+        detail.textContent = `Was ${dayStr}${yearStr}`;
+        nextCell.append(span, detail);
+      } else {
+        const span = el("span");
+        span.style.cssText = "font-weight: 600; color: var(--bn-dark);";
+        span.textContent = dayStr + yearStr;
+        nextCell.appendChild(span);
+      }
+    } else {
+      nextCell.textContent = "—";
+    }
+  } else {
+    nextCell.textContent = "—";
+  }
+  row.appendChild(nextCell);
+
+  // Actions: Pay button + History link
   const actionsCell = el("td");
+  const actionsDiv = el("div");
+  actionsDiv.style.cssText = "display: flex; gap: 4px; flex-wrap: wrap;";
+
   const canPay = PAYABLE_STATUSES.includes(loan.status) && remaining > 0;
   if (canPay) {
-    actionsCell.dataset.label = "Actions";
     const payBtn = el("button", "btn btn-accent btn-sm");
-    payBtn.textContent = "Make Payment";
+    payBtn.textContent = "Pay";
     payBtn.addEventListener("click", () => openPaymentModal(loan));
-    actionsCell.appendChild(payBtn);
+    actionsDiv.appendChild(payBtn);
+  }
+
+  // History button — shows all repayments for this specific loan
+  const historyBtn = el("button", "btn btn-ghost btn-sm");
+  historyBtn.textContent = "History";
+  historyBtn.addEventListener("click", () => showLoanHistory(loan.loanId));
+  actionsDiv.appendChild(historyBtn);
+
+  actionsCell.appendChild(actionsDiv);
+  if (actionsDiv.childNodes.length) {
+    actionsCell.dataset.label = "Actions";
   } else {
     actionsCell.dataset.label = "";
   }
   row.appendChild(actionsCell);
 
   return row;
+}
+
+/**
+ * Show repayment history for a single loan in a modal.
+ * Repayments.mine already has every payment for the member's loans — filter
+ * client-side rather than making a separate fetch.
+ * @param {string} loanId
+ */
+function showLoanHistory(loanId) {
+  const relevant = paymentHistory.filter((p) => String(p.loanId) === String(loanId));
+  const loan = allLoans.find((l) => String(l.loanId) === String(loanId));
+  const ref = loan ? (loan.loanNumber || `#${String(loan.loanId || "").substring(0, 8)}`) : "loan";
+
+  const modal = document.getElementById("loanHistoryModal");
+  if (!modal) return;
+
+  const title = modal.querySelector("#loanHistoryTitle");
+  const body = modal.querySelector("#loanHistoryBody");
+  if (title) title.textContent = `Payment History — Loan ${ref}`;
+  if (!body) return;
+  body.textContent = "";
+
+  if (!relevant.length) {
+    const empty = el("div", "empty-state");
+    const icon = el("div", "empty-state-icon");
+    icon.textContent = "📋";
+    const text = el("p", "empty-state-text");
+    text.textContent = "No repayments recorded for this loan yet.";
+    empty.append(icon, text);
+    body.appendChild(empty);
+  } else {
+    const totalPaid = relevant.reduce((sum, p) => sum + numberOf(p.amount - (p.penaltyPortion || 0)), 0);
+    const summary = el("div");
+    summary.style.cssText = "margin-bottom: var(--bn-space-3); padding: var(--bn-space-3); background: var(--bn-gray-50); border-radius: var(--bn-radius-md);";
+    summary.innerHTML = ""; // safe — all values are parsed numbers
+    const sLabel = document.createElement("span");
+    sLabel.style.cssText = "font-size: var(--bn-text-sm); color: var(--bn-gray);";
+    sLabel.textContent = "Total repaid: ";
+    const sValue = document.createElement("strong");
+    sValue.textContent = formatCurrency(totalPaid);
+    summary.append(sLabel, sValue);
+    body.appendChild(summary);
+
+    relevant.forEach((p) => {
+      const row = el("div");
+      row.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: var(--bn-space-2) 0; border-bottom: 1px solid var(--bn-gray-100); font-size: var(--bn-text-sm);";
+
+      const left = el("span");
+      const when = p.paidAt ? new Date(p.paidAt).toLocaleDateString() : "N/A";
+      left.textContent = `${when} · ${formatCurrency(p.amount)}`;
+      row.appendChild(left);
+
+      const right = el("span");
+      const cls = p.status === "approved" ? "badge badge-success" : p.status === "rejected" ? "badge badge-danger" : "badge badge-warning";
+      const badgeEl = el("span", cls);
+      badgeEl.textContent = p.status || "pending";
+      right.appendChild(badgeEl);
+      row.appendChild(right);
+
+      body.appendChild(row);
+    });
+  }
+
+  // Show the modal using the same pattern as other modals on the page
+  modal.classList.remove("hidden");
+  modal.classList.add("active");
+  modal.style.display = "flex";
 }
 
 /**
@@ -329,7 +444,7 @@ function createLoanRow(loan) {
 function loansEmptyRow(filter) {
   const row = el("tr");
   const cell = el("td");
-  cell.colSpan = 7;
+  cell.colSpan = 8;
   cell.dataset.label = "";
   cell.style.padding = "0";
 
@@ -373,7 +488,7 @@ function loansEmptyRow(filter) {
 function emptyTableRow(text) {
   const row = el("tr");
   const cell = el("td");
-  cell.colSpan = 7;
+  cell.colSpan = 8;
   cell.dataset.label = "";
   cell.style.cssText = "text-align: center; padding: var(--bn-space-4); color: var(--bn-gray);";
   cell.textContent = text;

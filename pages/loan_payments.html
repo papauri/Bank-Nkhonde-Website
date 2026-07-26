@@ -335,12 +335,13 @@
                <th class="cell-right">Remaining</th>
                <th class="cell-right">Paid</th>
                <th class="cell-right">Interest</th>
+               <th>Next Payment</th>
                <th>Actions</th>
             </tr>
           </thead>
           <tbody id="loansList">
             <tr>
-               <td colspan="7" class="table-empty-cell">Select a group to view your loans</td>
+               <td colspan="8" class="table-empty-cell">Select a group to view your loans</td>
             </tr>
           </tbody>
         </table>
@@ -474,6 +475,22 @@
           </div>
           <button type="submit" class="btn btn-accent btn-block btn-lg">Submit Payment</button>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loan Payment History Modal -->
+  <div class="modal-overlay hidden" id="loanHistoryModal">
+    <div class="modal-content" style="max-width: 520px; max-height: 70vh;">
+      <div class="modal-header">
+        <h2 class="modal-title" id="loanHistoryTitle">Payment History</h2>
+        <button class="modal-close" aria-label="Close" onclick="document.getElementById('loanHistoryModal').classList.add('hidden');document.getElementById('loanHistoryModal').style.display='none';">&times;</button>
+      </div>
+      <div class="modal-body" id="loanHistoryBody" style="padding: var(--bn-space-4); max-height: 60vh; overflow-y: auto;">
+        <div class="empty-state">
+          <div class="empty-state-icon">📋</div>
+          <p class="empty-state-text">Select a loan to view its payment history</p>
+        </div>
       </div>
     </div>
   </div>
