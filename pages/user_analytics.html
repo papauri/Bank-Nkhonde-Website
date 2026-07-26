@@ -14,123 +14,206 @@
   <link rel="stylesheet" href="../styles/admin-layout.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
-    /* Stats Grid Cards - Uses standardized page-stats pattern from pages.css
-       with accent bar treatment for visual distinction */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: var(--bn-space-4);
-    }
-
-    .stat-card {
-      background: var(--bn-white);
-      border: 1px solid var(--bn-gray-lighter);
-      border-radius: var(--bn-radius-lg);
-      padding: var(--bn-space-4) var(--bn-space-3);
-      text-align: center;
-      transition: all var(--bn-transition-base);
+    /* ============================================
+       HERO SECTION — matches user_dashboard pattern
+       ============================================ */
+    .hero-section {
       position: relative;
+      padding: var(--bn-space-10) 0 var(--bn-space-8);
+      margin-bottom: var(--bn-space-6);
+      text-align: center;
+      background:
+        radial-gradient(ellipse 70% 50% at 50% 0%, rgba(201, 162, 39, 0.06) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 50% 100%, rgba(37, 99, 235, 0.04) 0%, transparent 60%),
+        linear-gradient(180deg, #F8FAFC 0%, #EEF2F7 100%);
+      border-bottom: 1px solid var(--bn-gray-lighter);
       overflow: hidden;
-      box-shadow: var(--bn-shadow-xs);
     }
 
-    .stat-card::before {
+    .hero-section::before {
       content: '';
       position: absolute;
       top: 0;
-      left: 0;
-      right: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(320px, 40%);
       height: 3px;
-      background: var(--bn-gradient-accent);
-      opacity: 0;
-      transition: opacity var(--bn-transition-fast);
+      border-radius: 0 0 3px 3px;
+      background: linear-gradient(90deg,
+        transparent 0%, rgba(201,162,39,0.5) 30%, rgba(228,200,83,0.7) 50%, rgba(201,162,39,0.5) 70%, transparent 100%);
+      pointer-events: none;
     }
 
-    .stat-card:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--bn-shadow-md);
-      border-color: var(--bn-accent);
+    .hero-container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 var(--bn-space-4);
+      position: relative;
+      z-index: 1;
     }
 
-    .stat-card:hover::before {
-      opacity: 1;
+    .hero-top {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--bn-space-6);
+      margin-bottom: var(--bn-space-10);
     }
 
-    /* Accent bars use the app's semantic tokens */
-    .stat-card:nth-child(1) .stat-value { color: var(--bn-success-dark); }
-    .stat-card:nth-child(1)::before { background: linear-gradient(90deg, var(--bn-success), var(--bn-success-dark)); }
-    .stat-card:nth-child(2) .stat-value { color: var(--bn-primary); }
-    .stat-card:nth-child(2)::before { background: var(--bn-gradient-primary); }
-    .stat-card:nth-child(3) .stat-value { color: var(--bn-warning-dark); }
-    .stat-card:nth-child(3)::before { background: linear-gradient(90deg, var(--bn-warning), var(--bn-warning-dark)); }
-    .stat-card:nth-child(4) .stat-value { color: var(--bn-danger-dark); }
-    .stat-card:nth-child(4)::before { background: linear-gradient(90deg, var(--bn-danger), var(--bn-danger-dark)); }
-    .stat-card:nth-child(5) .stat-value { color: var(--bn-info); }
-    .stat-card:nth-child(5)::before { background: linear-gradient(90deg, var(--bn-info), #1D4ED8); }
-    .stat-card:nth-child(6) .stat-value { color: var(--bn-accent); }
-    .stat-card:nth-child(6)::before { background: var(--bn-gradient-accent); }
+    .hero-greeting {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--bn-space-1);
+    }
 
-    .stat-value {
-      font-size: var(--bn-text-xl);
+    .hero-greeting-text {
+      font-size: var(--bn-text-xs);
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--bn-accent-dark, #A68B1F);
+      margin-bottom: 0;
+    }
+
+    .hero-greeting-name {
+      font-size: clamp(1.5rem, 4vw, 2.2rem);
       font-weight: 800;
       line-height: 1.2;
-      margin-bottom: var(--bn-space-1);
-      font-feature-settings: 'tnum' 1;
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
+      letter-spacing: -0.02em;
+      color: var(--bn-dark);
+      text-wrap: balance;
     }
 
-    .stat-label {
-      font-size: var(--bn-text-xs);
+    .hero-greeting .current-group-display {
+      justify-content: center;
+      margin-top: var(--bn-space-2);
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
+      box-shadow: var(--bn-shadow-xs);
+    }
+    .hero-greeting .current-group-display .current-group-name {
+      color: var(--bn-dark);
+    }
+    .hero-greeting .current-group-display .current-group-icon {
+      background: var(--bn-gradient-accent);
+      color: var(--bn-dark);
+    }
+
+    /* Stats grid — premium financial dashboard cards */
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--bn-space-4);
+      align-items: stretch;
+      max-width: 980px;
+      margin-inline: auto;
+    }
+
+    .hero-stat {
+      min-width: 0;
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-space-5) var(--bn-space-4);
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      font: inherit;
+      text-align: left;
+      color: inherit;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-stat::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 12px;
+      bottom: 12px;
+      width: 3px;
+      border-radius: 0 2px 2px 0;
+    }
+
+    #heroContributed::before { background: var(--bn-success); }
+    #heroBorrowed::before { background: var(--bn-warning); }
+    #heroOutstanding::before { background: var(--bn-danger); }
+    #heroArrears::before { background: var(--bn-danger); }
+    #heroGroups::before { background: var(--bn-info); }
+    #heroActiveLoans::before { background: var(--bn-warning); }
+
+    .hero-stat:hover {
+      border-color: var(--bn-accent);
+      box-shadow: 0 4px 16px rgba(10,22,40,0.08);
+      transform: translateY(-3px);
+    }
+
+    button.hero-stat { cursor: pointer; width: 100%; text-align: left; }
+
+    .hero-stat-value {
+      font-size: var(--bn-text-2xl);
+      font-weight: 800;
+      color: var(--bn-dark);
+      font-feature-settings: 'tnum' 1;
+      margin-bottom: var(--bn-space-2);
+      padding-left: var(--bn-space-4);
+    }
+
+    .hero-stat-label {
+      font-size: 11px;
+      font-weight: 600;
       color: var(--bn-gray);
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      font-weight: 600;
+      letter-spacing: 0.07em;
+      padding-left: var(--bn-space-4);
     }
 
-    @media (max-width: 768px) {
-      .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: var(--bn-space-3);
-      }
-
-      .stat-card {
-        padding: var(--bn-space-3);
-      }
-
-      .stat-value {
-        font-size: var(--bn-text-lg);
-      }
+    .hero-stat-details {
+      margin-top: var(--bn-space-3);
+      padding: var(--bn-space-2) var(--bn-space-4) 0;
+      border-top: 1px solid var(--bn-gray-lighter);
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray-600);
+      line-height: 1.5;
+      min-height: 2.6em;
     }
 
-    @media (max-width: 480px) {
-      .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: var(--bn-space-2);
-      }
-
-      .stat-card {
-        padding: var(--bn-space-2);
-      }
-
-      .stat-value {
-        font-size: var(--bn-text-base);
-      }
-
-      .stat-label {
-        font-size: 10px;
-      }
+    /* Content cards */
+    .content-card {
+      background: var(--bn-white);
+      border-radius: var(--bn-radius-xl);
+      box-shadow: var(--bn-shadow-sm);
+      border: 1px solid var(--bn-gray-lighter);
+      overflow: hidden;
+      margin-bottom: var(--bn-space-6);
+    }
+    .content-card-header {
+      padding: var(--bn-space-5) var(--bn-space-6);
+      border-bottom: 1px solid var(--bn-gray-lighter);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .content-card-title {
+      font-size: var(--bn-text-base);
+      font-weight: 700;
+      color: var(--bn-dark);
+    }
+    .content-card-body {
+      padding: var(--bn-space-5);
     }
 
-    /* Chart Styles */
+    /* Chart styles */
     .chart-container {
-      height: 200px;
+      height: 220px;
       display: flex;
       align-items: flex-end;
       gap: var(--bn-space-3);
-      padding: var(--bn-space-4) 0;
+      padding: var(--bn-space-2) 0;
     }
-
     .chart-bar-wrapper {
       flex: 1;
       display: flex;
@@ -138,17 +221,15 @@
       align-items: center;
       gap: var(--bn-space-2);
     }
-
     .chart-bar {
       width: 100%;
-      max-width: 40px;
+      max-width: 44px;
       background: var(--bn-gray-100);
       border-radius: var(--bn-radius-md) var(--bn-radius-md) 0 0;
       position: relative;
       overflow: hidden;
       min-height: 8px;
     }
-
     .chart-bar::after {
       content: '';
       position: absolute;
@@ -157,85 +238,90 @@
       right: 0;
       background: var(--bn-gradient-accent);
       height: 0;
-      transition: height 1s var(--bn-ease-out);
+      transition: height 0.8s var(--bn-ease-out);
       border-radius: var(--bn-radius-md) var(--bn-radius-md) 0 0;
     }
-
-    .chart-bar.animated::after {
-      height: var(--bar-height, 0);
-    }
-
+    .chart-bar.animated::after { height: var(--bar-height, 0); }
     .chart-label {
       font-size: var(--bn-text-xs);
       color: var(--bn-gray);
       font-weight: 500;
     }
 
-    /* .page-group-selector select (pages.css) sets outline:none for its
-       original dark-header context with no replacement focus style -
-       restore a visible keyboard focus ring, matching the accent outline
-       idiom used elsewhere in the app (e.g. .filter-tab:focus-visible). */
-    #groupSelector:focus-visible {
-      outline: 2px solid var(--bn-accent);
-      outline-offset: 2px;
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero-stats {
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--bn-space-2);
+      }
+      .hero-stat { padding: var(--bn-space-3); }
+      .hero-stat-value { font-size: var(--bn-text-base); }
     }
-
-    /* Card-info popovers (ported from analytics.html) — reveal rule also
-       targets .stat-card so the Your-Overview grid cards reveal too. */
-    .page-stat,
-    .stat-card,
-    .breakdown-card {
-      position: relative;
+    @media (max-width: 480px) {
+      .hero-stats { grid-template-columns: repeat(2, 1fr); }
+      .hero-stat { padding: var(--bn-space-3) var(--bn-space-2); }
+      .hero-stat-value { font-size: var(--bn-text-sm); }
     }
-
-    .page-stats {
-      overflow: visible;
-    }
-
-    .page-stats .page-stat {
-      padding-right: calc(26px + var(--bn-space-4));
-    }
-
-    /* Cards carrying an info toggle reserve room for it in the corner. Keyed
-       to the SHARED .bn-info-toggle class — the old .stat-card-info-toggle
-       selector no longer matches anything since the popover moved to <body>. */
-    .stat-card:has(.bn-info-toggle) {
-      padding-top: calc(26px + var(--bn-space-4));
-    }
-
-    /* Card-info popovers render on <body> via scripts/card_info.js, styled by
-       the shared .bn-info-* rules. The old in-card rules were removed — a
-       panel nested in the card was clipped by ancestor overflow. */
   </style>
 </head>
 <body class="user-page" data-nav-variant="user-sidebar" data-nav-active-page="user_analytics">
-  <!-- Page Content -->
   <main class="main-content" id="mainContent">
    <div class="dashboard-content">
-    <div class="page-group-selector">
-      <select id="groupSelector">
-        <option value="">Select a group...</option>
-      </select>
-    </div>
 
-    <div class="page-stats">
-      <div class="page-stat">
-        <div class="page-stat-value success" id="totalContributed">MWK 0</div>
-        <div class="page-stat-label">Total Contributed</div>
+    <!-- Hero Section -->
+    <section class="hero-section">
+      <div class="hero-container">
+        <div class="hero-top">
+          <div class="hero-greeting">
+            <p class="hero-greeting-text">Your Financial Summary</p>
+            <h1 class="hero-greeting-name" id="userName">Member</h1>
+            <div class="current-group-display" id="currentGroupDisplay" style="display: none;">
+              <span class="current-group-icon" id="currentGroupIcon"></span>
+              <span class="current-group-name" id="currentGroupName"></span>
+            </div>
+          </div>
+          <div class="page-group-selector" style="margin: 0 auto;">
+            <select id="groupSelector">
+              <option value="">Select a group...</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="hero-stats">
+          <button class="hero-stat" id="heroContributed">
+            <div class="hero-stat-value" id="totalContributed">MWK 0</div>
+            <div class="hero-stat-label">Contributed</div>
+            <div class="hero-stat-details" id="contributedDetail">Select a group</div>
+          </button>
+          <button class="hero-stat" id="heroBorrowed">
+            <div class="hero-stat-value" id="totalBorrowed">MWK 0</div>
+            <div class="hero-stat-label">Borrowed</div>
+            <div class="hero-stat-details" id="borrowedDetail">Select a group</div>
+          </button>
+          <div class="hero-stat" id="heroOutstanding">
+            <div class="hero-stat-value" id="outstanding">MWK 0</div>
+            <div class="hero-stat-label">Outstanding</div>
+            <div class="hero-stat-details" id="outstandingDetail">Select a group</div>
+          </div>
+          <div class="hero-stat" id="heroArrears">
+            <div class="hero-stat-value" id="totalArrears">MWK 0</div>
+            <div class="hero-stat-label">Arrears</div>
+            <div class="hero-stat-details" id="arrearsDetail">Select a group</div>
+          </div>
+          <div class="hero-stat" id="heroActiveLoans">
+            <div class="hero-stat-value" id="activeLoans">0</div>
+            <div class="hero-stat-label">Active Loans</div>
+            <div class="hero-stat-details" id="activeLoansDetail">Select a group</div>
+          </div>
+          <div class="hero-stat" id="heroGroups">
+            <div class="hero-stat-value" id="groupsCount">0</div>
+            <div class="hero-stat-label">Groups</div>
+            <div class="hero-stat-details">You belong to</div>
+          </div>
+        </div>
       </div>
-      <div class="page-stat" role="button" tabindex="0" onclick="window.location.href='loan_payments.html'" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='loan_payments.html';}" style="cursor: pointer;" aria-label="Total borrowed — open your loans and repayments">
-        <div class="page-stat-value info" id="totalBorrowed">MWK 0</div>
-        <div class="page-stat-label">Total Borrowed</div>
-      </div>
-      <div class="page-stat" role="button" tabindex="0" onclick="window.location.href='loan_payments.html'" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='loan_payments.html';}" style="cursor: pointer;" aria-label="Loan outstanding — open your loans and repayments">
-        <div class="page-stat-value warning" id="outstanding">MWK 0</div>
-        <div class="page-stat-label">Loan Outstanding</div>
-      </div>
-      <div class="page-stat">
-        <div class="page-stat-value danger" id="totalArrears">MWK 0</div>
-        <div class="page-stat-label">Arrears</div>
-      </div>
-    </div>
+    </section>
+
     <!-- Loading Overlay -->
     <div class="spinner-overlay hidden" id="spinner">
       <div class="spinner-content">
@@ -243,128 +329,66 @@
         <p class="loading-text">Loading analytics...</p>
       </div>
     </div>
-    <!-- User Overview Stats -->
-    <section class="content-section">
-      <div class="content-section-header">
-        <h2 class="content-section-title">Your Overview</h2>
-        <p class="content-section-subtitle">Summary across all your groups</p>
-      </div>
-      <div class="content-section-body">
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-value" id="userTotalContributed">MWK 0</div>
-            <div class="stat-label">Total Contributed</div>
-          </div>
-          <div class="stat-card" role="button" tabindex="0" onclick="window.location.href='loan_payments.html'" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='loan_payments.html';}" style="cursor: pointer;" aria-label="Total loans — open your loans and repayments">
-            <div class="stat-value" id="userTotalLoans">MWK 0</div>
-            <div class="stat-label">Total Loans</div>
-          </div>
-          <div class="stat-card" role="button" tabindex="0" onclick="window.location.href='loan_payments.html'" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='loan_payments.html';}" style="cursor: pointer;" aria-label="Your loan outstanding — open your loans and repayments">
-            <div class="stat-value" id="userLoanOutstanding">MWK 0</div>
-            <div class="stat-label">Loan Outstanding</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="userTotalArrears">MWK 0</div>
-            <div class="stat-label">Total Arrears</div>
-          </div>
-          <div class="stat-card" role="button" tabindex="0" onclick="window.location.href='loan_payments.html'" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='loan_payments.html';}" style="cursor: pointer;" aria-label="Active loans — open your loans and repayments">
-            <div class="stat-value" id="userActiveLoans">0</div>
-            <div class="stat-label">Active Loans</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="userGroupsCount">0</div>
-            <div class="stat-label">Groups</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Group Stats (when group selected) -->
-    <section class="content-section" id="groupStatsSection" style="display: none;">
-      <div class="content-section-header">
-        <h2 class="content-section-title">Group Statistics</h2>
-        <p class="content-section-subtitle" id="groupStatsSubtitle">Statistics for selected group</p>
-      </div>
-      <div class="content-section-body">
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-value" id="groupTotalContributed">MWK 0</div>
-            <div class="stat-label">You Contributed</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="groupTotalMembers">0</div>
-            <div class="stat-label">Total Members</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="groupTotalCollections">MWK 0</div>
-            <div class="stat-label">Group Collections</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="groupActiveLoans">0</div>
-            <div class="stat-label">Group Active Loans</div>
-          </div>
-        </div>
-      </div>
-    </section>
 
     <!-- Contribution Trend -->
-    <section class="content-section">
-      <div class="content-section-header">
-        <h2 class="content-section-title">Contribution Trend</h2>
-        <p class="content-section-subtitle">Your contributions over the last 6 months</p>
+    <section class="content-card">
+      <div class="content-card-header">
+        <h2 class="content-card-title">Contribution Trend</h2>
+        <span style="font-size: var(--bn-text-xs); color: var(--bn-gray);" id="trendPeriodLabel">Last 6 months</span>
       </div>
-      <div class="content-section-body">
-        <div class="chart-container" id="chartContainer">
-          <div class="empty-state" style="width: 100%;">
-            <div class="empty-state-icon">📊</div>
-            <p class="empty-state-text">Select a group to view contribution trends</p>
-          </div>
+      <div class="content-card-body" id="chartContainer">
+        <div class="empty-state">
+          <div class="empty-state-icon">📊</div>
+          <p class="empty-state-text">Select a group to view contribution trends</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Payment Breakdown -->
+    <section class="content-card">
+      <div class="content-card-header">
+        <h2 class="content-card-title">Payment Breakdown</h2>
+      </div>
+      <div class="content-card-body" id="paymentBreakdown">
+        <div class="empty-state">
+          <div class="empty-state-icon">💰</div>
+          <p class="empty-state-text">Select a group to see your payment breakdown</p>
         </div>
       </div>
     </section>
 
     <!-- Recent Activity -->
-    <section class="content-section">
-      <div class="content-section-header">
-        <h2 class="content-section-title">Recent Activity</h2>
-        <p class="content-section-subtitle">Your latest payments and transactions</p>
+    <section class="content-card">
+      <div class="content-card-header">
+        <h2 class="content-card-title">Recent Activity</h2>
+        <span style="font-size: var(--bn-text-xs); color: var(--bn-gray);" id="activityCount"></span>
       </div>
-      <div class="content-section-body" id="recentActivity">
+      <div class="content-card-body" id="recentActivity">
         <div class="empty-state">
-          <div class="empty-state-icon">📊</div>
+          <div class="empty-state-icon">📄</div>
           <p class="empty-state-text">No recent activity</p>
         </div>
       </div>
     </section>
 
     <!-- My Account Statement -->
-    <section class="content-section" id="statementSection">
-      <div class="content-section-header">
-        <h2 class="content-section-title">My Account Statement</h2>
-        <p class="content-section-subtitle">Contributions, loan account, and penalties ledgers</p>
+    <section class="content-card">
+      <div class="content-card-header">
+        <h2 class="content-card-title">My Account Statement</h2>
+        <select id="statementYearFilter" class="form-select" style="width:auto; min-width:140px;">
+          <option value="">All years</option>
+        </select>
       </div>
-      <div class="content-section-body">
-        <div style="display:flex; flex-wrap:wrap; gap: var(--bn-space-3); align-items:center; justify-content:space-between; margin-bottom: var(--bn-space-4);">
-          <select id="statementYearFilter" class="form-select" style="width:auto; min-width:140px;">
-            <option value="">All years</option>
-          </select>
-          <button type="button" class="btn btn-secondary" id="statementExportBtn">Export to Excel</button>
-        </div>
-
-        <h3 class="content-section-title" style="font-size: var(--bn-text-base); margin-bottom: var(--bn-space-2);">Contributions</h3>
+      <div class="content-card-body">
         <div id="statementContributions"></div>
-
-        <h3 class="content-section-title" style="font-size: var(--bn-text-base); margin: var(--bn-space-5) 0 var(--bn-space-2);">Loan Account</h3>
-        <div id="statementLoanAccount"></div>
-
-        <h3 class="content-section-title" style="font-size: var(--bn-text-base); margin: var(--bn-space-5) 0 var(--bn-space-2);">Penalties</h3>
-        <div id="statementPenalties"></div>
+        <div id="statementLoanAccount" style="margin-top: var(--bn-space-5);"></div>
+        <div id="statementPenalties" style="margin-top: var(--bn-space-5);"></div>
       </div>
     </section>
+
    </div>
   </main>
 
-  <script src="../scripts/analytics-chart-animate.js"></script>
   <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/user_analytics_sql.js?v=20260722"></script>
 </body>
