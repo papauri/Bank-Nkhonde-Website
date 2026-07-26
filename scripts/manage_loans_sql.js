@@ -1092,16 +1092,14 @@ function createLoanRow(loan) {
   interestCell.textContent = formatCurrency(interest);
   row.appendChild(interestCell);
 
-  const repaidCell = el("td", "cell-right");
+  const repaidCell = el("td", "cell-right loan-cell-repaid");
   repaidCell.dataset.label = "Repaid";
   repaidCell.textContent = formatCurrency(repaid);
-  repaidCell.style.color = "var(--bn-success)";
   row.appendChild(repaidCell);
 
-  const remainingCell = el("td", "cell-right");
+  const remainingCell = el("td", "cell-right loan-cell-remaining");
   remainingCell.dataset.label = "Remaining";
   remainingCell.textContent = formatCurrency(remaining);
-  remainingCell.style.color = "var(--bn-danger)";
   row.appendChild(remainingCell);
 
   const progressCell = el("td");
@@ -1125,28 +1123,21 @@ function createLoanRow(loan) {
 
   const detailsCell = el("td");
   if (loan.status === "pending" && loan.purpose) {
-    const bookingInfo = el("div");
-    bookingInfo.style.cssText = "background: var(--bn-accent-subtle); padding: var(--bn-space-3); border-radius: var(--bn-radius-md);";
-    const label = el("div");
-    label.style.cssText = "font-size: var(--bn-text-xs); color: var(--bn-gray); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;";
+    const bookingInfo = el("div", "loan-details-box");
+    const label = el("div", "loan-details-box-label");
     label.textContent = "Loan Request Details";
-    const purposeLine = el("div");
-    purposeLine.style.cssText = "font-size: var(--bn-text-xs); color: var(--bn-gray);";
+    const purposeLine = el("div", "loan-details-box-line");
     purposeLine.textContent = `Purpose: ${loan.purpose}`;
-    const periodLine = el("div");
-    periodLine.style.cssText = "font-size: var(--bn-text-xs); color: var(--bn-gray);";
+    const periodLine = el("div", "loan-details-box-line");
     periodLine.textContent = `Repayment Period: ${loan.repaymentPeriod} month(s)`;
     bookingInfo.append(label, purposeLine, periodLine);
     detailsCell.appendChild(bookingInfo);
   }
   if (loan.status === "rejected" && loan.rejectionReason) {
-    const rejectInfo = el("div");
-    rejectInfo.style.cssText = "background: #fee; padding: var(--bn-space-3); border-radius: var(--bn-radius-md); border-left: 3px solid var(--bn-danger);";
-    const label = el("div");
-    label.style.cssText = "font-size: var(--bn-text-xs); color: var(--bn-danger); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;";
+    const rejectInfo = el("div", "loan-rejected-box");
+    const label = el("div", "loan-rejected-box-label");
     label.textContent = "Loan Rejected";
-    const reasonLine = el("div");
-    reasonLine.style.cssText = "font-size: var(--bn-text-sm); color: var(--bn-dark);";
+    const reasonLine = el("div", "loan-rejected-box-reason");
     reasonLine.textContent = `Reason: ${loan.rejectionReason}`;
     rejectInfo.append(label, reasonLine);
     detailsCell.appendChild(rejectInfo);

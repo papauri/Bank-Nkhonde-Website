@@ -183,8 +183,60 @@
       word-break: break-word;
     }
 
-    /* Action buttons inside table cells — 44px touch target + visible focus,
-       matching the pilot's table-scoped treatment. */
+    /* ── Loans table cell styles ───────────────────────────────────────────
+       Replace inline style.cssText in createLoanRow() with proper classes. */
+    .loan-cell-repaid {
+      color: var(--bn-success);
+      font-weight: 700;
+    }
+
+    .loan-cell-remaining {
+      color: var(--bn-danger);
+      font-weight: 700;
+    }
+
+    .loan-details-box {
+      background: var(--bn-accent-subtle);
+      padding: var(--bn-space-3);
+      border-radius: var(--bn-radius-md);
+    }
+
+    .loan-details-box-label {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+
+    .loan-details-box-line {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+
+    .loan-rejected-box {
+      background: var(--bn-danger-light);
+      padding: var(--bn-space-3);
+      border-radius: var(--bn-radius-md);
+      border-left: 3px solid var(--bn-danger);
+    }
+
+    .loan-rejected-box-label {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-danger);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+
+    .loan-rejected-box-reason {
+      font-size: var(--bn-text-sm);
+      color: var(--bn-dark);
+    }
+
+    /* Action buttons inside table cells — 44px touch target + visible focus */
     .table-container .table .loan-actions {
       flex-wrap: wrap;
     }
