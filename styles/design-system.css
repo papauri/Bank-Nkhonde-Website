@@ -1075,10 +1075,12 @@ table.data-table tbody tr:last-child td {
   font-weight: 500;
 }
 
-/* ============================================
-   CONTENT-SCOPED LOADER (dashboard/SPA navigation)
-   ============================================ */
-.dashboard-content > .spinner-overlay {
+/* Any spinner inside the main content area (most admin/user pages) or
+   inside .dashboard-content scopes itself to that container, never covering
+   the sidebar or topbar — so the nav stays visible during SPA transitions. */
+main#mainContent .spinner-overlay,
+.dashboard-content .spinner-overlay,
+.content-section-body .spinner-overlay {
   position: absolute;
   background: var(--glass-bg);
   backdrop-filter: blur(6px);
@@ -1086,7 +1088,9 @@ table.data-table tbody tr:last-child td {
   border-radius: inherit;
 }
 
-.dashboard-content > .spinner-overlay .spinner-content {
+main#mainContent .spinner-overlay .spinner-content,
+.dashboard-content .spinner-overlay .spinner-content,
+.content-section-body .spinner-overlay .spinner-content {
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
@@ -1098,12 +1102,9 @@ table.data-table tbody tr:last-child td {
   animation: bn-loader-pop 0.3s var(--bn-ease-out);
 }
 
-@keyframes bn-loader-pop {
-  from { opacity: 0; transform: scale(0.92) translateY(4px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
-
-.dashboard-content > .spinner-overlay .spinner {
+main#mainContent .spinner-overlay .spinner,
+.dashboard-content .spinner-overlay .spinner,
+.content-section-body .spinner-overlay .spinner {
   width: 56px;
   height: 56px;
   border: none;
@@ -1119,7 +1120,9 @@ table.data-table tbody tr:last-child td {
   animation: bn-coin-flip 1.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
 }
 
-.dashboard-content > .spinner-overlay .spinner::after {
+main#mainContent .spinner-overlay .spinner::after,
+.dashboard-content .spinner-overlay .spinner::after,
+.content-section-body .spinner-overlay .spinner::after {
   content: "K";
   font-family: var(--bn-font-sans);
   font-weight: 800;
@@ -1127,6 +1130,11 @@ table.data-table tbody tr:last-child td {
   color: var(--bn-primary);
   letter-spacing: -0.02em;
   animation: bn-coin-face 1.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+@keyframes bn-loader-pop {
+  from { opacity: 0; transform: scale(0.92) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 @keyframes bn-coin-flip {
