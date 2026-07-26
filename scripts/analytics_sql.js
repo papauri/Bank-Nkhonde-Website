@@ -205,23 +205,23 @@ async function loadAnalytics() {
     await loadMembers();
     await Promise.all([loadPayments(), loadLoans(), loadCycleEquity(), loadLiveArrears()]);
 
-    renderSummaryTiles();
     renderMonthlyTrendChart();
     renderMemberParticipation();
+
+    // Group accounting position (H5, admin-gated server-side). Also populates
+    // the four headline tiles so they reconcile with the accounting block.
+    try {
+      const summary = await apiGet("payments.accountingSummary", {groupId: currentGroupId});
+      applySummaryTilesFromServer(summary);
+      renderAccountingFigures(summary);
+    } catch (e) {
+      handleApiError(e, "Failed to load accounting summary");
+      renderAccountingFigures(null);
+    }
   } catch (error) {
     handleApiError(error, "Failed to load analytics");
   } finally {
     showSpinner(false);
-  }
-
-  // Additive: group accounting position (H5, admin-gated server-side). Its own
-  // try/catch so a failure here never aborts the rest of loadAnalytics above.
-  try {
-    const accounting = await apiGet("payments.accountingSummary", {groupId: currentGroupId});
-    renderAccountingFigures(accounting);
-  } catch (error) {
-    handleApiError(error, "Failed to load accounting summary");
-    renderAccountingFigures(null);
   }
 }
 
@@ -299,33 +299,20 @@ async function loadLiveArrears() {
   }
 }
 
-// ── Summary tiles (sums of already-server-computed figures only) ──────────
-function renderSummaryTiles() {
-  const collected = payments
-    .filter((p) => SETTLED_STATUSES.includes(p.approvalStatus))
-    .reduce((sum, p) => sum + numberOf(p.amountPaid), 0);
+// ── Summary tiles — read from the server's accountingSummary (H5) so the
+// figures reconcile with the #accountingFiguresBlock right below them.
+// Populated asynchronously in loadAnalytics; called from renderAccountingFigures
+// once the server data arrives. Until then, the HTML shows "MWK 0" defaults.
+let accounting = null;
 
-  // Interest actually paid this cycle — authoritative from cycle.equity, never
-  // recomputed here.
-  const interestPaid = numberOf(cycleEquity?.summary?.groupInterestPool);
-
-  const totalIncome = collected + interestPaid;
-
-  // NOT substituted with loans.list's `summary.totalPrincipal`/`activePrincipal`:
-  // totalPrincipal sums over ALL rows (including pending/rejected, which still
-  // carry a nonzero requested principalAmount), and activePrincipal is scoped to
-  // approved+disbursed only (excludes completed/defaulted). Neither matches this
-  // ISSUED_LOAN_STATUSES (approved+disbursed+completed+defaulted) filter.
-  const disbursed = loans
-    .filter((l) => ISSUED_LOAN_STATUSES.includes(l.status))
-    .reduce((sum, l) => sum + numberOf(l.principalAmount ?? l.approvedAmount), 0);
-
-  const netProfit = totalIncome - disbursed;
-
-  setText(totalIncomeEl(), formatCurrency(totalIncome));
-  setText(totalExpensesEl(), formatCurrency(disbursed));
-  setText(netProfitEl(), formatCurrency(netProfit));
-  setText(loanInterestEl(), formatCurrency(interestPaid));
+function applySummaryTilesFromServer(summary) {
+  accounting = summary;
+  if (!summary) return;
+  // These four tiles map to the four most meaningful server figures.
+  setText(totalIncomeEl(), formatCurrency(summary.totalContributed));
+  setText(totalExpensesEl(), formatCurrency(summary.totalDisbursed));
+  setText(netProfitEl(), formatCurrency(summary.cashPosition));
+  setText(loanInterestEl(), formatCurrency(summary.interestEarned));
 }
 
 // ── Monthly trend chart: collected contributions vs loans disbursed ───────

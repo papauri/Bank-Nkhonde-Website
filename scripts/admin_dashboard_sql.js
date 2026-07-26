@@ -191,6 +191,11 @@ async function loadDashboardAfterGroupSelection() {
     memberNameById.set(String(m.uid), m.fullName || "Unknown Member");
   }
 
+  // Patch static "View All" links so they carry the current groupId — the
+  // HTML has bare <a href="manage_payments.html"> without the param, so the
+  // target page can't restore the group selection.
+  patchViewAllLinks(groupId);
+
   updateCurrentDate();
   renderDashboardStats();
   renderCollectionTrends();
@@ -201,6 +206,24 @@ async function loadDashboardAfterGroupSelection() {
   // groupData.payments is populated. Runs after renderDashboardStats so it
   // overrides that function's server-summary (whole-group) figure.
   applyDashboardMonthFilter();
+}
+
+/**
+ * Rewrite every "View All" <a> on the admin dashboard so it carries the
+ * current groupId. The HTML ships with bare hrefs like
+ * "manage_payments.html" — without the param, the target page shows a
+ * group selector that has just lost state.
+ * @param {string} groupId
+ */
+function patchViewAllLinks(groupId) {
+  if (!groupId) return;
+  // All <a> elements whose href points to a page that expects ?groupId.
+  document.querySelectorAll("a[href^='manage_payments.html'], a[href^='manage_loans.html'], a[href^='approve_registrations.html']").forEach((a) => {
+    const href = a.getAttribute("href") || "";
+    const url = new URL(href, window.location.origin);
+    url.searchParams.set("groupId", groupId);
+    a.setAttribute("href", url.pathname + url.search);
+  });
 }
 
 /**
