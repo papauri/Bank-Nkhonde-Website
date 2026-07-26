@@ -525,6 +525,39 @@ function renderFinancialOverview(ob, payments, loans, paymentsSummary) {
   const summary = (ob && ob.summary) || {};
   setText("totalContributed", formatCurrency(summary.contributed));
 
+  // Populate "i" popover with the type breakdown so the member can see HOW
+  // their contributions split across seed money, monthly dues and service fees.
+  const contributedPopover = document.getElementById("totalContributedPopover");
+  if (contributedPopover) {
+    contributedPopover.replaceChildren();
+    const seed = toMinor(summary.seedMoneyContributed || "0");
+    const monthly = toMinor(summary.monthlyContributed || "0");
+    const svc = toMinor(summary.serviceFeeContributed || "0");
+    const total = seed + monthly + svc;
+
+    if (total > 0) {
+      const title = document.createElement("p");
+      title.className = "hero-stat-popover-title";
+      title.textContent = "How your contributions break down";
+      contributedPopover.appendChild(title);
+
+      [
+        ["Seed money", seed],
+        ["Monthly contributions", monthly],
+        ["Service fees", svc],
+      ].filter(([, v]) => v > 0).forEach(([label, minor]) => {
+        const row = document.createElement("div");
+        row.className = "hero-stat-popover-row";
+        const l = document.createElement("span");
+        l.textContent = label;
+        const v = document.createElement("span");
+        v.textContent = formatCurrency(fromMinor(minor));
+        row.append(l, v);
+        contributedPopover.appendChild(row);
+      });
+    }
+  }
+
   // Plain‑language breakdown under the tile: what "Contributed" actually means.
   const contributedDetails = document.getElementById("totalContributedStat");
   if (contributedDetails) {
