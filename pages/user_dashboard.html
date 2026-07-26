@@ -386,41 +386,27 @@
     /* ============================================
        HERO SECTION
        ============================================ */
-    /* ── Hero, redesigned (centred composition) ──────────────────────────
-       Previously a left-weighted band: greeting hard-left, period select
-       hard-right, stats spanning the full 1200px measure. On a phone that
-       read as three unrelated left-edge fragments, and on a wide monitor
-       the greeting and the filter drifted so far apart they stopped
-       reading as one header.
-       Everything is now composed around the centre line at every width —
-       greeting, filter, stats and actions share one axis and one capped
-       measure — so the panel holds together identically from 320px to
-       ultrawide. Colour moved from "corner-lit navy" to a deeper indigo
-       body with a gold aurora above the centre and a cool blue lift below
-       it, so the light source agrees with the centred layout.
-       Deliberately NOT overflow:hidden: that would clip .hero-stat-popover,
-       which is a child of .hero-stat and must escape the card's bottom edge
-       (cycle-94 fix). The decorative layers clip themselves instead. */
+    /* Brand navy + subtle warm gold, matching the sidebar. Clean and
+       professional — the hero is a welcome panel, not a cinema screen.
+       Stats cards sit on a light-to-transparent backdrop so they read
+       clearly against the dark navy body without the heavy translucent
+       treatment that fought legibility. */
     .hero-section {
-      /* No `isolation: isolate` here — it would trap .hero-stat-popover in
-         the hero's own stacking context and stop it painting over the cards
-         below. */
       position: relative;
       background:
-        radial-gradient(120% 150% at 50% -20%, rgba(201, 162, 39, 0.22) 0%, transparent 58%),
-        radial-gradient(90% 120% at 50% 118%, rgba(37, 99, 235, 0.20) 0%, transparent 60%),
-        linear-gradient(168deg, #0C1C34 0%, #14294B 46%, #0A1628 100%);
-      border: 1px solid rgba(255, 255, 255, 0.10);
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(201, 162, 39, 0.12) 0%, transparent 60%),
+        linear-gradient(180deg, #111D32 0%, #0A1628 100%);
+      border: 1px solid rgba(201, 162, 39, 0.20);
       border-radius: var(--bn-radius-2xl);
-      box-shadow: var(--bn-shadow-xl), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      box-shadow:
+        var(--bn-shadow-xl),
+        inset 0 1px 0 rgba(201, 162, 39, 0.25);
       padding: var(--bn-space-8) var(--bn-space-6);
       margin-bottom: var(--bn-space-6);
       text-align: center;
     }
 
-    /* Gold hairline along the top edge — the one asymmetric detail, and it
-       runs through the centre rather than pooling in a corner. Clips itself
-       to the card's top rounding. */
+    /* Single gold rule at the top — understated, matches the brand accent. */
     .hero-section::before {
       content: '';
       position: absolute;
@@ -429,9 +415,9 @@
       border-radius: var(--bn-radius-2xl) var(--bn-radius-2xl) 0 0;
       background: linear-gradient(90deg,
         transparent 0%,
-        rgba(201, 162, 39, 0.05) 18%,
-        rgba(228, 200, 83, 0.85) 50%,
-        rgba(201, 162, 39, 0.05) 82%,
+        rgba(201, 162, 39, 0.50) 30%,
+        rgba(228, 200, 83, 0.90) 50%,
+        rgba(201, 162, 39, 0.50) 70%,
         transparent 100%);
       pointer-events: none;
     }
