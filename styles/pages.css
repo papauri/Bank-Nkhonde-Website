@@ -264,6 +264,79 @@ body {
 
 .content-section-body {
   padding: var(--bn-space-6);
+  background: var(--bn-white);
+  border-radius: 0 0 var(--bn-radius-xl) var(--bn-radius-xl);
+}
+
+/* Modern content-section-body with card-like inner padding */
+.content-section-body.modern {
+  display: grid;
+  gap: var(--bn-space-4);
+  padding: var(--bn-space-6);
+  background: var(--bn-white);
+  border-radius: 0 0 var(--bn-radius-xl) var(--bn-radius-xl);
+}
+
+.content-section-body.modern > .table-container {
+  border: 1px solid var(--bn-gray-lighter);
+  border-radius: var(--bn-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--bn-shadow-xs);
+  transition: box-shadow var(--bn-transition-base);
+}
+
+.content-section-body.modern > .table-container:hover {
+  box-shadow: var(--bn-shadow-md);
+}
+
+.content-section-body.modern > .table-container .table th {
+  background: var(--bn-gray-100);
+  font-size: var(--bn-text-xs);
+  font-weight: 700;
+  color: var(--bn-gray);
+  text-transform: uppercase;
+  letter-spacing: var(--bn-tracking-wider);
+  padding: var(--bn-space-3) var(--bn-space-4);
+  border-bottom: 2px solid var(--bn-gray-lighter);
+}
+
+.content-section-body.modern > .table-container .table td {
+  padding: var(--bn-space-3) var(--bn-space-4);
+  font-size: var(--bn-text-sm);
+  color: var(--bn-dark);
+  border-bottom: 1px solid var(--bn-gray-100);
+  vertical-align: middle;
+}
+
+.content-section-body.modern > .table-container .table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.content-section-body.modern > .table-container .table tbody tr:hover {
+  background: var(--bn-gray-50);
+}
+
+/* Mobile card-style rows inside modern content-section-body */
+@media (max-width: 768px) {
+  .content-section-body.modern > .table-container {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .content-section-body.modern > .table-container .table-responsive tbody tr {
+    background: var(--bn-white);
+    border: 1px solid var(--bn-gray-lighter);
+    border-radius: var(--bn-radius-md);
+    margin-bottom: var(--bn-space-3);
+    padding: var(--bn-space-3) var(--bn-space-4);
+    box-shadow: var(--bn-shadow-xs);
+  }
+
+  .content-section-body.modern > .table-container .table-responsive tbody tr:hover {
+    box-shadow: var(--bn-shadow-md);
+    border-color: var(--bn-accent);
+  }
 }
 
 /* ============================================
