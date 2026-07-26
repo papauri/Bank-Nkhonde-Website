@@ -896,7 +896,8 @@ function renderNextMonthlyPayment(ob) {
   if (!detailsEl) return;
 
   const today = startOfToday();
-  let next = null;
+  let nextFuture = null;  // first UNPAID obligation due in the future
+  let hasOverdue = false; // whether ANY unpaid obligation has already passed
 
   for (const m of monthsOf(ob)) {
     const owed = toMinor(m.arrears) > 0;
@@ -904,24 +905,41 @@ function renderNextMonthlyPayment(ob) {
       String(m.approvalStatus),
     );
     const due = parseServerDate(m.dueDate);
-    if ((owed || unsettled) && due) {
-      if (!next || due < next.due) {
-        next = { due, amountStr: pickOwedString(m), overdue: due < today };
-      }
+    if (!(owed || unsettled) || !due) continue;
+
+    if (due < today) {
+      hasOverdue = true;
+      continue;  // don't consider past-due obligations for "next payment"
+    }
+
+    // Future obligation — pick the earliest
+    if (!nextFuture || due < nextFuture.due) {
+      nextFuture = { due, amountStr: pickOwedString(m), month: m.month };
     }
   }
 
-  if (next) {
-    detailsEl.textContent = `${formatCurrency(next.amountStr)} on ${formatDate(next.due)}`;
-    detailsEl.style.display = "block";
-    if (badgeEl) badgeEl.style.display = next.overdue ? "block" : "none";
-    if (statEl) statEl.classList.toggle("flash", next.overdue);
+  // First row of details: either the next payment or a status note
+  if (nextFuture) {
+    detailsEl.textContent = `${formatCurrency(nextFuture.amountStr)} on ${formatDate(nextFuture.due)}`;
+  } else if (hasOverdue) {
+    detailsEl.textContent = "Everything is overdue — pay now";
+  } else {
+    detailsEl.textContent = "All caught up — nothing due";
+  }
+  detailsEl.style.display = "block";
 
-    // Popover adds the two facts not already printed on the card face:
-    // which obligation this is, and how many days away it sits.
-    if (popoverEl) {
-      popoverEl.replaceChildren();
-      const days = Math.round((next.due - today) / 86400000);
+  // Badge shows when there is ANY unpaid obligation (past or future)
+  if (badgeEl) badgeEl.style.display = hasOverdue ? "block" : "none";
+  if (statEl) {
+    statEl.classList.toggle("flash", hasOverdue && !nextFuture);
+  }
+
+  // Popover: always gives full context
+  if (popoverEl) {
+    popoverEl.replaceChildren();
+
+    if (nextFuture) {
+      const days = Math.round((nextFuture.due - today) / 86400000);
 
       const typeRow = document.createElement("div");
       typeRow.className = "hero-stat-popover-row";
@@ -929,28 +947,29 @@ function renderNextMonthlyPayment(ob) {
       typeLabel.textContent = "Type";
       const typeValue = document.createElement("span");
       typeValue.textContent = "Monthly Contribution";
-      typeRow.appendChild(typeLabel);
-      typeRow.appendChild(typeValue);
+      typeRow.append(typeLabel, typeValue);
 
       const dueRow = document.createElement("div");
-      dueRow.className = `hero-stat-popover-row ${days < 0 ? "overdue" : "on-time"}`;
+      dueRow.className = "hero-stat-popover-row on-time";
       const dueLabel = document.createElement("span");
-      dueLabel.textContent = days < 0 ? "Overdue by" : "Due in";
+      dueLabel.textContent = "Due in";
       const dueValue = document.createElement("span");
-      const absDays = Math.abs(days);
-      dueValue.textContent = `${absDays} day${absDays === 1 ? "" : "s"}`;
-      dueRow.appendChild(dueLabel);
-      dueRow.appendChild(dueValue);
+      dueValue.textContent = `${days} day${days === 1 ? "" : "s"}`;
+      dueRow.append(dueLabel, dueValue);
 
-      popoverEl.appendChild(typeRow);
-      popoverEl.appendChild(dueRow);
+      popoverEl.append(typeRow, dueRow);
     }
-  } else {
-    detailsEl.textContent = "No payment due";
-    detailsEl.style.display = "block";
-    if (badgeEl) badgeEl.style.display = "none";
-    if (statEl) statEl.classList.remove("flash");
-    if (popoverEl) popoverEl.replaceChildren();
+
+    if (hasOverdue) {
+      const statusRow = document.createElement("div");
+      statusRow.className = "hero-stat-popover-row overdue";
+      const sLabel = document.createElement("span");
+      sLabel.textContent = "Overdue items";
+      const sValue = document.createElement("span");
+      sValue.textContent = "Yes — pay below";
+      statusRow.append(sLabel, sValue);
+      popoverEl.appendChild(statusRow);
+    }
   }
 }
 
