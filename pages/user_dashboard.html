@@ -384,28 +384,54 @@
     
 
     /* ============================================
-       HERO SECTION — clean, modern, light-background
+       HERO SECTION — modern, layered, professional
        ============================================ */
     .hero-section {
-      padding: var(--bn-space-8) 0 var(--bn-space-6);
+      position: relative;
+      padding: var(--bn-space-10) 0 var(--bn-space-8);
       margin-bottom: var(--bn-space-6);
       text-align: center;
-      background: linear-gradient(180deg, #F0F4F8 0%, var(--bn-gray-100) 100%);
+      background:
+        radial-gradient(ellipse 70% 50% at 50% 0%, rgba(201, 162, 39, 0.06) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 50% 100%, rgba(37, 99, 235, 0.04) 0%, transparent 60%),
+        linear-gradient(180deg, #F8FAFC 0%, #EEF2F7 100%);
       border-bottom: 1px solid var(--bn-gray-lighter);
+      overflow: hidden;
+    }
+
+    /* Subtle top accent line */
+    .hero-section::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(320px, 40%);
+      height: 3px;
+      border-radius: 0 0 3px 3px;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(201, 162, 39, 0.5) 30%,
+        rgba(228, 200, 83, 0.7) 50%,
+        rgba(201, 162, 39, 0.5) 70%,
+        transparent 100%);
+      pointer-events: none;
     }
 
     .hero-container {
       max-width: 960px;
       margin: 0 auto;
       padding: 0 var(--bn-space-4);
+      position: relative;
+      z-index: 1;
     }
 
     .hero-top {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: var(--bn-space-4);
-      margin-bottom: var(--bn-space-8);
+      gap: var(--bn-space-6);
+      margin-bottom: var(--bn-space-10);
     }
 
     .hero-greeting {
@@ -413,22 +439,23 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+      gap: var(--bn-space-1);
     }
 
     .hero-greeting-text {
-      font-size: var(--bn-text-sm);
+      font-size: var(--bn-text-xs);
       font-weight: 600;
-      letter-spacing: 0.10em;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--bn-accent-dark, #A68B1F);
-      margin-bottom: var(--bn-space-2);
+      margin-bottom: 0;
     }
 
     .hero-greeting-name {
-      font-size: clamp(1.8rem, 5vw, 2.6rem);
+      font-size: clamp(1.5rem, 4vw, 2.2rem);
       font-weight: 800;
-      line-height: 1.15;
-      letter-spacing: -0.03em;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
       color: var(--bn-dark);
       text-wrap: balance;
     }
@@ -436,9 +463,6 @@
     .hero-greeting .current-group-display {
       justify-content: center;
       margin-top: var(--bn-space-2);
-    }
-
-    .hero-greeting .current-group-display {
       background: var(--bn-white);
       border: 1px solid var(--bn-gray-lighter);
       box-shadow: var(--bn-shadow-xs);
@@ -451,73 +475,72 @@
       color: var(--bn-dark);
     }
 
-    /* Month filter */
+    /* Month filter — inline pill, subtle */
     .hero-month-filter {
-      display: flex;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      flex-wrap: wrap;
       gap: var(--bn-space-3);
-      flex-shrink: 0;
+      padding: var(--bn-space-1) var(--bn-space-1) var(--bn-space-1) var(--bn-space-4);
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-full);
+      box-shadow: var(--bn-shadow-xs);
     }
 
     .hero-month-filter-label {
-      font-size: var(--bn-text-sm);
+      font-size: var(--bn-text-xs);
       font-weight: 600;
       color: var(--bn-gray);
+      white-space: nowrap;
     }
 
     .hero-month-filter select {
       appearance: none;
-      min-height: 44px;
-      min-width: 180px;
-      padding: var(--bn-space-2) var(--bn-space-12) var(--bn-space-2) var(--bn-space-4);
+      min-height: 36px;
+      min-width: 150px;
+      padding: 0 var(--bn-space-10) 0 var(--bn-space-2);
       font-family: inherit;
       font-size: var(--bn-text-sm);
       font-weight: 600;
       color: var(--bn-dark);
-      background-color: var(--bn-white);
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-color: transparent;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
-      background-position: right var(--bn-space-4) center;
-      border: 1px solid var(--bn-gray-lighter);
-      border-radius: var(--bn-radius-lg);
+      background-position: right 8px center;
+      border: none;
       cursor: pointer;
-      transition: all var(--bn-transition-fast);
-      box-shadow: var(--bn-shadow-xs);
+      transition: color var(--bn-transition-fast);
     }
 
     .hero-month-filter select:hover {
-      border-color: var(--bn-accent);
-      box-shadow: var(--bn-shadow-sm);
+      color: var(--bn-accent-dark);
     }
 
     .hero-month-filter select:focus-visible {
       outline: 2px solid var(--bn-accent);
-      outline-offset: 2px;
-      border-color: var(--bn-accent);
+      outline-offset: 0;
+      border-radius: var(--bn-radius-sm);
     }
 
-    /* Stats grid — clean cards on light background */
+    /* Stats grid — compact, premium cards */
     .hero-stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
-      gap: var(--bn-space-4);
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: var(--bn-space-3);
       align-items: stretch;
       justify-content: center;
       max-width: 960px;
       margin-inline: auto;
-      overflow: visible;
     }
 
     .hero-stat {
       min-width: 0;
-      min-height: 44px;
       background: var(--bn-white);
       border: 1px solid var(--bn-gray-lighter);
-      border-radius: var(--bn-radius-xl);
-      box-shadow: var(--bn-shadow-sm);
-      padding: var(--bn-space-4);
+      border-radius: var(--bn-radius-lg);
+      box-shadow: var(--bn-shadow-xs);
+      padding: var(--bn-space-4) var(--bn-space-3);
       transition: all var(--bn-transition-fast);
       display: flex;
       flex-direction: column;
@@ -585,16 +608,16 @@
     }
 
     .hero-stat-value {
-      font-size: var(--bn-text-xl);
+      font-size: var(--bn-text-lg);
       font-weight: 800;
       color: var(--bn-dark);
       font-feature-settings: 'tnum' 1;
       margin-bottom: var(--bn-space-1);
       white-space: nowrap;
-      min-height: 1.5em;
       display: flex;
       align-items: center;
       justify-content: center;
+      gap: 4px;
     }
 
     .hero-stat-label {
@@ -602,7 +625,7 @@
       font-weight: 600;
       color: var(--bn-gray);
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.06em;
       margin-top: 0;
       overflow-wrap: break-word;
     }
@@ -613,9 +636,10 @@
       border-top: 1px solid var(--bn-gray-lighter);
       font-size: var(--bn-text-xs);
       color: var(--bn-gray-600);
-      line-height: 1.5;
+      line-height: 1.4;
       text-align: center;
       font-weight: 400;
+      min-height: 2.8em;
     }
 
     /* The hero-stat popover PANEL is now rendered on <body> by
