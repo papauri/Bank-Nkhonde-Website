@@ -2144,6 +2144,7 @@ function renderAllPaymentDetailsTable() {
   table.appendChild(thead);
 
   const tbody = document.createElement("tbody");
+  const COL_LABELS = ["Member", "Type", "Month", "Total Due", "Paid", "Arrears", "Status", "Date"];
   rows.forEach((p) => {
     const tr = document.createElement("tr");
     const cells = [
@@ -2156,9 +2157,10 @@ function renderAllPaymentDetailsTable() {
       p.approvalStatus || "",
       formatDate(p.createdAt),
     ];
-    cells.forEach((value) => {
+    cells.forEach((value, i) => {
       const td = document.createElement("td");
       td.textContent = value;
+      td.dataset.label = COL_LABELS[i] || "";
       tr.appendChild(td);
     });
     tbody.appendChild(tr);

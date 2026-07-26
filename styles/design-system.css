@@ -922,13 +922,13 @@ table.data-table tbody tr:last-child td {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    padding: 6px 0;
+    padding: var(--bn-space-1) 0;
     border-bottom: 1px solid var(--bn-gray-100);
     font-size: var(--bn-text-sm);
     text-align: right;
     white-space: normal;
     word-break: break-word;
-    gap: 8px;
+    gap: var(--bn-space-2);
   }
 
   .table-responsive td:last-child {

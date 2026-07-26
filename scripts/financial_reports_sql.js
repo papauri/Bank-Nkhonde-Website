@@ -482,6 +482,7 @@ function memberContributionsSection() {
   totalRow.appendChild(moneyCell("Total Paid", totalPaidSum));
   totalRow.appendChild(moneyCell("Outstanding", arrearsSum));
   const blankTd = document.createElement("td");
+  blankTd.dataset.label = "";
   totalRow.appendChild(blankTd);
   tfoot.appendChild(totalRow);
   table.appendChild(tfoot);
