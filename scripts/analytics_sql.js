@@ -214,6 +214,8 @@ async function loadAnalytics() {
       const summary = await apiGet("payments.accountingSummary", {groupId: currentGroupId});
       applySummaryTilesFromServer(summary);
       renderAccountingFigures(summary);
+      renderGroupHealth(summary);
+      renderFollowUpList();
     } catch (e) {
       handleApiError(e, "Failed to load accounting summary");
       renderAccountingFigures(null);
@@ -649,6 +651,151 @@ function emptyTableRow(text, colspan) {
   cell.textContent = text;
   row.appendChild(cell);
   return row;
+}
+
+// ── Group Health KPIs — derived from accountingSummary, no client math
+// beyond simple ratios of already-server-computed totals. ──────────
+function renderGroupHealth(summary) {
+  if (!summary) return;
+
+  const contributed = numberOf(summary.totalContributed);
+  const disbursed = numberOf(summary.totalDisbursed);
+  const interest = numberOf(summary.interestEarned);
+  const penaltiesCharged = numberOf(summary.penaltiesCharged);
+  const penaltiesCollected = numberOf(summary.penaltiesCollected);
+  const memberCount = members.filter((m) => String(m.status) !== "inactive").length;
+  const monthsCounted = Math.max(1, new Date().getMonth() + 1);
+
+  // Collection rate: % of expected contributions that have actually been collected
+  // (seed + monthly dues × months × members). Estimated expected = actual + outstanding.
+  const totalExpectedMinor = contributed * 100 + numberOf(summary.outstandingLoanPrincipal) * 100; // approximation
+  const collectionRate = memberCount > 0 && contributed > 0
+    ? Math.min(100, Math.round((contributed / (contributed + numberOf(summary.outstandingLoanPrincipal || "0"))) * 100))
+    : 0;
+
+  // Members paying: count members with at least one settled payment
+  const payingUids = new Set();
+  payments
+    .filter((p) => SETTLED_STATUSES.includes(p.approvalStatus))
+    .forEach((p) => payingUids.add(p.uid));
+  const membersPaying = payingUids.size;
+
+  // AVG contribution per member
+  const avgContribution = memberCount > 0 ? contributed / memberCount : 0;
+
+  // Loan utilisation: what % of collected funds have been disbursed
+  const loanUtilisation = contributed > 0 ? Math.round((disbursed / contributed) * 100) : 0;
+
+  // Interest yield: interest earned as % of total loan principal
+  const interestYield = disbursed > 0 ? Math.round((interest / disbursed) * 100) : 0;
+
+  // Penalty recovery rate
+  const penaltyRecovery = penaltiesCharged > 0
+    ? Math.round((penaltiesCollected / penaltiesCharged) * 100)
+    : 0;
+
+  setText(document.getElementById("healthCollectionRate"), `${collectionRate}%`);
+  setText(document.getElementById("healthMembersPaying"), `${membersPaying}/${memberCount}`);
+  setText(document.getElementById("healthAvgContribution"), formatCurrency(avgContribution));
+  setText(document.getElementById("healthLoanUtilisation"), `${loanUtilisation}%`);
+  setText(document.getElementById("healthInterestYield"), `${interestYield}%`);
+  setText(document.getElementById("healthPenaltyRate"), `${penaltyRecovery}%`);
+
+  // Color-code: green for healthy, red for concerning
+  const rateEl = document.getElementById("healthCollectionRate");
+  if (rateEl) rateEl.className = collectionRate >= 80 ? "health-card-value pos" : collectionRate >= 50 ? "health-card-value warn" : "health-card-value neg";
+
+  const loanEl = document.getElementById("healthLoanUtilisation");
+  if (loanEl) loanEl.className = loanUtilisation <= 100 ? "health-card-value pos" : "health-card-value neg";
+
+  const penaltyEl = document.getElementById("healthPenaltyRate");
+  if (penaltyEl) penaltyEl.className = penaltyRecovery >= 70 ? "health-card-value pos" : penaltyRecovery >= 40 ? "health-card-value warn" : "health-card-value neg";
+}
+
+// ── Members to Follow Up — ranked by urgency (highest arrears + interest owed) ──
+function renderFollowUpList() {
+  const container = document.getElementById("followupList");
+  const countEl = document.getElementById("followupCount");
+  if (!container) return;
+
+  if (!cycleEquity?.members?.length) {
+    container.textContent = "";
+    container.appendChild(emptyState("📊", "No member data available"));
+    if (countEl) countEl.textContent = "0";
+    return;
+  }
+
+  // Pick members with anything outstanding: arrears from obligations + interest owed on loans
+  const flagged = [];
+  for (const row of cycleEquity.members) {
+    const arrears = liveArrearsForMember(row.uid);
+    const interestOwed = numberOf(row.interestOwed || "0");
+    const totalOwed = arrears + interestOwed;
+    if (totalOwed > 0) {
+      flagged.push({
+        name: row.fullName || "Unknown",
+        uid: row.uid,
+        arrears,
+        interestOwed,
+        totalOwed,
+      });
+    }
+  }
+
+  flagged.sort((a, b) => b.totalOwed - a.totalOwed);
+
+  container.textContent = "";
+  if (countEl) countEl.textContent = String(flagged.length);
+
+  if (flagged.length === 0) {
+    container.appendChild(emptyState("✅", "All members are up to date — nothing to follow up"));
+    return;
+  }
+
+  const list = el("div");
+  flagged.slice(0, 10).forEach((f) => {
+    const item = el("div", "followup-item");
+    const info = el("div");
+    const name = el("div", "followup-name");
+    name.textContent = f.name;
+    const detail = el("div", "followup-detail");
+    const parts = [];
+    if (f.arrears > 0) parts.push(`${formatCurrency(f.arrears)} arrears`);
+    if (f.interestOwed > 0) parts.push(`${formatCurrency(f.interestOwed)} interest owed`);
+    detail.textContent = parts.join(" · ");
+    info.append(name, detail);
+
+    const amount = el("div", "followup-amount");
+    amount.textContent = formatCurrency(f.totalOwed);
+
+    item.append(info, amount);
+    list.appendChild(item);
+  });
+  container.appendChild(list);
+
+  if (flagged.length > 10) {
+    const more = el("div");
+    more.style.cssText = "text-align: center; padding: var(--bn-space-3); color: var(--bn-gray); font-size: var(--bn-text-sm);";
+    more.textContent = `+${flagged.length - 10} more members to follow up`;
+    container.appendChild(more);
+  }
+}
+
+/** Sum live arrears for a single member from the pre-loaded liveArrears data. */
+function liveArrearsForMember(uid) {
+  // Reuse the live-arrairs snapshot loaded in loadLiveArrears — we need
+  // per-member granularity. Since we already fetch per-member obligations
+  // there, store the per-member totals.
+  let total = 0;
+  // Use the existing members array and the pre-computed values.
+  // For now, use cycleEquity which already has totalContributed and shortfall.
+  const memberRow = cycleEquity?.members?.find((m) => String(m.uid) === String(uid));
+  if (memberRow) {
+    // shortfallVsTarget is what they're behind on contributions
+    total += numberOf(memberRow.shortfallVsTarget || "0");
+  }
+  total += numberOf(memberRow?.interestOwed || "0");
+  return total;
 }
 
 // ── Card-info popovers ──────────────────────────────────────────────────────

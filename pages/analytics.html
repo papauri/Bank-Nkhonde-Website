@@ -14,134 +14,19 @@
   <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
+    /* ============================================
+       CHARTS GRID — shared between accounting & pie
+       ============================================ */
     .charts-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: var(--bn-space-6);
-      padding: var(--bn-space-4) 0;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: var(--bn-space-4);
     }
 
-    .pie-chart-container {
-      background: var(--bn-white);
-      border-radius: var(--bn-radius-xl);
-      padding: var(--bn-space-6);
-      box-shadow: var(--bn-shadow-sm);
-      border: 1px solid var(--bn-gray-lighter);
-      min-width: 0;
+    /* Accounting figure cards */
+    #accountingFiguresBlock .breakdown-card {
+      padding: var(--bn-space-4);
     }
-
-    .pie-chart-title {
-      font-size: var(--bn-text-base);
-      font-weight: 600;
-      color: var(--bn-dark);
-      text-align: center;
-      margin-bottom: var(--bn-space-4);
-    }
-
-    .pie-chart-wrapper {
-      position: relative;
-      width: 100%;
-      max-width: 240px;
-      margin: 0 auto;
-      aspect-ratio: 1;
-    }
-
-    .pie-chart-svg {
-      width: 100%;
-      height: 100%;
-      transform: rotate(-90deg);
-    }
-
-    .pie-chart-segment {
-      fill: none;
-      stroke-width: 32;
-      transition: all 0.5s ease;
-    }
-
-    .pie-chart-center {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-    }
-
-    .pie-chart-center-value {
-      font-size: var(--bn-text-2xl);
-      font-weight: 700;
-      color: var(--bn-dark);
-      line-height: 1.2;
-    }
-
-    .pie-chart-center-label {
-      font-size: var(--bn-text-xs);
-      color: var(--bn-gray);
-      margin-top: var(--bn-space-1);
-    }
-
-    .pie-chart-legend {
-      display: flex;
-      flex-direction: column;
-      gap: var(--bn-space-2);
-      margin-top: var(--bn-space-4);
-      padding-top: var(--bn-space-4);
-      border-top: 1px solid var(--bn-gray-lighter);
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: var(--bn-space-2);
-      font-size: var(--bn-text-sm);
-      color: var(--bn-gray-700);
-      min-width: 0;
-      overflow-wrap: anywhere;
-    }
-
-    .legend-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: var(--bn-radius-sm);
-    }
-
-    .legend-dot.income { background: var(--bn-gradient-accent); }
-    .legend-dot.expense { background: var(--bn-gray-400); }
-
-    /* Touch target + keyboard focus for the tab control (shared .tab class has no focus-visible state) */
-    .tab {
-      min-height: 44px;
-      display: inline-flex;
-      align-items: center;
-    }
-
-    .tab:focus-visible {
-      outline: 2px solid var(--bn-accent);
-      outline-offset: 2px;
-    }
-
-    .tab:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-
-    .monthly-trend-chart {
-      margin-bottom: var(--bn-space-6);
-    }
-
-    /* Group Accounting Position — the ten money-figure cards. No panel
-       wrapper (no bg/border/padding on the container itself) so the cards
-       sit cleanly in the page flow without a heavy box-in-box look. The
-       section heading + bottom border provides enough visual separation
-       from the pie-summary cards below. */
-    #accountingFiguresBlock {
-      margin-bottom: var(--bn-space-2);
-    }
-
-    /* Hides the block when statCard hasn't populated it yet. */
-    #accountingFiguresBlock:empty {
-      display: none;
-    }
-
     #accountingFiguresBlock h3 {
       grid-column: 1 / -1;
       font-size: var(--bn-text-base);
@@ -151,59 +36,29 @@
       padding-bottom: var(--bn-space-3);
       border-bottom: 1px solid var(--bn-gray-lighter);
     }
+    #accountingFiguresBlock { margin-bottom: var(--bn-space-2); }
 
-    /* Accounting figure cards are more compact than the pie-summary cards
-       below — tighter padding, smaller value so 2-up on mobile is legible. */
-    #accountingFiguresBlock .breakdown-card {
-      padding: var(--bn-space-4);
-    }
-
-    /* .breakdown-card has no styling elsewhere reachable by this page (the
-       only other definition, on contributions_overview.html, is scoped to
-       that page's own inline <style>) — defined here so both this block AND
-       the pre-existing #chartContainer pie-summary cards (same shared class,
-       same statCard() helper) render as proper cards instead of bare divs. */
+    /* Card base */
     .breakdown-card {
       background: var(--bn-white);
       border: 1px solid var(--bn-gray-lighter);
       border-radius: var(--bn-radius-lg);
       padding: var(--bn-space-5);
-      transition: all var(--bn-transition-base);
+      transition: all var(--bn-transition-fast);
+      position: relative;
     }
-
     .breakdown-card:hover {
       border-color: var(--bn-accent);
       box-shadow: var(--bn-shadow-md);
       transform: translateY(-2px);
     }
-
-    /* .breakdown-card's own transform (above) creates a new stacking context
-       for the card, unlike admin_dashboard's split .stat-card-wrap/.stat-card
-       pattern this popover was ported from. Without an explicit z-index bump
-       here, a popover opened on a card in one grid row can render underneath
-       a later card in the next row, since same-level auto z-index boxes
-       paint in DOM order. Bumped on hover, keyboard/touch focus-within, and
-       whenever this card's own popover is open, so it always paints above
-       neighbouring .breakdown-card siblings in the .charts-grid. */
-    .breakdown-card:hover,
-    .breakdown-card:focus-within,
-    .breakdown-card:has(.bn-info-toggle[aria-expanded="true"]) {
-      z-index: 2;
-    }
-
     .breakdown-card-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: var(--bn-space-3);
-      /* Reserves room for the absolutely-positioned .stat-card-info-toggle
-         (44px, inset var(--bn-space-2) from the card's top-right corner) so
-         a long title — e.g. "Outstanding Loan Balances", "Penalties
-         Outstanding" in the denser #accountingFiguresBlock grid — wraps
-         inside the header instead of running under the button. */
-      padding-right: calc(26px + var(--bn-space-4));
+      margin-bottom: var(--bn-space-2);
+      padding-right: 24px;
     }
-
     .breakdown-card-title {
       font-size: var(--bn-text-xs);
       font-weight: 600;
@@ -211,302 +66,216 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
-
     .breakdown-card-value {
       font-size: var(--bn-text-xl);
       font-weight: 800;
       color: var(--bn-dark);
       overflow-wrap: break-word;
-      word-break: break-word;
     }
 
-    /* Charts stay one-up on mobile — two 160px-wide charts are unreadable.
-       The FIGURE cards in #accountingFiguresBlock are a different animal
-       (title + value only) and go two-up via id specificity overriding the
-       class rule above. */
-    @media (max-width: 768px) {
-      .charts-grid {
-        grid-template-columns: 1fr;
-      }
-
-      /* Override: accounting figure cards go 2-up on mobile. */
-      #accountingFiguresBlock {
-        grid-template-columns: 1fr 1fr;
-      }
-
-      #accountingFiguresBlock .breakdown-card {
-        padding: var(--bn-space-3);
-      }
-
-      /* Half-width card: the 42px gutter reserved for the info toggle ate
-          most of the title's line. The toggle is still clear of the text at
-          a smaller reservation because the title now wraps to two lines. */
-      #accountingFiguresBlock .breakdown-card-header {
-        padding-right: 26px;
-        margin-bottom: var(--bn-space-2);
-      }
-
-      #accountingFiguresBlock .breakdown-card-value {
-        font-size: var(--bn-text-base);
-      }
+    /* Z-index fix for hover overlap */
+    .breakdown-card:hover,
+    .breakdown-card:focus-within,
+    .breakdown-card:has(.bn-info-toggle[aria-expanded="true"]) {
+      z-index: 2;
     }
 
-    @media (max-width: 480px) {
-      .charts-grid {
-        grid-template-columns: 1fr;
-      }
-
-      /* Keep 2-up at 480px too — 10 cards in one column is too tall. */
-      #accountingFiguresBlock {
-        grid-template-columns: 1fr 1fr;
-        gap: var(--bn-space-3);
-      }
-
-      #accountingFiguresBlock .breakdown-card-title {
-        font-size: 10px;
-        letter-spacing: 0.03em;
-      }
-    }
-
-    .table-empty-cell {
-      text-align: center;
-      padding: var(--bn-space-4);
-      color: var(--bn-gray);
-    }
-
-    /* Card-info popovers (ported from admin_dashboard.html) — adapted so the
-       reveal rule targets .page-stat / .breakdown-card (this page's card
-       containers) instead of admin_dashboard's .stat-card-wrap. */
-    .page-stat,
-    .breakdown-card {
+    .page-stats { overflow: visible; }
+    .page-stats .page-stat {
+      padding-right: calc(26px + var(--bn-space-4));
       position: relative;
     }
 
-    /* pages.css's shared .page-stats sets overflow-x: auto as a
-       horizontal-scroll safety net for the 4-tile row. CSS computes
-       overflow-y to the same non-'visible' value whenever overflow-x isn't
-       'visible' (the two axes can't be visible/non-visible mixed), so that
-       rule was also silently clipping anything escaping the row
-       vertically — including the new popover, which opens below its tile.
-       In practice that horizontal scroll never engages: pages.css's own
-       <=1024px / <=768px breakpoints switch the row to wrap / a 2-col grid
-       before 4x100px-min tiles could ever exceed the container width.
-       Overriding to `visible` here (scoped to this page's inline sheet)
-       removes a safety net that wasn't doing anything while letting the
-       popover render in full instead of being clipped. */
-    .page-stats {
-      overflow: visible;
-    }
+    /* ============================================
+       MONTHLY TREND CHART
+       ============================================ */
+    .monthly-trend-chart { margin-bottom: var(--bn-space-6); }
 
-    /* .page-stat's value/label text is centered across the tile's full
-       width (pages.css), and at its 100px min-width the 44px
-       .stat-card-info-toggle in the corner would otherwise sit on top of
-       that centered text — risking masking digits of a money figure.
-       padding-right only (not min-width, which pages.css's own responsive
-       breakpoints already own) reserves room for the toggle without
-       fighting those breakpoints. */
-    .page-stats .page-stat {
-      padding-right: calc(26px + var(--bn-space-4));
+    /* ============================================
+       GROUP HEALTH KPI SECTION
+       ============================================ */
+    .group-health-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--bn-space-4);
+      margin-bottom: var(--bn-space-6);
     }
-
-    /* Card-info popovers are rendered on <body> by scripts/card_info.js and
-       styled by the shared .bn-info-* rules in design-system.css. The old
-       in-card .stat-card-info-toggle / .stat-card-popover rules were removed:
-       a panel nested in the card was clipped by ancestor overflow and trapped
-       by the hover transform, which is why it never displayed in full. */
-
-    /* Monthly financial trend — KPI summary + axis/gridlines + grouped bars. */
-    .fin-kpis {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--bn-space-6);
-      margin: var(--bn-space-2) 0 var(--bn-space-5);
-      padding-bottom: var(--bn-space-4);
-      border-bottom: 1px solid var(--bn-gray-lighter);
+    .health-card {
+      background: var(--bn-white);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-space-4);
+      text-align: center;
     }
-    .fin-kpi {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
+    .health-card-value {
+      font-size: var(--bn-text-2xl);
+      font-weight: 800;
+      color: var(--bn-dark);
     }
-    .fin-kpi-label {
+    .health-card-value.pos { color: var(--bn-success); }
+    .health-card-value.warn { color: var(--bn-warning); }
+    .health-card-value.neg { color: var(--bn-danger); }
+    .health-card-label {
       font-size: var(--bn-text-xs);
       font-weight: 600;
       color: var(--bn-gray);
       text-transform: uppercase;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.05em;
+      margin-top: var(--bn-space-1);
     }
-    .fin-kpi-value {
-      font-size: var(--bn-text-xl);
-      font-weight: 800;
-      color: var(--bn-dark);
-    }
-    .fin-kpi-value.pos {
-      color: var(--bn-success-dark, var(--bn-success));
-    }
-    .fin-kpi-value.neg {
-      color: var(--bn-danger-dark, var(--bn-danger));
+    .health-card-sub {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray-600);
+      margin-top: var(--bn-space-1);
     }
 
-    .fin-legend {
+    /* ============================================
+       FOLLOW-UP LIST
+       ============================================ */
+    .followup-item {
       display: flex;
-      flex-wrap: wrap;
-      gap: var(--bn-space-4);
-      margin-bottom: var(--bn-space-4);
-    }
-    .fin-legend-item {
-      display: inline-flex;
       align-items: center;
-      gap: var(--bn-space-2);
-      font-size: var(--bn-text-sm);
-      color: var(--bn-gray-700);
-      min-width: 0;
-      max-width: 100%;
-      overflow-wrap: anywhere;
-    }
-    .fin-legend-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 3px;
-      flex-shrink: 0;
-    }
-    .fin-legend-dot.collected {
-      background: var(--bn-success);
-    }
-    .fin-legend-dot.disbursed {
-      background: var(--bn-info);
-    }
-
-    .fin-plot {
-      display: flex;
-      gap: var(--bn-space-3);
-    }
-    .fin-yaxis {
-      display: flex;
-      flex-direction: column;
       justify-content: space-between;
-      height: 220px;
-      flex-shrink: 0;
-      min-width: 52px;
-      text-align: right;
-      font-size: var(--bn-text-xs);
-      color: var(--bn-gray);
+      padding: var(--bn-space-3);
+      border-bottom: 1px solid var(--bn-gray-100);
+      font-size: var(--bn-text-sm);
     }
-    .fin-scroll {
-      flex: 1;
-      min-width: 0;
-      overflow-x: auto;
-      padding-bottom: var(--bn-space-1);
+    .followup-item:last-child { border-bottom: none; }
+    .followup-name { font-weight: 600; color: var(--bn-dark); }
+    .followup-detail { color: var(--bn-gray); font-size: var(--bn-text-xs); }
+    .followup-amount { font-weight: 700; color: var(--bn-danger); font-variant-numeric: tabular-nums; }
+
+    /* ============================================
+       RESPONSIVE
+       ============================================ */
+    @media (max-width: 768px) {
+      .charts-grid { grid-template-columns: 1fr; }
+      #accountingFiguresBlock {
+        grid-template-columns: 1fr 1fr;
+      }
+      #accountingFiguresBlock .breakdown-card { padding: var(--bn-space-3); }
+      #accountingFiguresBlock .breakdown-card-value { font-size: var(--bn-text-base); }
+      .group-health-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--bn-space-3);
+      }
     }
-    .fin-plot-area {
-      position: relative;
-      min-width: 100%;
-      width: max-content;
-    }
-    .fin-gridline {
-      position: absolute;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: var(--bn-gray-lighter);
-    }
-    .fin-bars {
-      display: flex;
-      align-items: flex-start;
-      gap: var(--bn-space-2);
-    }
-    .fin-month {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      flex: 1 0 auto;
-      min-width: 34px;
-    }
-    .fin-month-bars {
-      position: relative;
-      z-index: 1;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      gap: 3px;
-      width: 100%;
-    }
-    .fin-bar {
-      width: 14px;
-      max-width: 44%;
-      min-height: 2px;
-      border-radius: var(--bn-radius-sm) var(--bn-radius-sm) 0 0;
-      transition: height 0.4s ease;
-    }
-    .fin-bar.collected {
-      background: var(--bn-success);
-    }
-    .fin-bar.disbursed {
-      background: var(--bn-info);
-    }
-    .fin-month-label {
-      margin-top: var(--bn-space-2);
-      font-size: var(--bn-text-xs);
-      font-weight: 600;
-      color: var(--bn-gray);
+    @media (max-width: 480px) {
+      #accountingFiguresBlock {
+        grid-template-columns: 1fr 1fr;
+        gap: var(--bn-space-3);
+      }
+      #accountingFiguresBlock .breakdown-card-title { font-size: 10px; }
+      .group-health-grid { gap: var(--bn-space-2); }
     }
   </style>
 </head>
 <body data-nav-variant="admin" data-nav-active-page="analytics" data-nav-page-title="Analytics">
-  <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
   <main class="main-content" id="mainContent">
-    <div class="dashboard-content">
-      <!-- Loading Overlay -->
-      <div class="spinner-overlay hidden" id="spinner">
-        <div class="spinner-content">
-          <div class="spinner"></div>
-          <p class="loading-text">Loading analytics...</p>
-        </div>
+   <div class="dashboard-content">
+    <!-- Loading Overlay -->
+    <div class="spinner-overlay hidden" id="spinner">
+      <div class="spinner-content">
+        <div class="spinner"></div>
+        <p class="loading-text">Loading analytics...</p>
       </div>
+    </div>
 
-      <div class="page-group-selector">
-        <select id="groupSelector">
-          <option value="">Select a group...</option>
-        </select>
-      </div>
+    <div class="page-group-selector">
+      <select id="groupSelector">
+        <option value="">Select a group...</option>
+      </select>
+    </div>
 
-      <div class="page-stats">
-        <div class="page-stat">
-          <div class="page-stat-value info" id="totalIncome">MWK 0</div>
-          <div class="page-stat-label">Total Income</div>
-        </div>
-        <div class="page-stat">
-          <div class="page-stat-value danger" id="totalExpenses">MWK 0</div>
-          <div class="page-stat-label">Total Expenses</div>
-        </div>
-        <div class="page-stat">
-          <div class="page-stat-value success" id="netProfit">MWK 0</div>
-          <div class="page-stat-label">Net Profit</div>
-        </div>
-        <div class="page-stat">
-          <div class="page-stat-value warning" id="loanInterest">MWK 0</div>
-          <div class="page-stat-label">Loan Interest</div>
-        </div>
+    <!-- Headline Stat Tiles -->
+    <div class="page-stats">
+      <div class="page-stat">
+        <div class="page-stat-value info" id="totalIncome">MWK 0</div>
+        <div class="page-stat-label">Total Income</div>
       </div>
+      <div class="page-stat">
+        <div class="page-stat-value danger" id="totalExpenses">MWK 0</div>
+        <div class="page-stat-label">Total Expenses</div>
+      </div>
+      <div class="page-stat">
+        <div class="page-stat-value success" id="netProfit">MWK 0</div>
+        <div class="page-stat-label">Net Profit</div>
+      </div>
+      <div class="page-stat">
+        <div class="page-stat-value warning" id="loanInterest">MWK 0</div>
+        <div class="page-stat-label">Loan Interest</div>
+      </div>
+    </div>
 
     <!-- Financial Trends -->
     <section class="content-section">
       <div class="content-section-header">
         <h2 class="content-section-title">Financial Trends</h2>
-        <div class="tabs">
-          <button class="tab" disabled title="Weekly view is not available yet">Week</button>
-          <button class="tab active">Month</button>
-          <button class="tab" disabled title="Yearly view is not available yet">Year</button>
+      </div>
+      <div class="content-section-body">
+        <div id="monthlyTrendChart" class="monthly-trend-chart"></div>
+      </div>
+    </section>
+
+    <!-- Group Accounting Position -->
+    <section class="content-section">
+      <div class="content-section-header">
+        <h2 class="content-section-title">Accounting Position</h2>
+      </div>
+      <div class="content-section-body">
+        <div id="accountingFiguresBlock" class="charts-grid"></div>
+      </div>
+    </section>
+
+    <!-- Group Health -->
+    <section class="content-section">
+      <div class="content-section-header">
+        <h2 class="content-section-title">Group Health</h2>
+      </div>
+      <div class="content-section-body">
+        <div class="group-health-grid" id="groupHealthGrid">
+          <div class="health-card">
+            <div class="health-card-value" id="healthCollectionRate">-</div>
+            <div class="health-card-label">Collection Rate</div>
+            <div class="health-card-sub">Approved vs expected</div>
+          </div>
+          <div class="health-card">
+            <div class="health-card-value" id="healthMembersPaying">-</div>
+            <div class="health-card-label">Members Paying</div>
+            <div class="health-card-sub">At least one contribution</div>
+          </div>
+          <div class="health-card">
+            <div class="health-card-value" id="healthAvgContribution">-</div>
+            <div class="health-card-label">Avg Contribution</div>
+            <div class="health-card-sub">Per member</div>
+          </div>
+          <div class="health-card">
+            <div class="health-card-value" id="healthLoanUtilisation">-</div>
+            <div class="health-card-label">Loan Utilisation</div>
+            <div class="health-card-sub">Disbursed vs collected</div>
+          </div>
+          <div class="health-card">
+            <div class="health-card-value" id="healthInterestYield">-</div>
+            <div class="health-card-label">Interest Yield</div>
+            <div class="health-card-sub">Interest vs loans disbursed</div>
+          </div>
+          <div class="health-card">
+            <div class="health-card-value" id="healthPenaltyRate">-</div>
+            <div class="health-card-label">Penalty Recovery</div>
+            <div class="health-card-sub">Collected vs charged</div>
+          </div>
         </div>
       </div>
-      <div class="content-section-body" id="chartsContainer">
-        <div id="monthlyTrendChart" class="monthly-trend-chart">
-          <!-- Monthly trend chart will be rendered here -->
-        </div>
-        <div id="accountingFiguresBlock" class="charts-grid"></div>
-        <div class="charts-grid" id="chartContainer">
-          <!-- Pie charts will be rendered here -->
-        </div>
+    </section>
+
+    <!-- Members To Follow Up -->
+    <section class="content-section">
+      <div class="content-section-header">
+        <h2 class="content-section-title">Members to Follow Up</h2>
+        <span class="badge badge-danger" id="followupCount">0</span>
+      </div>
+      <div class="content-section-body" id="followupList">
+        <p class="table-empty-cell">Select a group to view follow-up list</p>
       </div>
     </section>
 
@@ -520,27 +289,25 @@
           <table class="table table-responsive" id="memberPerformanceTable">
             <thead>
               <tr>
-                 <th>Member</th>
-                 <th class="cell-right">Contributed</th>
-                 <th class="cell-right">Borrowed</th>
-                 <th class="cell-right">Interest Paid</th>
-                 <th class="cell-right">Interest Owed</th>
-                 <th>Status</th>
+                <th>Member</th>
+                <th class="cell-right">Contributed</th>
+                <th class="cell-right">Borrowed</th>
+                <th class="cell-right">Interest Paid</th>
+                <th class="cell-right">Interest Owed</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody id="memberPerformance">
               <tr>
-                 <td colspan="6" class="table-empty-cell">Select a group to view member performance</td>
+                <td colspan="6" class="table-empty-cell">Select a group to view member performance</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
     </section>
-    </div>
+   </div>
   </main>
-
-
 
   <script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
   <script type="module" src="../scripts/analytics_sql.js?v=20260722"></script>
