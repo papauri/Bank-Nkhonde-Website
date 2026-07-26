@@ -19,7 +19,8 @@ if (!function_exists('list_my_groups')) {
         $pdo = getDbConnection();
         $stmt = $pdo->prepare(
             'SELECT g.groupId, g.groupName, g.description, g.status, g.createdBy, '
-            . 'g.createdAt, g.updatedAt, m.role AS myRole, m.status AS myMemberStatus '
+            . 'g.createdAt, g.updatedAt, g.maxMembers, g.customRoleTitles, '
+            . 'm.role AS myRole, m.status AS myMemberStatus '
             . 'FROM `groups` g '
             . 'JOIN members m ON m.groupId = g.groupId '
             . 'WHERE m.uid = :uid '
@@ -47,7 +48,9 @@ if (!function_exists('get_group')) {
             'SELECT groupId, groupName, description, status, createdBy, createdAt, updatedAt, '
             // Governance docs (migration 010) — any member may READ the rules they
             // are bound by; only an admin may write them (update_group).
-            . 'governanceRulesText, rulesDocumentUrl, rulesDocumentName '
+            . 'governanceRulesText, rulesDocumentUrl, rulesDocumentName, '
+            // Group limits (migration 011)
+            . 'maxMembers, customRoleTitles '
             . 'FROM `groups` WHERE groupId = :groupId LIMIT 1'
         );
         $stmt->execute([':groupId' => $groupId]);
@@ -95,15 +98,17 @@ if (!function_exists('create_group')) {
         $pdo->beginTransaction();
         try {
             $insertGroup = $pdo->prepare(
-                'INSERT INTO `groups` (groupId, groupName, description, status, createdBy, createdAt, updatedAt) '
-                . 'VALUES (:groupId, :groupName, :description, :status, :createdBy, NOW(), NOW())'
+                'INSERT INTO `groups` (groupId, groupName, description, status, createdBy, maxMembers, createdAt, updatedAt) '
+                . 'VALUES (:groupId, :groupName, :description, :status, :createdBy, :maxMembers, NOW(), NOW())'
             );
+            $maxMembers = isset($body['maxMembers']) ? (int) $body['maxMembers'] : null;
             $insertGroup->execute([
                 ':groupId' => $groupId,
                 ':groupName' => $groupName,
                 ':description' => $description,
                 ':status' => 'active',
                 ':createdBy' => $user['uid'],
+                ':maxMembers' => $maxMembers,
             ]);
 
             $insertMember = $pdo->prepare(
@@ -215,6 +220,28 @@ if (!function_exists('update_group')) {
             $params[':rulesDocumentName'] = $name === '' ? null : $name;
         }
 
+        // Group limits (migration 011)
+        if (array_key_exists('maxMembers', $body)) {
+            $maxMembers = $body['maxMembers'];
+            if ($maxMembers !== null) {
+                $maxMembers = (int) $maxMembers;
+                if ($maxMembers < 1) {
+                    json_error('maxMembers must be at least 1.', 422);
+                }
+            }
+            $updates[] = 'maxMembers = :maxMembers';
+            $params[':maxMembers'] = $maxMembers;
+        }
+
+        if (array_key_exists('customRoleTitles', $body)) {
+            $titles = $body['customRoleTitles'];
+            if ($titles !== null && !is_array($titles)) {
+                json_error('customRoleTitles must be an object.', 422);
+            }
+            $updates[] = 'customRoleTitles = :customRoleTitles';
+            $params[':customRoleTitles'] = $titles === null ? null : json_encode($titles);
+        }
+
         if (empty($updates)) {
             json_error('No updatable fields provided.', 422);
         }
@@ -228,7 +255,8 @@ if (!function_exists('update_group')) {
 
         $selectStmt = $pdo->prepare(
             'SELECT groupId, groupName, description, status, createdBy, createdAt, updatedAt, '
-            . 'governanceRulesText, rulesDocumentUrl, rulesDocumentName '
+            . 'governanceRulesText, rulesDocumentUrl, rulesDocumentName, '
+            . 'maxMembers, customRoleTitles '
             . 'FROM `groups` WHERE groupId = :groupId LIMIT 1'
         );
         $selectStmt->execute([':groupId' => $groupId]);

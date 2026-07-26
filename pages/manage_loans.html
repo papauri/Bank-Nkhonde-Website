@@ -441,50 +441,7 @@
       }
     }
 
-    .quick-action-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: var(--bn-space-4);
-      margin-bottom: var(--bn-space-6);
-    }
-
-    .quick-action-card {
-      padding: var(--bn-space-5);
-      background: var(--bn-white);
-      border: 1px solid var(--bn-gray-lighter);
-      border-radius: var(--bn-radius-xl);
-      text-align: center;
-      cursor: pointer;
-      transition: all var(--bn-transition-fast);
-    }
-
-    .quick-action-card:hover {
-      border-color: var(--bn-accent);
-      box-shadow: var(--bn-shadow-md);
-      transform: translateY(-2px);
-    }
-
-    .quick-action-card:focus-visible {
-      outline: 2px solid var(--bn-accent);
-      outline-offset: 2px;
-      border-color: var(--bn-accent);
-    }
-
-    .quick-action-icon {
-      font-size: 2rem;
-      margin-bottom: var(--bn-space-3);
-    }
-
-    .quick-action-title {
-      font-weight: 600;
-      color: var(--bn-dark);
-    }
-
-    .quick-action-desc {
-      font-size: var(--bn-text-xs);
-      color: var(--bn-gray);
-      margin-top: var(--bn-space-1);
-    }
+    /* Quick action grid uses shared styles from pages.css */
 
     .form-row {
       display: grid;
@@ -502,15 +459,6 @@
     }
 
     @media (max-width: 480px) {
-      .quick-action-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: var(--bn-space-3);
-      }
-
-      .quick-action-card {
-        padding: var(--bn-space-4);
-      }
-
       .loan-details-grid {
         grid-template-columns: 1fr;
       }

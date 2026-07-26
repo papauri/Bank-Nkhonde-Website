@@ -539,18 +539,15 @@
       color: var(--bn-dark);
     }
 
-    /* Stats Grid - Single row, compact cards */
+    /* Stats Grid - CSS Grid for consistent stacking */
     .stats-grid {
-      display: flex;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: var(--bn-space-4);
       margin-bottom: var(--bn-space-6);
-      overflow-x: auto;
-      padding-bottom: var(--bn-space-2);
     }
 
     .stat-card {
-      flex: 1;
-      min-width: 160px;
       background: var(--bn-white);
       border-radius: var(--bn-radius-lg);
       padding: var(--bn-space-4) var(--bn-space-5);
@@ -576,8 +573,6 @@
        app's established floating-panel convention (.current-group-menu). */
     .stat-card-wrap {
       position: relative;
-      flex: 1;
-      min-width: 160px;
     }
     .stat-card-wrap .stat-card {
       width: 100%;

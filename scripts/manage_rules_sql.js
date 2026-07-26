@@ -70,6 +70,9 @@ function setupEventListeners() {
   document.getElementById("uploadPdfBtn")?.addEventListener("click", uploadPdf);
   document.getElementById("removePdfBtn")?.addEventListener("click", removePdf);
 
+  // Governance tab
+  document.getElementById("saveGovernanceBtn")?.addEventListener("click", saveGovernanceSettings);
+
   // Drag & drop
   const dropZone = document.getElementById("dropZone");
   if (dropZone) {
@@ -121,6 +124,7 @@ async function loadGroup() {
     updateActiveNav("rules", group.groupName || "Group Rules");
     renderTextRules();
     renderPdf();
+    renderGovernanceSettings();
   } catch (error) {
     handleApiError(error, "Failed to load group rules");
   } finally {
@@ -175,6 +179,119 @@ async function saveTextRules() {
     showToast("Rules saved", "success");
   } catch (error) {
     handleApiError(error, "Failed to save rules");
+  } finally {
+    showSpinner(false);
+  }
+}
+
+// ── Governance Settings ─────────────────────────────────────────────────────
+function renderGovernanceSettings() {
+  // Group-level settings
+  const maxMembers = group && group.maxMembers;
+  const maxMembersInput = document.getElementById("maxMembersInput");
+  if (maxMembersInput) {
+    maxMembersInput.value = maxMembers !== null && maxMembers !== undefined ? maxMembers : "";
+  }
+
+  // Custom role titles
+  const customRoles = group && group.customRoleTitles;
+  let roles = {};
+  try {
+    roles = typeof customRoles === "string" ? JSON.parse(customRoles) : (customRoles || {});
+  } catch (e) {
+    roles = {};
+  }
+
+  const seniorAdminInput = document.getElementById("seniorAdminTitleInput");
+  const adminInput = document.getElementById("adminTitleInput");
+  const treasurerInput = document.getElementById("treasurerTitleInput");
+  if (seniorAdminInput) seniorAdminInput.value = roles.senior_admin || "";
+  if (adminInput) adminInput.value = roles.admin || "";
+  if (treasurerInput) treasurerInput.value = roles.treasurer || "";
+
+  // Rules-level settings (loan deadlines)
+  // These come from group_rules, not groups — load them separately
+  loadRulesSettings();
+}
+
+async function loadRulesSettings() {
+  if (!selectedGroupId) return;
+  try {
+    const rules = await apiGet("rules.get", {groupId: selectedGroupId});
+    if (!rules) return;
+
+    const loanBookingDayInput = document.getElementById("loanBookingDayInput");
+    const lastLoanMonthInput = document.getElementById("lastLoanMonthInput");
+    const minMembershipMonthsInput = document.getElementById("minMembershipMonthsInput");
+
+    if (loanBookingDayInput) {
+      loanBookingDayInput.value = rules.loanBookingDay !== null && rules.loanBookingDay !== undefined ? rules.loanBookingDay : "";
+    }
+    if (lastLoanMonthInput) {
+      lastLoanMonthInput.value = rules.lastLoanMonth !== null && rules.lastLoanMonth !== undefined ? rules.lastLoanMonth : "";
+    }
+    if (minMembershipMonthsInput) {
+      minMembershipMonthsInput.value = rules.minMembershipMonths !== null && rules.minMembershipMonths !== undefined ? rules.minMembershipMonths : "0";
+    }
+  } catch (error) {
+    // Rules may not exist yet — that's fine, leave fields empty
+  }
+}
+
+async function saveGovernanceSettings() {
+  if (!selectedGroupId) return;
+
+  showSpinner(true);
+  try {
+    // Save group-level settings
+    const maxMembersValue = document.getElementById("maxMembersInput")?.value;
+    const maxMembers = maxMembersValue !== "" ? parseInt(maxMembersValue, 10) : null;
+
+    const customRoleTitles = {
+      senior_admin: document.getElementById("seniorAdminTitleInput")?.value || null,
+      admin: document.getElementById("adminTitleInput")?.value || null,
+      treasurer: document.getElementById("treasurerTitleInput")?.value || null,
+    };
+    // Remove null entries
+    Object.keys(customRoleTitles).forEach((key) => {
+      if (customRoleTitles[key] === null) delete customRoleTitles[key];
+    });
+
+    await apiPost("groups.update", {
+      groupId: selectedGroupId,
+      maxMembers: maxMembers,
+      customRoleTitles: Object.keys(customRoleTitles).length > 0 ? customRoleTitles : null,
+    });
+
+    // Save rules-level settings
+    const loanBookingDayValue = document.getElementById("loanBookingDayInput")?.value;
+    const lastLoanMonthValue = document.getElementById("lastLoanMonthInput")?.value;
+    const minMembershipMonthsValue = document.getElementById("minMembershipMonthsInput")?.value;
+
+    const rulesUpdate = {groupId: selectedGroupId};
+    if (loanBookingDayValue !== "") {
+      rulesUpdate.loanBookingDay = parseInt(loanBookingDayValue, 10);
+    } else {
+      rulesUpdate.loanBookingDay = null;
+    }
+    if (lastLoanMonthValue !== "") {
+      rulesUpdate.lastLoanMonth = parseInt(lastLoanMonthValue, 10);
+    } else {
+      rulesUpdate.lastLoanMonth = null;
+    }
+    if (minMembershipMonthsValue !== "") {
+      rulesUpdate.minMembershipMonths = parseInt(minMembershipMonthsValue, 10);
+    }
+
+    await apiPost("rules.update", rulesUpdate);
+
+    // Reload group data
+    const resp = await apiGet("groups.get", {groupId: selectedGroupId});
+    group = (resp && (resp.group || resp)) || {};
+
+    showToast("Governance settings saved", "success");
+  } catch (error) {
+    handleApiError(error, "Failed to save governance settings");
   } finally {
     showSpinner(false);
   }

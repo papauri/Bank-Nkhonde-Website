@@ -14,27 +14,24 @@
   <link rel="stylesheet" href="../styles/admin-layout.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
-    /* Professional Stats Grid Cards */
+    /* Stats Grid Cards - Uses standardized page-stats pattern from pages.css
+       with accent bar treatment for visual distinction */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: var(--bn-space-4);
     }
 
     .stat-card {
       background: var(--bn-white);
       border: 1px solid var(--bn-gray-lighter);
-      border-radius: var(--bn-radius-xl);
-      padding: var(--bn-space-5);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-space-4) var(--bn-space-3);
       text-align: center;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all var(--bn-transition-base);
       position: relative;
       overflow: hidden;
-      min-height: 120px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      box-shadow: var(--bn-shadow-sm);
+      box-shadow: var(--bn-shadow-xs);
     }
 
     .stat-card::before {
@@ -46,12 +43,12 @@
       height: 3px;
       background: var(--bn-gradient-accent);
       opacity: 0;
-      transition: opacity 0.3s ease;
+      transition: opacity var(--bn-transition-fast);
     }
 
     .stat-card:hover {
-      transform: translateY(-4px);
-      box-shadow: var(--bn-shadow-lg);
+      transform: translateY(-2px);
+      box-shadow: var(--bn-shadow-md);
       border-color: var(--bn-accent);
     }
 
@@ -59,9 +56,7 @@
       opacity: 1;
     }
 
-    /* Accent bars use the app's own semantic tokens, not Tailwind-default
-       hexes — the greens/reds/blues here previously differed from the same
-       colours everywhere else in the app. */
+    /* Accent bars use the app's semantic tokens */
     .stat-card:nth-child(1) .stat-value { color: var(--bn-success-dark); }
     .stat-card:nth-child(1)::before { background: linear-gradient(90deg, var(--bn-success), var(--bn-success-dark)); }
     .stat-card:nth-child(2) .stat-value { color: var(--bn-primary); }
@@ -76,12 +71,13 @@
     .stat-card:nth-child(6)::before { background: var(--bn-gradient-accent); }
 
     .stat-value {
-      font-size: 1.75rem;
+      font-size: var(--bn-text-xl);
       font-weight: 800;
       line-height: 1.2;
-      margin-bottom: var(--bn-space-2);
+      margin-bottom: var(--bn-space-1);
       font-feature-settings: 'tnum' 1;
-      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
 
     .stat-label {
@@ -90,7 +86,6 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
       font-weight: 600;
-      line-height: 1.4;
     }
 
     @media (max-width: 768px) {
@@ -100,12 +95,11 @@
       }
 
       .stat-card {
-        padding: var(--bn-space-4);
-        min-height: 100px;
+        padding: var(--bn-space-3);
       }
 
       .stat-value {
-        font-size: 1.5rem;
+        font-size: var(--bn-text-lg);
       }
     }
 
@@ -116,12 +110,11 @@
       }
 
       .stat-card {
-        padding: var(--bn-space-3);
-        min-height: 90px;
+        padding: var(--bn-space-2);
       }
 
       .stat-value {
-        font-size: 1.25rem;
+        font-size: var(--bn-text-base);
       }
 
       .stat-label {

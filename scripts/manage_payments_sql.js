@@ -348,8 +348,12 @@ async function loadGroupData() {
     await loadPayments();
     await loadGroupRules();
     updateStats();
-    renderAccountantSummary();
+    // Load compliance BEFORE rendering the accountant summary, so the "All
+    // caught up" banner can use the server's complete picture (including seed
+    // money) rather than just the payments list (which only has rows for
+    // payments that have been recorded).
     await loadCompliance();
+    renderAccountantSummary();
     renderCurrentTab();
     renderPendingPreview();
   } catch (error) {
@@ -975,19 +979,39 @@ function renderAccountantSummary() {
     .sort((a, b) => b.amt - a.amt);
   const totalArrears = followups.reduce((s, f) => s + f.amt, 0);
 
-  // Status banner.
+  // Status banner — use the server's compliance data (which includes seed money
+  // and all obligations) rather than just the payments list (which only has rows
+  // for payments that have been recorded). A group with no payment rows at all
+  // is NOT "caught up" — it's empty, and seed money may still be owed.
   const banner = document.getElementById("acctStatusBanner");
   if (banner) {
     banner.textContent = "";
     const b = document.createElement("div");
-    if (followups.length === 0) {
+
+    // The compliance endpoint returns membersOwing (anyone with an outstanding
+    // balance, including seed money) and membersBehind (anyone LATE). Use
+    // membersOwing for the "caught up" check — if anyone owes anything, the
+    // group is not caught up, even if nothing is overdue yet.
+    const membersOwing = Number(complianceData?.membersOwing ?? 0);
+    const membersBehind = Number(complianceData?.membersBehind ?? 0);
+    const complianceOutstanding = toMinorSafe(complianceData?.toDate?.outstanding ?? "0");
+
+    if (membersOwing === 0 && followups.length === 0) {
       b.className = "acct-banner caught-up";
       b.textContent = "✓ All caught up — no outstanding arrears";
+    } else if (membersBehind > 0 || followups.length > 0) {
+      b.className = "acct-banner follow-up";
+      const count = Math.max(membersBehind, followups.length);
+      b.textContent =
+        `⚠ ${count} member${count === 1 ? "" : "s"} to follow up · ` +
+        `${formatCurrency(Math.max(complianceOutstanding / 100, totalArrears))} outstanding`;
     } else {
+      // membersOwing > 0 but membersBehind === 0: people owe money but nothing
+      // is overdue yet (e.g., seed money due next week).
       b.className = "acct-banner follow-up";
       b.textContent =
-        `⚠ ${followups.length} member${followups.length === 1 ? "" : "s"} to follow up · ` +
-        `${formatCurrency(totalArrears)} outstanding`;
+        `⚠ ${membersOwing} member${membersOwing === 1 ? "" : "s"} still owe money · ` +
+        `${formatCurrency(complianceOutstanding / 100)} outstanding`;
     }
     banner.appendChild(b);
   }

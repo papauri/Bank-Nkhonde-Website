@@ -23,6 +23,7 @@
 
 import {getSession, logout as apiLogout, listMyGroups} from "./api.js";
 import {initSpaRouter} from "./spa-router.js?v=20260722";
+import {initializeNotifications, cleanupNotifications} from "./notifications-handler_sql.js";
 
 const LOGIN_URL = "../login.html";
 
@@ -633,6 +634,18 @@ export async function initNav(options = {}) {
   // or topbar on navigation — see updateActiveNav() for the chrome update
   // the router does perform on a content swap.
   initSpaRouter();
+
+  // Wire up the notification bell + badge polling. The bell is rendered by
+  // renderSidebarNav() above; initializeNotifications() attaches the click
+  // handler, dropdown, and starts the 60s polling loop. Safe to call even
+  // if the bell isn't present (it returns early).
+  const notifBtn = document.getElementById("notificationsBtn");
+  if (notifBtn) {
+    // The groupId is resolved from the session-selected group; if none is
+    // selected yet the handler will skip polling until one is picked.
+    const groupId = sessionStorage.getItem("selectedGroupId") || "";
+    initializeNotifications(user && user.userId, groupId);
+  }
 
   return user;
 }

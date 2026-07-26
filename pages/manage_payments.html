@@ -14,54 +14,7 @@
   <link rel="stylesheet" href="../styles/pages.css">
   <link rel="icon" type="image/png" href="../assets/favicon.png">
   <style>
-    .quick-action-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: var(--bn-space-4);
-      margin-bottom: var(--bn-space-6);
-    }
-
-    .quick-action-card {
-      padding: var(--bn-space-5);
-      background: var(--bn-white);
-      border: 1px solid var(--bn-gray-lighter);
-      border-radius: var(--bn-radius-xl);
-      text-align: center;
-      cursor: pointer;
-      transition: all var(--bn-transition-fast);
-      font: inherit;
-      color: inherit;
-      width: 100%;
-      display: block;
-    }
-
-    .quick-action-card:hover {
-      border-color: var(--bn-accent);
-      box-shadow: var(--bn-shadow-md);
-      transform: translateY(-2px);
-    }
-
-    .quick-action-card:focus-visible {
-      outline: 2px solid var(--bn-accent);
-      outline-offset: 2px;
-      border-color: var(--bn-accent);
-    }
-
-    .quick-action-icon {
-      font-size: 2rem;
-      margin-bottom: var(--bn-space-3);
-    }
-
-    .quick-action-title {
-      font-weight: 600;
-      color: var(--bn-dark);
-    }
-
-    .quick-action-desc {
-      font-size: var(--bn-text-xs);
-      color: var(--bn-gray);
-      margin-top: var(--bn-space-1);
-    }
+    /* Quick action grid now uses shared styles from pages.css */
 
     .payment-tabs {
       display: flex;
@@ -339,16 +292,7 @@
       border-radius: var(--bn-radius-lg);
     }
 
-    @media (max-width: 480px) {
-      .quick-action-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: var(--bn-space-3);
-      }
-
-      .quick-action-card {
-        padding: var(--bn-space-4);
-      }
-    }
+    /* Quick action responsive handled by pages.css */
 
     /* Accounting summary: status banner + period totals + follow-up list. */
     .acct-summary {

@@ -33,7 +33,9 @@ const RULES_SELECT_COLUMNS = 'groupId, '
     . 'loanRulesMaxLoanAmount, loanRulesMinCycleLoanAmount, loanRulesMaxActiveLoansByMember, '
     . 'loanRulesRequireCollateral, loanRulesMinRepaymentMonths, loanRulesMaxRepaymentMonths, '
     . 'requireArrearsClearedBeforeLoan, requirePenaltiesClearedBeforeLoan, '
-    . 'forcedLoansEnabled, forcedLoansMethod, forcedLoansPercentageOfHighest';
+    . 'forcedLoansEnabled, forcedLoansMethod, forcedLoansPercentageOfHighest, '
+    // Loan booking deadlines (migration 011)
+    . 'loanBookingDay, lastLoanMonth, minMembershipMonths';
 
 if (!function_exists('rules_select_row')) {
     function rules_select_row(PDO $pdo, string $groupId): ?array
@@ -558,6 +560,37 @@ if (!function_exists('update_rules')) {
                     'forcedLoansPercentageOfHighest'
                 );
             }
+        }
+
+        // Loan booking deadlines (migration 011)
+        if (array_key_exists('loanBookingDay', $body)) {
+            $day = $body['loanBookingDay'];
+            if ($day !== null) {
+                $day = (int) $day;
+                if ($day < 1 || $day > 31) {
+                    json_error('loanBookingDay must be between 1 and 31.', 422);
+                }
+            }
+            $updates[] = 'loanBookingDay = :loanBookingDay';
+            $params[':loanBookingDay'] = $day;
+        }
+
+        if (array_key_exists('lastLoanMonth', $body)) {
+            $month = $body['lastLoanMonth'];
+            if ($month !== null) {
+                $month = (int) $month;
+                if ($month < 1 || $month > 12) {
+                    json_error('lastLoanMonth must be between 1 and 12.', 422);
+                }
+            }
+            $updates[] = 'lastLoanMonth = :lastLoanMonth';
+            $params[':lastLoanMonth'] = $month;
+        }
+
+        if (array_key_exists('minMembershipMonths', $body)) {
+            $months = rules_nonneg_int($body['minMembershipMonths'], 'minMembershipMonths');
+            $updates[] = 'minMembershipMonths = :minMembershipMonths';
+            $params[':minMembershipMonths'] = $months;
         }
 
         if (empty($updates)) {

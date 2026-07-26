@@ -329,6 +329,15 @@
         </span>
         <span class="rules-tab-text">Rules Document</span>
       </button>
+      <button class="rules-tab" data-tab="governance">
+        <span class="rules-tab-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </span>
+        <span class="rules-tab-text">Governance</span>
+      </button>
     </div>
 
     <!-- Text Rules Tab -->
@@ -390,6 +399,91 @@
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                 </svg>
                 Create Text Rules
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Governance Tab -->
+    <div class="rules-tab-content" id="governanceTab">
+      <div class="rules-section">
+        <div class="rules-section-header">
+          <h2 class="rules-section-title">⚙️ Group Governance Settings</h2>
+        </div>
+        <div class="rules-section-body">
+          <div id="governanceForm">
+            <!-- Group Size Limit -->
+            <div class="form-group" style="margin-bottom: var(--bn-space-5);">
+              <label class="form-label" for="maxMembersInput">Maximum Members</label>
+              <input type="number" id="maxMembersInput" class="form-input" min="1" placeholder="Leave empty for unlimited">
+              <small class="help-text">Maximum number of members allowed in this group (NULL = unlimited)</small>
+            </div>
+
+            <!-- Custom Role Titles -->
+            <div class="form-group" style="margin-bottom: var(--bn-space-5);">
+              <label class="form-label">Custom Role Titles</label>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--bn-space-3);">
+                <div>
+                  <label class="form-label" style="font-size: var(--bn-text-xs);">Senior Admin Title</label>
+                  <input type="text" id="seniorAdminTitleInput" class="form-input" placeholder="e.g., Chairperson">
+                </div>
+                <div>
+                  <label class="form-label" style="font-size: var(--bn-text-xs);">Admin Title</label>
+                  <input type="text" id="adminTitleInput" class="form-input" placeholder="e.g., Finance Director">
+                </div>
+                <div>
+                  <label class="form-label" style="font-size: var(--bn-text-xs);">Treasurer Title</label>
+                  <input type="text" id="treasurerTitleInput" class="form-input" placeholder="e.g., Secretary">
+                </div>
+              </div>
+              <small class="help-text">Custom display names for admin roles</small>
+            </div>
+
+            <!-- Loan Booking Deadline -->
+            <div class="form-group" style="margin-bottom: var(--bn-space-5);">
+              <label class="form-label" for="loanBookingDayInput">Loan Booking Deadline (Day of Month)</label>
+              <input type="number" id="loanBookingDayInput" class="form-input" min="1" max="31" placeholder="e.g., 15">
+              <small class="help-text">Day of month by which loan requests must be submitted (1-31, NULL = no deadline)</small>
+            </div>
+
+            <!-- Last Loan Month -->
+            <div class="form-group" style="margin-bottom: var(--bn-space-5);">
+              <label class="form-label" for="lastLoanMonthInput">Last Loan Month</label>
+              <select id="lastLoanMonthInput" class="form-select">
+                <option value="">No restriction</option>
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+              </select>
+              <small class="help-text">Last calendar month in which new loans may be issued</small>
+            </div>
+
+            <!-- Minimum Membership Months -->
+            <div class="form-group" style="margin-bottom: var(--bn-space-5);">
+              <label class="form-label" for="minMembershipMonthsInput">Minimum Membership Duration (months)</label>
+              <input type="number" id="minMembershipMonthsInput" class="form-input" min="0" placeholder="e.g., 6">
+              <small class="help-text">Minimum months a member must belong before exit is permitted (0 = no restriction)</small>
+            </div>
+
+            <div class="btn-group" style="margin-top: var(--bn-space-6);">
+              <button class="btn btn-primary" id="saveGovernanceBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                  <polyline points="17 21 17 13 7 13 7 21"/>
+                  <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                Save Governance Settings
               </button>
             </div>
           </div>
