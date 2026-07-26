@@ -60,13 +60,13 @@
   /* Semantic Colors - Muted & Professional */
   --bn-success: #059669;
   --bn-success-light: rgba(5, 150, 105, 0.12);
-  --bn-success-dark: #047857; /* AA-compliant text on success-light/white (E3 batch 2) */
+  --bn-success-dark: #047857;
   --bn-warning: #D97706;
   --bn-warning-light: rgba(217, 119, 6, 0.12);
-  --bn-warning-dark: #92400E; /* AA-compliant text on warning-light/white (E3 batch 2) */
+  --bn-warning-dark: #92400E;
   --bn-danger: #DC2626;
   --bn-danger-light: rgba(220, 38, 38, 0.12);
-  --bn-danger-dark: #B91C1C; /* AA-compliant text on danger-light (E3 batch 2) */
+  --bn-danger-dark: #B91C1C;
   --bn-info: #2563EB;
   --bn-info-light: rgba(37, 99, 235, 0.12);
   
@@ -594,9 +594,6 @@ p {
 }
 
 .form-input::placeholder {
-  /* Intentional AA exception (E3 batch 2): placeholder text is not real
-     content per WCAG guidance; darkening to 4.5:1 would make it visually
-     indistinguishable from actual entered input text. Left as-is. */
   color: var(--bn-gray-400);
 }
 
@@ -944,14 +941,6 @@ table.data-table tbody tr:last-child td {
     display: none;
   }
 
-  /* A body cell that spans every column is a message, not a labelled field
-     — the empty states ("No pending payments to review") are written as
-     <td colspan="7">. Under the generic td rule above they inherited the
-     80px label gutter on the left AND text-align:right, so the message sat
-     jammed against the right edge of the card instead of centred in it,
-     which is what made the manage-payments table look off-centre on a
-     phone. tbody-scoped so the tfoot totals row keeps its label/value
-     treatment. */
   .table-responsive tbody td[colspan] {
     display: block;
     width: 100%;
@@ -966,9 +955,6 @@ table.data-table tbody tr:last-child td {
     display: none;
   }
 
-  /* The cards themselves are the full measure of their container and carry
-     their own padding — box-sizing keeps that padding inside the 100% so a
-     card can't overhang its container and read as shifted to one side. */
   .table-responsive tbody tr {
     box-sizing: border-box;
     max-width: 100%;
@@ -1091,19 +1077,7 @@ table.data-table tbody tr:last-child td {
 
 /* ============================================
    CONTENT-SCOPED LOADER (dashboard/SPA navigation)
-   ============================================
-   Every dashboard page toggles the SAME #spinner/.spinner-overlay markup
-   (via showSpinner()) while its own data loads — including on every SPA
-   in-app navigation, since each page's init() re-runs after a content swap.
-   The base .spinner-overlay rules above are position:fixed/full-viewport,
-   which is correct for the 3 standalone pages that have no dashboard shell
-   (accept_invitation/admin_registration/complete_profile — no sidebar to
-   cover, so left untouched) but WRONG once a sidebar exists: a fixed,
-   dark-navy full-screen overlay dims the sidebar too on every page switch.
-   This block re-scopes + redesigns the SAME element whenever it is nested
-   inside .dashboard-content (every SPA-converted admin/user page places its
-   #spinner there) — zero JS or markup-id changes needed, showSpinner()
-   still just toggles .hidden on the same element. */
+   ============================================ */
 .dashboard-content > .spinner-overlay {
   position: absolute;
   background: var(--glass-bg);
@@ -1112,10 +1086,6 @@ table.data-table tbody tr:last-child td {
   border-radius: inherit;
 }
 
-/* Glass panel rather than an opaque white card — keeps this in the same
-   visual family as the SPA-router's own navigation loader (glass, no
-   solid card), while the border + tighter shadow still separate this
-   "content is loading" state from that lighter transient nav overlay. */
 .dashboard-content > .spinner-overlay .spinner-content {
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
@@ -1133,13 +1103,6 @@ table.data-table tbody tr:last-child td {
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-/* The "coin" — a stylised spinning Kwacha coin replaces the plain ring
-   spinner, but ONLY for the content-scoped variant; the full-viewport
-   overlay above keeps its original plain ring, untouched.
-   Thickness/rim is suggested with inset highlight+shadow (top rim catches
-   light, bottom rim is in shadow); both the outer glow and the rim
-   contrast are dialled down at the 90/270deg points, where the coin is
-   edge-on and would naturally throw less light and a thinner shadow. */
 .dashboard-content > .spinner-overlay .spinner {
   width: 56px;
   height: 56px;
@@ -1193,47 +1156,9 @@ table.data-table tbody tr:last-child td {
   }
 }
 
-/* The "K" glyph foreshortens and dims in sync with the coin edge-on
-   points, instead of just riding the same flat rotation as the coin body
-   — a flat letterform staying full-opacity through the "edge" frames is
-   what read as a squish rather than a flip. */
 @keyframes bn-coin-face {
-  0%, 50%, 100% { opacity: 1; transform: scaleX(1); }
-  25%, 75% { opacity: 0.25; transform: scaleX(0.3); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .dashboard-content > .spinner-overlay .spinner,
-  .dashboard-content > .spinner-overlay .spinner::after {
-    animation: bn-coin-pulse 1.8s ease-in-out infinite;
-  }
-}
-
-@keyframes bn-coin-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
-.dashboard-content > .spinner-overlay .loading-text {
-  color: var(--bn-primary);
-  opacity: 0.85;
-  font-weight: 600;
-  font-size: var(--bn-text-sm);
-  letter-spacing: var(--bn-tracking-wide);
-  margin-top: var(--bn-space-3);
-}
-
-/* Skeleton loading */
-.skeleton {
-  background: linear-gradient(90deg, var(--bn-gray-100) 25%, var(--bn-gray-lighter) 50%, var(--bn-gray-100) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: var(--bn-radius-md);
-}
-
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0%, 50%, 100% { opacity: 1; }
+  25%, 75% { opacity: 0.5; }
 }
 
 /* ============================================
@@ -1247,48 +1172,59 @@ table.data-table tbody tr:last-child td {
   display: flex;
   flex-direction: column;
   gap: var(--bn-space-3);
-  max-width: 420px;
+  max-width: 400px;
+  width: calc(100% - var(--bn-space-8));
 }
 
 .toast {
+  display: flex;
+  align-items: center;
+  gap: var(--bn-space-3);
+  padding: var(--bn-space-4) var(--bn-space-5);
   background: var(--bn-white);
   border-radius: var(--bn-radius-lg);
-  padding: var(--bn-space-4) var(--bn-space-5);
-  box-shadow: var(--bn-shadow-xl);
-  display: flex;
-  align-items: flex-start;
-  gap: var(--bn-space-3);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--bn-gray-lighter);
   animation: toast-in 0.4s var(--bn-ease-out);
   border-left: 4px solid var(--bn-gray);
 }
 
-.toast.toast-success { border-color: var(--bn-success); }
-.toast.toast-warning { border-color: var(--bn-warning); }
-.toast.toast-danger { border-color: var(--bn-danger); }
-.toast.toast-info { border-color: var(--bn-info); }
+.toast.toast-success { border-left-color: var(--bn-success); }
+.toast.toast-warning { border-left-color: var(--bn-warning); }
+.toast.toast-danger { border-left-color: var(--bn-danger); }
+.toast.toast-info { border-left-color: var(--bn-info); }
 
 .toast-icon {
   flex-shrink: 0;
   width: 24px;
   height: 24px;
+  border-radius: var(--bn-radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
 }
+
+.toast.toast-success .toast-icon { background: var(--bn-success-light); color: var(--bn-success); }
+.toast.toast-warning .toast-icon { background: var(--bn-warning-light); color: var(--bn-warning); }
+.toast.toast-danger .toast-icon { background: var(--bn-danger-light); color: var(--bn-danger); }
+.toast.toast-info .toast-icon { background: var(--bn-info-light); color: var(--bn-info); }
 
 .toast-content {
   flex: 1;
-  min-width: 0;
 }
 
 .toast-title {
   font-size: var(--bn-text-sm);
   font-weight: 600;
   color: var(--bn-dark);
-  margin-bottom: var(--bn-space-1);
 }
 
 .toast-message {
   font-size: var(--bn-text-sm);
-  color: var(--bn-gray);
-  margin: 0;
+  color: var(--bn-dark);
+  font-weight: 500;
 }
 
 .toast-close {
@@ -1298,7 +1234,8 @@ table.data-table tbody tr:last-child td {
   color: var(--bn-gray);
   cursor: pointer;
   padding: var(--bn-space-1);
-  transition: color var(--bn-transition-fast);
+  font-size: 18px;
+  line-height: 1;
 }
 
 .toast-close:hover {
@@ -1328,1235 +1265,525 @@ table.data-table tbody tr:last-child td {
 }
 
 /* ============================================
-   MODAL SYSTEM
+   NOTIFICATION DROPDOWN (bell icon dropdown)
    ============================================ */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(10, 22, 40, 0.8);
-  backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: var(--z-modal);
-  padding: var(--bn-space-4);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--bn-transition-base);
-}
-
-.modal-overlay.active,
-.modal-overlay:not(.hidden) {
-  opacity: 1;
-  pointer-events: all;
-}
-
-.modal-overlay.hidden {
-  display: none;
-}
-
-.modal-content {
-  background: var(--bn-white);
-  border-radius: var(--bn-radius-2xl);
-  width: 100%;
-  max-width: 560px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: var(--bn-shadow-xl);
-  transform: scale(0.95) translateY(20px);
-  transition: transform var(--bn-transition-base);
-}
-
-/* Wider modal when it contains a table */
-.modal-content:has(.table-container),
-.modal-content:has(.table),
-.modal-content.modal-wide {
-  max-width: 900px;
-}
-
-@media (max-width: 768px) {
-  .modal-content:has(.table-container),
-  .modal-content:has(.table),
-  .modal-content.modal-wide {
-    max-width: 100%;
-  }
-  .modal-content {
-    max-width: 100%;
-    border-radius: var(--bn-radius-lg);
-  }
-}
-
-.modal-overlay.active .modal-content,
-.modal-overlay:not(.hidden) .modal-content {
-  transform: scale(1) translateY(0);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--bn-space-6);
-  border-bottom: 1px solid var(--bn-gray-lighter);
-}
-
-.modal-title {
-  font-size: var(--bn-text-xl);
-  font-weight: 700;
-  margin: 0;
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--bn-radius-md);
-  color: var(--bn-gray);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--bn-transition-fast);
-}
-
-.modal-close:hover {
-  background: var(--bn-gray-100);
-  color: var(--bn-dark);
-}
-
-.modal-body {
-  padding: var(--bn-space-6);
-}
-
-.modal-footer {
-  padding: var(--bn-space-4) var(--bn-space-6);
-  border-top: 1px solid var(--bn-gray-lighter);
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--bn-space-3);
-}
-
-/* ============================================
-   AVATAR SYSTEM
-   ============================================ */
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--bn-radius-full);
-  object-fit: cover;
-  background: var(--bn-gradient-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--bn-white);
-  font-weight: 600;
-  font-size: var(--bn-text-sm);
-  flex-shrink: 0;
-}
-
-.avatar-xs { width: 24px; height: 24px; font-size: var(--bn-text-xs); }
-.avatar-sm { width: 32px; height: 32px; font-size: var(--bn-text-xs); }
-.avatar-lg { width: 56px; height: 56px; font-size: var(--bn-text-lg); }
-.avatar-xl { width: 72px; height: 72px; font-size: var(--bn-text-xl); }
-.avatar-2xl { width: 96px; height: 96px; font-size: var(--bn-text-2xl); }
-
-.avatar-group {
-  display: flex;
-}
-
-.avatar-group .avatar {
-  border: 2px solid var(--bn-white);
-  margin-left: -8px;
-}
-
-.avatar-group .avatar:first-child {
-  margin-left: 0;
-}
-
-/* ============================================
-   DROPDOWN MENU
-   ============================================ */
-.dropdown {
-  position: relative;
-}
-
-.dropdown-menu {
+.notification-dropdown {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  min-width: 200px;
+  width: 380px;
+  max-width: calc(100vw - var(--bn-space-8));
+  max-height: 480px;
   background: var(--bn-white);
-  border-radius: var(--bn-radius-lg);
-  box-shadow: var(--bn-shadow-xl);
+  border-radius: var(--bn-radius-xl);
+  box-shadow: 0 20px 60px rgba(10, 22, 40, 0.2);
   border: 1px solid var(--bn-gray-lighter);
-  padding: var(--bn-space-2);
-  z-index: var(--z-dropdown);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-8px);
-  transition: all var(--bn-transition-fast);
-}
-
-.dropdown.open .dropdown-menu {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-}
-
-.dropdown-item {
+  z-index: var(--z-popover);
   display: flex;
-  align-items: center;
-  gap: var(--bn-space-3);
-  padding: var(--bn-space-3) var(--bn-space-4);
-  font-size: var(--bn-text-sm);
-  color: var(--bn-gray-700);
-  text-decoration: none;
-  border-radius: var(--bn-radius-md);
-  cursor: pointer;
-  transition: all var(--bn-transition-fast);
-  border: none;
-  background: none;
-  width: 100%;
-  text-align: left;
-}
-
-.dropdown-item:hover {
-  background: var(--bn-gray-100);
-  color: var(--bn-dark);
-}
-
-.dropdown-divider {
-  height: 1px;
-  background: var(--bn-gray-lighter);
-  margin: var(--bn-space-2) 0;
-}
-
-/* ============================================
-   EMPTY STATE
-   ============================================ */
-.empty-state {
-  text-align: center;
-  padding: var(--bn-space-16) var(--bn-space-6);
-}
-
-.empty-state-icon {
-  font-size: 64px;
-  margin-bottom: var(--bn-space-4);
-  opacity: 0.4;
-}
-
-.empty-state-title {
-  font-size: var(--bn-text-lg);
-  font-weight: 600;
-  color: var(--bn-dark);
-  margin-bottom: var(--bn-space-2);
-}
-
-.empty-state-text {
-  font-size: var(--bn-text-sm);
-  color: var(--bn-gray);
-  max-width: 320px;
-  margin: 0 auto var(--bn-space-6);
-}
-
-/* ============================================
-   UTILITY CLASSES
-   ============================================ */
-.hidden { display: none !important; }
-.visible { display: block !important; }
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
+  flex-direction: column;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+  animation: notif-dropdown-in 0.25s var(--bn-ease-out);
 }
 
-/* Flexbox */
-.flex { display: flex; }
-.flex-col { flex-direction: column; }
-.flex-wrap { flex-wrap: wrap; }
-.items-start { align-items: flex-start; }
-.items-center { align-items: center; }
-.items-end { align-items: flex-end; }
-.justify-start { justify-content: flex-start; }
-.justify-center { justify-content: center; }
-.justify-end { justify-content: flex-end; }
-.justify-between { justify-content: space-between; }
-.gap-1 { gap: var(--bn-space-1); }
-.gap-2 { gap: var(--bn-space-2); }
-.gap-3 { gap: var(--bn-space-3); }
-.gap-4 { gap: var(--bn-space-4); }
-.gap-5 { gap: var(--bn-space-5); }
-.gap-6 { gap: var(--bn-space-6); }
-.gap-8 { gap: var(--bn-space-8); }
-
-/* Grid */
-.grid { display: grid; gap: var(--bn-space-6); }
-.grid-cols-1 { grid-template-columns: repeat(1, 1fr); }
-.grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
-.grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
-.grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
-
-@media (max-width: 768px) {
-  .grid-cols-2,
-  .grid-cols-3,
-  .grid-cols-4 {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (min-width: 769px) and (max-width: 1024px) {
-  .grid-cols-3,
-  .grid-cols-4 {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-/* Spacing */
-.m-0 { margin: 0; }
-.mt-1 { margin-top: var(--bn-space-1); }
-.mt-2 { margin-top: var(--bn-space-2); }
-.mt-3 { margin-top: var(--bn-space-3); }
-.mt-4 { margin-top: var(--bn-space-4); }
-.mt-6 { margin-top: var(--bn-space-6); }
-.mt-8 { margin-top: var(--bn-space-8); }
-.mb-1 { margin-bottom: var(--bn-space-1); }
-.mb-2 { margin-bottom: var(--bn-space-2); }
-.mb-3 { margin-bottom: var(--bn-space-3); }
-.mb-4 { margin-bottom: var(--bn-space-4); }
-.mb-6 { margin-bottom: var(--bn-space-6); }
-.mb-8 { margin-bottom: var(--bn-space-8); }
-
-.p-0 { padding: 0; }
-.p-4 { padding: var(--bn-space-4); }
-.p-6 { padding: var(--bn-space-6); }
-.p-8 { padding: var(--bn-space-8); }
-
-/* Text */
-.text-center { text-align: center; }
-.text-left { text-align: left; }
-.text-right { text-align: right; }
-
-/* Width */
-.w-full { width: 100%; }
-.max-w-sm { max-width: 384px; }
-.max-w-md { max-width: 448px; }
-.max-w-lg { max-width: 512px; }
-.max-w-xl { max-width: 576px; }
-.max-w-2xl { max-width: 672px; }
-.max-w-4xl { max-width: 896px; }
-.max-w-6xl { max-width: 1152px; }
-
-/* ============================================
-   ANIMATIONS
-   ============================================ */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes fadeInUp {
+@keyframes notif-dropdown-in {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(-8px) scale(0.96);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slideInRight {
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.animate-fade-in { animation: fadeIn 0.4s var(--bn-ease-out); }
-.animate-fade-in-up { animation: fadeInUp 0.5s var(--bn-ease-out); }
-.animate-fade-in-down { animation: fadeInDown 0.5s var(--bn-ease-out); }
-.animate-slide-in-right { animation: slideInRight 0.5s var(--bn-ease-out); }
-.animate-scale-in { animation: scaleIn 0.3s var(--bn-ease-out); }
-
-/* Stagger animation delays */
-.stagger-1 { animation-delay: 0.1s; }
-.stagger-2 { animation-delay: 0.2s; }
-.stagger-3 { animation-delay: 0.3s; }
-.stagger-4 { animation-delay: 0.4s; }
-.stagger-5 { animation-delay: 0.5s; }
-
-/* ============================================
-   RESPONSIVE BREAKPOINTS REFERENCE
-   ============================================ */
-/* 
-  xs: 0 - 479px (mobile small)
-  sm: 480px - 639px (mobile large)
-  md: 640px - 767px (tablet small)
-  lg: 768px - 1023px (tablet large)
-  xl: 1024px - 1279px (desktop small)
-  2xl: 1280px+ (desktop large)
-*/
-
-/* ============================================
-   MOTION & INTERACTION POLISH  (app-wide layer)
-   ============================================
-   Applies to every page via the shared sheet. Entrance motion is gated behind
-   `prefers-reduced-motion: no-preference` so it never plays for users who ask
-   for less motion; the interaction/hover refinements below are motion-light
-   and safe in both modes. Purely presentational — no layout-shifting
-   properties are animated (transform/opacity/color only). */
-
-/* ── Page entrance ─────────────────────────────────────────────────────── */
-@media (prefers-reduced-motion: no-preference) {
-  @keyframes bn-rise-in {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: none; }
-  }
-
-  /* Top-level page blocks ease in with a short natural stagger. Scoped to
-     direct children of the content region so nested cards don't double-animate
-     (and so runtime-injected nav/sidebar chrome is never touched). */
-  .dashboard-content > .content-card,
-  .dashboard-content > .content-section,
-  .dashboard-content > .hero-section,
-  .dashboard-content > .page-stats,
-  .dashboard-content > .quick-action-grid,
-  .dashboard-content > .stats-grid,
-  .dashboard-content > .page-group-selector,
-  .dashboard-content > .action-tabs,
-  .dashboard-content > .payment-tabs,
-  .dashboard-content > .charts-grid,
-  .dashboard-content > .table-container {
-    animation: bn-rise-in 420ms var(--bn-ease-out) both;
-  }
-  .dashboard-content > *:nth-child(1) { animation-delay: 0ms; }
-  .dashboard-content > *:nth-child(2) { animation-delay: 45ms; }
-  .dashboard-content > *:nth-child(3) { animation-delay: 90ms; }
-  .dashboard-content > *:nth-child(4) { animation-delay: 135ms; }
-  .dashboard-content > *:nth-child(5) { animation-delay: 175ms; }
-  .dashboard-content > *:nth-child(n+6) { animation-delay: 210ms; }
-
-  /* Pre-auth pages (invitation / registration / complete-profile) are
-     shell-less — no .dashboard-content — so their own containers get the same
-     entrance so the app feels consistent from the very first screen. */
-  .invitation-container,
-  .registration-container,
-  .profile-container {
-    animation: bn-rise-in 420ms var(--bn-ease-out) both;
-  }
-}
-
-/* NOTE: modal entrance is deliberately NOT animated here. Modals already have
-   their own entrance motion — a scale/translate transition in this sheet
-   (.modal-content) and a mobile bottom-sheet slide in mobile-modals.css that
-   uses !important. Adding a keyframe animation on transform would override the
-   former and fight the latter, so the existing behaviour is left untouched. */
-
-/* ── Buttons: crisper press + hover feedback ───────────────────────────── */
-.btn {
-  transition:
-    background-color var(--bn-transition-base),
-    border-color var(--bn-transition-base),
-    color var(--bn-transition-base),
-    box-shadow var(--bn-transition-base),
-    transform var(--bn-transition-fast),
-    opacity var(--bn-transition-base);
-}
-.btn:not(:disabled):active {
-  transform: translateY(1px) scale(0.985);
-}
-.btn:focus-visible {
-  outline: 2px solid var(--bn-accent);
-  outline-offset: 2px;
-}
-
-/* ── Cards: softer, more deliberate lift ───────────────────────────────── */
-.content-card,
-.card,
-.stat-card {
-  transition:
-    transform var(--bn-transition-base),
-    box-shadow var(--bn-transition-base),
-    border-color var(--bn-transition-base);
-}
-
-/* ── Tables: readable row affordance ───────────────────────────────────── */
-.table tbody tr,
-.data-table table tbody tr {
-  transition: background-color var(--bn-transition-fast);
-}
-
-/* ── Forms: calmer focus ring ──────────────────────────────────────────── */
-.form-input,
-.form-select,
-.form-textarea {
-  transition:
-    border-color var(--bn-transition-fast),
-    box-shadow var(--bn-transition-fast),
-    background-color var(--bn-transition-fast);
-}
-
-/* ── Links & interactive icons ─────────────────────────────────────────── */
-.sidebar-nav-item,
-.mobile-nav-item,
-.topbar-btn {
-  transition:
-    background-color var(--bn-transition-fast),
-    color var(--bn-transition-fast),
-    transform var(--bn-transition-fast);
-}
-
-/* ── Global reduced-motion guard ───────────────────────────────────────── */
-/* The app previously had no blanket guard (only one loader-specific rule), so
-   every decorative transition/animation ran regardless of the OS setting.
-   This makes the whole app honour it. */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-/* ── Accounting-grade numerals ─────────────────────────────────────────── */
-/* Money and counts render with tabular (fixed-width) figures so digits line up
-   vertically in tables and stat rows — the convention every accounting UI
-   uses. Applies to table cells and the app's figure-bearing display classes. */
-.table td,
-.data-table table td,
-table.data-table td,
-.stat-value,
-.page-stat-value,
-.hero-stat-value,
-.acct-total-value,
-.fin-kpi-value,
-.trend-month-label,
-.breakdown-card-value,
-.pie-chart-center-value,
-.summary-value,
-.metric-value {
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
-}
-
-/* ── Refined scrollbars ────────────────────────────────────────────────── */
-/* The app had no scrollbar styling: every scroll region (tables, long lists,
-   the sidebar) fell back to the heavy OS default. These are slim and recede
-   until hovered. Firefox uses the standard properties; WebKit/Blink the
-   vendor pseudo-elements. */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--bn-gray-light) transparent;
-}
-
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background-color: var(--bn-gray-light);
-  border-radius: var(--bn-radius-full);
-  border: 2px solid transparent;
-  background-clip: content-box;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background-color: var(--bn-gray-400);
-  background-clip: content-box;
-}
-
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
-
-/* ── Branded text selection ────────────────────────────────────────────── */
-::selection {
-  background: var(--bn-accent-light);
-  color: var(--bn-dark);
-}
-
-/* ── Keyboard focus baseline ───────────────────────────────────────────── */
-/* The sheet previously defined a single focus-visible rule, so most
-   interactive elements relied on the browser default (or on `outline: none`
-   set by a component with no replacement). This guarantees every keyboard
-   user gets a consistent, high-contrast focus ring. Mouse users are
-   unaffected — :focus-visible only matches keyboard/AT focus. */
-a:focus-visible,
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible,
-summary:focus-visible,
-[tabindex]:not([tabindex="-1"]):focus-visible {
-  outline: 2px solid var(--bn-accent);
-  outline-offset: 2px;
-}
-
-/* ── Empty states: calmer, less "big emoji" ────────────────────────────── */
-.empty-state-icon {
-  font-size: 40px;
-  opacity: 0.5;
-  line-height: 1;
-}
-
-/* ── Small-screen guards ───────────────────────────────────────────────── */
-/* NOTE: no blanket grid override is applied here. Audited every auto-fit grid
-   in the app — .card-grid (pages.css), .charts-grid (analytics), .stats-grid
-   (user_analytics, deliberately 2-up on mobile), .quick-action-grid (also
-   deliberately 2-up) and contacts' grid (gated to >=769px) all already
-   declare correct small-screen behaviour. A global `!important` collapse
-   would have overridden those intentional layouts, so only the genuinely
-   unhandled grid is fixed, below. */
-
-@media (max-width: 480px) {
-  /* contributions_overview's monthly grid is the one auto-fit grid with no
-     small-screen rule of its own; its 280px min track can exceed the content
-     box on a 320px device once page and card padding are subtracted. */
-  .monthly-breakdown-grid {
-    grid-template-columns: 1fr;
-  }
-
-  /* Long unbroken figures shouldn't force horizontal scroll. */
-  .stat-value,
-  .page-stat-value,
-  .hero-stat-value,
-  .acct-total-value,
-  .fin-kpi-value {
-    overflow-wrap: break-word;
-  }
-}
-
-/* ── Mobile density: figure cards go 2-up, not 1-up ─────────────────────────
-   The grids below hold COMPACT cards — a title, one figure, one line of meta.
-   Their auto-fit min track (280px) is wider than a phone's content box, so
-   auto-fit resolved to a single column and a screen that could show six
-   figures showed one and a half, turning every summary block into a long
-   scroll of near-empty full-width cards.
-   Scoped deliberately, NOT applied blanket-wide (see the audit note above):
-   only grids whose cards are label+value are listed. Grids holding charts
-   (#chartContainer, #monthlyTrendChart) or dense tables stay single-column,
-   because two 160px-wide charts are unreadable.
-   `minmax(0, 1fr)` rather than `1fr`: a grid item's default min-width:auto
-   would let a long unbroken figure widen its own track and push the row past
-   the viewport.
-
-   Only the grids whose one-column rule lives in THIS sheet's cascade layer
-   are handled here — #accountingFiguresBlock wins on id specificity over
-   analytics.html's inline `.charts-grid { 1fr }`. The equivalent fixes for
-   .card-grid (pages.css) and .monthly-breakdown-grid (page-inline) have to be
-   made in those files, because both load after this one and would otherwise
-   win on source order. */
-@media (max-width: 768px) {
-  #accountingFiguresBlock {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--bn-space-3);
-  }
-
-  /* The block title still spans the full row (analytics.html sets this on
-     the desktop grid; restated here so it survives the column change). */
-  #accountingFiguresBlock > h3 {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (max-width: 480px) {
-  #accountingFiguresBlock {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--bn-space-2);
-  }
-}
-
-/* ============================================
-   STANDARD VOCABULARY COMPLETION
-   ============================================
-   Fills the gaps that were forcing pages into one-off inline styles, and
-   promotes the most-repeated inline patterns (a section label, a field hint,
-   a space-between row) into named, token-based classes so every page shares
-   ONE vocabulary. Purely additive — nothing existing is altered. */
-
-/* ── Spacing utilities (complete the scale) ────────────────────────────── */
-.mt-5 { margin-top: var(--bn-space-5); }
-.mb-5 { margin-bottom: var(--bn-space-5); }
-.mt-auto { margin-top: auto; }
-.mb-0 { margin-bottom: 0; }
-.ml-auto { margin-left: auto; }
-.mr-auto { margin-right: auto; }
-.mx-auto { margin-left: auto; margin-right: auto; }
-.p-2 { padding: var(--bn-space-2); }
-.p-3 { padding: var(--bn-space-3); }
-.p-5 { padding: var(--bn-space-5); }
-.gap-0 { gap: 0; }
-
-/* ── Layout shortcuts ──────────────────────────────────────────────────── */
-.flex-1 { flex: 1; }
-.flex-between {
+.notification-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--bn-space-3);
+  padding: var(--bn-space-4) var(--bn-space-5);
+  border-bottom: 1px solid var(--bn-gray-lighter);
+  flex-shrink: 0;
 }
-.flex-center {
+
+.notification-header-title {
+  font-size: var(--bn-text-base);
+  font-weight: 700;
+  color: var(--bn-dark);
+}
+
+.notification-header-actions {
   display: flex;
   align-items: center;
   gap: var(--bn-space-2);
 }
-.w-full { width: 100%; }
-.h-full { height: 100%; }
-.min-w-0 { min-width: 0; }
-.relative { position: relative; }
-.nowrap { white-space: nowrap; }
-.truncate {
+
+.notification-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--bn-gray-100);
+  border-radius: var(--bn-radius-full);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--bn-gray);
+  transition: all var(--bn-transition-fast);
+}
+
+.notification-close:hover {
+  background: var(--bn-gray-lighter);
+  color: var(--bn-dark);
+}
+
+.notification-list {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--bn-space-3);
+  padding: var(--bn-space-4) var(--bn-space-5);
+  cursor: pointer;
+  transition: background var(--bn-transition-fast);
+  border-bottom: 1px solid var(--bn-gray-100);
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-item:hover {
+  background: var(--bn-gray-50);
+}
+
+.notification-item.unread {
+  background: var(--bn-accent-subtle);
+}
+
+.notification-item.unread:hover {
+  background: rgba(201, 162, 39, 0.12);
+}
+
+.notification-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--bn-radius-full);
+  background: var(--bn-gray-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.notification-item.unread .notification-icon {
+  background: var(--bn-accent-subtle);
+}
+
+.notification-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-title {
+  font-size: var(--bn-text-sm);
+  font-weight: 600;
+  color: var(--bn-dark);
+  margin-bottom: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* ── Text utilities ────────────────────────────────────────────────────── */
-.text-xs { font-size: var(--bn-text-xs); }
-.text-sm { font-size: var(--bn-text-sm); }
-.text-base { font-size: var(--bn-text-base); }
-.text-lg { font-size: var(--bn-text-lg); }
-.font-semibold { font-weight: 600; }
-.font-bold { font-weight: 700; }
-.font-extrabold { font-weight: 800; }
-.text-success { color: var(--bn-success-dark); }
-.text-warning { color: var(--bn-warning-dark); }
-.text-danger { color: var(--bn-danger-dark); }
-.text-info { color: var(--bn-info); }
-
-/* ── Repeated component patterns → named classes ───────────────────────── */
-/* An uppercase section/field label (appeared 7× inline, verbatim). */
-.section-label {
+.notification-message {
   font-size: var(--bn-text-xs);
-  font-weight: 700;
-  color: var(--bn-gray);
-  text-transform: uppercase;
-  letter-spacing: var(--bn-tracking-wider);
-  margin-bottom: var(--bn-space-2);
-}
-
-/* Small muted helper text under a field/value (appeared 8× inline). */
-.field-hint {
-  display: block;
-  font-size: var(--bn-text-xs);
-  color: var(--bn-gray);
-  margin-top: var(--bn-space-1);
+  color: var(--bn-gray-700);
   line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-/* A label:value row that pushes the value to the right (appeared 4×+). */
-.detail-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--bn-space-2);
-  padding: var(--bn-space-2) 0;
-}
-.detail-row:not(:last-child) {
-  border-bottom: 1px solid var(--bn-gray-100);
-}
-.detail-row-label {
-  color: var(--bn-gray);
-  font-size: var(--bn-text-sm);
-}
-.detail-row-value {
-  font-weight: 600;
-  color: var(--bn-dark);
-  font-variant-numeric: tabular-nums;
+.notification-time {
+  font-size: 11px;
+  color: var(--bn-gray-400);
+  margin-top: var(--bn-space-1);
 }
 
-/* ============================================
-   CARD INFO ("i") — shared, body-rendered panel
-   ============================================
-   Pairs with scripts/card_info.js. The PANEL is a child of <body>, never of
-   the card, so no ancestor overflow/transform/stacking context can clip it —
-   the failure mode every in-card popover hit. The TOGGLE sits in the card. */
-
-.bn-info-toggle {
-  position: absolute;
-  top: var(--bn-space-2);
-  right: var(--bn-space-2);
-  z-index: 2;
-  width: 26px;
-  height: 26px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  font-family: inherit;
-  font-size: var(--bn-text-xs);
-  font-weight: 800;
-  font-style: italic;
-  line-height: 1;
-  color: var(--bn-gray-700);
-  background: var(--bn-gray-100);
-  border: 1px solid var(--bn-gray-lighter);
+.notification-dismiss {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
   border-radius: var(--bn-radius-full);
   cursor: pointer;
-  transition: background-color var(--bn-transition-fast), color var(--bn-transition-fast);
-}
-
-/* A comfortable tap target without a 44px disc dominating a small card: the
-   button paints at 26px but its hit area is padded out to 44px. */
-.bn-info-toggle::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 44px;
-  height: 44px;
-  transform: translate(-50%, -50%);
-}
-
-.bn-info-toggle:hover {
-  background: var(--bn-accent);
-  color: var(--bn-dark);
-}
-
-.bn-info-toggle[aria-expanded="true"] {
-  background: var(--bn-accent);
-  color: var(--bn-dark);
-  border-color: var(--bn-accent);
-}
-
-.bn-info-panel {
-  /* Hidden by default and shown via .is-open. Relying on the [hidden]
-     attribute alone was fragile: any author rule setting a display on this
-     element would silently defeat it, and the panel would stay invisible with
-     no error. An explicit class makes the open state unambiguous. */
-  display: none;
-  position: fixed;
-  z-index: var(--z-tooltip);
-  max-width: min(300px, calc(100vw - var(--bn-space-8)));
-  padding: var(--bn-space-3) var(--bn-space-4);
-  background: var(--bn-white);
-  color: var(--bn-gray-700);
-  border: 1px solid var(--bn-gray-lighter);
-  border-radius: var(--bn-radius-md);
-  box-shadow: var(--bn-shadow-lg);
-  font-size: var(--bn-text-sm);
-  line-height: 1.5;
-  text-align: left;
-}
-
-.bn-info-panel.is-open { display: block; }
-
-/* Rows, when a caller builds a label/value breakdown into the panel. */
-.bn-info-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--bn-space-3);
-  padding: var(--bn-space-1) 0;
-}
-.bn-info-row:not(:last-child) {
-  border-bottom: 1px solid var(--bn-gray-100);
-}
-.bn-info-row-label { color: var(--bn-gray); }
-.bn-info-row-value {
-  font-weight: 700;
-  color: var(--bn-dark);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.bn-info-title {
-  font-weight: 800;
-  color: var(--bn-dark);
-  margin-bottom: var(--bn-space-2);
-}
-
-/* Any card hosting an info toggle needs a positioning context and room for it. */
-.acct-total,
-.acct-category,
-.bn-has-info {
-  position: relative;
-}
-
-/* ============================================
-   SURFACE ELEVATION SCALE
-   ============================================
-   The app had one flat card treatment, so a nested card read the same as the
-   section containing it and pages had no visual "order". These three levels
-   give every screen a readable hierarchy: the page sits on L0, primary
-   sections on L1, cards inside them on L2, and anything nested deeper drops
-   back to a recessed tint rather than stacking more shadow. */
-
-.surface-1 {
-  background: var(--bn-white);
-  border: 1px solid var(--bn-gray-lighter);
-  border-radius: var(--bn-radius-xl);
-  box-shadow: var(--bn-shadow-sm);
-}
-
-.surface-2 {
-  background: var(--bn-white);
-  border: 1px solid var(--bn-gray-lighter);
-  border-radius: var(--bn-radius-lg);
-  box-shadow: var(--bn-shadow-xs);
-}
-
-/* Recessed: for a panel INSIDE a card. Depth by tint, not by more shadow —
-   stacking shadows at this level is what makes dense screens look muddy. */
-.surface-sunken {
-  background: var(--bn-gray-50, #f9fafb);
-  border: 1px solid var(--bn-gray-lighter);
-  border-radius: var(--bn-radius-lg);
-  box-shadow: none;
-}
-
-/* ============================================
-   SECTION HEADER — one consistent header shape
-   ============================================ */
-.section-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--bn-space-3);
-  margin-bottom: var(--bn-space-4);
-}
-
-.section-head-text { min-width: 0; }
-
-.section-head-title {
-  font-size: var(--bn-text-lg);
-  font-weight: 800;
-  color: var(--bn-dark);
-  letter-spacing: var(--bn-tracking-tight);
-  line-height: 1.25;
-}
-
-/* The line that turns a bare title into something a user can act on. */
-.section-head-desc {
-  margin-top: 2px;
-  font-size: var(--bn-text-sm);
-  color: var(--bn-gray);
-  line-height: 1.5;
-}
-
-.section-head-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--bn-space-2);
-  flex-shrink: 0;
-}
-
-/* ============================================
-   SKELETON LOADING
-   ============================================
-   A full-page spinner overlay hides the layout, then everything snaps in at
-   once. Content-shaped skeletons keep the page structure visible while data
-   loads, so nothing jumps. Built on the existing .skeleton shimmer. */
-
-.sk {
-  background: linear-gradient(90deg, var(--bn-gray-100) 25%, var(--bn-gray-lighter) 50%, var(--bn-gray-100) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: var(--bn-radius-sm);
-  /* Skeletons are decoration standing in for content — never read them out. */
-  user-select: none;
-}
-
-.sk-line {
-  height: 12px;
-  margin-bottom: var(--bn-space-2);
-}
-.sk-line:last-child { margin-bottom: 0; }
-.sk-line.w-25 { width: 25%; }
-.sk-line.w-40 { width: 40%; }
-.sk-line.w-60 { width: 60%; }
-.sk-line.w-80 { width: 80%; }
-
-.sk-title {
-  height: 18px;
-  width: 45%;
-  margin-bottom: var(--bn-space-3);
-  border-radius: var(--bn-radius-sm);
-}
-
-.sk-figure {
-  height: 26px;
-  width: 60%;
-  margin-bottom: var(--bn-space-2);
-}
-
-.sk-circle {
-  border-radius: var(--bn-radius-full);
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-}
-
-/* A skeleton shaped like a stat tile / table row, so the real content lands
-   in the same place it was standing in. */
-.sk-tile {
-  padding: var(--bn-space-4);
-  border: 1px solid var(--bn-gray-lighter);
-  border-radius: var(--bn-radius-lg);
-  background: var(--bn-white);
-}
-
-.sk-row {
-  display: flex;
-  align-items: center;
-  gap: var(--bn-space-3);
-  padding: var(--bn-space-3) var(--bn-space-4);
-  border-bottom: 1px solid var(--bn-gray-lighter);
-}
-.sk-row:last-child { border-bottom: 0; }
-.sk-row .sk-line { margin-bottom: 0; }
-
-/* ============================================
-   EMPTY STATES — with somewhere to go
-   ============================================
-   Empty states previously ended at an icon and a sentence, which tells a user
-   nothing about what to do. This adds a proper action slot. */
-
-.empty-state-actions {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-wrap: wrap;
-  gap: var(--bn-space-2);
-  margin-top: var(--bn-space-5);
+  font-size: 14px;
+  color: var(--bn-gray-400);
+  opacity: 0;
+  transition: all var(--bn-transition-fast);
 }
 
-/* An empty state that means "nothing is wrong, you're just done" reads
-   positive rather than like a missing-data error. */
-.empty-state.is-good .empty-state-icon { opacity: 0.85; }
-.empty-state.is-good .empty-state-title { color: var(--bn-success-dark); }
+.notification-item:hover .notification-dismiss {
+  opacity: 1;
+}
 
-/* ============================================
-   STATUS PILL — state that reads at a glance
-   ============================================
-   A dot carries the state alongside the word, so status is never colour-alone
-   (colour-blind users, greyscale printing) and scans faster in a dense table. */
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--bn-space-2);
-  padding: 3px var(--bn-space-3) 3px var(--bn-space-2);
-  border-radius: var(--bn-radius-full);
-  font-size: var(--bn-text-xs);
-  font-weight: 700;
-  line-height: 1.6;
-  white-space: nowrap;
+.notification-dismiss:hover {
   background: var(--bn-gray-100);
   color: var(--bn-gray-700);
 }
 
-.status-pill::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
+.notification-empty {
+  padding: var(--bn-space-8) var(--bn-space-5);
+  text-align: center;
+  color: var(--bn-gray);
+  font-size: var(--bn-text-sm);
 }
 
-.status-pill.is-success { background: var(--bn-success-light); color: var(--bn-success-dark); }
-.status-pill.is-warning { background: var(--bn-warning-light); color: var(--bn-warning-dark); }
-.status-pill.is-danger  { background: var(--bn-danger-light);  color: var(--bn-danger-dark); }
-.status-pill.is-info    { background: var(--bn-info-light);    color: var(--bn-info); }
+/* Mobile: full-width bottom sheet for notification dropdown */
+@media (max-width: 768px) {
+  .notification-dropdown {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: 80vh;
+    border-radius: var(--bn-radius-2xl) var(--bn-radius-2xl) 0 0;
+    animation: notif-sheet-up 0.3s var(--bn-ease-out);
+  }
+
+  @keyframes notif-sheet-up {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
 
 /* ============================================
-   TABLE REFINEMENT
+   MESSAGES / CHAT INBOX
    ============================================ */
-
-/* The header stays put while a long list scrolls — otherwise a user loses
-   which column they're reading halfway down a members or payments table. */
-.table-container {
-  max-height: 70vh;
-  overflow-y: auto;
+.messages-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bn-space-3);
 }
 
-.table thead th,
-.data-table table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-/* Money and counts right-align so magnitudes line up and are comparable down
-   the column — the single biggest readability win in a financial table. */
-.table td.num,
-.table th.num,
-.data-table table td.num,
-.data-table table th.num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Clickable summary tiles (.page-stat + .is-clickable, wired by ui.js's
-   makeStatClickable). These tiles were dead across most admin pages — a user
-   taps "Pending: 4" expecting to see those four. The affordance has to be
-   visible, or the interaction stays undiscoverable. */
-.page-stat.is-clickable {
+.message-item {
+  background: var(--bn-white);
+  border-radius: var(--bn-radius-lg);
+  padding: var(--bn-space-5);
+  border: 1px solid var(--bn-gray-lighter);
   cursor: pointer;
+  transition: all var(--bn-transition-base);
 }
 
-.page-stat.is-clickable:hover {
-  border-color: var(--bn-accent);
+.message-item:hover {
+  border-color: var(--bn-primary);
   box-shadow: var(--bn-shadow-md);
-  transform: translateY(-2px);
 }
 
-.page-stat.is-clickable:focus-visible {
+.message-item.unread {
+  background: var(--bn-accent-subtle);
+  border-color: var(--bn-accent);
+}
+
+.message-item:focus-visible {
   outline: 2px solid var(--bn-accent);
   outline-offset: 2px;
 }
 
-/* Settings > Display > "Show info buttons on cards" = off.
-   The module also skips creating them, but this guarantees none can appear
-   during an SPA content swap or before the preference is read. */
-.bn-no-card-info .bn-info-toggle,
-.bn-no-card-info .bn-info-panel {
-  display: none !important;
+.message-item.read {
+  opacity: 0.7;
 }
 
-/* Settings preference row. */
-.pref-row {
+.message-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--bn-space-4);
-  padding: var(--bn-space-4) 0;
-  cursor: pointer;
+  margin-bottom: var(--bn-space-3);
 }
-.pref-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.pref-title { font-weight: 600; color: var(--bn-dark); }
-.pref-desc { font-size: var(--bn-text-sm); color: var(--bn-gray); line-height: 1.5; }
-.pref-switch { width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; cursor: pointer; accent-color: var(--bn-accent); }
+
+.message-title {
+  font-size: var(--bn-text-base);
+  font-weight: 700;
+  color: var(--bn-dark);
+  margin: 0 0 var(--bn-space-1);
+}
+
+.message-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--bn-space-3);
+  font-size: var(--bn-text-xs);
+  color: var(--bn-gray);
+}
+
+.message-type-badge {
+  padding: 2px 8px;
+  border-radius: var(--bn-radius-full);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.message-type-badge.info {
+  background: var(--bn-info-light);
+  color: var(--bn-info);
+}
+
+.message-type-badge.success {
+  background: var(--bn-success-light);
+  color: var(--bn-success);
+}
+
+.message-type-badge.warning {
+  background: var(--bn-warning-light);
+  color: var(--bn-warning);
+}
+
+.message-type-badge.danger {
+  background: var(--bn-danger-light);
+  color: var(--bn-danger);
+}
+
+.message-body {
+  font-size: var(--bn-text-sm);
+  color: var(--bn-gray-700);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  margin-bottom: var(--bn-space-3);
+}
+
+.message-actions {
+  display: flex;
+  gap: var(--bn-space-2);
+  padding-top: var(--bn-space-3);
+  border-top: 1px solid var(--bn-gray-lighter);
+  flex-wrap: wrap;
+}
+
+/* Action tabs (filter pills) */
+.action-tabs {
+  display: flex;
+  gap: var(--bn-space-2);
+  margin-bottom: var(--bn-space-6);
+  padding: var(--bn-space-2);
+  background: var(--bn-gray-100);
+  border-radius: var(--bn-radius-full);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.action-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: var(--bn-space-2) var(--bn-space-4);
+  border: none;
+  background: transparent;
+  border-radius: var(--bn-radius-full);
+  font-size: var(--bn-text-sm);
+  font-weight: 600;
+  color: var(--bn-gray);
+  cursor: pointer;
+  transition: all var(--bn-transition-fast);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.action-tab.active {
+  background: var(--bn-white);
+  color: var(--bn-dark);
+  box-shadow: var(--bn-shadow-sm);
+}
+
+.action-tab:focus-visible {
+  outline: 2px solid var(--bn-accent);
+  outline-offset: 2px;
+}
+
+/* Message modal */
+.message-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 22, 40, 0.8);
+  backdrop-filter: blur(8px);
+  z-index: var(--z-modal);
+  padding: var(--bn-space-4);
+  align-items: center;
+  justify-content: center;
+}
+
+.message-modal.active {
+  display: flex;
+}
+
+.message-modal-content {
+  background: var(--bn-white);
+  border-radius: var(--bn-radius-xl);
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--bn-shadow-xl);
+  animation: modal-in 0.25s var(--bn-ease-out);
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.message-modal-header {
+  padding: var(--bn-space-5) var(--bn-space-6);
+  border-bottom: 1px solid var(--bn-gray-lighter);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  background: var(--bn-white);
+  z-index: 1;
+}
+
+.message-modal-title {
+  font-size: var(--bn-text-lg);
+  font-weight: 700;
+  color: var(--bn-dark);
+  margin: 0;
+}
+
+.message-modal-close {
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: var(--bn-gray-100);
+  border-radius: var(--bn-radius-full);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--bn-text-xl);
+  color: var(--bn-gray);
+  transition: all var(--bn-transition-fast);
+}
+
+.message-modal-close:hover {
+  background: var(--bn-gray-lighter);
+  color: var(--bn-dark);
+}
+
+.message-modal-body {
+  padding: var(--bn-space-6);
+}
+
+.message-modal-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bn-space-4);
+  margin-bottom: var(--bn-space-4);
+  padding-bottom: var(--bn-space-4);
+  border-bottom: 1px solid var(--bn-gray-lighter);
+  font-size: var(--bn-text-sm);
+  color: var(--bn-gray);
+}
+
+.message-modal-text {
+  font-size: var(--bn-text-base);
+  color: var(--bn-dark);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+/* Mobile: bottom sheet for message modal */
+@media (max-width: 768px) {
+  .message-modal {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .message-modal-content {
+    max-width: 100%;
+    max-height: 85vh;
+    border-radius: var(--bn-radius-2xl) var(--bn-radius-2xl) 0 0;
+    animation: modal-sheet-up 0.3s var(--bn-ease-out);
+  }
+
+  @keyframes modal-sheet-up {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  .message-modal-header {
+    padding: var(--bn-space-4);
+  }
+
+  .message-modal-body {
+    padding: var(--bn-space-4);
+  }
+
+  .action-tabs {
+    gap: var(--bn-space-1);
+    padding: var(--bn-space-1);
+    border-radius: var(--bn-radius-lg);
+  }
+
+  .action-tab {
+    padding: var(--bn-space-2) var(--bn-space-3);
+    font-size: var(--bn-text-xs);
+  }
+}
 
 /* ============================================
-   MOBILE & TABLET REFINEMENT
+   BROADCAST NOTIFICATIONS PAGE
    ============================================ */
+.form-hint {
+  display: block;
+  font-size: var(--bn-text-xs);
+  color: var(--bn-gray);
+  margin-top: var(--bn-space-1);
+}
 
+.recipients-row {
+  display: flex;
+  gap: var(--bn-space-4);
+  flex-wrap: wrap;
+}
+
+.recipients-row .radio-option span {
+  font-size: var(--bn-text-sm);
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
 @media (max-width: 768px) {
-  /* The bottom bar is fixed, so the last card on every page was sitting
-     underneath it and could not be scrolled clear. */
-  .dashboard-content {
-    padding: var(--bn-space-4) var(--bn-space-4)
-             calc(72px + env(safe-area-inset-bottom, 0px));
+  .toast-container {
+    top: var(--bn-space-4);
+    right: var(--bn-space-4);
+    max-width: calc(100% - var(--bn-space-8));
   }
 
-  /* Wide tables scroll inside their own container rather than pushing the
-     whole page sideways — the usual cause of "content going outside". */
-  .table-container {
-    max-height: none;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Sticky headers cost more than they give on a short screen. */
-  .table thead th,
-  .data-table table thead th {
-    position: static;
-  }
-
-  /* Full-width actions read better than a cramped row of small buttons. */
-  .section-head,
-  .acct-summary-head,
-  .content-card-header,
-  .content-section-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .section-head-actions,
-  .acct-summary-head .form-select {
-    width: 100%;
-  }
-
-  /* Headline figures shrink so long amounts don't wrap mid-number. */
-  .acct-total-value,
-  .fin-kpi-value {
-    font-size: var(--bn-text-lg);
-  }
-
-  /* Tap targets: anything interactive clears the 44px minimum. */
-  .btn,
-  .tab,
-  .action-tab,
-  .payment-tab,
-  .settings-tab {
-    min-height: 44px;
-  }
-
-  /* A modal behaves as a sheet — full width, never taller than the viewport. */
-  .modal-content {
-    max-height: 92vh;
-    overflow-y: auto;
-  }
-}
-
-@media (max-width: 480px) {
-  /* Two-up is the most a phone can show without truncating a money figure. */
-  .acct-totals,
-  .acct-categories {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  /* The follow-up row stacks so the name is never squeezed to an ellipsis
-     beside the amount and the action button. */
-  .acct-followup-row {
-    flex-wrap: wrap;
-  }
-  .acct-followup-name {
-    flex: 1 1 100%;
-  }
-
-  .dashboard-content {
-    padding-left: var(--bn-space-3);
-    padding-right: var(--bn-space-3);
-  }
-}
-
-/* Tablet: the sidebar shell has room for two columns, but not the desktop
-   three — without this, cards were stretching to awkward widths. */
-@media (min-width: 769px) and (max-width: 1024px) {
-  .acct-totals,
-  .acct-categories,
-  .charts-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .toast {
+    padding: var(--bn-space-3) var(--bn-space-4);
   }
 }

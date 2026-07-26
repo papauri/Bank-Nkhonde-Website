@@ -640,85 +640,9 @@ body {
 }
 
 /* ============================================
-   TOAST CONTAINER
+   TOAST CONTAINER (minimal overrides only)
+   Toast base styles live in design-system.css
    ============================================ */
-.toast-container {
-  position: fixed;
-  top: var(--bn-space-6);
-  right: var(--bn-space-6);
-  z-index: var(--z-toast, 9999);
-  display: flex;
-  flex-direction: column;
-  gap: var(--bn-space-3);
-  max-width: 400px;
-}
-
-.toast {
-  display: flex;
-  align-items: center;
-  gap: var(--bn-space-3);
-  padding: var(--bn-space-4) var(--bn-space-5);
-  background: var(--bn-white);
-  border-radius: var(--bn-radius-lg);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-  border: 1px solid var(--bn-gray-lighter);
-  animation: slideIn 0.3s ease-out;
-}
-
-.toast.exiting {
-  opacity: 0;
-  transform: translateX(100%);
-  transition: all 0.3s ease;
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(100%);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.toast-icon {
-  width: 24px;
-  height: 24px;
-  border-radius: var(--bn-radius-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.toast.toast-success { border-left: 4px solid var(--bn-success); }
-.toast.toast-warning { border-left: 4px solid var(--bn-warning); }
-.toast.toast-danger { border-left: 4px solid var(--bn-danger); }
-.toast.toast-info { border-left: 4px solid var(--bn-info); }
-
-.toast.toast-success .toast-icon { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
-.toast.toast-warning .toast-icon { background: rgba(234, 179, 8, 0.1); color: #eab308; }
-.toast.toast-danger .toast-icon { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
-.toast.toast-info .toast-icon { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
-
-.toast-message {
-  font-size: var(--bn-text-sm);
-  color: var(--bn-dark);
-  font-weight: 500;
-}
-
-.toast-close {
-  background: none;
-  border: none;
-  color: var(--bn-gray);
-  cursor: pointer;
-  padding: var(--bn-space-1);
-  font-size: 18px;
-  line-height: 1;
-}
 
 /* ============================================
    SPINNER OVERLAY
