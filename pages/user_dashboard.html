@@ -2248,6 +2248,20 @@
         <p class="loading-text">Loading dashboard...</p>
       </div>
     </div>
+    <!-- Overdue Payments -->
+    <div class="content-card" style="margin-bottom: var(--bn-space-6);" id="overduePaymentsCard" hidden>
+      <div class="content-card-header" style="border-bottom-color: var(--bn-danger-lighter, rgba(220,38,38,0.15));">
+        <h2 class="content-card-title" style="color: var(--bn-danger);">⚠️ Overdue Payments</h2>
+        <span class="badge badge-danger" id="overduePaymentsCount">0</span>
+      </div>
+      <div class="content-card-body" id="overduePayments">
+        <div class="empty-state">
+          <div class="empty-state-icon">✅</div>
+          <p class="empty-state-text">No overdue payments — you're all caught up!</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Upcoming Payments -->
     <div class="content-card" style="margin-bottom: var(--bn-space-6);">
       <div class="content-card-header">

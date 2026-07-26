@@ -455,7 +455,7 @@ async function loadDashboard(groupId) {
   renderFinancialOverview(obligationRows, paymentRows, loanRows, paymentsSummary);
   renderGroupMembers(memberRows);
   renderNextMonthlyPayment(obligationRows);
-  renderUpcomingPayments(obligationRows);
+  renderPaymentSplit(obligationRows);  // overdue + upcoming, split
   renderActiveLoans(loanRows);
   await renderPaymentCalendar(obligationRows, loanRows);
 
@@ -951,6 +951,45 @@ function renderNextMonthlyPayment(ob) {
     if (badgeEl) badgeEl.style.display = "none";
     if (statEl) statEl.classList.remove("flash");
     if (popoverEl) popoverEl.replaceChildren();
+  }
+}
+
+/**
+ * Split obligations into overdue (red card) and upcoming (clean card).
+ * @param {Object} ob
+ */
+function renderPaymentSplit(ob) {
+  const allItems = upcomingObligationItems(ob, 60);
+  const today = startOfToday();
+
+  const overdue = allItems.filter((item) => item.due < today);
+  const upcoming = allItems.filter((item) => item.due >= today);
+
+  // Overdue card — only shown when there are overdue items
+  const overdueCard = document.getElementById("overduePaymentsCard");
+  const overdueContainer = document.getElementById("overduePayments");
+  const overdueCount = document.getElementById("overduePaymentsCount");
+
+  if (overdueCard && overdueContainer) {
+    if (overdue.length > 0) {
+      overdueCard.hidden = false;
+      if (overdueCount) overdueCount.textContent = String(overdue.length);
+      overdueContainer.replaceChildren();
+      overdueContainer.appendChild(buildUpcomingTable(overdue.slice(0, 10)));
+    } else {
+      overdueCard.hidden = true;
+    }
+  }
+
+  // Upcoming card
+  const upcomingContainer = document.getElementById("upcomingPayments");
+  if (upcomingContainer) {
+    upcomingContainer.replaceChildren();
+    if (!upcoming.length) {
+      upcomingContainer.appendChild(buildEmptyState("\u{1F4C5}", "No upcoming payments"));
+    } else {
+      upcomingContainer.appendChild(buildUpcomingTable(upcoming.slice(0, 10)));
+    }
   }
 }
 
