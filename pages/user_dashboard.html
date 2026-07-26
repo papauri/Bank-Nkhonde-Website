@@ -386,47 +386,15 @@
     /* ============================================
        HERO SECTION
        ============================================ */
-    /* Brand navy + subtle warm gold, matching the sidebar. Clean and
-       professional — the hero is a welcome panel, not a cinema screen.
-       Stats cards sit on a light-to-transparent backdrop so they read
-       clearly against the dark navy body without the heavy translucent
-       treatment that fought legibility. */
     .hero-section {
-      position: relative;
-      background:
-        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(201, 162, 39, 0.12) 0%, transparent 60%),
-        linear-gradient(180deg, #111D32 0%, #0A1628 100%);
-      border: 1px solid rgba(201, 162, 39, 0.20);
-      border-radius: var(--bn-radius-2xl);
-      box-shadow:
-        var(--bn-shadow-xl),
-        inset 0 1px 0 rgba(201, 162, 39, 0.25);
-      padding: var(--bn-space-8) var(--bn-space-6);
+      padding: var(--bn-space-6) 0 var(--bn-space-4);
       margin-bottom: var(--bn-space-6);
       text-align: center;
-    }
-
-    /* Single gold rule at the top — understated, matches the brand accent. */
-    .hero-section::before {
-      content: '';
-      position: absolute;
-      inset: 0 0 auto 0;
-      height: 2px;
-      border-radius: var(--bn-radius-2xl) var(--bn-radius-2xl) 0 0;
-      background: linear-gradient(90deg,
-        transparent 0%,
-        rgba(201, 162, 39, 0.50) 30%,
-        rgba(228, 200, 83, 0.90) 50%,
-        rgba(201, 162, 39, 0.50) 70%,
-        transparent 100%);
-      pointer-events: none;
     }
 
     .hero-container {
       max-width: 960px;
       margin: 0 auto;
-      position: relative;
-      z-index: 1;
     }
 
     /* Header stack: greeting over period control, both on the centre line.
