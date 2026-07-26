@@ -530,15 +530,23 @@ function statCard(label, value, infoText) {
 // ── Group accounting position (H5, admin-gated server-side) — pure display of
 // ten already-server-computed money STRINGS, no client arithmetic. ───────────
 const ACCOUNTING_FIGURES = [
-  ["totalContributed", "Total Contributed", "Settled member contributions received by the group (approved and completed)."],
+  // Contributions — blended total first, then broken down by source
+  ["totalContributed", "Total Contributed", "All settled contributions combined — seed money, monthly dues and service fees."],
+  ["seedMoneyContributed", "Seed Money Contributed", "One-off joining contributions paid by members when they enter the group."],
+  ["monthlyContributionContributed", "Monthly Contributions", "Recurring monthly dues collected from members."],
+  ["serviceFeeContributed", "Service Fees Contributed", "Service fees collected from members."],
+  // Loans
   ["totalDisbursed", "Total Disbursed", "Total loan principal paid out to members."],
   ["outstandingLoanPrincipal", "Outstanding Loan Principal", "Loan principal still owed and not yet repaid."],
+  // Interest & repayments
   ["interestEarned", "Interest Earned", "Interest received from approved loan repayments."],
   ["loanRepaymentsReceived", "Loan Repayments Received", "Total loan repayments received — principal, interest and penalties combined."],
+  // Penalties
   ["penaltiesCharged", "Penalties Charged", "Total penalties levied on late contributions and loans."],
   ["penaltiesCollected", "Penalties Collected", "Penalty amounts members have actually paid."],
   ["penaltiesWaived", "Penalties Waived", "Penalty amounts an admin has cancelled."],
   ["penaltiesOutstanding", "Penalties Outstanding", "Live outstanding penalties across contributions and loans — accrued and not yet collected or waived."],
+  // Position
   ["cashPosition", "Cash Position", "Total contributed and repaid minus total disbursed — the group's net cash on hand."],
 ];
 
