@@ -27,7 +27,7 @@ let allLoans = [];
 let activeLoans = [];
 let pendingPayments = [];
 let paymentHistory = [];
-let currentLoanTab = "pending";
+let currentLoanTab = "active";
 
 /** A loan that can actually receive a repayment (matches the server's payable set). */
 const PAYABLE_STATUSES = ["approved", "disbursed"];

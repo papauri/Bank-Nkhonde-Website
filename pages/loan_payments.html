@@ -297,50 +297,50 @@
         <p class="loading-text">Loading...</p>
       </div>
     </div>
-    <!-- Loan Status Tabs -->
-    <div class="action-tabs">
-      <button class="action-tab active" data-tab="pending">
-        Pending Requests
-      </button>
-      <button class="action-tab" data-tab="approved">
-        Approved
-      </button>
-      <button class="action-tab" data-tab="active">
-        Active Loans
-      </button>
-      <button class="action-tab" data-tab="repaid">
-        Repaid
-      </button>
-    </div>
+     <!-- Loan Status Tabs -->
+     <div class="action-tabs">
+       <button class="action-tab active" data-tab="active">
+         Active Loans
+       </button>
+       <button class="action-tab" data-tab="pending">
+         Pending Requests
+       </button>
+       <button class="action-tab" data-tab="approved">
+         Approved
+       </button>
+       <button class="action-tab" data-tab="repaid">
+         Repaid
+       </button>
+     </div>
 
     <!-- Loans Section -->
     <section class="content-section">
       <div class="content-section-header content-section-header-flex">
         <h2 class="content-section-title" id="loansSectionTitle">My Loans</h2>
-        <select id="loanStatusFilter" class="form-select loan-status-filter">
-          <option value="all">All Loans</option>
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="active">Active</option>
-          <option value="repaid">Repaid</option>
-        </select>
+         <select id="loanStatusFilter" class="form-select loan-status-filter">
+           <option value="active">Active</option>
+           <option value="all">All Loans</option>
+           <option value="pending">Pending</option>
+           <option value="approved">Approved</option>
+           <option value="repaid">Repaid</option>
+         </select>
       </div>
       <div class="table-container">
         <table class="table table-responsive">
           <thead>
             <tr>
-              <th>Loan</th>
-              <th>Status</th>
-              <th>Purpose / Date</th>
-              <th class="cell-right">Amount</th>
-              <th class="cell-right">Paid</th>
-              <th>Details</th>
-              <th>Actions</th>
+               <th>Loan</th>
+               <th>Status</th>
+               <th class="cell-right">Principal</th>
+               <th class="cell-right">Remaining</th>
+               <th class="cell-right">Paid</th>
+               <th class="cell-right">Interest</th>
+               <th>Actions</th>
             </tr>
           </thead>
           <tbody id="loansList">
             <tr>
-              <td colspan="7" class="table-empty-cell">Select a group to view your loans</td>
+               <td colspan="7" class="table-empty-cell">Select a group to view your loans</td>
             </tr>
           </tbody>
         </table>
