@@ -47,6 +47,90 @@
 
 ### NEW CHECKLIST ITEMS (added by Cline 2026-08-06)
 
+- [ ] **J13: Dashboard overhaul — both admin and user dashboards become the command centre (owner-directed 2026-08-06)**
+
+  **The problem:** The dashboards show summary cards but the user/admin has to navigate away to do anything. Paying a loan, recording a contribution, checking what you owe, seeing who's behind — all require leaving the dashboard. The owner wants the dashboards to be the single place where everything happens.
+
+  **What to build — USER DASHBOARD (`pages/user_dashboard.html` + `scripts/user_dashboard_sql.js`):**
+
+  1. **Pay-from-card modals on every hero stat.** Each hero card that represents money should open a modal where the member can act:
+     - **Next Payment card** → opens a "Pay Now" modal pre-filled with the next due obligation (type, month, amount). Reuses the existing `openPaymentModal()` flow.
+     - **Arrears card** → opens a modal listing every obligation the member is behind on, with a "Pay" button per row that opens the payment form pre-filled for that obligation.
+     - **Loans card** → opens a modal listing active loans with "Make Payment" per loan, pre-filling the next instalment amount.
+     - **Contributed card** → opens a modal showing contribution history with a "Record Payment" button.
+
+  2. **"What I owe" section.** A dedicated section below the hero that shows:
+     - Total outstanding (arrears + penalties) with a "Pay All" button
+     - Breakdown by type: Seed Money, Monthly Contributions (per month), Service Fee
+     - Each row has a "Pay" button that opens the payment form pre-filled
+     - Live penalty on each overdue obligation
+
+  3. **"My Standing" section.** A card showing:
+     - Loan eligibility status (✅/❌ with reasons)
+     - Active loans count and total balance
+     - Contribution history summary (months paid vs missed)
+     - Debt-to-contribution ratio
+     - Next payment due date and amount
+
+  4. **Quick loan repayment.** The Loans card should have a "Make Payment" button that opens a modal with:
+     - Active loan selector
+     - Preset amounts (Next instalment, Pay off in full, Everything overdue, Penalty only)
+     - Due dates on each preset
+     - Proof of payment upload
+     - Submit → `repayments.record`
+
+  **What to build — ADMIN DASHBOARD (`pages/admin_dashboard.html` + `scripts/admin_dashboard_sql.js`):**
+
+  1. **Action modals on every stat card.** Each card opens a modal with actions:
+     - **Collections card** → opens a modal showing who paid what this month, with a "Record Payment" button that opens the record-payment form pre-selecting the member.
+     - **Active Loans card** → opens a modal listing all active loans with per-loan "Record Repayment" buttons.
+     - **Pending card** → opens the pending approvals list with inline Approve/Reject (reuses existing `openStatModal`).
+     - **Arrears card** → opens a modal showing who owes what, ranked most-behind first, with per-member "Record Payment" and "Send Reminder" buttons.
+
+  2. **"Who owes what" section.** A dedicated section showing:
+     - Summary total: "X members owe MWK Y"
+     - Per-member breakdown with expandable detail (seed money first, then monthly contributions)
+     - Per-member "Record Payment" button
+     - "Send Reminders" bulk action
+
+  3. **Quick actions that actually work from the dashboard.** The existing Quick Actions grid should:
+     - "Record Payment" → opens the record-payment modal (already wired)
+     - "Record Loan Repayment" → opens the loan repayment modal (NEW)
+     - "Approve Pending" → jumps to the pending section with inline approve/reject (NEW)
+     - "Send Reminders" → opens the reminders modal (already wired)
+
+  4. **"Group Health at a Glance" section.** Below the stat cards, show:
+     - Collection rate this month (progress bar)
+     - Members in good standing vs behind
+     - Total loans outstanding
+     - Cash position
+     - All figures clickable to drill into detail
+
+  **Files to edit:**
+  - `pages/user_dashboard.html` — add modals, "What I Owe" section, "My Standing" section
+  - `scripts/user_dashboard_sql.js` — wire card clicks to modals, build "What I Owe" and "My Standing" renderers
+  - `pages/admin_dashboard.html` — add modals, "Who Owes What" section, "Group Health" section
+  - `scripts/admin_dashboard_sql.js` — wire card clicks to modals, build "Who Owes What" and "Group Health" renderers
+
+  **Data already available (no new API calls needed):**
+  - User dashboard already loads: `payments.obligations`, `loans.list`, `payments.list`, `loans.eligibility`
+  - Admin dashboard already loads: `payments.list`, `loans.list`, `members.list`, `payments.groupArrears`, `payments.compliance`
+  - All payment/repayment recording endpoints already exist: `payments.record`, `repayments.record`
+  - All approval endpoints already exist: `payments.approve`, `repayments.approve`
+
+  **Acceptance:**
+  - Every hero stat card on both dashboards opens a modal with relevant actions.
+  - User can pay any obligation directly from the dashboard without navigating away.
+  - Admin can record payments, approve pending items, and send reminders from the dashboard.
+  - "What I Owe" / "Who Owes What" sections show complete, accurate breakdowns.
+  - All modals close on Escape, overlay click, or close button.
+  - No new API endpoints needed — reuse existing data and endpoints.
+  - `node --input-type=module --check` clean on all changed scripts.
+  - No innerHTML with user data.
+  - All money server-side, minor units. No client money math.
+
+---
+
 - [~] **J11: Profile picture — PARTLY BUILT 2026-08-06, NOT BROWSER-PROVEN. One deliberate divergence, one part not attempted.**
   - **DONE — `complete_profile.html` now uses the settings click-to-change pattern.** The one page that genuinely matched the brief: it had a real file input behind a separate "Upload Photo" button with an inline `onclick`. Avatar now wrapped in a label, button gone, input hidden by class, hint added. Its existing `change` handler is untouched and still fires (same input id).
   - **DIVERGED — sidebar avatar became a LINK TO SETTINGS, not a file picker. BRIEF'S PREMISE FALSE; needs owner review.** J11 said to copy click-to-change onto the sidebar/topbar avatars. Those are **display-only** `nav_sql.js` elements with **no file input to attach a label to**. The literal reading means putting an upload control + crop/refresh wiring into every page's global nav, duplicating the flow settings already owns, and letting a phone mis-tap open a file browser from the nav. A nav avatar's conventional affordance is "go to my profile", so it is now an `<a href="settings.html">` routing to the working flow. **One line to revert.**
