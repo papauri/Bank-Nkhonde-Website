@@ -218,6 +218,7 @@ if (!function_exists('compute_contribution_penalty')) {
             'penaltyType' => null,
             'rate' => null,
             'ratePeriod' => null,
+            'penaltyPeriod' => null,
             'periodsCharged' => 0,
             'dailyAmount' => '0.00',
             'gracePeriodDays' => 0,
@@ -423,7 +424,16 @@ if (!function_exists('compute_contribution_penalty')) {
             // fixed-mode fields continue to work unchanged.
             'penaltyType' => $type,
             'rate' => $rateUsed,
+            // ratePeriod is the PERCENTAGE rate's period and stays null in
+            // fixed mode — unchanged, existing consumers depend on it.
             'ratePeriod' => $ratePeriod,
+            // penaltyPeriod is the cadence the engine ACTUALLY charged on, set
+            // in BOTH modes. Added because `periodsCharged` is meaningless
+            // without it: in fixed mode ratePeriod is null, so a reader had no
+            // way to tell 3 days from 3 months and would caption a fixed/month
+            // penalty as "3 days late". The loan engine already reports this;
+            // the contribution engine did not. Matches compute_loan_penalty().
+            'penaltyPeriod' => $period,
             'periodsCharged' => $periodsCharged,
             'dailyAmount' => money_from_minor($dailyMinor),
             'gracePeriodDays' => $graceDays,
@@ -1489,6 +1499,216 @@ if (!function_exists('my_obligations')) {
     }
 }
 
+if (!function_exists('group_member_breakdown')) {
+    /**
+     * GET payments.memberBreakdown — WHO is behind a group money figure.
+     *
+     * The admin dashboard's Arrears and Collections stat cards each open a
+     * per-member modal. Those per-member totals used to be added up in the
+     * browser, which is the one thing A2 forbids: the group tile and the modal
+     * rows were two independent additions of the same money and nothing forced
+     * them to agree. This returns both the rows AND their total from one
+     * server-side pass, so the modal can never contradict the card above it.
+     *
+     * Admin-gated: this exposes every member's position to the caller, which a
+     * plain member must never see. Same gate as group_arrears_summary.
+     *
+     * figure=arrears     — what each member still owes (arrears + outstanding
+     *                      penalty), using the SAME per-row penalty computation
+     *                      list_payments performs, so the two always agree.
+     * figure=collections — what each member has actually paid in (verified
+     *                      approved/completed rows only).
+     */
+    function group_member_breakdown(): void
+    {
+        $groupId = (string) ($_GET['groupId'] ?? '');
+        if ($groupId === '') {
+            json_error('groupId is required.', 422);
+        }
+
+        require_role($groupId, PAYMENT_ADMIN_ROLES);
+
+        $figure = (string) ($_GET['figure'] ?? '');
+        if (!in_array($figure, ['arrears', 'collections'], true)) {
+            json_error('figure must be one of: arrears, collections.', 422);
+        }
+
+        $pdo = getDbConnection();
+        $rules = payment_fetch_rules($pdo, $groupId);
+
+        $year = (int) date('Y');
+        if (isset($_GET['year']) && $_GET['year'] !== '') {
+            $year = (int) $_GET['year'];
+            if ($year < 2000 || $year > 2100) {
+                json_error('year is not a valid year.', 422);
+            }
+        }
+
+        $byMember = [];
+        $totalMinor = 0;
+
+        $add = static function (array &$byMember, int &$totalMinor, string $uid, string $name, string $label, int $minor): void {
+            if ($minor <= 0) {
+                return;
+            }
+            if (!isset($byMember[$uid])) {
+                $byMember[$uid] = ['uid' => $uid, 'memberName' => $name, 'minor' => 0, 'breakdown' => []];
+            }
+            $byMember[$uid]['minor'] += $minor;
+            $byMember[$uid]['breakdown'][] = ['label' => $label, 'amount' => money_from_minor($minor)];
+            $totalMinor += $minor;
+        };
+
+        if ($figure === 'collections') {
+            // Money actually received: the persisted rows ARE the record of cash
+            // handed over, so the ledger is the right source here.
+            $stmt = $pdo->prepare(
+                'SELECT p.uid, p.paymentType, p.month, p.amountPaid, p.approvalStatus, '
+                . 'COALESCE(m.fullName, u.fullName) AS memberName '
+                . 'FROM payments p '
+                . 'LEFT JOIN members m ON m.groupId = p.groupId AND m.uid = p.uid '
+                . 'LEFT JOIN users u ON u.uid = p.uid '
+                . 'WHERE p.groupId = :groupId'
+            );
+            $stmt->execute([':groupId' => $groupId]);
+
+            foreach ($stmt->fetchAll() as $row) {
+                if (!in_array((string) $row['approvalStatus'], ['approved', 'completed'], true)) {
+                    continue;
+                }
+                $name = trim((string) ($row['memberName'] ?? ''));
+                $add(
+                    $byMember,
+                    $totalMinor,
+                    (string) $row['uid'],
+                    $name === '' ? 'Unknown Member' : $name,
+                    payment_type_label((string) $row['paymentType'], $row['month']),
+                    money_to_minor(trim((string) $row['amountPaid']))
+                );
+            }
+        } else {
+            // ARREARS IS NOT A LEDGER SUM. What a member owes is derived from
+            // group_rules — an obligation with no payment row at all is still
+            // owed, and is exactly the case the ledger cannot see. Reading
+            // payments.arrears here returned 0.00 for a group whose live
+            // position was 200,000.00, which is the same class of bug as the
+            // arrears tile that once showed 0 against a true 1,379,000.
+            //
+            // This walks the SAME primitives, the same active-member set and the
+            // same overdue-month rule as group_live_contribution_penalty_minor,
+            // so these rows sum to the figure on the card above them.
+            $memStmt = $pdo->prepare(
+                "SELECT m.uid, COALESCE(m.fullName, u.fullName) AS memberName "
+                . "FROM members m LEFT JOIN users u ON u.uid = m.uid "
+                . "WHERE m.groupId = :groupId AND m.status = 'active'"
+            );
+            $memStmt->execute([':groupId' => $groupId]);
+
+            $seedDueMinor = payment_rule_amount_minor($rules, 'seed_money');
+            $monthlyDueMinor = payment_rule_amount_minor($rules, 'monthly_contribution');
+            $feeRequired = (int) ($rules['serviceFeeRequired'] ?? 0) === 1;
+            $feeDueMinor = $feeRequired ? payment_rule_amount_minor($rules, 'service_fee') : null;
+
+            $seedDueDate = payment_due_date($rules, 'seed_money', null, $year);
+            $feeDueDate = $feeRequired ? payment_due_date($rules, 'service_fee', null, $year) : null;
+            $overdueMonths = payment_overdue_months($rules, $year);
+
+            foreach ($memStmt->fetchAll() as $member) {
+                $uid = (string) $member['uid'];
+                $nameRaw = trim((string) ($member['memberName'] ?? ''));
+                $name = $nameRaw === '' ? 'Unknown Member' : $nameRaw;
+
+                if ($seedDueMinor !== null) {
+                    $paid = payment_settled_minor($pdo, $groupId, $uid, 'seed_money');
+                    $a = max(0, $seedDueMinor - $paid);
+                    $row = payment_fetch_row($pdo, $groupId, $uid, 'seed_money', $year, null);
+                    $pen = payment_penalty_or_501(
+                        $rules,
+                        $seedDueDate,
+                        $a,
+                        $seedDueMinor,
+                        $row === null ? null : (string) $row['paymentId']
+                    );
+                    $add($byMember, $totalMinor, $uid, $name, 'Seed Money', $a);
+                    $add($byMember, $totalMinor, $uid, $name, 'Seed Money penalty', money_to_minor($pen['amountOutstanding']));
+                }
+
+                if ($monthlyDueMinor !== null) {
+                    foreach ($overdueMonths as $month) {
+                        $paid = payment_settled_minor($pdo, $groupId, $uid, 'monthly_contribution', $year, $month);
+                        $a = max(0, $monthlyDueMinor - $paid);
+                        $row = payment_fetch_row($pdo, $groupId, $uid, 'monthly_contribution', $year, $month);
+                        $pen = payment_penalty_or_501(
+                            $rules,
+                            payment_due_date($rules, 'monthly_contribution', $month, $year),
+                            $a,
+                            $monthlyDueMinor,
+                            $row === null ? null : (string) $row['paymentId']
+                        );
+                        $add($byMember, $totalMinor, $uid, $name, 'Monthly - ' . $month, $a);
+                        $add($byMember, $totalMinor, $uid, $name, 'Monthly - ' . $month . ' penalty', money_to_minor($pen['amountOutstanding']));
+                    }
+                }
+
+                if ($feeRequired && $feeDueMinor !== null) {
+                    $paid = payment_settled_minor($pdo, $groupId, $uid, 'service_fee', $year);
+                    $a = max(0, $feeDueMinor - $paid);
+                    $row = payment_fetch_row($pdo, $groupId, $uid, 'service_fee', $year, null);
+                    $pen = payment_penalty_or_501(
+                        $rules,
+                        $feeDueDate,
+                        $a,
+                        $feeDueMinor,
+                        $row === null ? null : (string) $row['paymentId']
+                    );
+                    $add($byMember, $totalMinor, $uid, $name, 'Service Fee', $a);
+                    $add($byMember, $totalMinor, $uid, $name, 'Service Fee penalty', money_to_minor($pen['amountOutstanding']));
+                }
+            }
+        }
+
+        // Biggest position first — the member an admin most needs to act on.
+        usort($byMember, static fn ($a, $b) => $b['minor'] <=> $a['minor']);
+
+        $members = array_map(static fn ($m) => [
+            'uid' => $m['uid'],
+            'memberName' => $m['memberName'],
+            'amount' => money_from_minor($m['minor']),
+            'breakdown' => $m['breakdown'],
+        ], array_values($byMember));
+
+        json_response([
+            'figure' => $figure,
+            // The sum of exactly the rows above, computed in the same pass — the
+            // modal renders this instead of re-adding the rows it was handed.
+            'total' => money_from_minor($totalMinor),
+            'memberCount' => count($members),
+            'members' => $members,
+        ]);
+    }
+}
+
+if (!function_exists('payment_type_label')) {
+    /**
+     * Human label for a payment row, month-qualified for monthly contributions
+     * so an admin can see WHICH month a figure came from.
+     */
+    function payment_type_label(string $type, $month = null): string
+    {
+        if ($type === 'monthly_contribution') {
+            $m = trim((string) ($month ?? ''));
+            return 'Monthly - ' . ($m === '' ? 'Unknown' : $m);
+        }
+        if ($type === 'seed_money') {
+            return 'Seed Money';
+        }
+        if ($type === 'service_fee') {
+            return 'Service Fee';
+        }
+        return ucwords(str_replace('_', ' ', $type));
+    }
+}
+
 if (!function_exists('group_live_contribution_penalty_minor')) {
     /**
      * Shared live-contribution computation for ONE group's ACTIVE members,
@@ -1535,8 +1755,19 @@ if (!function_exists('group_live_contribution_penalty_minor')) {
 
         $arrearsMinor = 0;
         $penaltyMinor = 0;
+        // How many members are ACTUALLY behind. Distinct from memberCount below,
+        // which is every active member the loop considered — the admin arrears
+        // card was labelling that total "members with an outstanding balance",
+        // so a group where everyone was paid up still read "5 members behind".
+        $membersInArrears = 0;
 
         foreach ($uids as $uid) {
+            // Measured as a DELTA across this member's pass rather than by
+            // touching the accumulation lines below — the arrears maths is the
+            // figure the whole dashboard reconciles against and is left byte-identical.
+            $memberStartArrearsMinor = $arrearsMinor;
+            $memberStartPenaltyMinor = $penaltyMinor;
+
             // Seed money.
             if ($seedDueMinor !== null) {
                 $paid = payment_settled_minor($pdo, $groupId, $uid, 'seed_money');
@@ -1605,12 +1836,25 @@ if (!function_exists('group_live_contribution_penalty_minor')) {
                 );
                 $penaltyMinor += money_to_minor($pen['amountOutstanding']);
             }
+
+            if (
+                ($arrearsMinor - $memberStartArrearsMinor)
+                + ($penaltyMinor - $memberStartPenaltyMinor) > 0
+            ) {
+                $membersInArrears++;
+            }
         }
 
         return [
             'arrearsMinor' => $arrearsMinor,
             'penaltyMinor' => $penaltyMinor,
+            // Every ACTIVE member considered — NOT the number who owe anything.
+            // Kept unchanged because existing consumers read it.
             'memberCount' => count($uids),
+            // The number who are actually behind. This is what an arrears
+            // breakdown should report, and it matches the row count that
+            // payments.memberBreakdown?figure=arrears returns.
+            'membersInArrears' => $membersInArrears,
         ];
     }
 }
@@ -1672,6 +1916,7 @@ if (!function_exists('group_arrears_summary')) {
             'penaltyAccrued' => money_from_minor($live['penaltyMinor']),
             'totalArrears' => money_from_minor($live['arrearsMinor'] + $live['penaltyMinor']),
             'memberCount' => $live['memberCount'],
+            'membersInArrears' => $live['membersInArrears'],
         ]);
     }
 }
@@ -2001,6 +2246,7 @@ if (!function_exists('group_accounting_summary_period_drill')) {
         $pdo = getDbConnection();
         $totalMinor = 0;
         $rows = [];
+        $unmonthed = null;
 
         switch ($figure) {
             case 'totalContributed':
@@ -2027,6 +2273,49 @@ if (!function_exists('group_accounting_summary_period_drill')) {
                         'approvedAt' => $row['approvedAt'],
                     ];
                 }
+
+                /* D4 — the one-time, no-month portion of the year (owner
+                 * decision: show it as a separate labelled line, never hide it
+                 * and never misattribute it to a month).
+                 *
+                 * Seed money is a cycle-entry joining stake, not a monthly
+                 * obligation, so those rows carry `month = NULL`. A
+                 * month-scoped drill therefore legitimately excludes them, and
+                 * twelve months would not add up to the year without this
+                 * line. Computed by its own query against the SAME year and
+                 * status filter so it holds whether or not a month is
+                 * selected: when no month is chosen it is a subset already
+                 * inside periodTotal; when one is chosen it sits outside it.
+                 * `includedInPeriodTotal` tells the client which, so the
+                 * client never has to work it out — or add anything up.
+                 *
+                 * Broken down BY TYPE rather than labelled "seed money" here:
+                 * seed money is the only no-month type today, but the label
+                 * belongs to whatever the data actually says, not to an
+                 * assumption this query cannot verify. */
+                $unmonthedSql = 'SELECT p.paymentType AS type, p.amountPaid AS amountPaid '
+                    . 'FROM payments p '
+                    . "WHERE p.groupId = :groupId AND p.approvalStatus IN ('approved', 'completed') "
+                    . 'AND p.year = :year AND p.month IS NULL';
+                $unmonthedStmt = $pdo->prepare($unmonthedSql);
+                $unmonthedStmt->execute([':groupId' => $groupId, ':year' => $year]);
+                $unmonthedMinor = 0;
+                $byTypeMinor = [];
+                foreach ($unmonthedStmt->fetchAll() as $row) {
+                    $amountMinor = money_to_minor(trim((string) $row['amountPaid']));
+                    $unmonthedMinor += $amountMinor;
+                    $type = (string) $row['type'];
+                    $byTypeMinor[$type] = ($byTypeMinor[$type] ?? 0) + $amountMinor;
+                }
+                $byType = [];
+                foreach ($byTypeMinor as $type => $minor) {
+                    $byType[] = ['type' => $type, 'amount' => money_from_minor($minor)];
+                }
+                $unmonthed = [
+                    'total' => money_from_minor($unmonthedMinor),
+                    'includedInPeriodTotal' => $month === null,
+                    'byType' => $byType,
+                ];
                 break;
 
             case 'totalDisbursed':
@@ -2096,13 +2385,20 @@ if (!function_exists('group_accounting_summary_period_drill')) {
                 break;
         }
 
-        json_response([
+        $payload = [
             'figure' => $figure,
             'year' => $year,
             'month' => $month,
             'periodTotal' => money_from_minor($totalMinor),
             'rows' => $rows,
-        ]);
+        ];
+        // Additive and figure-specific: only totalContributed has a no-month
+        // portion (loans and loan_payments are dated by approvedAt, so every
+        // row belongs to a month). Absent for the other three figures.
+        if ($unmonthed !== null) {
+            $payload['unmonthed'] = $unmonthed;
+        }
+        json_response($payload);
     }
 }
 
@@ -2178,15 +2474,30 @@ if (!function_exists('group_accounting_summary')) {
 
         $pdo = getDbConnection();
 
-        // --- Settled contributions. ---
+        // --- Settled contributions (total + per-type breakdown). ---
         $stmt = $pdo->prepare(
-            "SELECT amountPaid FROM payments WHERE groupId = :groupId "
+            "SELECT amountPaid, paymentType FROM payments WHERE groupId = :groupId "
             . "AND approvalStatus IN ('approved', 'completed')"
         );
         $stmt->execute([':groupId' => $groupId]);
         $totalContributedMinor = 0;
+        $seedMoneyContributedMinor = 0;
+        $monthlyContributionContributedMinor = 0;
+        $serviceFeeContributedMinor = 0;
         foreach ($stmt->fetchAll() as $row) {
-            $totalContributedMinor += money_to_minor(trim((string) $row['amountPaid']));
+            $minor = money_to_minor(trim((string) $row['amountPaid']));
+            $totalContributedMinor += $minor;
+            switch ($row['paymentType']) {
+                case 'seed_money':
+                    $seedMoneyContributedMinor += $minor;
+                    break;
+                case 'monthly_contribution':
+                    $monthlyContributionContributedMinor += $minor;
+                    break;
+                case 'service_fee':
+                    $serviceFeeContributedMinor += $minor;
+                    break;
+            }
         }
 
         // --- Disbursed loans. ---
@@ -2289,6 +2600,9 @@ if (!function_exists('group_accounting_summary')) {
 
         json_response([
             'totalContributed' => money_from_minor($totalContributedMinor),
+            'seedMoneyContributed' => money_from_minor($seedMoneyContributedMinor),
+            'monthlyContributionContributed' => money_from_minor($monthlyContributionContributedMinor),
+            'serviceFeeContributed' => money_from_minor($serviceFeeContributedMinor),
             'totalDisbursed' => money_from_minor($totalDisbursedMinor),
             'outstandingLoanPrincipal' => money_from_minor($outstandingLoanPrincipalMinor),
             'interestEarned' => money_from_minor($interestEarnedMinor),

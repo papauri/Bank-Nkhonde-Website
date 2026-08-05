@@ -8,36 +8,145 @@
 
 ---
 
-## ⇥ HANDOVER — READ THIS FIRST, THEN STOP READING
+## ⇥ HANDOVER — CODING AGENT DISPATCH (2026-08-05, updated)
 
-**If you are a fresh agent (Cline, or any other) picking this project up: everything you need is in this section. Do not scan or index the repo. Do not read sections 1–9 unless this section sends you there.**
+> ## ⇦ HANDING BACK TO CLINE FOR RE-PLANNING (2026-08-05)
+>
+> **Every checklist item below is `[x]`. Nothing is BLOCKED.** Full reasoning for each is in section 8; this is the summary.
+>
+> **Completed this run:** J5 (three client money-math defects), J8 (dead "i" toggles), J8-SLICE-2 (per-member breakdown), J4 (flat-rate interest), J6 (borrower context at approval), J7 (member borrowing power). J3-SLICE-1, J2-SLICE-2, J9 and CYCLE-127-VERIFY were already closed by Cline.
+>
+> **Owner-reported follow-up closed (J10, §8):** the "i" toggles are now one shared shape across all 15 of them, borrower names resolve live instead of reading a denormalised `loans.borrowerName` that said "Member", and a client-side money re-summation that had reappeared in two admin popovers was removed again. Also fixed: `groupArrears.memberCount` was being labelled "members behind" when it counts every active member.
+>
+> **New API surface:** `payments.memberBreakdown` (GET, admin-gated, `figure=arrears|collections`). Additive fields: `loans.list summary.activeBalance`; `loans.eligibility` gained `contributed`, `exposure{debtToContributionPercent,flagged,warnings}` and `maxLoanAmount`; `update_rules()` now whitelists `loanInterestCalculationMethod`. **NO DDL was applied — section 5 is unchanged.** New file: none. Functions deleted: `buildArrearsItems()` / `buildCollectionsItems()` (client money math, replaced by the server endpoint).
+>
+> **Three real accuracy bugs were found by BUILDING, not by reading** (detail in the archive): the admin Arrears modal showed nothing against a true 200,000.00 because it summed the persisted `payments.arrears` column when arrears is derived from `group_rules`; the member "Contributed" info button was dead on three field names the server never sent; and loan approval had **no confirmation step at all** — one click committed the group's cash. **The 2026-08-06 run repeated the pattern twice more** (member penalties invisible behind a tile that included them; a fixed/month penalty captioned in "days"), which is the standing argument for ending every cycle at a runtime pass.
+>
+> **Briefs whose premise was false (evidence, not excuses) — four now, across two runs:** J4 named the wrong UI file, J8-SLICE-2's premise was the planner's own and wrong, J5 asked for three server fields of which two already existed, and J11 asked for a click-to-change label on avatars that have no file input. Detail in the archive. **Check the premise before building to it.**
+>
+> **Decisions Cline should review (all recorded in §8):** flat rate uses the **Month 1 rate** as the single monthly rate (owner may prefer a dedicated field); the Request Loan button is left **clickable when ineligible** (a disabled button hides its own tooltip on touch) — divergence from J7's brief; the arrears modal's row filter now follows the server's overdue rule, so a non-cycle month with a past due date no longer shows as arrears.
+>
+> **Two standing cautions:**
+> - **Live QA data moved mid-session** (group verified collections 140,000.00 → 505,000.00, loan balances changed, a fifth member gained payments). Every reconciliation was correct *when it ran*; the figures recorded in §8 are historical. Re-verify against live data.
+> - **Playwright MCP never connected.** Verification ran through a Node+Playwright harness in the session scratchpad that logs in for real with the owner's QA credentials. It is NOT in the repo and no credential was written to a tracked file. A future agent must re-create it or be given a browser.
+>
+> **Suggested next dispatch — ALL FOUR CLOSED 2026-08-06; superseded by §4.** (a) hero grid rebalanced to 4/3 (owner-approved); (b) Quick Actions carry-over resolved, no bug; (c) J2 Slice 3 shipped; (d) J2-SLICE-2 penalty UI browser-tested.
 
-**The one open job is a BROWSER VERIFICATION PASS on cycle 127 (UI-only). Nothing is half-built.**
+---
 
-Setup: server already running — `php -S 0.0.0.0:8000` from the project root. Pages at `http://localhost:8000/pages/<page>.html`. Read `.claude/CLAUDE.md` once for the safety rails (never commit, never push, never weaken a `require_role`, never destructive SQL, never delete a file without sign-off).
+**This section is your sole source of truth. Do not scan the repo. Do not read sections 1–9 unless a task explicitly sends you there. Every task below is self-contained with exact file paths, line ranges, and acceptance criteria.**
 
-**Test widths: 320, 390, 768, 1024, 1025, 1440.** The 1024→1025 boundary matters — several rules switch exactly there.
+**Work through the checklist in order. Tick each `[ ]` as you complete it. If blocked, mark it `BLOCKED: <reason>` and move to the next.**
 
-**Only these 12 files were changed in cycle 127. Confine every fix to them:**
-`styles/unified-mobile-nav.css` · `styles/admin-layout.css` · `styles/design-system.css` · `styles/pages.css` · `scripts/nav_sql.js` · `scripts/user_dashboard_sql.js` · `scripts/manage_loans_sql.js` · `pages/user_dashboard.html` · `pages/manage_loans.html` · `pages/analytics.html` · `pages/contributions_overview.html` · `pages/view_rules.html`
+### SETUP (do once)
+- The local dev server is ALREADY RUNNING at `http://localhost:8000`. Pages at `http://localhost:8000/pages/<page>.html`. Do NOT start another server.
+- Read `.claude/CLAUDE.md` for safety rails, with these overrides: you MAY commit and push. You MAY apply DDL directly to the live MySQL database (no offline .sql migration files — record the DDL in BUILD_PLAN.md section 5). Remaining rails: never destructive SQL (no DROP/TRUNCATE, no unscoped DELETE/UPDATE), never weaken `require_role`, never delete a file without sign-off, never use `innerHTML` with user strings, money is always server-side integer minor units.
+- JS syntax check: `node --input-type=module --check < scripts/x_sql.js` (NOT plain `node --check`).
+- Test widths: 320, 390, 768, 1024, 1025, 1440. The 1024↔1025 boundary is critical.
+- Use Playwright MCP for browser testing at `http://localhost:8000`. For API testing use curl or PHP test scripts. For DB verification use PHP scripts via `getDbConnection()`.
 
-### The five checks, in priority order
+### NEW CHECKLIST ITEMS (added by Cline 2026-08-06)
 
-1. **Burger + drawer — `pages/user_dashboard.html` @390px.** Expected: a burger (three dark bars) visible at the left of the white topbar; clicking it slides the dark sidebar in from the left; the drawer paints **over** the fixed bottom nav; clicking the dimmed overlay closes it. If the burger is invisible, hunt for another page-local `.mobile-menu-btn` override in that file's inline `<style>` — one such block was already deleted. Z-order lives in `admin-layout.css`: sidebar `calc(var(--z-fixed) + 20)`, overlay `+10`, bar `var(--z-fixed)`.
-2. **Quick Actions relocation.** Expected: at ≤1024px the 9 action buttons sit **inside the sidebar drawer** in 2 columns; at ≥1025px the same block sits **inside the hero**. Driven by `setupQuickActionsRelocation()` in `scripts/user_dashboard_sql.js`. The block is **moved (`appendChild`), never cloned** — every button is wired by unique id, so a copy yields duplicate ids and dead buttons. Test: resize across the boundary 3× then click **Request Loan** and **Upload Payment** — their modals must open.
-3. **Bottom nav bar @≤1024px.** Expected: 5–6 icons spread **evenly across the full bar**, labels centred under icons, all icons on one baseline. Failure sign: icons bunched mid-bar with empty space at both ends. Implemented in `unified-mobile-nav.css` — `.mobile-nav-items` is `flex:1` + `max-width:560px` + `margin-inline:auto`, children `flex:1 1 0`.
-4. **`pages/manage_loans.html` — six sub-checks.** (a) tabs read All Loans · Pending Requests · Active Loans · Repaid · Cancelled · Overdue; (b) **All Loans** shows every loan; (c) its empty state reads **"No loans found"**, not "No all loans found"; (d) the Borrower dropdown still filters; (e) **"Clear filter"** is hidden at "All Borrowers" and appears when a borrower is picked; (f) the **⚡ Forced Loans** quick-action opens the collapsed `<details>` panel at the page foot and scrolls to it, its summary badge reading **Enabled/Off** to match the toggle inside.
-5. **Layout polish (lowest).** Hero reads visually centred at every width. `pages/manage_payments.html` @390px: the empty row "No pending payments to review" is **centred**, not jammed right. The 2-up mobile grids — `.card-grid`, `#accountingFiguresBlock`, `.monthly-breakdown-grid`, `.rules-stat-grid` — show two cards per row on a phone without wrapping `MWK 1,250,000` onto three lines.
+- [~] **J11: Profile picture — PARTLY BUILT 2026-08-06, NOT BROWSER-PROVEN. One deliberate divergence, one part not attempted.**
+  - **DONE — `complete_profile.html` now uses the settings click-to-change pattern.** The one page that genuinely matched the brief: it had a real file input behind a separate "Upload Photo" button with an inline `onclick`. Avatar now wrapped in a label, button gone, input hidden by class, hint added. Its existing `change` handler is untouched and still fires (same input id).
+  - **DIVERGED — sidebar avatar became a LINK TO SETTINGS, not a file picker. BRIEF'S PREMISE FALSE; needs owner review.** J11 said to copy click-to-change onto the sidebar/topbar avatars. Those are **display-only** `nav_sql.js` elements with **no file input to attach a label to**. The literal reading means putting an upload control + crop/refresh wiring into every page's global nav, duplicating the flow settings already owns, and letting a phone mis-tap open a file browser from the nav. A nav avatar's conventional affordance is "go to my profile", so it is now an `<a href="settings.html">` routing to the working flow. **One line to revert.**
+  - **NOT ATTEMPTED — dark mode + font verification.** Acceptance is "renders correctly / no unreadable contrast / Manrope applies" — unestablishable without a browser, and none was available. `--bn-font-sans` is set on the new elements. **Do not tick J11 until someone views `settings.html` in dark mode.**
 
-### Two deliberate decisions — do NOT "fix" these
-- **`.hero-stat` uses `align-items: stretch`, not `center`.** Its child `.hero-stat-details` draws a `border-top` divider that must span the full card; centring shrink-wraps it. Contents are centred via `text-align` instead.
-- **Charts stay 1-up on mobile** — only the *figure cards* in `#accountingFiguresBlock` go 2-up. That rule lives in `design-system.css` and wins by **id specificity** over `analytics.html`'s inline `.charts-grid { 1fr }`. If figures render 1-up that is a real bug, but fix it by raising specificity — never by editing the charts rule.
+  **Status:** `pages/settings.html` profile picture section ALREADY FIXED by Cline. The pattern to replicate:
+  - The whole avatar is wrapped in a `<label for="profilePictureInput">` so clicking anywhere on the avatar opens the file picker — no separate "Choose file" button.
+  - The edit icon is a `<div class="profile-picture-edit" aria-hidden="true">` (pointer-events: none) so clicks pass through to the label.
+  - The file input uses `class="profile-picture-input"` (CSS `display: none`).
+  - A "Click to change photo" hint appears on hover (`.profile-picture-hint`).
+  - Font family explicitly set to `var(--bn-font-sans)` on `.profile-name`, `.profile-email`, `.profile-picture`, `.profile-picture-hint`.
+  - Dark mode: the section uses `var(--bn-gradient-primary)` background with white text, gold accent border, and a subtle radial gold glow behind the avatar.
 
-### Do not touch — unrelated uncommitted work in the tree
-`api/handlers/payments.php` · `api/handlers/loans.php` · `pages/manage_payments.html` · `scripts/manage_payments_sql.js` · `scripts/analytics_sql.js` · `scripts/user_analytics_sql.js` · `.claude/SYSTEM_MAP.md`. These predate cycle 127 and need separating before any commit. You may *read* `manage_payments.html` for check 5, but if it fails the fix belongs in `styles/design-system.css`.
+  **What to do:**
+  1. **Apply the same click-to-change pattern to the ADMIN view and USER view profile pictures.** Search for `profile-picture` in `pages/` — the admin dashboard sidebar avatar, the user dashboard topbar avatar, and any other profile picture display should also be click-to-change (wrap in a label, hide the file input, show a hover hint).
+  2. **Fix dark mode on the settings page.** The `.profile-picture-section` uses `var(--bn-gradient-primary)` (dark navy) — verify the text is readable (white on dark) and the form fields below use the light theme correctly. If the page has a dark-mode toggle, ensure the profile section adapts.
+  3. **Fix font issues.** Ensure `font-family: var(--bn-font-sans)` is applied consistently across the profile section and all settings form labels/inputs. The Manrope font should load from Google Fonts (already in `<head>`).
+  4. **Verify in browser** with Playwright MCP at `http://localhost:8000/pages/settings.html` — click the avatar, confirm the file picker opens, and the hover hint appears.
 
-### When you finish
-Report **two separate lists**: what you **proved in the browser** (name the width you saw it at) and what you **only read but did not run**. Do not merge them — conflating "built" with "works" is the failure mode this project has already paid for four times. Then update section 8 below.
+  **Acceptance:**
+  - Clicking the avatar (not a separate button) opens the file picker on settings, admin, and user views.
+  - Dark mode renders correctly (white text on dark gradient, no unreadable contrast).
+  - Manrope font applies throughout the profile section.
+  - `node --input-type=module --check` clean on any JS touched.
+
+### AUTONOMOUS THINKING RULE · HOW TO REPORT
+Both blocks lived here verbatim and are **unchanged, just not duplicated** — they are the same text as `CLAUDE.md`'s autonomy rules and the build-loop skill's STATUS/SESSION SUMMARY formats. Full wording: `archive/BUILD_PLAN_history_2026-08-06_run.md`. The short version: decide product/wording/defaults yourself from real village-banking flow, show the full financial picture at any money moment, make every figure traceable to its source, default new money features to the safe setting, ask ONE precise question only for a CRITICAL change, record each autonomous decision, and report per task in plain product language — no code or file paths in the summary.
+
+---
+
+### CHECKLIST — tick each `[ ]` as you go
+
+- [x] **CYCLE-127-VERIFY: Browser pass — DONE (Cline, 2026-08-05).** Checks 1–4 proven with Playwright. Check 5 (layout polish) deferred to owner. One bug found: burger unreachable while drawer open (z-order). See section 8 for details.
+
+- [x] **J3-SLICE-1: Backend period drill-down — DONE + LIVE-VERIFIED.** Four flow figures drill correctly. Seed-money NULL-month gap is owner-decided D4 behaviour. See section 8.
+
+- [x] **J2-SLICE-2: Admin penalty-rules UI — BUILT (frontend only).** Not browser-tested. Penalty settings added to Governance tab on manage_rules.html. See section 8.
+
+- [x] **J9: Financial Trends chart CSS — FIXED (Cline, 2026-08-05).** The `renderMonthlyTrendChart()` in `analytics_sql.js` built a grouped bar chart using classes `fin-kpis`, `fin-plot`, `fin-bar`, `fin-month`, `fin-legend`, `fin-yaxis`, `fin-gridline`, `fin-scroll` — but zero CSS rules existed for any of them. Added ~130 lines to `styles/design-system.css` covering KPI cards, legend, y-axis, gridlines, grouped bars with gradient fills, month labels, and responsive breakpoints at 768px/480px. Verified with Playwright screenshot.
+
+---
+
+- [x] **J5: Fix three client-side money-math defects — DONE + BROWSER-PROVEN (2026-08-05).** All three footers now read server fields. Only one new server field was needed (`loans.list summary.activeBalance`); the other two already existed as `activePrincipal` / `verifiedCollected`. Arrears modal row-selection realigned to the server's overdue rule — see section 8 for the two autonomous decisions.
+
+
+---
+
+- [x] **J4: Admin-selectable loan interest method (flat_rate) — DONE + END-TO-END PROVEN (2026-08-05).** Both ENUM values now implemented and admin-selectable; the 501 guard is retired. Same loan repriced 4,900.00 → 9,000.00 through the live API when the group switched method. **The brief named the wrong UI file** — see section 8.
+
+
+---
+
+- [x] **J6: Borrower financial context at loan approval — DONE + BROWSER-PROVEN (2026-08-05).** Approving a loan now opens a review modal showing what the borrower already owes, has contributed, owes in arrears/penalties, and their debt-to-contribution ratio, with advisory warnings. **Approval was previously a single unconfirmed click.** Built by extending `loans.eligibility` (which already had the admin uid-override) rather than adding an endpoint. See section 8.
+
+
+---
+
+- [x] **J8: Broken info-toggle ("i") buttons — ROOT-CAUSED, FIXED, BROWSER-PROVEN (2026-08-05, real login).** Exactly ONE toggle in the app was dead: "Contributed" on the member dashboard. Fixed, plus the silent-failure mode that hid it. All 14 toggles across the three pages now open with content. Per-member breakdown modals split out as J8-SLICE-2 below (needs a new server aggregation). See section 8.
+
+
+---
+
+- [x] **J8-SLICE-2: Per-member breakdown behind the admin stat cards — DONE + BROWSER-PROVEN (2026-08-05).** New admin-gated `payments.memberBreakdown` returns rows AND their total from one server pass; the Arrears and Collections modals now render it instead of adding money up in the browser. Two client-side money aggregations deleted. **My own framing of this slice was wrong and a real accuracy bug was found — see section 8.**
+
+---
+
+- [x] **J7: Member borrowing-power card — DONE + BOTH PATHS BROWSER-PROVEN (2026-08-05).** A "Borrowing Power" hero card now tells a member what they qualify for before they apply, fed by the same eligibility check the server enforces. One deliberate divergence from the brief (Request Loan button left clickable) — see section 8.
+
+---
+
+- [x] **J2-SLICE-2 VERIFY: penalty UI browser-tested (2026-08-06) — PASSES.** All 13 penalty fields render on `manage_rules.html` and load from `rules.get` (loan daily 500.00, contribution daily 200.00, grace 5 both sides — matching the server byte-for-byte). Show/hide logic correct in all three directions: `type=percentage` reveals the rate group and hides both amount groups; `type=fixed` reverses it; `period=month` swaps the daily amount group for the monthly one. *(A first probe reported all 13 fields MISSING — that probe used the wrong ids; the markup uses an `Input` suffix. The tooling was wrong, not the page.)*
+
+- [x] **J3-SLICE-2: Accounting drill-down modal — DONE + BROWSER-PROVEN (2026-08-06).** The four FLOW cards on `analytics.html` are now clickable and open a period breakdown; the backend for this shipped as J3-SLICE-1.
+  - **Only the 4 flow figures are drillable — proven by inspection of all 13 cards.** Total Contributed, Total Disbursed, Interest Earned and Loan Repayments Received carry `is-drillable`; the nine balance/derived cards (Outstanding Loan Principal, all four penalty figures, Cash Position, and the three contribution sub-totals) deliberately do NOT. That is decision **D1**: a flow is money that moved in a period and has rows behind it; "March's outstanding principal" would be a fabricated number.
+  - **The modal never sums anything.** It renders the server's `periodTotal` and the server's `rows` from one call, so the modal total and the card above it cannot drift. Year picker (required by the server) + optional month; keyboard accessible (Enter/Space open, Escape closes, overlay click closes); the card's own "i" toggle still works and does not trigger the drill.
+  - **Proven live:** Total Contributed → **"MWK 260,000.00 in 2026", 26 rows**, columns Member/Type/Month/Amount; switching to March → **"MWK 40,000.00 in March 2026", 4 rows**. `node --input-type=module --check` clean. No `innerHTML`.
+  - **D4 — DONE + LIVE-VERIFIED 2026-08-06 (computation level, through the real `group_accounting_summary_period_drill()`, not a copy of its SQL).** The Contributed drill now returns an additive `unmonthed {total, includedInPeriodTotal, byType[]}` block, and the modal renders it as a labelled reconciliation note beneath the period total.
+    - **The gap has MOVED since it was written up, and the plan's example is stale.** Live today: **2025** carries the seed money (105,000.00 across 4 `month = NULL` rows) against 140,000.00 spread over its months; **2026 has no seed rows at all** (260,000.00, all monthed). So the honest test case is 2025, not the 2026 figure recorded above. Cumulative across both years = 505,000.00.
+    - **Identity proven both ways:** 2025 → months 140,000.00 + unmonthed 105,000.00 == year 245,000.00 **PASS**; 2026 → 260,000.00 + 0.00 == 260,000.00 **PASS**. Selecting March correctly reports the seed money with `includedInPeriodTotal: false` so the note reads "not included in the March total above". **Zero NULL-year rows** in the group — no reconciliation leak hiding behind the drill.
+    - **AUTONOMOUS DECISION — broken down BY TYPE, not labelled "seed money" in the server.** Seed money is the only no-month payment type today, but the label has to follow what the data says; a `service_fee` row with no month would otherwise be captioned "Seed money". The client maps the type to the same vocabulary the payments pages already use.
+    - **AUTONOMOUS DECISION — the note renders BEFORE the empty-state return.** A month with no rows of its own still needs the context, otherwise a quiet month reads as "nothing happened all year". Client does no arithmetic: it renders the server's amount and the server's `includedInPeriodTotal` flag, and decides whether to show the line from `byType.length` (a row count, not money).
+    - **Boundary:** the note has NOT been rendered in a browser.
+  - **SUPERSEDED — original D4 text:** the Contributed drill should also show a clearly-labelled **"Seed money (one-time, not tied to a month)"** line so twelve months + seed visibly reconciles to the year total. Seed rows carry `month = NULL`, so a month-scoped drill legitimately excludes them — which is why the 2026 drill (260,000.00) is smaller than the cumulative card (505,000.00, which also spans 2025). The server does not yet return that NULL-month portion; that is the owner-decided D4 follow-up.
+
+- [x] **QUICK-ACTIONS CARRY-OVER: RESOLVED — NO BUG. My flag was wrong, twice.** Confirmed against real data across the boundary: `.hero-quick-actions` sits in `.hero-container` at 1440 and 1025, moves to `#sidebarQuickActions` at 1024 and 390, and returns to the hero at 1440 — **1 block, 9 buttons, exactly 1 `#requestLoanBtn` throughout**, so it is moved and never cloned. My original observation was wrong first because it ran on stubbed data, then a second time because it measured `.quick-actions` (the inner list, whose parent is always `.hero-quick-actions`) instead of the wrapper that actually moves. **Cline's original "proven" was correct.** Recorded because a false bug report costs as much as a missed one.
+
+
+---
+
+### WHEN ALL TASKS ARE DONE (or blocked)
+Rewrite this HANDOVER section with:
+- Which tasks completed `[x]` and what was proven
+- Which tasks are `BLOCKED` and why
+- Any new files created or DDL applied
+- Any autonomous product decisions you made and why
+- A clear statement: **"Handing back to Cline for re-planning"**
+- Any new instructions Cline should add to the next dispatch
+
+### FOR CLINE (super-advisor)
+When you receive the handover back, review the completed/blocked items, add new `- [ ]` checklist items below as needed, and hand back to the coding agent. The checklist format means you can append new tasks without restructuring the whole section.
 
 ---
 
@@ -59,32 +168,9 @@ Report **two separate lists**: what you **proved in the browser** (name the widt
 
 ---
 
-## 1. CURRENT STATE (as of 2026-07-25, after cycle 125 — **cycle 126 dispatched: J3 Slice 1 backend — additive period drill-down on the accounting FLOW figures**)
+## 1. CURRENT STATE
 
-**Cycle 125 CLOSED (J3 scout — see under J3).** Mapped the drill-down surface; full per-figure table lives in SYSTEM_MAP "Accounting drill-down surface (cycle 125 scout)". Handler re-confirmed on re-read at **payments.php:1875–2007** (scout's 1615–1747 had drifted — that range is `group_compliance_summary`); cards inert, no modal on analytics.html (reuse admin_dashboard's `.stat-modal`). The three product decisions it surfaced are resolved (§6 + J3 below) and Slice 1 is cut.
-
-**Cycle 126 in flight (§8) — J3 Slice 1 backend.** Additive, opt-in `figure`+`year`(+`month`) period drill-down on `payments.accountingSummary` for the four FLOW figures with live data (totalContributed, totalDisbursed, loanRepaymentsReceived, interestEarned) — a server period total + underlying rows in minor units. The no-param cumulative call stays byte-identical. `COMPLEXITY: high` (period money aggregation across three tables on the live accounting endpoint). Slice 2 (modal UI + card wiring + period picker) follows.
-
-**BOUNDARY — accounting accuracy (cycles 122–125):** every accounting total is proven at the **computation level, NOT over HTTP/browser** — the admin/member endpoints are session-gated, no test login is available this session, and there is no Chrome extension for a visual pass. This caveat applies to J3's eventual UI too: the drill-down numbers cannot be called fully VERIFIED until the owner supplies (a) an admin test login for the HTTP pass and (b) a browser for the render/modal-interaction pass. Both owner-gated.
-
-
-**NEW OWNER DIRECTIVE (2026-07-25):** *"Work on the accounting part on the pages to show what's required and accurately — for example the Accounting Summary, and the user pages too."* This is the accounting-DISPLAY half of group J. It spans **J3** (admin Accounting Position drill-down, already promoted) and a **new J5** (member-facing accounting shown accurately/completely — see §3). The operative word is **"accurately"**: nothing is assumed correct. Cycle 121 is a read-only **ground-truth scout** across every accounting figure on the five accounting surfaces, plus a live reconciliation of `payments.accountingSummary` after the cycle-120 penalty-engine change — it unblocks exact-line J3/J5 build briefs. **Standing-backlog note:** J2 Slice 2 (admin penalty-rules UI) and Slice 3 remain unblocked and are deferred behind this directive, not cancelled.
-
-**A concrete accuracy suspicion for the scout to confirm (not pre-judge):** `group_accounting_summary()` (`payments.php:1557–1651`) computes `penaltiesCharged/Collected/Waived/Outstanding` by summing the **persisted `penalty_settlements` rows** (`amountAccrued`/`amountPaid`/`amountWaived`), NOT the live penalty engine. So it captures only penalties that already have a settlement row — live-accruing, unsettled penalties on overdue loans/contributions appear to be excluded. If so, `penaltiesOutstanding` will diverge from the live `payments.groupArrears.penaltyAccrued`. That is precisely the "arrears tile showed 0 against a true 1,379,000" bug class; the scout reconciles it.
-
-
-
-**A–F COMPLETE; G/H/I CLOSED; group J promoted and in flight.** Every box in section 2 (A–F) is `[x]` and has been since cycle 47. G (loan eligibility), H (money-moment info & accounting) and I (dashboards/nav/analytics usability) are closed. The E3 undefined-token bug class is closed by measurement (cycles 113–115: 4,541 `var(--bn-*)` uses across 76 served files, **0 undefined**, reproduced independently over HTTP).
-
-**The loop is no longer halted.** The owner answered four of the five standing blockers, signed off the dead-file deletion, reported a live bug, and directed a new feature. Group **J** is promoted (section 3); **J1 is unblocked and dispatched**. One new blocker, **BL-6**, gates J2 alone and stalls nothing else.
-
-**Cycle 117 — hotfix shipped directly, no dispatch (the owner was looking at a dead page).** `pages/manage_payments` was blank in the browser: `Uncaught SyntaxError: Identifier 'emptyState' has already been declared`. `scripts/manage_payments_sql.js` imported `emptyState` from `./ui.js` **and** declared its own `function emptyState(icon, text)` — a duplicate module-scope binding, so the whole module failed to parse. A half-finished migration: one call site already used the shared helper's object form, another still used the old two-arg form. Two edits: local function deleted, remaining call site converted. Filed under **E4**.
-
-**The systemic finding matters more than the bug.** The project's JS syntax gate was `node --check <file>`, which parses as **CommonJS** and returns **exit 0** on this exact file — it is structurally incapable of catching an import/local duplicate-identifier collision, and every script here loads as `<script type="module">`. The gate is now **`node --input-type=module --check < scripts/x_sql.js`**, corrected in `frontend-specialist`, `qa-auditor` (header + LINT mode), `live-verifier`, `build-planner` and the build-loop skill, and recorded as a standing rule in section 6. A sweep of all 46 modules in module mode now shows **0 failing**.
-
-**One caveat on "complete":** completeness here means *built + diff-reviewed + (where marked) LIVE-VERIFIED over HTTP/DB* — **not visually rendered in a browser**. Cycle 117 is the counter-example that proves the caveat: every affected surface was built, QA-passed and HTTP-verified, and the page was still dead on arrival in a real browser.
-
-**A standing correction from cycle 116:** a parked item asserted for eleven days that the owner's "Test" group had 0 `group_rules` rows. A verifier on the live DB found that group does not exist and no group is missing its rules row. Recorded under B1; generalised into section 6 ("a parked item describing live data is a claim with a shelf life").
+**A–F ticked. G/H/I closed. J1–J4 closed 2026-08-06.** One browser pass is the only open job (§4); one owner-directed item, J11 profile picture, is open in the HANDOVER checklist. History: `archive/BUILD_PLAN_history_2026-08-06_run.md`.
 
 ---
 
@@ -133,49 +219,22 @@ Report **two separate lists**: what you **proved in the browser** (name the widt
 
 ## 3. OWNER-PROMOTED GROUPS (enrichment on the complete A–F checklist — no box reopened)
 
-### G. Loan eligibility & standing *(promoted cycle 90)* — **CLOSED**
-- [x] **G1** — Server-computed standing/eligibility via `loans.eligibility` + member loan-modal panel. LIVE-VERIFIED 2026-07-23.
-- [x] **G2** — Server-side enforcement inside `request_loan` via shared `loan_eligibility_check()` (single source of truth with G1). All three gates LIVE-VERIFIED 2026-07-23.
-- [x] **G3** — Admin-configurable conditions in the Loan Settings modal, persisted to `group_rules`, read by G2.
+### G, H, I — **ALL CLOSED** *(cycles 90, 91, 98)*
+- **G** (Loan eligibility, 3 items) — Server-computed standing, gated enforcement, admin-configurable rules. LIVE-VERIFIED.
+- **H** (Money-moment info & accounting, 5 items) — Borrower context, statement ledger, payment context, `payments.accountingSummary` (10 figures). LIVE-VERIFIED.
+- **I** (Dashboards & analytics, 5 items) — Broken-button audit, month filter, Financial Trends chart, interactive analytics, card tooltips. LIVE-VERIFIED.
 
-### H. Contextual money-moment info & accounting *(promoted cycle 91)* — **CLOSED**
-- [x] **H1** — Admin loan-approval borrower-standing context (admin-only `uid` override, auth boundary QA-verified).
-- [x] **H2** — Member account statement/ledger: `statement.get` + `exports.statement` CSV via shared `statement_assemble()`.
-- [x] **H3** — Richer member payment context (`#paymentDueInfo`, reuses already-loaded obligations).
-- [x] **H4** — Richer admin payment-recording context (`#paymentOwedInfo`, read-only, no auto-fill).
-- [x] **H5** — `payments.accountingSummary`: ten whole-group money figures in minor units (contributed, disbursed, outstanding principal, interest, repayments, penalties charged/collected/waived/outstanding, cash position).
+### J. Owner-directed work *(promoted cycle 118)* — **OPEN**
 
-### I. Dashboards, navigation & analytics usability *(promoted cycle 98)* — **CLOSED**
-- [x] **I1** — Broken-button audit: every reported control confirmed already wired.
-- [x] **I2** — Month filter + per-month summaries on both dashboards (client re-aggregation, no new calls, no client money math).
-- [x] **I3** — Analytics Financial Trends: `#accountingFiguresBlock` renders H5's ten figures, display-only.
-- [x] **I4** — `user_analytics.html` made interactive: clickable loan cards, member-safe `payments.groupStats`, expandable activity/trend, server-computed contribution/arrears breakdown popovers.
-- [x] **I5** — Card "i" tooltip rollout (18 analytics cards + user-dashboard hero tiles).
-
-### J. Owner-directed: member loan origination, configurable penalties, accounting drill-down *(promoted cycle 118, 2026-07-25)* — **OPEN**
-
-**Why a new letter and not an existing tag.** G, H and I are closed groups and the A–F boxes are ticked; the scope rule forbids silently expanding an old box. Each J item is a new theme, not an extension: **J1** adds a member-facing *origination path* (G only ever *checked* eligibility); **J2** introduces admin-configurable penalty *behaviour* plus DDL (H5 merely *displayed* penalty totals, and A2 governs *how* money is computed — server-side, minor units — not *which* rules exist, so tracing J2 to A2 would reopen a ticked box); **J3** needs a new period-scoped server aggregation (H5 is cumulative by deliberate decision, section 6; I3 was display-only). **J2 is filed here, not under A2/H5, for exactly that reason.**
-
-- [ ] **J1** — **Member-initiated loan requests, admin-approved.** Owner (BL-4): *"A member can request their own loan but has to be approved by the admin."* Backend already exists and is already enforced — `loans.request` → `request_loan()` (`api/handlers/loans.php:238–369`, role-gated to `member` and up) with G2's `loan_eligibility_check()` as the standing gate. This is the member-facing UI onto an enforced endpoint, plus confirming member-originated loans surface in the admin approval queue. **Highest value-per-risk: the money path is already built, gated and live-verified — nothing new touches money.**
-- [ ] **J2** — **Admin-configurable penalty engine.** Owner (BL-1/BL-3): penalty configured **per group by the admin** on two axes — **period** (per day | per month) and **basis** (fixed amount | percentage) — applied **group-wide**, **changeable at any time**. **GATED ON BL-6** (percentage basis). Highest build value, highest risk.
-  - **PREMISE CORRECTION (cycle 119, re-read of live code — the plan's J2 line-refs and "retire the throw" framing were both wrong):** (1) `compute_contribution_penalty()` (`payments.php:174–369`) **already implements percentage in full** — it does NOT throw. It charges `arrears × rate% × periods` on `$arrearsMinor` (still-owed), which **contradicts BL-6(b)** (full obligation regardless of part-payment). J2's contribution work is therefore a **basis change (arrears→full obligation)**, not "implement percentage". (2) The only engine still refusing percentage is the **loan** engine `compute_loan_penalty()` (`penalty.php:117`), 501'd at `repayments.php:112` — and it charges a flat daily amount, computing **no overdue amount**, which BL-6(a) requires. (3) There is **no 501 in `rules.php`**; the 501s are at `payments.php:388` and `repayments.php:112`. (4) `loanPenaltyRate` / `contributionPenaltyDailyRate` / `contributionPenaltyMonthlyRate` exist but are **absent from the `update_rules()` whitelist** → percentage is unconfigurable today (half-built). (5) Neither side has a *fixed-per-month* amount column or an explicit *period* selector — period is only implied by which rate column is non-zero. **DDL + slices are gated on a live `DESCRIBE` first (cycle 119 scout).**
-- [ ] **J3** — **Group Accounting Position cards → period-scoped drill-down modals.** Owner: *"Group Accounting Position cards should also open a modal based on the month or year showing tables of the stats."* `#accountingFiguresBlock` on `analytics.html` (I3) renders H5's ten figures from `payments.accountingSummary`. H5 is cumulative with **no period scoping**, so this needs a backend slice returning period-scoped breakdown **rows** — the client must not re-aggregate money. Largest UI slice.
-  - **Cycle-121 scout ground truth (reconciled live, group `cf4156a12ed6e0c1c371f1ddbe0cb1c1`):** the six *settled-money* fields reconcile byte-for-byte against raw tables (totalContributed 100000.00, totalDisbursed 50000.00, outstandingLoanPrincipal 41666.66, loanRepaymentsReceived 21666.67, interestEarned 5000.00, cashPosition 71666.67). Admin `analytics.html` + `financial_reports.html` read server fields via `formatCurrency` with **no client math** — CLEAN. `admin_dashboard.html` renders trends, not the ten figures — N/A. So J3 is a pure display/period-slice add on an accurate base (once the penalty gap below is fixed).
-  - **Cycle 122 (accountingSummary penalty figures → LIVE, backend-first, QA PASS + live-verifier VERIFIED at computation level):** shared `group_live_contribution_penalty_minor()` extracted from `group_arrears_summary`'s loop; BOTH it and `group_accounting_summary` now call it (byte-identical arrears extraction confirmed by diff), plus a loan-penalty loop summing `compute_loan_penalty()['amountOutstanding']` (net of settlements) wrapped in a RuntimeException→501 guard. `penaltiesOutstanding = liveContributionPenalty + liveLoanPenalty`; `penaltiesCharged == collected+waived+outstanding` (identity in code); `penaltiesCollected/Waived` unchanged (settled sums); cashPosition + the six accurate fields byte-for-byte untouched; auth unchanged. Live for cf41: helper penaltyMinor=500400.00, approved loan accrues 0.00 today (future-dated schedule) → `accountingSummary.penaltiesOutstanding` = **500400.00, was 0.00 before the fix** (0 settlement rows), closing the predicted gap exactly; six accurate fields unchanged. **Boundary:** pure-function/read-only proof; awaits a session-based HTTP pass (no admin cookie jar this session).
-  - **Cycle-125 J3 scout (full per-figure table in SYSTEM_MAP "Accounting drill-down surface (cycle 125 scout)"):** handler `group_accounting_summary` re-confirmed on re-read at **payments.php:1875–2007** (route `payments.accountingSummary` GET, index.php:89, `PAYMENT_ADMIN_ROLES` at 1882; year-hardcode for live penalties at 1958); **no period param today**, returns 10 money strings, no rows. Cards on analytics.html are **inert** (`statCard(label,value,infoText?)`, analytics_sql.js:530/558–575; no click handler). **No modal on analytics.html** — reuse admin_dashboard's `.stat-modal` (CSS admin_dashboard.html 1606–1802, HTML 2056–2077, JS openStatModal/closeStatModal/overlay/Escape admin_dashboard_sql.js 1124–1176 + 1477–1479).
-  - **J3 DECISIONS (recorded §6):** **(D1 flows-vs-balances)** only **FLOW** figures (money that moved in the period) get a period drill-down with rows; **balance/derived** figures — outstandingLoanPrincipal (reclassified from the scout's scopable list: a "for March" remainingBalance snapshot is a fabricated number), penaltiesOutstanding, penaltiesCharged, cashPosition — are point-in-time/derived, so their card modal shows the **cumulative** value + an explicit "running position, not a period total" banner + a current-breakdown/derivation table from fields the summary already returns, **never** synthetic period rows. **(D2 slice cut)** **Slice 1 (cycle 126, backend)** = additive period-drill on the four flow figures with live cf41 data: totalContributed, totalDisbursed, loanRepaymentsReceived, interestEarned. penaltiesCollected/Waived (settlement flows by settledAt, 0 rows in cf41) = **slice 1b**. **Slice 2** = modal UI + card wiring + period picker (reuse `.stat-modal`, ui-designer-heavy). **(D3 period semantics)** year required + month optional (owner said "month or year"): payments scoped by `year`+`month` ENUM; loans/loan_payments by `YEAR(approvedAt)=? AND MONTH(approvedAt)=?`. Money server-side minor units throughout. **(D4 seed-money reconciliation — OWNER DECISION 2026-07-25, AskUserQuestion):** `seed_money` payments carry `month = NULL` (once-per-cycle joining fee, not monthly), so a month-scoped `totalContributed` drill legitimately excludes them — proven live: cf41 2026 months sum to 20000.00 vs year 100000.00, gap **exactly** the two seed rows (30000+50000=80000, nothing else leaks). Owner chose the **transparent "separate one-time line"** option: the Contributed drill-down must show, alongside the month rows, a clearly-labelled **"Seed money (one-time, not tied to a month): MWK X"** line so twelve months + seed = year total visibly reconciles. Backend implication (slice 1b or fold into slice-2 data): the `totalContributed` drill needs to ALSO return the year's **NULL-month (seed) portion** so the modal can render that line; the not-chosen alternatives (date seed by paidAt / year-only) were declined. Nothing is hidden or misattributed — the accountant-honest reading.
-- [ ] **J4** — **Admin-selectable loan interest method.** BL-3 answered by implication (*"same as all accounting formulas"*) ⇒ `flat_rate` is a real product option, not a dead ENUM value. Needs `loanInterestCalculationMethod` added to the `update_rules()` whitelist (currently absent) and a flat-rate branch in `compute_loan_schedule()` (`api/lib/money.php:107–214`, reduced-balance only today). Lowest priority.
-- [ ] **J5** — **Member-facing accounting shown accurately & completely (the "user pages too" half of the 2026-07-25 directive).** New theme, new letter: I4 (`payments.groupStats` transparency subset) and H2 (statement ledger) are CLOSED and the A–F boxes are ticked; this is *correctness + completeness of the accounting a member sees* — verifying every figure on `user_dashboard.html` / `user_analytics.html` traces to a server value in minor units (A2 governs *how* money is computed, not *which* member-facing figures are shown accurately), and filling any gap where a member cannot see a required, accurate accounting figure. **No client-side accounting math is acceptable.**
-  - **Cycle-121 scout confirmed THREE client-side money-arithmetic defects (all violate A2), all on member pages — the J5 backlog:** (1) `scripts/user_dashboard_sql.js:493` — `arrearsMinor = toMinor(arrears) + toMinor(penaltyAccrued)` adds two server fields client-side; (2) `scripts/user_dashboard_sql.js:483–487` — a client loop summing `pendingPayments`; (3) `scripts/user_analytics_sql.js:248–250` — `totalBorrowed = myLoans.filter().reduce()` (client filter+reduce over loans).
-  - **PER-DEFECT SERVER-SOURCE RESOLVED (cycle 122 live re-read — all three need a tiny additive server field; none exists today, so backend-first):** (1) `my_obligations` json_response `summary` (`payments.php:1239–1243`) returns `contributed`/`arrears`/`penaltyAccrued` but **no combined owed total** → add `'totalOwed' => money_from_minor($arrearsMinor + $penaltyAccruedMinor)` (both already computed at 1221–1222; mirrors admin `group_arrears_summary`'s `totalArrears` at 1411). (2) `list_payments` summary (`payments.php:902–909`) has verifiedCollected/arrears/penaltyAccrued/totalArrears but **no pending total** → add `'pending' => money_from_minor($pendingMinor)`, accumulating `amountPaid` where `approvalStatus==='pending'` in the existing 873–900 loop. *Caveat:* the month-filter re-scope (`applyDashboardMonthFilter`, dashboard :572–601) also sums pending client-side by the accepted I2 re-aggregation decision — fully removing that needs a per-MONTH server breakdown, folded into J3's period-scoped slice; this cycle closes the base/"all-year" pending figure only. (3) `list_loans` summary (`loans.php:243–248`) has totalPrincipal (ALL rows incl pending/rejected), activePrincipal (approved/disbursed only), totalOutstanding — **none scoped to ISSUED_LOAN_STATUSES** `["approved","disbursed","completed","defaulted"]` → add `'issuedPrincipal' => money_from_minor($issuedPrincipalMinor)` summing `approvedAmount ?? principalAmount` (same extraction as totalPrincipal, 230–232) over that status set. **Cycle 123 = the backend slice (all three additive fields, no DDL); the frontend read-swap follows.**
-  - **Cycle 123 CLOSED (backend slice, QA PASS + computation-reconciled):** `summary.totalOwed` (obligations), `summary.pending` (payments.list), `summary.issuedPrincipal` (loans.list) all shipped; member auth scoping in the bound SQL; no DDL. **Cycle 124 = the frontend read-swap** — the three client-math defects now read these fields (arrears→totalOwed, pending→pending, totalBorrowed→issuedPrincipal), and the stale admin `penaltiesOutstanding` tooltip (`analytics_sql.js:554`, live since cycle 122) is folded in. Month-filter pending re-aggregation stays the I2 exception, deferred to J3. Runtime/browser proof owner-gated (login + Chrome).
-  - **SCOUT UNDER-REPORT (found cycle 124 by a full residual-grep of `user_dashboard_sql.js`, NOT in the cycle-121 list):** the SAME `toMinor(summary.arrears)+toMinor(summary.penaltyAccrued)` sum lived at **two more** sites — `updatePaymentDueInfo` (~2365, a member-facing "Total outstanding across all obligations" figure) and `renderContributionChart` (~642, chart geometry). Both **fixed inline cycle 124** to read `summary.totalOwed` (behaviour-identical, field already reconciled; module-parse clean). Lesson: a scout's defect list is a floor, not a ceiling — sweep the whole file for the pattern, don't trust the enumerated line list. **J5-FOLLOWUP (NOT yet fixed — needs planner scoping, a distinct class):** four more client-side money sums remain in `user_dashboard_sql.js`, each producing a DISPLAYED total: `renderActiveLoans` (~1058-59, "Received"/"Balance" summed across the member's active loans), `openArrearsModal` (~1601, arrears table footer), `showAllPaymentsModal` (~1677, payments table footer). Unlike the totalOwed sites, these have **no exact existing server field** (active-loan subset totals; table-footer sums of client-built rows) — each needs the same per-case decision cycle 123 made (add a scoped server total vs. accept as a sum-of-the-rendered-table idiom). Do NOT swap them with a guessed mapping. Also present but ACCEPTED: `applyDashboardMonthFilter` (~586/588) client month re-aggregation = the standing I2 exception, deferred to J3.
+- [ ] **J1** — **Member loan requests.** Backend live (`request_loan` via `loans.request`, gate enforced, eligibility checked). UI gap: no "Request a Loan" entry on `loan_payments.html`. Highest value-per-risk.
+- [ ] **J2** — **Admin-configurable penalty engine.** Period (day/month) + basis (fixed/%). Gated on BL-6 (percentage basis clarification). Cycle 119 scout found: contribution % already built on wrong basis (arrears, not full obligation per BL-6(b)); loan % still 501'd; DDL needed for period selector and fixed-per-month amounts. See archive for full premise analysis.
+- [ ] **J3** — **Group Accounting Position cards → period-scoped drill-down modals.** Period-scoped drill on four FLOW figures (flows-vs-balances decision D1): totalContributed, totalDisbursed, loanRepaymentsReceived, interestEarned. Requires backend slice returning period-scoped rows via `payments.accountingSummary` (year + optional month). Slice 2 adds modal UI + card wiring. Seed-money reconciliation (D4 — owner-decided): include year's NULL-month rows as separate line so months + seed = year total. See archived cycle 121-125 scout and decision details (archive/BUILD_PLAN_history_2026-08-06_run.md). Slice 1 ready for dispatch.
+- [ ] **J4** — **Loan interest method (flat_rate).** Add `loanInterestCalculationMethod` to `update_rules()` whitelist + implement flat-rate branch in `compute_loan_schedule()`. Lowest priority.
+- [ ] **J5** — **Member-facing accounting shown accurately & completely.** Fix three A2 violations (client-side money math on user pages): (1) arrears+penalty sum, (2) pending payments sum, (3) total borrowed sum. Backend slice adds `summary.totalOwed`, `summary.pending`, `summary.issuedPrincipal`. Frontend read-swap replaces client math with server fields. Closed cycle 123 (backend) + 124 (frontend). See archive for full defect list and cycle history.
 
 **Directive scope decision (2026-07-25):** the admin drill-down is **J3** (unchanged); the member-accounting-accuracy work is **J5** (new), NOT an extension of the closed I4/H2. Cycle 121's scout maps BOTH sides in one ground-truth pass so both J3 and J5 build briefs land exact-line.
 
-**Sequence: J1 → J2 (the moment BL-6 lands) → J3 → J4.** J1 first because it is the only workstream whose money-critical backend is *already* built and enforced, so backend-first is satisfied before the cycle starts; J2 cannot be first while its formula is one unanswered question; J3 and J4 are new server maths behind new UI and neither is blocking anything.
-
-**Cycle 109–113 owner hardening (all four live-testing complaints, QA PASS):** admin↔user view switch promoted to an always-visible topbar control (`nav_sql.js`); responsive overflow fixed (inline grid tracks moved into overridable rules + mobile breakpoints); "cards not clickable" disproved on live re-read (was the overflow); Collection Trends chart given a labelled y-axis and its root cause fixed — `.trend-gridline` referenced `--bn-gray-200`, **a token that does not exist**, so `var()` fell back to `currentcolor`.
+**Sequence: J1 → J2 (moment BL-6 lands) → J3 → J4.** J1 ready now (backend live-verified); J2 waits for BL-6 answer; J3/J4 deferred. See archive for closed cycle 109-125 details.
 
 ---
 
@@ -195,11 +254,23 @@ Report **two separate lists**: what you **proved in the browser** (name the widt
   **The engine therefore needs TWO bases, not one shared formula** (the recommendation had assumed one). Loans price off the *overdue* amount; contributions off the *full obligation*. Make the difference explicit and commented in the code so a later reader cannot "simplify" the two into one and silently change what members are charged. Real-world justification the owner is acting on: full-obligation contribution penalties remove the incentive to dribble in partial payments, while loan penalties stay proportionate to what is genuinely late. Gates **J2 only** — now unblocked.
 
 ### UNBLOCKED — the live backlog
-- **UI-127-VERIFY — browser pass on cycle 127's 9 UI items. THE ONE OPEN JOB.** Full brief in the HANDOVER section at the top of this file. Code-complete + statically verified; zero browser confirmation. Clears in one session once a browser is available.
-- **J1 — member-initiated loan requests: ALREADY BUILT AND LIVE (cycle 118 scout, grep-proven).** The BL-4 premise ("no member-facing flow calls `loans.request`") was a **stale inherited claim** — the flow exists: request modal `#loanModal`/`#loanRequestForm` at `pages/user_dashboard.html:2376–2462`, logic at `scripts/user_dashboard_sql.js:2515–2874`, triggered by `#requestLoanBtn`, submitting `apiPost("loans.request", …)` at :2854; G1's eligibility panel renders into `#loanStandingPanel`; server permits `member` role and enforces `loan_eligibility_check()`. **Code-complete — NOT browser-verified** (no Chrome extension this session); awaiting a click-through. One genuine **UX gap** (small J1 follow-up): `loan_payments.html`, the member's own loans page, has **no "Request a loan" entry point** — the only route in is the dashboard Quick Actions button.
-- **J2 — admin-configurable penalty engine: UNBLOCKED (BL-6 answered), premise corrected cycle 119 (see J2 in §3).** `COMPLEXITY: high`. The DDL pass found the plan's premise false: contribution percentage is already built (on the wrong basis), loan percentage is not, and the config columns aren't whitelisted. Additive DDL can't be finalised without the live schema (exact types, ENUM defaults) + current per-group penalty values (behaviour-preservation depends on whether any group is already on `percentage` with a non-zero rate). **Cycle 119 dispatches a codebase-scout for that live DESCRIBE + values; Slice 1 backend brief follows once it returns.** See section 8.
-- **J3 — accounting-position drill-down modals.** Ready to sequence after J2; needs a backend period-scoped slice first (money-critical work backend-first).
-- **J4 — admin-selectable loan interest method.** Ready to sequence; lowest priority.
+
+**2026-08-06 run: all five backlog items BUILT; J1/J2/J3/J4 are now closed.** Cycle detail is in `.claude/archive/BUILD_PLAN_history_2026-08-06_run.md`.
+
+> ⚠ **A curation pass on 2026-08-06 replaced this block with a line reading "all now done or archived" and deleted every BUILT-NOT-PROVEN marker, while leaving stale text that still described J1's entry point and J2/J3/J4 as outstanding. All four had shipped.** Restored below. **"Built" and "archived" are not "proven" — do not collapse that distinction again.**
+
+### THE ONLY OPEN JOB: ONE BROWSER PASS
+
+**No browser was connected for the whole 2026-08-06 run (checked four times).** Everything below is `php -l` / module-parse clean, and the money is reconciled against the live DB through the real handler code — but **nothing has been rendered**. Widths to test: 320 · 390 · 768 · 1024 · 1025 · 1440.
+
+1. **Drawer close control — BUILT, NOT PROVEN.** A 44×44 "Close menu" button in the drawer header (≤1024px only) wired to the existing close path; focus moves to it on open; `body.bn-drawer-open` scroll lock scoped inside the ≤1024px query. *Prove:* the drawer opens, the button closes it, Escape and overlay still close it, the page behind does not scroll, and `aria-expanded` flips both ways.
+2. **Hero 4/3 band — BUILT, NOT PROVEN. Highest-risk item of the run.** 12-column track; wide = 4 then 3, ≤768 = 3 per row with the 7th centred, ≤480 = 2 per row with the 7th centred. **QA caught a real cascade defect here and it was fixed on the one permitted retry** — the exactly-7 rules are (0,6,0) and media queries add no specificity, so unscoped they leaked into the narrow breakpoints and left cards 5–6 at the wrong span (row filling 8 of 12 columns). Now guarded by `@media (min-width: 769px)`. Reproduced with the guard disabled and re-resolved with it on, via a cascade resolver over the real stylesheet — **but a resolver is not a renderer.** *Prove:* card widths are uniform in every row, and the 7th card is centred at ≤768 and ≤480.
+3. **"Request a Loan" on `loan_payments.html` — BUILT, NOT PROVEN.** Links to `user_dashboard.html?open=loan-request`; the dashboard opens the existing modal and strips the param via `replaceState`. *Prove:* the round trip opens the modal, and a refresh afterwards does NOT reopen it.
+4. **Penalty display + D4 seed-money line — money PROVEN, render NOT.** *Prove:* the arrears modal's Late-penalty column and its Arrears/Late-penalties/Total-owed block agree with the Arrears tile, and the Contributed drill's seed-money line appears for **2025** (105,000.00) and is absent for 2026.
+5. **Cycle 127 check 5** — hero centring and 2-up grid wrapping, never visually inspected. Folds into item 2.
+
+- **UI-127-VERIFY — checks 1–4 PROVEN 2026-08-05; check 5 still open** (now item 5 above). Full brief in the HANDOVER section.
+- **J1 / J2 / J3 / J4 — CLOSED 2026-08-06.** J1's last UX gap (no request entry point on the member's own loans page) is item 3 above. J2 Slice 3 shipped with three defects fixed, one of them a wrong money label. J3's D4 seed-money reconciliation shipped. J4 shipped 2026-08-05. Detail in the archive.
 
 ### PARKED — needs owner sign-off or is deliberate
 - **Visual confirmation outstanding (E3, cycles 114–115).** No Chrome extension was connected in this session, so **no browser pass was possible and nothing was visually rendered.** The CSS-spec outcome is not in doubt (0 undefined tokens, proven twice over HTTP) and delivery is proven, but *"does the light-slate `--bn-gray-50` panel actually look right on `user_dashboard.html`, `admin_dashboard.html`, contributions overview, manage loans, manage payments"* is **unconfirmed**. Open, not done. Clears in one pass whenever a browser is available.
@@ -230,6 +301,15 @@ No loan percentage-rate column was added: the existing DEAD `loanPenaltyRate DEC
 ---
 
 ## 6. ASSUMPTIONS LOG — standing autonomous decisions (owner may override any line)
+
+> ### ⚑ THE BASICS — village-banking order of operations (owner-stated 2026-08-06, do not re-derive)
+> **A cycle runs in this order, and the UI must never present it otherwise:**
+> 1. **Seed money first.** It is the joining stake that capitalises the box. It is due at the START of the cycle, before monthly contributions run and **before the group lends anything out**. Unpaid seed money is already a bar to borrowing (`payment_recompute_member_flags` → `seedMoneyPaid` → `eligibleForLoan`).
+> 2. **Monthly contributions** then run for the cycle's months (`payment_cycle_months_to_date` — a month before the cycle started was never owed).
+> 3. **Loans** are disbursed from the pooled money, and repaid on a schedule of instalments with dates.
+> 4. **Penalties** accrue on whatever is late, and a repayment clears **penalty → interest → principal** in that order (`repayment_allocate`).
+>
+> **Consequences already built in:** a preset worth "one instalment" must include the outstanding penalty or it will not clear that instalment; the contribution form prompts when seed money is still short (a PROMPT, never a block — the server accepts out-of-order payment and the UI must not invent a rule the ledger does not enforce); every "next payment" figure is shown **with its due date**, and subsequent instalments with theirs.
 
 | Area | Decision taken | Rationale |
 |---|---|---|
@@ -280,89 +360,15 @@ Logged, never auto-queued. Requires the owner's explicit promotion.
 
 ## 8. ACTIVE CYCLE
 
-### Cycle 127 — BUILT, AWAITING BROWSER VERIFICATION: owner-directed UI-only mobile pass (9 items)
+No cycle in flight. All closed tasks, Cycle 127's UI pass, Cycle 126's brief and cycles 114–125 are in `archive/BUILD_PLAN_history_2026-08-06_run.md` (`grep CYCLE` / `grep DECISION`).
 
-**Owner interrupted the J-group sequence on 2026-07-26 with a direct UI brief ("Lets do UI only updates", 9 numbered items, "work autonomously without asking me questions"). Cycle 126 below was NOT run this session — its dispatch brief stands unchanged for whoever picks it up next.**
-
-All 9 items are **code-complete and statically verified** (`node --input-type=module --check` clean on all 3 changed scripts; HTML tag balance and CSS brace balance clean on all 5 changed pages; no dangling refs to the removed dropdown). **Not browser-verified — no Chrome extension connected, and the pages are session-gated so no screenshot pass was possible.** The verification brief is the **HANDOVER section at the top of this file**.
-
-What shipped, item by item:
-1. **Mobile bottom nav** — `.mobile-nav-items` had no width and no `flex`, so it shrank to content and the icons huddled mid-bar. Now fills the bar, caps at 560px, centres that cap; children are equal-width columns with fixed-size SVG icons. A ≤400px block keeps 5–6 targets legible. `unified-mobile-nav.css`, mirrored in `admin-layout.css:564`.
-2. **manage_payments mobile table** — empty-state rows are `<td colspan="7">`, which inherited the card layout's 80px label gutter *and* `text-align:right`, so the message sat jammed right. `tbody td[colspan]` now renders as a centred full-width block with no `::before` label. `design-system.css:934`.
-3 + 7. **Denser mobile grids** — figure cards go 2-up: `.card-grid` (pages.css), `#accountingFiguresBlock` (design-system.css, id-specificity), `.monthly-breakdown-grid` (2-up from 400px), `.rules-stat-grid`, `.groups-grid` (2-up to 480px), `.hero-stats` (3 cols tablet / 2 phone). Charts deliberately stay 1-up. Card padding + value sizes stepped down to match.
-4. **Hero redesign** — composed around the centre line at every width; new palette (deeper indigo body, gold aurora above centre, blue lift below) with a centred gold hairline on the top edge, replacing the corner-lit navy. Max-width dropped 1200→960 so greeting and filter read as one header.
-5. **User-dashboard drawer — root cause found.** A leftover `.mobile-menu-btn` block in that page's inline `<style>` (written for the retired dark top-nav) painted the burger's bars **white on the white topbar** and defaulted it to `display:none`, beating `admin-layout.css` on source order. With no reachable burger the sidebar could never get `.open` — which is why the page appeared to have no drawer at all. Block deleted. Hero Quick Actions now **move** (not clone — buttons are wired by id) into a new `#sidebarQuickActions` slot below 1025px.
-6. **Drawer behind the bar** — both were `var(--z-fixed)` and the bar is appended to `<body>` last, so it won the tie. Sidebar now `+20`, overlay `+10` (between them, so tapping the dimmed bar closes the drawer rather than navigating).
-8. **Forced Loans relocated** — was a red alert box above the loans table, giving a rarely-used config tool the most urgent styling and the best position while pushing the actual list below the fold. Now a neutral collapsed `<details>` panel at the page foot, opened by a new ⚡ quick-action, with enabled/off state on the closed summary. Markup inside untouched — the JS addresses its children by id.
-9. **DECISION (owner delegated): removed `#loanFilterDropdown`, kept and improved `#borrowerFilterDropdown`.** The status dropdown duplicated the tabs and was broken two ways: "All Loans" was a **no-op** (the handler skipped `value === "all"`, leaving the previous tab applied), and "Approved Only"/"Disbursed Only" had **no case** in `renderLoans()`'s switch so they fell through to "show everything" while deselecting every tab. Two controls writing one `currentTab` caused both. Tabs are now the single source of status, with a new **All Loans** tab so nothing is lost; borrower is a genuinely independent axis so it keeps its own control, now labelled with a conditional "Clear filter".
-
-**Boundary (state it, do not claim otherwise):** built + statically verified ≠ works. Cycle 117 is this project's standing counter-example. Nothing in cycle 127 has been rendered.
-
----
-
-### Cycle 126 — DISPATCHED (NOT RUN — superseded this session by the owner's UI directive; brief stands as-is): J3 Slice 1 backend — additive opt-in period drill-down on payments.accountingSummary (four FLOW figures)
-
-```
-AGENT      backend-specialist
-OBJECTIVE  Add an additive, opt-in period drill-down to payments.accountingSummary — a `figure`+`year`(+optional `month`) request returns that flow figure's period total + underlying rows in minor units — WITHOUT changing the cumulative (no-param) response.
-FILES      api/handlers/payments.php:1850–2008 — the `group_accounting_summary` function. Add an EARLY `figure`-drill branch immediately AFTER the require_role line (1882) and BEFORE the existing cumulative code (which starts at $pdo = getDbConnection() line 1884), so the cumulative path 1884–2006 is left literally untouched. Cumulative queries to REUSE VERBATIM for the drill totals (same column, same status filter, plus a date WHERE):
-             · totalContributed → payments.amountPaid WHERE groupId AND approvalStatus IN ('approved','completed') — 1886–1895
-             · totalDisbursed → loans.principalAmount WHERE groupId AND status IN ('approved','disbursed','completed','defaulted') — 1897–1908
-             · loanRepaymentsReceived → loan_payments.amount WHERE groupId AND status='approved' — 1910–1921
-             · interestEarned → loan_payments.interestPortion, SAME WHERE as above — 1910–1921
-           api/index.php:89 — route `payments.accountingSummary => ['GET','group_accounting_summary']`. NO route change (same handler, new optional query params). Confirm only.
-           PAYMENT_MONTHS constant (used at group_compliance_summary 1622/1628) — reuse for month validation + index→month-number mapping; do NOT redefine it.
-CONTEXT    - Money is server-side integer minor units via api/lib/money.php money_to_minor/money_from_minor. Totals summed ROW-WISE via money_to_minor(trim((string)$row[...])) exactly as the cumulative code does — NEVER SQL SUM() on a DECIMAL, never a float.
-           - require_role($groupId, PAYMENT_ADMIN_ROLES) is at line 1882; the drill branch sits AFTER it (same admin gate — do NOT add a second gate, do NOT weaken it).
-           - Contract: NO `figure` param → run the existing cumulative code path untouched (byte-identical JSON of the ten fields). `figure` present → REQUIRE `year` (INT 2000–2100, else 422 'year is required'); `figure` must be one of totalContributed|totalDisbursed|loanRepaymentsReceived|interestEarned (else 422 'figure not available for period drill-down' — this is how the non-scopable/unknown figures are refused); optional `month` must be a PAYMENT_MONTHS name (else 422 'Invalid month').
-           - Drill response shape: {"figure":<key>,"year":<int>,"month":<name|null>,"periodTotal":money_from_minor(total),"rows":[...]}. periodTotal MUST be the money_to_minor sum of the SAME column the cumulative path sums, over the SAME status filter, plus the date filter — so period ⊆ cumulative by construction.
-           - Period scoping: payments uses its own INT `year` + ENUM `month` columns (WHERE year=:year [AND month=:month]). loans + loan_payments have only `approvedAt` datetime → WHERE YEAR(approvedAt)=:year [AND MONTH(approvedAt)=:m], mapping the PAYMENT_MONTHS index (0-based) +1 to the month number.
-           - Row shapes (plain scalars; money as money_from_minor strings; createElement-friendly for slice 2):
-             totalContributed → {memberName, type, month, amountPaid, approvedAt}
-             totalDisbursed → {borrowerName, principalAmount, status, approvedAt}
-             loanRepaymentsReceived → {borrowerName, amount, approvedAt}; interestEarned → {borrowerName, interestPortion, amount, approvedAt} (same loan_payments rows, its own total column)
-           - Display name via JOIN users u ON u.uid = <t>.uid (payments.uid, loans.uid); loan_payments joins through loans (loan_payments.loanId → loans.loanId → loans.uid). If any join key is NOT `uid`/`loanId`, STOP and report the brief's premise false — do NOT guess a column name.
-           - DB reads/writes go through getDbConnection() (config/database.php:12). No mysql CLI.
-DO NOT     Do not touch the cumulative path (1884–2006), cashPosition maths (1990–1993), the live-penalty block (1944–1988), or any of the ten top-level fields. Do not add/alter a route. Do not weaken require_role or add a second one. No SQL SUM(), no float. Do NOT build drills for outstandingLoanPrincipal / penaltiesOutstanding / penaltiesCharged / cashPosition / penaltiesCollected / penaltiesWaived (later slices). No DDL — this slice is read-only. No destructive SQL.
-ACCEPT     - A no-`figure` request returns the identical 10-field JSON (byte-for-byte vs a pre-change capture).
-           - With `figure`+`year`: response has exactly figure/year/month/periodTotal/rows; absent/invalid year → 422; non-allow-listed figure → 422; bad month → 422.
-           - Drill totals computed via money_to_minor row-wise on the SAME column+status filter as the cited cumulative code plus the date WHERE; no float, no SQL SUM.
-           - The require_role line is unchanged and sits above the new branch. `php -l api/handlers/payments.php` clean.
-VERIFY     live-verifier via a scripted PHP read through getDbConnection() (HTTP/browser owner-gated). For group cf4156a12ed6e0c1c371f1ddbe0cb1c1, year 2026, each of the four figures F:
-             (1) month-partition identity: Σ over the 12 PAYMENT_MONTHS of drill(F,2026,month).periodTotal (in minor) == drill(F,2026,no-month).periodTotal.
-             (2) year-vs-cumulative: Σ over every distinct year present of drill(F,year,no-month).periodTotal == the cumulative top-level F (contributed 100000.00, disbursed 50000.00, repayments 21666.67, interest 5000.00). Report any row dropped from EVERY period because payments.year / loans.approvedAt / loan_payments.approvedAt is NULL or unparseable — that is a reconciliation leak, NOT a pass.
-             (3) byte-identity: the no-`figure` JSON body equals a pre-change capture.
-           OWNER-GATED (state, do not claim): the HTTP end-to-end pass needs an admin cookie jar and the browser modal pass needs Chrome — neither available this session.
-COMPLEXITY high — period money aggregation reconciled in minor units across three tables on the live accounting endpoint; must not regress the cumulative figures the no-param call returns.
-```
-
-**Real engine signatures (persist across cycles — for J2 Slice 2/3 and J3 work):**
-- `compute_loan_penalty(array $loan, ?array $rules, ?string $asOf = null): array` — no $pdo arg (self-connecting), $asOf nullable date string. Return adds `penaltyType`/`penaltyPeriod`/`periodsCharged`/`overdueAmount`.
-- `compute_contribution_penalty(?array $rules, ?string $dueDate, int $arrearsMinor, int $obligationMinor, ?string $paymentId = null, ?string $asOf = null): array` — `$obligationMinor` (full obligation, BL-6(b)) REQUIRED, before `$paymentId`.
-- `update_rules()` whitelist now covers loan/contribution × {Rate, DailyAmount, MonthlyAmount, MonthlyRate, Period, Type, GracePeriodDays}. Rate validator `rules_penalty_rate_string` rejects <0 and >100.
-
-**Known follow-up (logged, not blocking):** percentage-mode settlements write `penalty_settlements.dailyAmount = 0.00`; the real basis lives in `amountAccrued`/`overdueAmount`, which `repayments.php` does not persist. A later slice touching settlement persistence should carry the basis into the audit row. Cosmetic to the audit trail, not to any charge.
-
-**Closed this session (one line each):**
-- **125 (J3 scout — accounting drill-down surface)** — mapped `#accountingFiguresBlock`/`statCard`/cards-inert, the reusable admin_dashboard `.stat-modal`, and a per-figure period/row-source table (full table in SYSTEM_MAP "Accounting drill-down surface (cycle 125 scout)"). Planner re-read corrected the handler location to payments.php:1875–2007 (scout's 1615–1747 had drifted onto `group_compliance_summary`). Resolved the three product decisions (D1 flows-vs-balances, D2 slice cut, D3 year+month) recorded in §6 + J3, cut Slice 1. -> J3 (cycle 126 backend).
-- **124 (J5 frontend read-swap — member pages read the cycle-123 server totals; no client money math)** — the three cycle-121 defects swapped to server fields (arrears→`summary.totalOwed`, pending→`summary.pending`, totalBorrowed→`summary.issuedPrincipal`); stale admin `penaltiesOutstanding` tooltip corrected; **two same-class sites the scout missed fixed inline** via a full residual-grep (`updatePaymentDueInfo` ~2365, `renderContributionChart` ~642 → `summary.totalOwed`, behaviour-identical). All three modules parse clean module-mode; field mappings cross-checked vs the live PHP handlers; `applyDashboardMonthFilter` (I2 month exception) byte-identical. QA PASS. Boundary: computation-verified, NOT HTTP/browser (endpoints session-gated, no login/Chrome). **J5-FOLLOWUP stays open** (renderActiveLoans ~1058, openArrearsModal ~1601, showAllPaymentsModal ~1677 — no exact existing server field; NOT folded into J3). -> J5.
-- **123 (J5 backend slice — three additive server totals, no DDL)** — `payments.obligations.summary.totalOwed` (arrears+penaltyAccrued), `payments.list.summary.pending` (member-own pending amountPaid), `loans.list.summary.issuedPrincipal` (approvedAmount??principalAmount over approved/disbursed/completed/defaulted); each reuses in-handler values, member auth scoping in the bound SQL. QA PASS + live-reconciled at computation level (identities held for all 5 cf41 members; e.g. arrears 110000 + penalty 79800 = totalOwed 189800; group 8e83 member fbca6f pending 100.00, others 0.00; borrower b8deec issuedPrincipal 50000.00). Awaits an HTTP end-to-end pass (no member/admin login this session). -> J5 (cycle 124 frontend read-swap).
-- **122 (accountingSummary penalty figures → LIVE, backend-first)** — shared `group_live_contribution_penalty_minor()` now feeds BOTH `group_arrears_summary` and `group_accounting_summary`; penaltiesOutstanding = live contribution + live loan accrual (net of settlements), guarded RuntimeException→501. QA PASS; live-verifier VERIFIED at computation level (cf41: penaltiesOutstanding 500400.00, was 0.00; six accurate fields byte-identical). Awaits a session-based HTTP pass. -> J3/J5.
-- **121 (ground-truth accounting scout)** — mapped all five accounting surfaces + reconciled live. Six settled-money accountingSummary fields reconcile byte-for-byte (cf41: contributed 100000.00, disbursed 50000.00, outstanding principal 41666.66, repayments 21666.67, interest 5000.00, cash 71666.67). Admin analytics/financial_reports CLEAN (server fields, no client math); admin_dashboard N/A. **Confirmed PENALTY-ACCURACY gap** — accountingSummary sums penalty_settlements only, excluding live accrual (charged=0 while groupArrears.penaltyAccrued>0). **Confirmed 3 client-side money-math defects on member pages** (user_dashboard_sql.js:493, :483-487; user_analytics_sql.js:248-250). -> cycle 122 (backend penalty fix, J3/J5) + J5 frontend.
-- **120 (J2 Slice 1)** — admin-configurable penalty engine, loan + contribution, fixed|percentage x day|month. 4 additive columns applied live (both live groups still `period='day'`, no behaviour change); loan % on the overdue amount (BL-6(a)), contribution % on the full obligation (BL-6(b), a deliberate basis change threaded through 13 call sites). QA PASS both slices; LIVE-VERIFIED both — every reconciliation exact (loan 600/400/2000/shrinking-360; contribution headline 300 not 0.06, end-to-end partial-payment 2400 not 1440; cf41 fixed/day byte-identical both engines), zero residue, live groups untouched. Remaining J2: Slice 2 admin UI, Slice 3 display. -> J2.
-- **119** — scout returned the live `group_rules` penalty schema + both groups' values: both `type='fixed'` so percentage ships behaviour-preserving; `loanPenaltyRate` was DEAD (now reused). -> J2.
-- **118** — scout proved J1 (member loan requests) is **already built and live**; BL-4 premise was stale. J1 code-complete, awaiting a browser click-through; UX-gap follow-up: no request entry point on `loan_payments.html`. -> J1.
-- **117** — hotfix: `manage_payments` was a blank page (duplicate `emptyState` — imported + locally declared). All 46 modules now parse in **module mode**. Systemic fix: JS gate is now `node --input-type=module --check` everywhere. -> E4 + standing rule in §6.
-- **116** — `group_rules` row self-heals on a senior_admin path. QA PASS; live dry-run VERIFIED, zero residue. Premise correction: no live group was actually broken. -> B1.
-- **115** — defined `--bn-gray-50` + fixed 3 wrong-name token call sites. Undefined-token bug class now **zero** across 76 files, proven twice over HTTP. -> E3.
-- **114** — defined 4 missing `--bn-gray` rungs. QA PASS, HTTP-VERIFIED. -> E3.
+⚠ **TAG COLLISION: "J11" names TWO different tasks.** The closed one is *quick-fill amounts + proof of payment* (2026-08-05); the open one is *profile picture* (Cline, 2026-08-06, in the HANDOVER checklist). Re-tag before either is cited again.
 
 ---
 
 ## 9. ARCHIVE INDEX
 
-| File | Covers |
-|---|---|
-| `archive/BUILD_PLAN_history_cycles-1-113_2026-07-25.md` | Cycles 1–113 verbatim: every dispatch brief, QA verdict, scout finding, and superseded decision. 781 KB — **grep it, never read it whole.** |
-
-Useful greps into the archive: `## CYCLE <n>` for one cycle · `DISPATCH` for a past brief's wording · `QA PASS`/`FAIL` for verdicts · `LIVE-VERIFIED` for what was actually run against the real app.
+| File | Covers | Size |
+|---|---|---|
+| `BUILD_PLAN_history_cycles-1-113_2026-07-25.md` | Cycles 1–113 complete: every brief, verdict, finding, decision. | 781 KB |
+| `BUILD_PLAN_history_2026-08-06_run.md` | Cycles 114–127 + CYCLE-127-VERIFY + Cycle 127 UI (9 items) + 13 closed tasks. Grep `CYCLE`, `DECISION`, `VERIFIED`. | 28 KB |

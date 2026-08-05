@@ -51,10 +51,11 @@ import {
   ApiError,
   redirectToLogin,
   downloadExport,
+  apiUrl,
 } from "./api.js";
 import { formatCurrency } from "./utils_financial.js";
-import { attachCardInfo } from "./card_info.js";
-import { makeStatClickable } from "./ui.js";
+import { attachCardInfo, pageStatInfo } from "./card_info.js";
+import { makeStatClickable, renderQuickAmounts, renderUpcomingInstalments } from "./ui.js";
 
 // ── Global state ────────────────────────────────────────────────────────────
 let currentUser = null;
@@ -151,6 +152,20 @@ function setupEventListeners() {
   makeStatClickable("totalOutstanding", {
     onClick: jumpToTab("overdue"), label: "Show overdue loans",
   });
+
+  // Standardized info toggles on the four headline stat cards
+  attachPageStatInfo("pendingCount", "Pending Requests",
+    "Loan requests members have submitted that are waiting for an admin decision. None of this money has moved yet.",
+    [["Click the card", "to see pending requests"]]);
+  attachPageStatInfo("activeCount", "Active Loans",
+    "Loans that have been approved or disbursed and are being repaid. Members are current on these.",
+    [["Click the card", "to see active loans"]]);
+  attachPageStatInfo("totalDisbursed", "Total Disbursed",
+    "Total loan principal paid out to members so far. Counts approved, disbursed and completed loans.",
+    [["Click the card", "to see the loans"]]);
+  attachPageStatInfo("totalOutstanding", "Outstanding Balance",
+    "What members still owe on active loans right now. This is today's position.",
+    [["Click the card", "to see overdue loans"]]);
 
   // The tabs are the ONLY status filter now — the duplicate (and broken)
   // #loanFilterDropdown was removed from the page. See the comment beside
@@ -1151,7 +1166,7 @@ function createLoanRow(loan) {
   if (loan.status === "pending") {
     const approveBtn = el("button", "btn btn-accent btn-sm");
     approveBtn.textContent = "Approve";
-    approveBtn.addEventListener("click", () => approveLoan(loan.loanId));
+    approveBtn.addEventListener("click", () => reviewThenApproveLoan(loan));
     const rejectBtn = el("button", "btn btn-danger btn-sm");
     rejectBtn.textContent = "Reject";
     rejectBtn.addEventListener("click", () => rejectLoan(loan.loanId));
@@ -1311,6 +1326,226 @@ function emptyTableRow(text, colspan) {
 }
 
 // ── Approve / reject ─────────────────────────────────────────────────────────
+
+/**
+ * J6 — never approve a loan blind.
+ *
+ * Approving used to fire `loans.approve` straight off the button click, so an
+ * admin committed the group's cash without seeing what the borrower already
+ * owes. This fetches that borrower's position first and puts it in front of the
+ * admin, who then confirms or cancels.
+ *
+ * The snapshot is ADVISORY. It never blocks: the server's own
+ * loan_eligibility_check() is the gate, and it runs again inside loans.approve
+ * regardless of what this modal shows.
+ *
+ * @param {Object} loan the loan row (needs loanId + borrowerId)
+ */
+async function reviewThenApproveLoan(loan) {
+  if (!loan || !loan.loanId) return;
+
+  showSpinner(true);
+  let snapshot = null;
+  try {
+    snapshot = await apiGet("loans.eligibility", {
+      groupId: selectedGroupId,
+      uid: loan.borrowerId,
+    });
+  } catch (error) {
+    // A snapshot we could not load must not silently become "looks fine" — the
+    // modal says so explicitly and the admin decides with that caveat visible.
+    snapshot = null;
+  } finally {
+    showSpinner(false);
+  }
+
+  openApprovalReviewModal(loan, snapshot);
+}
+
+/**
+ * The approval review modal: borrower position, warnings, then confirm/cancel.
+ * Built with createElement throughout — every value here is server data.
+ * @param {Object} loan
+ * @param {?Object} snapshot loans.eligibility response, or null if it failed
+ */
+function openApprovalReviewModal(loan, snapshot) {
+  const overlay = el("div", "modal-overlay active");
+  overlay.id = "loanApprovalReviewModal";
+
+  const content = el("div", "modal-content");
+  content.style.maxWidth = "520px";
+
+  const header = el("div", "modal-header");
+  const title = el("h2", "modal-title");
+  title.textContent = "Review before approving";
+  const closeBtn = el("button", "modal-close");
+  closeBtn.textContent = "×";
+  closeBtn.setAttribute("aria-label", "Close");
+  closeBtn.addEventListener("click", () => overlay.remove());
+  header.append(title, closeBtn);
+
+  const body = el("div", "modal-body");
+
+  // --- What is being approved. ---
+  body.appendChild(reviewHeading("This loan"));
+  body.appendChild(
+    reviewLine("Borrower", loan.borrowerName || "Unknown borrower"),
+  );
+  body.appendChild(
+    reviewLine(
+      "Amount requested",
+      formatCurrency(loan.approvedAmount || loan.principalAmount || "0.00"),
+    ),
+  );
+  if (loan.repaymentPeriod) {
+    body.appendChild(
+      reviewLine("Repayment period", `${loan.repaymentPeriod} month(s)`),
+    );
+  }
+  if (loan.purpose) body.appendChild(reviewLine("Purpose", loan.purpose));
+
+  if (!snapshot) {
+    const note = el("p");
+    note.style.cssText =
+      "margin: var(--bn-space-4) 0 0; color: var(--bn-danger); font-weight: 600;";
+    note.textContent =
+      "This borrower's financial position could not be loaded. Approve only if you are sure.";
+    body.appendChild(note);
+  } else {
+    // --- The borrower's existing position. ---
+    body.appendChild(reviewHeading("This borrower's position"));
+    body.appendChild(
+      reviewLine("Already owes", formatCurrency(snapshot.totalRemaining || "0.00")),
+    );
+    body.appendChild(
+      reviewLine("Across active loans", String(snapshot.activeLoanCount ?? 0)),
+    );
+    body.appendChild(
+      reviewLine("Has contributed", formatCurrency(snapshot.contributed || "0.00")),
+    );
+    body.appendChild(
+      reviewLine("Overdue contributions", formatCurrency(snapshot.arrears || "0.00")),
+    );
+    body.appendChild(
+      reviewLine("Outstanding penalties", formatCurrency(snapshot.penalties || "0.00")),
+    );
+
+    const exposure = snapshot.exposure || {};
+    body.appendChild(
+      reviewLine(
+        "Debt vs contributions",
+        exposure.debtToContributionPercent === null
+          || exposure.debtToContributionPercent === undefined
+          ? "Not applicable — no contributions yet"
+          : `${exposure.debtToContributionPercent}%`,
+      ),
+    );
+
+    // --- Advisory warnings. ---
+    if (exposure.flagged && Array.isArray(exposure.warnings) && exposure.warnings.length) {
+      body.appendChild(
+        reviewWarningBox(
+          "Review before approving",
+          exposure.warnings,
+          "warning",
+        ),
+      );
+    }
+
+    // --- The group's own rules said no. Louder than the advisory box. ---
+    if (snapshot.eligible === false && Array.isArray(snapshot.reasons) && snapshot.reasons.length) {
+      body.appendChild(
+        reviewWarningBox(
+          "This member does not currently qualify under the group's rules",
+          snapshot.reasons,
+          "danger",
+        ),
+      );
+    }
+  }
+
+  const footer = el("div", "modal-footer");
+  const cancelBtn = el("button", "btn btn-ghost");
+  cancelBtn.textContent = "Cancel";
+  cancelBtn.addEventListener("click", () => overlay.remove());
+  const confirmBtn = el("button", "btn btn-primary");
+  confirmBtn.textContent = "Approve loan";
+  confirmBtn.addEventListener("click", () => {
+    overlay.remove();
+    approveLoan(loan.loanId);
+  });
+  footer.append(cancelBtn, confirmBtn);
+
+  content.append(header, body, footer);
+  overlay.appendChild(content);
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+  document.addEventListener("keydown", function onEsc(e) {
+    if (e.key === "Escape") {
+      overlay.remove();
+      document.removeEventListener("keydown", onEsc);
+    }
+  });
+  cancelBtn.focus();
+}
+
+/** A small section heading inside the review modal. */
+function reviewHeading(text) {
+  const h = el("h3");
+  h.style.cssText =
+    "margin: var(--bn-space-4) 0 var(--bn-space-2); font-size: var(--bn-text-sm);"
+    + " text-transform: uppercase; letter-spacing: 0.04em; color: var(--bn-gray);";
+  h.textContent = text;
+  return h;
+}
+
+/** One label/value row inside the review modal. */
+function reviewLine(label, value) {
+  const row = el("div");
+  row.style.cssText =
+    "display: flex; justify-content: space-between; gap: var(--bn-space-4);"
+    + " padding: var(--bn-space-2) 0; border-bottom: 1px solid var(--bn-gray-100);";
+  const l = el("span");
+  l.style.color = "var(--bn-gray)";
+  l.textContent = label;
+  const v = el("span");
+  v.style.fontWeight = "600";
+  v.textContent = value;
+  row.append(l, v);
+  return row;
+}
+
+/**
+ * A callout listing reasons. `tone` picks an existing design-system colour —
+ * amber for advisory risk, red for a rule the group has actually set.
+ */
+function reviewWarningBox(title, reasons, tone) {
+  const colour = tone === "danger" ? "var(--bn-danger)" : "var(--bn-warning)";
+  const box = el("div");
+  box.style.cssText =
+    `margin-top: var(--bn-space-4); padding: var(--bn-space-3);`
+    + ` border-left: 4px solid ${colour}; background: var(--bn-gray-50);`
+    + ` border-radius: var(--bn-radius-sm);`;
+
+  const heading = el("p");
+  heading.style.cssText = `margin: 0 0 var(--bn-space-2); font-weight: 700; color: ${colour};`;
+  heading.textContent = (tone === "danger" ? "⛔ " : "⚠ ") + title;
+  box.appendChild(heading);
+
+  const list = el("ul");
+  list.style.cssText = "margin: 0; padding-left: var(--bn-space-5);";
+  for (const reason of reasons) {
+    const li = el("li");
+    li.textContent = reason;
+    list.appendChild(li);
+  }
+  box.appendChild(list);
+  return box;
+}
+
 async function approveLoan(loanId) {
   showSpinner(true);
   try {
@@ -1467,14 +1702,93 @@ function openRecordPaymentModal(loanId = null) {
     });
 
     if (loanId) loanSelect.value = loanId;
+
+    // Presets follow whichever loan is selected — the amounts are specific to
+    // that loan's schedule and penalty, so they must be refetched on change.
+    if (!loanSelect.dataset.quickBound) {
+      loanSelect.dataset.quickBound = "1";
+      loanSelect.addEventListener("change", () =>
+        loadAdminRepaymentQuickAmounts(loanSelect.value));
+    }
   }
 
   const paymentDate = document.getElementById("paymentDate");
   if (paymentDate) paymentDate.value = new Date().toISOString().split("T")[0];
   document.getElementById("recordPaymentForm")?.reset();
   if (paymentDate) paymentDate.value = new Date().toISOString().split("T")[0];
+  if (loanSelect && loanId) loanSelect.value = loanId;
+
+  loadAdminRepaymentQuickAmounts(loanSelect ? loanSelect.value : "");
 
   showModal("recordPaymentModal");
+}
+
+/**
+ * Preset amounts for the loan an admin is recording against.
+ *
+ * Same server source as the member's own form (repayments.balance), so an admin
+ * taking cash in person is offered exactly the figures the borrower sees.
+ * @param {string} loanId
+ */
+async function loadAdminRepaymentQuickAmounts(loanId) {
+  const container = document.getElementById("paymentQuickAmounts");
+  const input = document.getElementById("paymentAmount");
+  if (!container || !input) return;
+
+  if (!loanId) {
+    renderQuickAmounts(container, [], input);
+    return;
+  }
+
+  try {
+    const data = await apiGet("repayments.balance", { loanId });
+    renderQuickAmounts(container, data && data.quickAmounts, input, "Another amount");
+    renderUpcomingInstalments(document.getElementById("paymentUpcoming"), data && data.upcoming);
+  } catch (error) {
+    // No presets rather than a guessed figure.
+    renderQuickAmounts(container, [], input);
+  }
+}
+
+/**
+ * Upload a repayment proof and return the server-minted path.
+ * Multipart, so it bypasses apiPost (which only sends JSON) — the browser must
+ * set the form-data boundary itself.
+ * @param {File} file
+ * @param {string} groupId
+ * @return {Promise<string>}
+ */
+async function uploadRepaymentProof(file, groupId) {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("groupId", groupId);
+
+  const response = await fetch(apiUrl("files.upload"), {
+    method: "POST",
+    credentials: "same-origin",
+    body: form,
+  });
+
+  const raw = await response.text();
+  let body = null;
+  try {
+    body = raw ? JSON.parse(raw) : null;
+  } catch (parseError) {
+    throw new ApiError("Unexpected server response", response.status, null);
+  }
+  if (!response.ok) {
+    throw new ApiError(
+      (body && (body.error || body.message)) || "Could not upload the proof.",
+      response.status,
+      body,
+    );
+  }
+  // Standard {ok, data:{url,...}} envelope; flat fallback kept for safety.
+  const url = (body && body.data && body.data.url) || (body && body.url);
+  if (!url) {
+    throw new ApiError("Upload did not return a file URL.", response.status, body);
+  }
+  return url;
 }
 
 async function handleRecordPayment(e) {
@@ -1496,6 +1810,16 @@ async function handleRecordPayment(e) {
 
   showSpinner(true);
   try {
+    // Proof is OPTIONAL here, unlike the member's own form: an admin recording
+    // cash handed over in person has nothing to attach. When a file IS chosen it
+    // goes through files.upload first, exactly as the member path does — the
+    // server only accepts a path it minted itself.
+    let proofUrl;
+    const proofFile = document.getElementById("paymentProof")?.files?.[0];
+    if (proofFile) {
+      proofUrl = await uploadRepaymentProof(proofFile, selectedGroupId);
+    }
+
     // Server computes the split (principal/interest/penalty) and files the
     // payment as PENDING; nothing on the ledger moves until it is approved.
     await apiPost("repayments.record", {
@@ -1503,6 +1827,7 @@ async function handleRecordPayment(e) {
       amount,
       paymentMethod: method,
       notes: notes || undefined,
+      proofOfPaymentImageUrl: proofUrl,
     });
     hideModal("recordPaymentModal");
     showToast("Payment recorded — awaiting approval", "success");
@@ -2095,6 +2420,18 @@ function promptForReason(opts) {
     if (e.target === overlay) overlay.remove();
   });
   textarea.focus();
+}
+
+// ── Page-stat info toggles ──────────────────────────────────────────────────
+/**
+ * Attach a standardized "i" info toggle to a `.page-stat` card identified by
+ * the id of its value element (e.g. "pendingCount").
+ */
+function attachPageStatInfo(valueElId, title, description, rows) {
+  const valueEl = document.getElementById(valueElId);
+  const card = valueEl?.closest(".page-stat");
+  if (!card) return;
+  pageStatInfo(card, { title, description, rows });
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

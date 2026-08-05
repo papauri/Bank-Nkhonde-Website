@@ -1036,14 +1036,15 @@ table.data-table tbody tr:last-child td {
 .spinner-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(10, 22, 40, 0.9);
-  backdrop-filter: blur(8px);
+  background: rgba(10, 22, 40, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: var(--z-modal);
   opacity: 1;
-  transition: opacity var(--bn-transition-base);
+  transition: opacity 0.3s ease;
 }
 
 .spinner-overlay.hidden {
@@ -1053,60 +1054,21 @@ table.data-table tbody tr:last-child td {
 
 .spinner-content {
   text-align: center;
-}
-
-.spinner {
-  width: 48px;
-  height: 48px;
-  border: 3px solid rgba(255, 255, 255, 0.15);
-  border-top-color: var(--bn-accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin: 0 auto var(--bn-space-4);
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.loading-text {
-  color: var(--bn-white);
-  font-size: var(--bn-text-base);
-  font-weight: 500;
-}
-
-/* Any spinner inside the main content area (most admin/user pages) or
-   inside .dashboard-content scopes itself to that container, never covering
-   the sidebar or topbar — so the nav stays visible during SPA transitions. */
-main#mainContent .spinner-overlay,
-.dashboard-content .spinner-overlay,
-.content-section-body .spinner-overlay {
-  position: absolute;
-  background: var(--glass-bg);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border-radius: inherit;
-}
-
-main#mainContent .spinner-overlay .spinner-content,
-.dashboard-content .spinner-overlay .spinner-content,
-.content-section-body .spinner-overlay .spinner-content {
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--glass-border);
   border-radius: var(--bn-radius-2xl);
-  box-shadow: var(--bn-shadow-lg);
-  padding: var(--bn-space-8) var(--bn-space-10);
-  perspective: 280px;
-  animation: bn-loader-pop 0.3s var(--bn-ease-out);
+  box-shadow: var(--bn-shadow-xl), 0 0 80px rgba(201, 162, 39, 0.1);
+  padding: var(--bn-space-10) var(--bn-space-12);
+  animation: bn-loader-pop 0.35s var(--bn-ease-out);
+  max-width: 360px;
+  width: calc(100% - var(--bn-space-8));
 }
 
-main#mainContent .spinner-overlay .spinner,
-.dashboard-content .spinner-overlay .spinner,
-.content-section-body .spinner-overlay .spinner {
-  width: 56px;
-  height: 56px;
+.spinner {
+  width: 64px;
+  height: 64px;
   border: none;
   border-radius: 50%;
   background: var(--bn-gradient-accent);
@@ -1116,24 +1078,55 @@ main#mainContent .spinner-overlay .spinner,
   display: flex;
   align-items: center;
   justify-content: center;
+  margin: 0 auto var(--bn-space-5);
   transform-style: preserve-3d;
   animation: bn-coin-flip 1.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
 }
 
-main#mainContent .spinner-overlay .spinner::after,
-.dashboard-content .spinner-overlay .spinner::after,
-.content-section-body .spinner-overlay .spinner::after {
+.spinner::after {
   content: "K";
   font-family: var(--bn-font-sans);
   font-weight: 800;
-  font-size: 22px;
+  font-size: 26px;
   color: var(--bn-primary);
   letter-spacing: -0.02em;
   animation: bn-coin-face 1.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
 }
 
+.loading-text {
+  color: var(--bn-dark);
+  font-size: var(--bn-text-base);
+  font-weight: 600;
+  margin-bottom: var(--bn-space-1);
+}
+
+.loading-group-name {
+  font-family: var(--bn-font-sans);
+  font-size: var(--bn-text-lg);
+  font-weight: 800;
+  background: var(--bn-gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--bn-space-2);
+  line-height: 1.2;
+}
+
+.loading-subtitle {
+  color: var(--bn-gray-500);
+  font-size: var(--bn-text-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 @keyframes bn-loader-pop {
-  from { opacity: 0; transform: scale(0.92) translateY(4px); }
+  from { opacity: 0; transform: scale(0.92) translateY(8px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
@@ -1167,6 +1160,17 @@ main#mainContent .spinner-overlay .spinner::after,
 @keyframes bn-coin-face {
   0%, 50%, 100% { opacity: 1; }
   25%, 75% { opacity: 0.5; }
+}
+
+/* Scoped spinner inside main content — keeps nav visible */
+main#mainContent .spinner-overlay,
+.dashboard-content .spinner-overlay,
+.content-section-body .spinner-overlay {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: inherit;
 }
 
 /* ============================================
@@ -1861,6 +1865,247 @@ main#mainContent .spinner-overlay .spinner::after,
   display: none;
 }
 
+/* --- Uniform panel body (scripts/card_info.js `infoContent`) ---------------
+   Title, then one plain sentence, then the derivation rows, then an optional
+   action that opens the detail behind the number. Every "i" panel across the
+   app uses this structure so they read the same way.                        */
+.bn-info-title {
+  margin: 0 0 var(--bn-space-2);
+  font-size: var(--bn-text-sm);
+  font-weight: 700;
+  color: var(--bn-white);
+}
+
+.bn-info-desc {
+  margin: 0 0 var(--bn-space-3);
+  color: var(--bn-gray-300);
+  font-size: var(--bn-text-xs);
+  line-height: 1.55;
+}
+
+.bn-info-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--bn-space-4);
+  padding: var(--bn-space-2) 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bn-info-row:first-of-type {
+  border-top: none;
+}
+
+.bn-info-row-label {
+  color: var(--bn-gray-300);
+  font-size: var(--bn-text-xs);
+}
+
+.bn-info-row-value {
+  font-weight: 700;
+  color: var(--bn-white);
+  font-size: var(--bn-text-xs);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.bn-info-action {
+  display: block;
+  width: 100%;
+  margin-top: var(--bn-space-3);
+  padding: var(--bn-space-2) var(--bn-space-3);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--bn-radius-md);
+  background: transparent;
+  color: var(--bn-accent);
+  font-family: inherit;
+  font-size: var(--bn-text-xs);
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+  /* 44px touch target — the panel is frequently opened on a phone. */
+  min-height: 44px;
+}
+
+.bn-info-action:hover,
+.bn-info-action:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--bn-accent);
+}
+
+/* ============================================
+   FINANCIAL TRENDS CHART (analytics.html)
+   ============================================ */
+
+/* KPI summary row */
+.fin-kpis {
+  display: flex;
+  gap: var(--bn-space-4);
+  margin-bottom: var(--bn-space-5);
+  flex-wrap: wrap;
+}
+.fin-kpi {
+  flex: 1;
+  min-width: 140px;
+  background: var(--bn-gray-50);
+  border-radius: var(--bn-radius-md);
+  padding: var(--bn-space-3) var(--bn-space-4);
+  text-align: center;
+}
+.fin-kpi-label {
+  display: block;
+  font-size: var(--bn-text-xs);
+  font-weight: 600;
+  color: var(--bn-gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--bn-space-1);
+}
+.fin-kpi-value {
+  display: block;
+  font-size: var(--bn-text-lg);
+  font-weight: 800;
+  color: var(--bn-dark);
+  font-variant-numeric: tabular-nums;
+}
+.fin-kpi-value.pos { color: var(--bn-success); }
+.fin-kpi-value.neg { color: var(--bn-danger); }
+
+/* Legend */
+.fin-legend {
+  display: flex;
+  gap: var(--bn-space-5);
+  margin-bottom: var(--bn-space-4);
+  padding: 0 var(--bn-space-1);
+}
+.fin-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bn-space-2);
+  font-size: var(--bn-text-sm);
+  font-weight: 500;
+  color: var(--bn-gray-700);
+}
+.fin-legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.fin-legend-dot.collected { background: var(--bn-accent); }
+.fin-legend-dot.disbursed { background: var(--bn-danger); }
+
+/* Plot container */
+.fin-plot {
+  display: flex;
+  gap: 0;
+  position: relative;
+  min-height: 240px;
+}
+
+/* Y-axis labels */
+.fin-yaxis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 60px;
+  flex-shrink: 0;
+  padding-right: var(--bn-space-2);
+  padding-bottom: 24px;
+}
+.fin-yaxis span {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--bn-gray-500);
+  text-align: right;
+  line-height: 1;
+}
+
+/* Scrollable plot area */
+.fin-scroll {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+}
+.fin-plot-area {
+  position: relative;
+  min-width: 100%;
+}
+
+/* Gridlines */
+.fin-gridline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--bn-gray-100);
+  pointer-events: none;
+}
+
+/* Bars row */
+.fin-bars {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  padding-top: 4px;
+}
+.fin-month {
+  flex: 1;
+  min-width: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.fin-month-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  width: 100%;
+  justify-content: center;
+}
+.fin-bar {
+  width: 10px;
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+  transition: height 0.4s ease;
+}
+.fin-bar.collected {
+  background: linear-gradient(180deg, var(--bn-accent) 0%, var(--bn-accent-hover, #2563eb) 100%);
+}
+.fin-bar.disbursed {
+  background: linear-gradient(180deg, var(--bn-danger) 0%, #dc2626 100%);
+}
+.fin-month-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--bn-gray-500);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .fin-kpis { gap: var(--bn-space-3); }
+  .fin-kpi { min-width: 100px; padding: var(--bn-space-2) var(--bn-space-3); }
+  .fin-kpi-value { font-size: var(--bn-text-base); }
+  .fin-yaxis { width: 48px; }
+  .fin-yaxis span { font-size: 9px; }
+  .fin-bar { width: 8px; }
+  .fin-month { min-width: 22px; }
+  .fin-month-label { font-size: 9px; }
+}
+@media (max-width: 480px) {
+  .fin-kpi { min-width: 80px; }
+  .fin-kpi-value { font-size: var(--bn-text-sm); }
+  .fin-yaxis { width: 40px; }
+  .fin-bar { width: 6px; }
+  .fin-month { min-width: 18px; }
+  .fin-month-label { font-size: 8px; }
+}
+
 /* ============================================
    RESPONSIVE
    ============================================ */
@@ -1878,4 +2123,232 @@ main#mainContent .spinner-overlay .spinner::after,
   .bn-info-panel {
     max-width: calc(100vw - var(--bn-space-8));
   }
+}
+
+/* ============================================
+   QUICK AMOUNT PRESETS (scripts/ui.js renderQuickAmounts)
+   Shown above the amount field on every record-a-payment form so someone picks
+   an OUTCOME ("pay it off") instead of working out a figure to type.
+   ============================================ */
+.quick-amount-label {
+  margin: 0 0 var(--bn-space-2);
+  font-size: var(--bn-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--bn-tracking-wide);
+  color: var(--bn-gray);
+}
+
+.quick-amount-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bn-space-2);
+  margin-bottom: var(--bn-space-3);
+}
+
+.quick-amount-btn {
+  flex: 1 1 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--bn-space-2) var(--bn-space-3);
+  /* 44px minimum touch target — these are tapped on a phone in the field. */
+  min-height: 44px;
+  border: 1px solid var(--bn-gray-lighter);
+  border-radius: var(--bn-radius-md);
+  background: var(--bn-white);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--bn-transition-fast), background var(--bn-transition-fast);
+}
+
+.quick-amount-btn:hover,
+.quick-amount-btn:focus-visible {
+  border-color: var(--bn-accent);
+  background: var(--bn-accent-subtle);
+}
+
+.quick-amount-btn.is-selected {
+  border-color: var(--bn-accent);
+  background: var(--bn-accent-subtle);
+  box-shadow: inset 0 0 0 1px var(--bn-accent);
+}
+
+.quick-amount-btn-label {
+  font-size: var(--bn-text-xs);
+  font-weight: 700;
+  color: var(--bn-dark);
+}
+
+.quick-amount-btn-amount {
+  font-size: var(--bn-text-xs);
+  color: var(--bn-gray);
+  white-space: nowrap;
+}
+
+.quick-amount-btn-custom .quick-amount-btn-amount {
+  font-style: italic;
+}
+
+@media (max-width: 480px) {
+  .quick-amount-btn {
+    flex: 1 1 100%;
+  }
+}
+
+/* Due date on a preset chip, and the "what comes after" instalment list. */
+.quick-amount-btn-due {
+  font-size: 0.6875rem;
+  color: var(--bn-gray);
+}
+
+.quick-amount-btn.is-selected .quick-amount-btn-due {
+  color: var(--bn-gray-700);
+}
+
+.upcoming-instalments {
+  list-style: none;
+  margin: 0 0 var(--bn-space-3);
+  padding: 0;
+  border: 1px solid var(--bn-gray-lighter);
+  border-radius: var(--bn-radius-md);
+  overflow: hidden;
+}
+
+.upcoming-instalment {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--bn-space-4);
+  padding: var(--bn-space-2) var(--bn-space-3);
+  font-size: var(--bn-text-xs);
+  color: var(--bn-gray-700);
+  border-top: 1px solid var(--bn-gray-lighter);
+}
+
+.upcoming-instalment:first-child {
+  border-top: none;
+}
+
+.upcoming-instalment.is-overdue {
+  color: var(--bn-danger);
+  background: var(--bn-danger-light);
+  font-weight: 600;
+}
+
+.upcoming-instalment-amount {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Ordering prompt under the contribution presets (seed money settles first). */
+.quick-amount-note {
+  margin: 0 0 var(--bn-space-3);
+  padding: var(--bn-space-2) var(--bn-space-3);
+  border-left: 3px solid var(--bn-warning);
+  background: var(--bn-warning-light);
+  border-radius: var(--bn-radius-sm);
+  font-size: var(--bn-text-xs);
+  line-height: 1.5;
+  color: var(--bn-gray-800);
+}
+
+/* Accounting drill-down (analytics.html): FLOW cards open a period breakdown. */
+.breakdown-card.is-drillable {
+  cursor: pointer;
+  transition: border-color var(--bn-transition-fast), box-shadow var(--bn-transition-fast);
+}
+
+.breakdown-card.is-drillable:hover,
+.breakdown-card.is-drillable:focus-visible {
+  border-color: var(--bn-accent);
+  box-shadow: var(--bn-shadow-md);
+}
+
+.breakdown-card.is-drillable:focus-visible {
+  outline: 2px solid var(--bn-accent);
+  outline-offset: 2px;
+}
+
+.drill-controls {
+  display: flex;
+  gap: var(--bn-space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--bn-space-4);
+}
+
+.drill-controls .form-group {
+  flex: 1 1 160px;
+  margin-bottom: 0;
+}
+
+.drill-total {
+  margin: 0 0 var(--bn-space-4);
+  padding-bottom: var(--bn-space-3);
+  border-bottom: 1px solid var(--bn-gray-lighter);
+  font-size: var(--bn-text-lg);
+  font-weight: 700;
+  color: var(--bn-dark);
+}
+
+/* J2 Slice 3 — penalty shown WITH the sum behind it, in the member's arrears
+   modal. The amount leads; the derivation is secondary text under it. */
+.penalty-amount {
+  font-weight: 700;
+  color: var(--bn-danger);
+}
+
+.penalty-why {
+  margin-top: 2px;
+  font-size: var(--bn-text-xs);
+  line-height: 1.4;
+  color: var(--bn-gray-600);
+  font-weight: 400;
+}
+
+/* The parts-and-total block that makes the modal agree with the Arrears tile
+   it opens from. */
+.arrears-reconcile {
+  margin-top: var(--bn-space-4);
+  padding: var(--bn-space-3);
+  border: 1px solid var(--bn-gray-lighter);
+  border-radius: var(--bn-radius-md);
+  background: var(--bn-gray-50);
+}
+
+.arrears-reconcile-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--bn-space-4);
+  font-size: var(--bn-text-sm);
+  color: var(--bn-gray-700);
+  padding: var(--bn-space-1) 0;
+}
+
+.arrears-reconcile-row:last-child {
+  margin-top: var(--bn-space-1);
+  padding-top: var(--bn-space-2);
+  border-top: 1px solid var(--bn-gray-lighter);
+  font-weight: 700;
+  color: var(--bn-dark);
+}
+
+/* Reconciliation note: the year's one-time money that belongs to no month
+   (seed money). Reads as an annotation on the total, not as another figure
+   competing with it — so it is quieter than .drill-total and tucked directly
+   beneath it. */
+.drill-total:has(+ .drill-unmonthed) {
+  margin-bottom: var(--bn-space-2);
+}
+
+.drill-unmonthed {
+  margin: 0 0 var(--bn-space-4);
+  padding: var(--bn-space-2) var(--bn-space-3);
+  border-left: 3px solid var(--bn-accent);
+  border-radius: var(--bn-radius-sm);
+  background: var(--bn-gray-50);
+  font-size: var(--bn-text-xs);
+  line-height: 1.5;
+  color: var(--bn-gray-700);
 }

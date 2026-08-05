@@ -37,6 +37,7 @@ const ICONS = {
   bell: `<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>`,
   logout: `<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>`,
   burger: `<span></span><span></span><span></span>`,
+  close: `<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>`,
   dashboard: `<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>`,
   settings: `<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>`,
   loans: `<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>`,
@@ -232,6 +233,22 @@ function renderSidebarNav(user, opts, config) {
   sidebarLogo.appendChild(sidebarLogoIcon);
   sidebarLogo.appendChild(sidebarLogoText);
   sidebarHeader.appendChild(sidebarLogo);
+
+  /* Close affordance INSIDE the drawer. The burger that opens the drawer sits
+     on the topbar (z-index --z-sticky); the open drawer (--z-fixed + 20) and
+     its overlay (+10) both paint over that spot, so re-tapping the burger
+     hits the drawer, not the button — the drawer could only be dismissed by
+     Escape or by finding the dimmed strip beside it. Raising the burger above
+     the drawer instead would float it over this very header. A close control
+     in the drawer is the conventional fix and needs no z-order fight. */
+  const sidebarCloseBtn = document.createElement("button");
+  sidebarCloseBtn.type = "button";
+  sidebarCloseBtn.className = "sidebar-close";
+  sidebarCloseBtn.id = "sidebarCloseBtn";
+  sidebarCloseBtn.setAttribute("aria-label", "Close menu");
+  sidebarCloseBtn.appendChild(svgIcon("close", "20"));
+  sidebarHeader.appendChild(sidebarCloseBtn);
+
   sidebar.appendChild(sidebarHeader);
 
   const sidebarNav = document.createElement("nav");
@@ -278,8 +295,22 @@ function renderSidebarNav(user, opts, config) {
   const sidebarUser = document.createElement("div");
   sidebarUser.className = "sidebar-user";
   sidebarUser.id = "sidebarUser";
-  const sidebarAvatar = document.createElement("div");
+  const sidebarAvatar = document.createElement("a");
   sidebarAvatar.className = "sidebar-user-avatar";
+  /* The avatar is a LINK TO SETTINGS, not a file picker.
+     J11 asked for the settings page's click-to-change pattern to be copied
+     onto this avatar and the topbar one. Those are display-only elements
+     inside the global nav — there is no file input here to put a <label>
+     on, so following that literally would mean adding an upload control
+     (and its crop/refresh wiring) to every page's chrome. It would also
+     make a mis-tap on a phone open a file browser from the navigation.
+     A nav avatar's conventional affordance is "go to my profile", and the
+     settings page already owns the upload flow that works. So the avatar
+     becomes a route to that flow rather than a second copy of it.
+     DIVERGES FROM THE J11 BRIEF DELIBERATELY — recorded for review. */
+  sidebarAvatar.setAttribute("href", "settings.html");
+  sidebarAvatar.setAttribute("aria-label", "Your profile and settings");
+  sidebarAvatar.title = "Profile & settings";
   const sidebarInitials = document.createElement("span");
   sidebarInitials.id = "sidebarUserInitials";
   if (user && user.profileImageUrl) {
@@ -448,21 +479,36 @@ function renderSidebarNav(user, opts, config) {
 
   // Sidebar toggle wiring
   if (mobileMenuBtn && sidebar && overlay) {
+    /* Page-behind scroll lock. The drawer already has overscroll-behavior,
+       which stops a flick inside it chaining to the page, but the page was
+       still free to scroll under the open drawer via the dimmed strip. */
+    const setScrollLock = (locked) => {
+      document.body.classList.toggle("bn-drawer-open", locked);
+    };
     const closeSidebar = () => {
       sidebar.classList.remove("open");
       overlay.classList.remove("open");
+      setScrollLock(false);
       mobileMenuBtn.setAttribute("aria-expanded", "false");
       mobileMenuBtn.focus();
     };
     mobileMenuBtn.addEventListener("click", () => {
       const isOpen = sidebar.classList.toggle("open");
       overlay.classList.toggle("open", isOpen);
+      setScrollLock(isOpen);
       mobileMenuBtn.setAttribute("aria-expanded", String(isOpen));
       if (isOpen) {
-        const firstLink = sidebar.querySelector("a[href], button:not([disabled])");
-        if (firstLink) firstLink.focus();
+        // Focus the close control first: it is the way back out, and on a
+        // phone it is the only always-visible one.
+        if (sidebarCloseBtn) {
+          sidebarCloseBtn.focus();
+        } else {
+          const firstLink = sidebar.querySelector("a[href], button:not([disabled])");
+          if (firstLink) firstLink.focus();
+        }
       }
     });
+    if (sidebarCloseBtn) sidebarCloseBtn.addEventListener("click", closeSidebar);
     overlay.addEventListener("click", closeSidebar);
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && sidebar.classList.contains("open")) closeSidebar();

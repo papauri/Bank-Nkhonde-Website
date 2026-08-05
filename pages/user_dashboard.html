@@ -524,13 +524,74 @@
     }
 
     /* Stats grid — premium financial dashboard cards */
+    /* TWELVE-column track, not three. The band holds 7 cards, and 7 does not
+       divide by 3 — the 7th was left stranded alone on a third row. A 12-col
+       track lets each breakpoint choose a span so the last row is either full
+       or deliberately centred, instead of orphaning a card.
+         span 4  = 3 per row (the previous behaviour, kept for any count != 7)
+         span 3  = 4 per row
+         span 6  = 2 per row
+       The exactly-7 rules below are guarded by :first-child:nth-last-child(7),
+       so adding or removing a card falls back to the plain 3-per-row grid
+       rather than silently producing a broken bespoke layout. */
     .hero-stats {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(12, 1fr);
       gap: var(--bn-space-4);
       align-items: stretch;
       max-width: 980px;
       margin-inline: auto;
+    }
+
+    .hero-stats > .hero-stat {
+      grid-column: span 4;
+    }
+
+    /* Exactly 7 cards, WIDE WIDTHS ONLY: 4 on the top row, 3 on the bottom.
+       Both rows span the full width (4x3 = 12, 3x4 = 12), so it reads as a
+       deliberate two-row band rather than a row with a hole in it.
+
+       THE min-width GUARD IS LOAD-BEARING, not tidiness. These rules carry
+       :first-child:nth-last-child(7) plus :nth-child(), i.e. specificity
+       (0,6,0). A media query adds NO specificity, so left unscoped they
+       outrank the (0,5,0) "all cards" rules inside the 768px and 480px
+       blocks below and leak into them. That is not cosmetic: at <=480px
+       cards 5 and 6 would keep `span 4` while 1-4 went to `span 6`, leaving
+       that row filling 8 of 12 columns, and the explicitly-placed 7th card
+       (columns 4-9) would then collide with them and be auto-pushed onto a
+       spurious extra row. Scope these to the width they were designed for
+       and each narrower block governs itself. */
+    @media (min-width: 769px) {
+      .hero-stats > .hero-stat:first-child:nth-last-child(7),
+      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat {
+        grid-column: span 3;
+      }
+
+      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat:nth-child(n + 5) {
+        grid-column: span 4;
+      }
+
+      /* Four across is a narrower card than three across, and
+         .hero-stat-value is `white-space: nowrap` inside `overflow: hidden`
+         — so a long figure like MWK 100,000.00 would be clipped rather than
+         wrapped. Step the value down one size and tighten the horizontal
+         padding to buy the room back. Applied to all 7 so the row stays
+         uniform. */
+      .hero-stats > .hero-stat:first-child:nth-last-child(7),
+      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat {
+        padding: var(--bn-space-4) var(--bn-space-3);
+      }
+
+      .hero-stats > .hero-stat:first-child:nth-last-child(7) .hero-stat-value,
+      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat .hero-stat-value {
+        font-size: var(--bn-text-xl);
+        padding-left: var(--bn-space-3);
+      }
+
+      .hero-stats > .hero-stat:first-child:nth-last-child(7) .hero-stat-label,
+      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat .hero-stat-label {
+        padding-left: var(--bn-space-3);
+      }
     }
 
     .hero-stat {
@@ -570,6 +631,9 @@
     #totalArrearsStat::before { background: var(--bn-danger); }
     #membersStat::before { background: var(--bn-success); }
     #totalContributedStat::before { background: var(--bn-success); }
+    /* The 7th card shipped without an accent stripe colour, so it fell back to
+       the neutral --bn-gray-300 default while its six neighbours were coded. */
+    #borrowingPowerStat::before { background: var(--bn-info); }
 
     .hero-stat:hover {
       border-color: var(--bn-accent);
@@ -1869,12 +1933,28 @@
            count never needs horizontal scroll, and an overflow-x:auto here
            would implicitly turn the paired overflow-y into "auto" and clip
            .hero-stat-popover. */
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(12, 1fr);
         gap: var(--bn-space-2);
         overflow: visible;
       }
 
-      .hero-stat {
+      /* Back to 3 per row here: 4 across is unreadable on a tablet/large
+         phone. That leaves a single 7th card, so it is CENTRED on its own row
+         (cols 5-8) rather than sitting hard left under the first column,
+         which reads as a layout mistake. */
+      .hero-stats > .hero-stat,
+      .hero-stats > .hero-stat:first-child:nth-last-child(7),
+      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat {
+        grid-column: span 4;
+      }
+
+      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat:nth-child(7) {
+        grid-column: 5 / span 4;
+      }
+
+      .hero-stat,
+      .hero-stats > .hero-stat:first-child:nth-last-child(7),
+      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat {
         min-width: auto;
         padding: var(--bn-space-3);
         width: 100%;
@@ -1882,7 +1962,9 @@
         box-sizing: border-box;
       }
 
-      .hero-stat-value {
+      .hero-stat-value,
+      .hero-stats > .hero-stat:first-child:nth-last-child(7) .hero-stat-value,
+      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat .hero-stat-value {
         font-size: var(--bn-text-base);
       }
 
@@ -1939,17 +2021,28 @@
       }
 
       /* Two columns on a phone — three would squeeze a currency value like
-         "MWK 12,500" onto three lines. */
-      .hero-stats {
-        grid-template-columns: repeat(2, 1fr);
+         "MWK 12,500" onto three lines. 7 cards therefore leave one over; it
+         is centred (cols 4-9) instead of orphaned in the left column. */
+      .hero-stats > .hero-stat,
+      .hero-stats > .hero-stat:first-child:nth-last-child(7),
+      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat {
+        grid-column: span 6;
       }
 
-      .hero-stat {
+      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat:nth-child(7) {
+        grid-column: 4 / span 6;
+      }
+
+      .hero-stat,
+      .hero-stats > .hero-stat:first-child:nth-last-child(7),
+      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat {
         padding: var(--bn-space-3) var(--bn-space-2);
         min-width: 0;
       }
 
-      .hero-stat-value {
+      .hero-stat-value,
+      .hero-stats > .hero-stat:first-child:nth-last-child(7) .hero-stat-value,
+      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat .hero-stat-value {
         font-size: var(--bn-text-sm);
       }
 
@@ -2267,6 +2360,12 @@
           <div class="hero-stat-label" id="totalContributedLabel">Contributed</div>
           <div class="hero-stat-popover" id="totalContributedPopover" role="status">Your own approved and completed contributions, totalled for the period shown by the month filter above (a single month, or the whole year).</div>
         </button>
+        <div class="hero-stat" id="borrowingPowerStat" tabindex="0" aria-describedby="borrowingPowerPopover" style="position: relative;">
+          <div class="hero-stat-value" id="borrowingPowerValue">—</div>
+          <div class="hero-stat-label">Borrowing Power</div>
+          <div class="hero-stat-details" id="borrowingPowerDetails">Checking what you qualify for…</div>
+          <div class="hero-stat-popover" id="borrowingPowerPopover" role="status"></div>
+        </div>
       </div>
 
       <!-- Quick Actions (moved into the hero band) -->
@@ -2556,7 +2655,8 @@
           <div id="paymentDueInfo" class="payment-due-info"></div>
           <div class="form-group">
             <label class="form-label">Amount Paid (MWK) *</label>
-            <input type="number" id="paymentAmount" class="form-input" placeholder="Enter amount" required min="1" step="1">
+            <div id="paymentQuickAmounts" hidden></div>
+            <input type="number" id="paymentAmount" class="form-input" placeholder="Enter amount" required min="1" step="0.01">
           </div>
           <div class="form-group">
             <label class="form-label" for="paymentMethod">Payment Method *</label>

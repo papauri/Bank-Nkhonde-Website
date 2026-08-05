@@ -77,8 +77,8 @@ import {
   downloadExport,
 } from "./api.js";
 import { formatCurrency, formatCurrencyFromMinor } from "./utils_financial.js";
-import { attachCardInfo } from "./card_info.js";
-import { emptyState, skeletonRows } from "./ui.js";
+import { attachCardInfo, pageStatInfo } from "./card_info.js";
+import { emptyState, skeletonRows, renderQuickAmounts } from "./ui.js";
 
 // ── Global state ────────────────────────────────────────────────────────────
 let currentUser = null;
@@ -183,6 +183,20 @@ function setupEventListeners() {
   document.getElementById("arrearsStat")?.addEventListener("click", () => activateTab("arrears"));
   document.getElementById("approvedStat")?.addEventListener("click", () => activateTab("recent"));
   document.getElementById("collectedStat")?.addEventListener("click", () => activateTab("recent"));
+
+  // Standardized info toggles on the four headline stat cards
+  attachPageStatInfo("pendingCount", "Pending Payments",
+    "Payments members have submitted that are waiting for an admin to approve or reject. None of this money is counted as received yet.",
+    [["Click the card", "to see pending payments"]]);
+  attachPageStatInfo("approvedCount", "Approved Payments",
+    "Payments an admin has verified — the money has been received and counted toward the member's standing.",
+    [["Click the card", "to see recent activity"]]);
+  attachPageStatInfo("totalCollected", "Total Collected",
+    "Total verified money received from members — seed money, monthly contributions and service fees combined.",
+    [["Click the card", "to see recent activity"]]);
+  attachPageStatInfo("totalArrears", "Outstanding Arrears",
+    "What members still owe the group right now. This is today's live position — contributions not yet paid plus any penalties.",
+    [["Click the card", "to see members in arrears"]]);
 
   document.getElementById("filterByMember")?.addEventListener("change", renderCurrentTab);
   document.getElementById("filterByPaymentType")?.addEventListener("change", renderCurrentTab);
@@ -1067,23 +1081,24 @@ function renderAccountantSummary() {
       head.append(h, remindAll);
       fu.appendChild(head);
 
+      // Summary total — the figure every row below adds up to, so the
+      // list is never a stack of unexplained numbers.
+      const summary = document.createElement("div");
+      summary.className = "acct-followups-summary";
+      summary.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: var(--bn-space-4) var(--bn-space-5); background: var(--bn-gray-50); border-radius: var(--bn-radius-lg); margin-bottom: var(--bn-space-3); border: 1px solid var(--bn-gray-lighter);";
+      const summaryLabel = document.createElement("span");
+      summaryLabel.style.cssText = "font-weight: 700; color: var(--bn-dark); font-size: var(--bn-text-base);";
+      summaryLabel.textContent = `${followups.length} member${followups.length === 1 ? "" : "s"} behind · total owed`;
+      const summaryAmt = document.createElement("span");
+      summaryAmt.style.cssText = "font-weight: 800; color: var(--bn-danger-dark); font-size: var(--bn-text-lg); font-variant-numeric: tabular-nums;";
+      summaryAmt.textContent = formatCurrency(totalArrears);
+      summary.append(summaryLabel, summaryAmt);
+      fu.appendChild(summary);
+
       const list = document.createElement("div");
       list.className = "acct-followups-list";
       followups.slice(0, 8).forEach((f) => {
-        const row = document.createElement("div");
-        row.className = "acct-followup-row";
-        const name = document.createElement("span");
-        name.className = "acct-followup-name";
-        name.textContent = f.name;
-        const amt = document.createElement("span");
-        amt.className = "acct-followup-amt";
-        amt.textContent = formatCurrency(f.amt);
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "btn btn-ghost btn-sm";
-        btn.textContent = "Remind";
-        btn.addEventListener("click", () => openSendRemindersModal());
-        row.append(name, amt, btn);
+        const row = buildFollowupRow(f);
         list.appendChild(row);
       });
       fu.appendChild(list);
@@ -1096,6 +1111,166 @@ function renderAccountantSummary() {
       }
     }
   }
+}
+
+/**
+ * Build a rich follow-up row for a member in arrears — shows what they owe
+ * with an expandable dropdown showing each obligation separately.
+ *
+ * SEED MONEY IS THE ENTRY OBLIGATION. It is always listed first — before
+ * any monthly contributions — because it must be paid before a member can
+ * access loans or be considered in good standing. The dropdown makes this
+ * ordering explicit so no one reads a seed-money figure as "just another
+ * monthly contribution".
+ *
+ * @param {{uid:string, amt:number, name:string}} f
+ * @return {HTMLElement}
+ */
+function buildFollowupRow(f) {
+  const row = document.createElement("div");
+  row.className = "acct-followup-row";
+
+  // Gather obligations from allPayments, ordering seed money FIRST
+  const obligations = [];
+  const now = new Date();
+  let hasOverdue = false;
+  let totalPenalty = 0;
+
+  for (const p of allPayments) {
+    if (String(p.uid) !== String(f.uid)) continue;
+    const a = numberOf(p.arrears);
+    if (a <= 0) continue;
+    const label = PAYMENT_TYPE_LABELS[p.paymentType] || p.paymentType;
+    const penaltyMinor = p.penalty ? toMinorSafe(penaltyOwed(p.penalty)) : 0;
+    const due = p.dueDate ? new Date(String(p.dueDate).replace(" ", "T")) : null;
+    const isOverdue = (p.paymentType === "seed_money" && a > 0)
+      || (due && !Number.isNaN(due.getTime()) && due < now);
+
+    if (isOverdue) hasOverdue = true;
+    totalPenalty += penaltyMinor;
+
+    obligations.push({
+      type: p.paymentType,
+      label,
+      month: p.month || null,
+      arrears: a,
+      penalty: penaltyMinor,
+      isOverdue,
+      totalAmount: numberOf(p.totalAmount || "0"),
+      paid: numberOf(p.amountPaid || "0"),
+    });
+  }
+
+  // Sort: seed_money first, then monthly by month order, then rest
+  obligations.sort((a, b) => {
+    if (a.type === "seed_money" && b.type !== "seed_money") return -1;
+    if (b.type === "seed_money" && a.type !== "seed_money") return 1;
+    return 0;
+  });
+
+  // Left: member name + summary
+  const left = document.createElement("div");
+  left.style.cssText = "flex: 1; min-width: 0;";
+
+  const name = document.createElement("div");
+  name.style.cssText = "font-weight: 600; color: var(--bn-dark); margin-bottom: 2px;";
+  name.textContent = f.name;
+
+  const summary = document.createElement("div");
+  summary.style.cssText = "font-size: var(--bn-text-xs); color: var(--bn-gray); line-height: 1.5;";
+  const seedCount = obligations.filter((o) => o.type === "seed_money").length;
+  const monthlyCount = obligations.filter((o) => o.type === "monthly_contribution").length;
+  const summaryParts = [];
+  if (seedCount > 0) summaryParts.push(`${seedCount} seed obligation`);
+  if (monthlyCount > 0) summaryParts.push(`${monthlyCount} month${monthlyCount === 1 ? "" : "s"}`);
+  summaryParts.push("behind");
+  if (totalPenalty > 0) summaryParts.push(`+ ${formatCurrencyFromMinor(totalPenalty)} penalty`);
+  summary.textContent = summaryParts.join(" · ");
+  left.append(name, summary);
+
+  // Right: amount + state badge + dropdown toggle + remind
+  const right = document.createElement("div");
+  right.style.cssText = "display: flex; align-items: center; gap: var(--bn-space-3); flex-shrink: 0;";
+
+  const amt = document.createElement("span");
+  amt.className = "acct-followup-amt";
+  amt.textContent = formatCurrency(f.amt);
+
+  const state = document.createElement("span");
+  state.className = "acct-followup-state" + (hasOverdue ? " is-overdue" : " is-pending");
+  state.textContent = hasOverdue ? `${formatCurrency(f.amt)} overdue` : "not due yet";
+
+  const toggleBtn = document.createElement("button");
+  toggleBtn.type = "button";
+  toggleBtn.className = "btn btn-ghost btn-sm";
+  toggleBtn.textContent = "▾ Detail";
+  toggleBtn.style.cssText = "font-size: var(--bn-text-xs);";
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn btn-ghost btn-sm";
+  btn.textContent = "Remind";
+  btn.addEventListener("click", () => openSendRemindersModal());
+
+  right.append(amt, state, toggleBtn, btn);
+  row.append(left, right);
+
+  // ── Expandable detail dropdown ──────────────────────────────────────────
+  const detail = document.createElement("div");
+  detail.className = "acct-followup-detail";
+  detail.hidden = true;
+  detail.style.cssText = "padding: var(--bn-space-3) 0 0 var(--bn-space-6); margin-top: var(--bn-space-3); border-top: 1px solid var(--bn-gray-100); display: none;";
+
+  toggleBtn.addEventListener("click", () => {
+    const open = !detail.hidden;
+    detail.hidden = open;
+    detail.style.display = open ? "none" : "block";
+    toggleBtn.textContent = open ? "▾ Detail" : "▴ Detail";
+  });
+
+  obligations.forEach((ob) => {
+    const item = document.createElement("div");
+    item.style.cssText = "display: flex; justify-content: space-between; align-items: center; gap: var(--bn-space-3); padding: var(--bn-space-1) 0; font-size: var(--bn-text-xs);";
+
+    const label = document.createElement("span");
+    label.style.cssText = "color: var(--bn-gray-700); font-weight: 500;";
+    // Seed money label is distinguished from monthly labels
+    if (ob.type === "seed_money") {
+      label.style.cssText += "color: var(--bn-warning-dark);";
+      label.textContent = "🌱 Seed Money (entry obligation)";
+    } else {
+      label.textContent = ob.month ? `${ob.month}` : ob.label;
+    }
+    if (ob.isOverdue) {
+      label.style.cssText += "text-decoration: none;";
+    }
+
+    const values = document.createElement("span");
+    values.style.cssText = "text-align: right; white-space: nowrap;";
+    const amtSpan = document.createElement("span");
+    amtSpan.style.cssText = `font-weight: 600; color: ${ob.isOverdue ? "var(--bn-danger-dark)" : "var(--bn-dark)"};`;
+    amtSpan.textContent = formatCurrency(ob.arrears);
+    values.appendChild(amtSpan);
+
+    if (ob.penalty > 0) {
+      const pen = document.createElement("span");
+      pen.style.cssText = "color: var(--bn-danger); margin-left: var(--bn-space-2);";
+      pen.textContent = `+ ${formatCurrencyFromMinor(ob.penalty)} penalty`;
+      values.appendChild(pen);
+    }
+
+    // Show progress: paid / total
+    const progress = document.createElement("span");
+    progress.style.cssText = "display: block; color: var(--bn-gray-500); font-size: 0.7rem;";
+    progress.textContent = `${formatCurrency(ob.paid)} of ${formatCurrency(ob.totalAmount)} paid`;
+    values.appendChild(progress);
+
+    item.append(label, values);
+    detail.appendChild(item);
+  });
+
+  row.appendChild(detail);
+  return row;
 }
 
 // ── Tab rendering ────────────────────────────────────────────────────────────
@@ -1406,6 +1581,36 @@ function rejectPayment(payment) {
 }
 
 // ── Record payment ───────────────────────────────────────────────────────────
+
+/**
+ * Render the preset amount buttons for one obligation row. Values are read
+ * straight off the server row — nothing is computed here.
+ * @param {?Object} row an obligation row (seedMoney / a month / serviceFee)
+ */
+function renderObligationQuickAmounts(row) {
+  const container = document.getElementById("paymentQuickAmounts");
+  const input = document.getElementById("paymentAmount");
+  if (!container || !input) return;
+
+  const options = [];
+  if (row && row.arrears !== undefined && Number(row.arrears) > 0) {
+    options.push({
+      key: "outstanding",
+      label: "Amount still owed",
+      description: "What remains unpaid on this obligation.",
+      amount: row.arrears,
+    });
+  }
+  if (row && row.totalAmount !== undefined && Number(row.totalAmount) > 0) {
+    options.push({
+      key: "full",
+      label: "Full amount",
+      description: "The whole amount for this obligation, ignoring anything already paid.",
+      amount: row.totalAmount,
+    });
+  }
+  renderQuickAmounts(container, options, input, "Another amount");
+}
 
 /**
  * The obligations payload for the member currently selected in the record modal,
@@ -1731,6 +1936,12 @@ async function updatePaymentOwedInfo() {
     appendTotalsLine(container, obligations);
     return;
   }
+
+  // Preset amounts for exactly this obligation, from the SAME server row the
+  // lines below display. One payment record is one type and one month, so the
+  // only honest presets are this row's two figures — see the member-side note in
+  // user_dashboard_sql.js for why there is no "pay everything" button.
+  renderObligationQuickAmounts(row);
 
   const dueLine = el("p");
   dueLine.textContent = `Amount due: ${formatCurrency(row.totalAmount ?? "0")}`;
@@ -2222,6 +2433,18 @@ function promptForReason(opts) {
     if (e.target === overlay) overlay.remove();
   });
   textarea.focus();
+}
+
+// ── Page-stat info toggles ──────────────────────────────────────────────────
+/**
+ * Attach a standardized "i" info toggle to a `.page-stat` card identified by
+ * the id of its value element (e.g. "pendingCount").
+ */
+function attachPageStatInfo(valueElId, title, description, rows) {
+  const valueEl = document.getElementById(valueElId);
+  const card = valueEl?.closest(".page-stat");
+  if (!card) return;
+  pageStatInfo(card, { title, description, rows });
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

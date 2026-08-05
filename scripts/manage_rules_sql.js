@@ -73,6 +73,12 @@ function setupEventListeners() {
   // Governance tab
   document.getElementById("saveGovernanceBtn")?.addEventListener("click", saveGovernanceSettings);
 
+  // Penalty period/basis drive which amount or rate input is relevant.
+  ["loanPenaltyPeriodInput", "loanPenaltyTypeInput",
+    "contributionPenaltyPeriodInput", "contributionPenaltyTypeInput"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("change", updatePenaltyFieldVisibility);
+  });
+
   // Drag & drop
   const dropZone = document.getElementById("dropZone");
   if (dropZone) {
@@ -233,9 +239,111 @@ async function loadRulesSettings() {
     if (minMembershipMonthsInput) {
       minMembershipMonthsInput.value = rules.minMembershipMonths !== null && rules.minMembershipMonths !== undefined ? rules.minMembershipMonths : "0";
     }
+
+    renderPenaltySettings(rules);
   } catch (error) {
     // Rules may not exist yet — that's fine, leave fields empty
   }
+}
+
+// ── Penalty Settings ────────────────────────────────────────────────────────
+// The two bases are DELIBERATELY DIFFERENT and must never be merged: loan
+// penalties price off the OVERDUE amount, contribution penalties off the FULL
+// obligation regardless of part-payment. That is the group owner's money rule
+// (BL-6) and the server enforces it — this form only chooses period/basis/rate.
+
+/** Field id → group_rules column. Selects first, then money, then rates. */
+const PENALTY_SELECTS = {
+  loanPenaltyPeriodInput: "loanPenaltyPeriod",
+  loanPenaltyTypeInput: "loanPenaltyType",
+  contributionPenaltyPeriodInput: "contributionPenaltyPeriod",
+  contributionPenaltyTypeInput: "contributionPenaltyType",
+};
+
+/** Numeric penalty fields. `nullable` ones send null when cleared; the rest send "0". */
+const PENALTY_NUMBERS = {
+  loanPenaltyDailyAmountInput: {column: "loanPenaltyDailyAmount", nullable: false},
+  loanPenaltyMonthlyAmountInput: {column: "loanPenaltyMonthlyAmount", nullable: true},
+  loanPenaltyRateInput: {column: "loanPenaltyRate", nullable: false},
+  loanPenaltyGraceInput: {column: "loanPenaltyGracePeriodDays", nullable: false},
+  contributionPenaltyDailyAmountInput: {column: "contributionPenaltyDailyAmount", nullable: false},
+  contributionPenaltyMonthlyAmountInput: {column: "contributionPenaltyMonthlyAmount", nullable: true},
+  contributionPenaltyDailyRateInput: {column: "contributionPenaltyDailyRate", nullable: false},
+  contributionPenaltyMonthlyRateInput: {column: "contributionPenaltyMonthlyRate", nullable: false},
+  contributionPenaltyGraceInput: {column: "contributionPenaltyGracePeriodDays", nullable: false},
+};
+
+function renderPenaltySettings(rules) {
+  Object.keys(PENALTY_SELECTS).forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const value = rules[PENALTY_SELECTS[id]];
+    // Fall back to the schema default rather than leaving the select on
+    // whichever option happens to be first if the server sent nothing.
+    if (value === null || value === undefined || value === "") {
+      el.value = id.endsWith("PeriodInput") ? "day" : "fixed";
+    } else {
+      el.value = String(value);
+    }
+  });
+
+  Object.keys(PENALTY_NUMBERS).forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const value = rules[PENALTY_NUMBERS[id].column];
+    el.value = value === null || value === undefined ? "" : String(value);
+  });
+
+  updatePenaltyFieldVisibility();
+}
+
+/**
+ * Show only the inputs the chosen period + basis actually use, so an admin
+ * cannot be misled into typing a monthly amount that a per-day rule ignores.
+ * Hidden inputs keep their values and are still submitted — clearing them on
+ * toggle would silently wipe a configured rate the admin never meant to touch.
+ */
+function updatePenaltyFieldVisibility() {
+  const loanPeriod = document.getElementById("loanPenaltyPeriodInput")?.value || "day";
+  const loanType = document.getElementById("loanPenaltyTypeInput")?.value || "fixed";
+  const contribPeriod = document.getElementById("contributionPenaltyPeriodInput")?.value || "day";
+  const contribType = document.getElementById("contributionPenaltyTypeInput")?.value || "fixed";
+
+  // Loan has a SINGLE rate column covering both periods, so the rate input
+  // shows for percentage regardless of period.
+  show("loanPenaltyDailyAmountGroup", loanType === "fixed" && loanPeriod === "day");
+  show("loanPenaltyMonthlyAmountGroup", loanType === "fixed" && loanPeriod === "month");
+  show("loanPenaltyRateGroup", loanType === "percentage");
+
+  // Contribution has separate daily and monthly rate columns, so period picks
+  // which rate input is relevant.
+  show("contributionPenaltyDailyAmountGroup", contribType === "fixed" && contribPeriod === "day");
+  show("contributionPenaltyMonthlyAmountGroup", contribType === "fixed" && contribPeriod === "month");
+  show("contributionPenaltyDailyRateGroup", contribType === "percentage" && contribPeriod === "day");
+  show("contributionPenaltyMonthlyRateGroup", contribType === "percentage" && contribPeriod === "month");
+}
+
+/** Add every penalty field to the rules.update body. */
+function collectPenaltySettings(rulesUpdate) {
+  Object.keys(PENALTY_SELECTS).forEach((id) => {
+    const el = document.getElementById(id);
+    if (el && el.value !== "") rulesUpdate[PENALTY_SELECTS[id]] = el.value;
+  });
+
+  Object.keys(PENALTY_NUMBERS).forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const {column, nullable} = PENALTY_NUMBERS[id];
+    const raw = el.value.trim();
+    if (raw === "") {
+      // A cleared nullable column means "unset"; a cleared NOT NULL column
+      // means "no penalty", which is 0 — never an empty string, which the
+      // server rejects as a non-numeric amount.
+      rulesUpdate[column] = nullable ? null : "0";
+    } else {
+      rulesUpdate[column] = raw;
+    }
+  });
 }
 
 async function saveGovernanceSettings() {
@@ -282,6 +390,8 @@ async function saveGovernanceSettings() {
     if (minMembershipMonthsValue !== "") {
       rulesUpdate.minMembershipMonths = parseInt(minMembershipMonthsValue, 10);
     }
+
+    collectPenaltySettings(rulesUpdate);
 
     await apiPost("rules.update", rulesUpdate);
 

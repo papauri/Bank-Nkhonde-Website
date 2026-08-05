@@ -55,7 +55,7 @@
 import {apiGet, requireSession, listMyGroups, ApiError, redirectToLogin} from "./api.js";
 import { makeStatClickable, scrollToId } from "./ui.js";
 import { formatCurrency } from "./utils_financial.js";
-import { attachCardInfo } from "./card_info.js";
+import { attachCardInfo, infoContent } from "./card_info.js";
 
 const ANALYTICS_ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
 const MONTH_NAMES = [
@@ -516,7 +516,7 @@ function renderChartContainer() {
  *   (see attachCardPopover) explaining the figure. Optional — existing 2-arg
  *   callers are unaffected.
  */
-function statCard(label, value, infoText) {
+function statCard(label, value, field, summary) {
   const card = el("div", "breakdown-card");
   const header = el("div", "breakdown-card-header");
   const title = el("span", "breakdown-card-title");
@@ -525,8 +525,79 @@ function statCard(label, value, infoText) {
   const valueEl = el("div", "breakdown-card-value");
   valueEl.textContent = value;
   card.append(header, valueEl);
-  if (infoText) attachCardPopover(card, infoText, `${label} explanation`);
+
+  // Standardized info toggle using infoContent() builder — same shape as
+  // every other "i" button in the app: what, what it means, derivation.
+  if (field && summary) {
+    attachCardInfo(card, {
+      label: `About ${label}`,
+      content: buildAccountingInfoContent(label, field, summary),
+    });
+  }
   return card;
+}
+
+/**
+ * Build an infoContent() builder for one accounting-figure card, quoting the
+ * live server value so the derivation shows the current number.
+ */
+function buildAccountingInfoContent(label, field, summary) {
+  const display = summary[field] != null ? formatCurrency(summary[field]) : "—";
+  const rows = [[label, display]];
+
+  // Add contextual rows for figures that have a known breakdown
+  if (field === "totalContributed") {
+    rows.push(
+      ["Seed money", formatCurrency(summary.seedMoneyContributed ?? "0.00")],
+      ["Monthly contributions", formatCurrency(summary.monthlyContributionContributed ?? "0.00")],
+      ["Service fees", formatCurrency(summary.serviceFeeContributed ?? "0.00")],
+    );
+  }
+  if (field === "totalDisbursed") {
+    rows.push(
+      ["Outstanding principal", formatCurrency(summary.outstandingLoanPrincipal ?? "0.00")],
+    );
+  }
+  if (field === "penaltiesCharged") {
+    rows.push(
+      ["Collected", formatCurrency(summary.penaltiesCollected ?? "0.00")],
+      ["Waived", formatCurrency(summary.penaltiesWaived ?? "0.00")],
+      ["Outstanding", formatCurrency(summary.penaltiesOutstanding ?? "0.00")],
+    );
+  }
+  if (field === "cashPosition") {
+    rows.push(
+      ["= Contributed + Repaid + Penalties − Disbursed", ""],
+      ["Contributed", formatCurrency(summary.totalContributed ?? "0.00")],
+      ["Repayments", formatCurrency(summary.loanRepaymentsReceived ?? "0.00")],
+      ["Disbursed", formatCurrency(summary.totalDisbursed ?? "0.00")],
+    );
+  }
+
+  return infoContent({
+    title: label,
+    description: getAccountingFigureDescription(field),
+    rows,
+  });
+}
+
+function getAccountingFigureDescription(field) {
+  const map = {
+    totalContributed: "All settled contributions — seed money, monthly dues and service fees — that an admin has verified.",
+    seedMoneyContributed: "One-off joining contributions paid by members when they enter the group.",
+    monthlyContributionContributed: "Recurring monthly dues collected from members.",
+    serviceFeeContributed: "Service fees collected from members.",
+    totalDisbursed: "Total loan principal paid out to members.",
+    outstandingLoanPrincipal: "Loan principal still owed and not yet repaid.",
+    interestEarned: "Interest received from approved loan repayments.",
+    loanRepaymentsReceived: "Total loan repayments received — principal, interest and penalties combined.",
+    penaltiesCharged: "Total penalties levied on late contributions and loans (= collected + waived + outstanding).",
+    penaltiesCollected: "Penalty amounts members have actually paid.",
+    penaltiesWaived: "Penalty amounts an admin has cancelled (forgiven).",
+    penaltiesOutstanding: "Live outstanding penalties — accrued and not yet collected or waived.",
+    cashPosition: "Net cash on hand = total contributed + loan repayments + penalty collections − total disbursed.",
+  };
+  return map[field] || "A server-computed figure from the group's accounting summary.";
 }
 
 // ── Group accounting position (H5, admin-gated server-side) — pure display of
@@ -566,9 +637,259 @@ function renderAccountingFigures(summary) {
   titleEl.textContent = "Group Accounting Position";
   block.appendChild(titleEl);
 
-  ACCOUNTING_FIGURES.forEach(([field, label, infoText]) => {
-    block.appendChild(statCard(label, formatCurrency(summary[field]), infoText));
+  ACCOUNTING_FIGURES.forEach(([field, label]) => {
+    const card = statCard(label, formatCurrency(summary[field]), field, summary);
+
+    // FLOW figures only (J3 D1). A flow is money that MOVED in a period, so
+    // "what made this up in March" is a real question with real rows behind it.
+    // Balance/derived figures — outstanding principal, penalties outstanding,
+    // cash position — are point-in-time; inventing "March's outstanding
+    // principal" would be fabricating a number, so those stay display-only.
+    if (DRILLABLE_FIGURES[field]) {
+      card.classList.add("is-drillable");
+      card.tabIndex = 0;
+      card.setAttribute("role", "button");
+      card.setAttribute("aria-label", `${label} — see the payments behind this figure`);
+      const open = () => openAccountingDrill(field, label);
+      card.addEventListener("click", (e) => {
+        // The "i" toggle lives inside this card and opens its own panel.
+        if (e.target.closest(".bn-info-toggle") || e.target.closest(".bn-info-panel")) return;
+        open();
+      });
+      card.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+      });
+    }
+
+    block.appendChild(card);
   });
+}
+
+/**
+ * The four figures `payments.accountingSummary` can break down by period, and
+ * the columns each one's rows carry. Mirrors the server's own allowlist — a
+ * figure absent here is one the server will 422 on.
+ */
+const DRILLABLE_FIGURES = {
+  totalContributed: {
+    columns: [["memberName", "Member"], ["type", "Type"], ["month", "Month"], ["amountPaid", "Amount"]],
+    money: "amountPaid",
+  },
+  totalDisbursed: {
+    columns: [["borrowerName", "Borrower"], ["status", "Status"], ["approvedAt", "Approved"], ["principalAmount", "Amount"]],
+    money: "principalAmount",
+  },
+  loanRepaymentsReceived: {
+    columns: [["borrowerName", "Borrower"], ["approvedAt", "Approved"], ["amount", "Amount"]],
+    money: "amount",
+  },
+  interestEarned: {
+    columns: [["borrowerName", "Borrower"], ["approvedAt", "Approved"], ["interestPortion", "Interest"]],
+    money: "interestPortion",
+  },
+};
+
+const DRILL_MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+/** Same payment-type vocabulary the payments pages already use. */
+const PAYMENT_TYPE_LABELS = {
+  seed_money: "Seed money",
+  monthly_contribution: "Monthly contribution",
+  service_fee: "Service fee",
+};
+
+/** Humanise a payment type the label map does not know, rather than printing a raw column value. */
+function paymentTypeLabel(type) {
+  const key = String(type == null ? "" : type);
+  if (PAYMENT_TYPE_LABELS[key]) return PAYMENT_TYPE_LABELS[key];
+  if (!key) return "Other";
+  return key.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+}
+
+/**
+ * Open the period drill-down for one accounting figure.
+ *
+ * The period total and every row come from the server in one call — the browser
+ * never sums the rows it was handed, so the modal's total and the card above it
+ * cannot drift apart.
+ *
+ * @param {string} field one of DRILLABLE_FIGURES
+ * @param {string} label the card's own title
+ */
+function openAccountingDrill(field, label) {
+  const overlay = el("div", "modal-overlay active");
+  overlay.id = "accountingDrillModal";
+
+  const content = el("div", "modal-content");
+  content.style.maxWidth = "620px";
+
+  const header = el("div", "modal-header");
+  const title = el("h2", "modal-title");
+  title.textContent = label;
+  const closeBtn = el("button", "modal-close");
+  closeBtn.textContent = "×";
+  closeBtn.setAttribute("aria-label", "Close");
+  closeBtn.addEventListener("click", () => overlay.remove());
+  header.append(title, closeBtn);
+
+  const body = el("div", "modal-body");
+
+  // --- Period picker. Year is required by the server; month is optional. ---
+  const controls = el("div", "drill-controls");
+
+  const yearLabel = el("label", "form-label");
+  yearLabel.textContent = "Year";
+  const yearSelect = document.createElement("select");
+  yearSelect.className = "form-input";
+  const thisYear = new Date().getFullYear();
+  for (let y = thisYear; y >= thisYear - 4; y--) {
+    const opt = document.createElement("option");
+    opt.value = String(y);
+    opt.textContent = String(y);
+    yearSelect.appendChild(opt);
+  }
+
+  const monthLabel = el("label", "form-label");
+  monthLabel.textContent = "Month";
+  const monthSelect = document.createElement("select");
+  monthSelect.className = "form-input";
+  const allOpt = document.createElement("option");
+  allOpt.value = "";
+  allOpt.textContent = "Whole year";
+  monthSelect.appendChild(allOpt);
+  for (const m of DRILL_MONTHS) {
+    const opt = document.createElement("option");
+    opt.value = m;
+    opt.textContent = m;
+    monthSelect.appendChild(opt);
+  }
+
+  const yearWrap = el("div", "form-group");
+  yearWrap.append(yearLabel, yearSelect);
+  const monthWrap = el("div", "form-group");
+  monthWrap.append(monthLabel, monthSelect);
+  controls.append(yearWrap, monthWrap);
+  body.appendChild(controls);
+
+  const result = el("div");
+  body.appendChild(result);
+
+  const load = async () => {
+    result.replaceChildren();
+    const loading = el("p");
+    loading.textContent = "Loading…";
+    result.appendChild(loading);
+
+    let data;
+    try {
+      const params = { groupId: currentGroupId, figure: field, year: yearSelect.value };
+      if (monthSelect.value) params.month = monthSelect.value;
+      data = await apiGet("payments.accountingSummary", params);
+    } catch (error) {
+      result.replaceChildren();
+      const err = el("p");
+      err.textContent = "Could not load the breakdown for this period.";
+      result.appendChild(err);
+      return;
+    }
+    renderAccountingDrillResult(result, field, data);
+  };
+
+  yearSelect.addEventListener("change", load);
+  monthSelect.addEventListener("change", load);
+
+  content.append(header, body);
+  overlay.appendChild(content);
+  document.body.appendChild(overlay);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+  document.addEventListener("keydown", function onEsc(e) {
+    if (e.key === "Escape") { overlay.remove(); document.removeEventListener("keydown", onEsc); }
+  });
+
+  load();
+}
+
+/**
+ * Render one drill response: the server's period total, then its rows.
+ * @param {HTMLElement} host
+ * @param {string} field
+ * @param {Object} data payments.accountingSummary drill response
+ */
+function renderAccountingDrillResult(host, field, data) {
+  host.replaceChildren();
+  const spec = DRILLABLE_FIGURES[field];
+  const rows = Array.isArray(data && data.rows) ? data.rows : [];
+
+  // The server's own total for exactly these rows — never a client re-sum.
+  const total = el("p", "drill-total");
+  const period = data && data.month ? `${data.month} ${data.year}` : `${data && data.year}`;
+  total.textContent = `${formatCurrency(data && data.periodTotal)} in ${period}`;
+  host.appendChild(total);
+
+  /* D4 — the year's one-time money that belongs to no month (seed money is
+   * the joining stake, not a monthly obligation, so its rows carry no month).
+   * Without this line a month-by-month reading of the year silently comes up
+   * short and looks like missing money. Rendered BEFORE the empty-state
+   * return on purpose: a month with no rows of its own still needs the
+   * context, otherwise that month reads as "nothing happened all year".
+   * Every amount is a server string passed straight to formatCurrency —
+   * nothing is added up here. */
+  const unmonthed = data && data.unmonthed;
+  if (unmonthed && Array.isArray(unmonthed.byType) && unmonthed.byType.length) {
+    const note = el("p", "drill-unmonthed");
+    const single = unmonthed.byType.length === 1;
+    const lead = single
+      ? `${paymentTypeLabel(unmonthed.byType[0].type)} (one-time, not tied to a month): `
+        + `${formatCurrency(unmonthed.byType[0].amount)}`
+      : `One-time payments not tied to a month: ${formatCurrency(unmonthed.total)}`
+        + ` — ${unmonthed.byType.map((e) => `${paymentTypeLabel(e.type)} ${formatCurrency(e.amount)}`).join(" · ")}`;
+    const tail = unmonthed.includedInPeriodTotal
+      ? " · included in the total above"
+      : ` · not included in the ${data.month} total above`;
+    note.textContent = lead + tail;
+    host.appendChild(note);
+  }
+
+  if (!rows.length) {
+    host.appendChild(emptyState("📭", "Nothing recorded for this period"));
+    return;
+  }
+
+  const table = el("table", "table table-responsive");
+  const thead = el("thead");
+  const headRow = el("tr");
+  for (const [, heading] of spec.columns) {
+    const th = el("th");
+    th.textContent = heading;
+    headRow.appendChild(th);
+  }
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = el("tbody");
+  for (const row of rows) {
+    const tr = el("tr");
+    for (const [key, heading] of spec.columns) {
+      const td = el("td");
+      td.dataset.label = heading;
+      const raw = row[key];
+      if (key === spec.money) {
+        td.className = "cell-right";
+        td.textContent = formatCurrency(raw);
+      } else if (key === "approvedAt") {
+        td.textContent = raw ? String(raw).slice(0, 10) : "—";
+      } else {
+        td.textContent = raw == null || raw === "" ? "—" : String(raw);
+      }
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  host.appendChild(table);
 }
 
 // ── Member participation table — straight from cycle.equity, no re-derivation ──
@@ -827,9 +1148,18 @@ const STATIC_TILE_INFO = [
  * @param {string} infoText plain-text explanation
  * @param {string} ariaLabel accessible name for the toggle
  */
-function attachCardPopover(cardEl, infoText, ariaLabel) {
+function attachCardPopover(cardEl, infoText, ariaLabel, cardTitle) {
   if (!cardEl || !infoText) return;
-  attachCardInfo(cardEl, {label: ariaLabel, content: infoText});
+  // Routed through the shared infoContent() so these panels carry the same
+  // title-then-explanation structure as every other "i" button in the app,
+  // instead of opening as one unlabelled paragraph.
+  const title = cardTitle
+    || cardEl.querySelector(".breakdown-card-title, .page-stat-label, .stat-label")?.textContent?.trim()
+    || "";
+  attachCardInfo(cardEl, {
+    label: ariaLabel,
+    content: infoContent({title, description: infoText}),
+  });
 }
 
 /**

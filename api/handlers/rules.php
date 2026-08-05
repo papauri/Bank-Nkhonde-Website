@@ -324,6 +324,29 @@ if (!function_exists('update_rules')) {
             );
         }
 
+        // loanInterestCalculationMethod: ENUM('reduced_balance','flat_rate').
+        // Both are implemented as of J4 — reduced_balance charges interest on the
+        // reducing balance, flat_rate on the original principal for the full
+        // term. Validated against the ENUM here so a typo can never reach
+        // compute_loan_schedule(), which would then throw mid-approval.
+        //
+        // This changes the PRICE of every future loan in the group, so it is a
+        // senior_admin decision like every other rule on this endpoint, and it is
+        // never applied retroactively: an existing loan keeps the rates and
+        // schedule it was approved on (loan_resolve_rates prefers the loan row's
+        // own snapshot).
+        if (array_key_exists('loanInterestCalculationMethod', $body)) {
+            $method = $body['loanInterestCalculationMethod'];
+            if ($method !== 'reduced_balance' && $method !== 'flat_rate') {
+                json_error(
+                    "loanInterestCalculationMethod must be exactly 'reduced_balance' or 'flat_rate'.",
+                    422
+                );
+            }
+            $updates[] = 'loanInterestCalculationMethod = :loanInterestCalculationMethod';
+            $params[':loanInterestCalculationMethod'] = $method;
+        }
+
         // loanPenaltyType / contributionPenaltyType: ENUM('percentage','fixed')
         // per database/migrations/001 (loanPenaltyType) and /005 (widened
         // contributionPenaltyType).

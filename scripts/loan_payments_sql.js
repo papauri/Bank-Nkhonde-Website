@@ -18,7 +18,7 @@
  */
 
 import {apiGet, apiPost, requireSession, listMyGroups, ApiError, redirectToLogin, logout, apiUrl} from "./api.js";
-import { emptyState as uiEmptyState, skeletonRows } from "./ui.js";
+import { emptyState as uiEmptyState, skeletonRows, renderQuickAmounts, renderUpcomingInstalments } from "./ui.js";
 import { formatCurrency } from "./utils_financial.js";
 
 let currentUser = null;
@@ -821,7 +821,38 @@ function openPaymentModal(loan) {
   const dateInput = document.getElementById("paymentDate");
   if (dateInput) dateInput.value = new Date().toISOString().split("T")[0];
 
+  // Server-computed presets ("next instalment", "everything overdue", "pay off
+  // in full"). Fire-and-forget like the schedule above — the form is usable
+  // immediately and the presets appear when they arrive.
+  loadRepaymentQuickAmounts(loan.loanId);
+
   showModal("paymentModal");
+}
+
+/**
+ * Fetch and render the preset amounts for a loan.
+ *
+ * The figures come from repayments.balance, which computes them against the
+ * SAME schedule and penalty that repayments.record allocates against — so a
+ * preset can never be rejected by the endpoint it was built for. Nothing is
+ * calculated here.
+ * @param {string} loanId
+ */
+async function loadRepaymentQuickAmounts(loanId) {
+  const container = document.getElementById("paymentQuickAmounts");
+  const input = document.getElementById("paymentAmount");
+  if (!container || !input) return;
+
+  container.hidden = true;
+  try {
+    const data = await apiGet("repayments.balance", { loanId });
+    renderQuickAmounts(container, data && data.quickAmounts, input, "Another amount");
+    renderUpcomingInstalments(document.getElementById("paymentUpcoming"), data && data.upcoming);
+  } catch (e) {
+    // No presets is a fine outcome — the amount field still works. Never guess
+    // a figure here as a fallback.
+    container.hidden = true;
+  }
 }
 
 function closePaymentModal() {

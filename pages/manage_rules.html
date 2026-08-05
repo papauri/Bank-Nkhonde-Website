@@ -476,6 +476,118 @@
               <small class="help-text">Minimum months a member must belong before exit is permitted (0 = no restriction)</small>
             </div>
 
+            <!-- ── Loan Penalty Settings ──────────────────────────────────── -->
+            <div style="border-top: 1px solid var(--bn-gray-200); margin: var(--bn-space-6) 0 var(--bn-space-5);"></div>
+
+            <h3 style="font-size: var(--bn-text-base); font-weight: 600; margin-bottom: var(--bn-space-2);">Loan Penalty Settings</h3>
+            <p class="help-text" style="margin-bottom: var(--bn-space-4);">
+              Charged on the <strong>amount actually past due</strong>, so the penalty shrinks as a borrower catches up.
+              Applies group-wide and takes effect immediately on unsettled penalties; penalties already paid or waived are never recalculated.
+            </p>
+
+            <div class="form-group" style="margin-bottom: var(--bn-space-5);">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--bn-space-3);">
+                <div>
+                  <label class="form-label" for="loanPenaltyPeriodInput">Charge Per</label>
+                  <select id="loanPenaltyPeriodInput" class="form-select">
+                    <option value="day">Each day late</option>
+                    <option value="month">Each month late</option>
+                  </select>
+                  <small class="help-text">Only completed periods are charged.</small>
+                </div>
+                <div>
+                  <label class="form-label" for="loanPenaltyTypeInput">Penalty Basis</label>
+                  <select id="loanPenaltyTypeInput" class="form-select">
+                    <option value="fixed">Fixed amount</option>
+                    <option value="percentage">Percentage of overdue amount</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group penalty-field" id="loanPenaltyDailyAmountGroup" style="margin-bottom: var(--bn-space-5);">
+              <label class="form-label" for="loanPenaltyDailyAmountInput">Fixed Amount Per Day (MWK)</label>
+              <input type="number" id="loanPenaltyDailyAmountInput" class="form-input" min="0" step="0.01" placeholder="e.g., 500">
+              <small class="help-text">Charged for each whole day past due, after the grace period.</small>
+            </div>
+
+            <div class="form-group penalty-field" id="loanPenaltyMonthlyAmountGroup" style="margin-bottom: var(--bn-space-5);">
+              <label class="form-label" for="loanPenaltyMonthlyAmountInput">Fixed Amount Per Month (MWK)</label>
+              <input type="number" id="loanPenaltyMonthlyAmountInput" class="form-input" min="0" step="0.01" placeholder="e.g., 2000">
+              <small class="help-text">Charged for each whole month past due, after the grace period.</small>
+            </div>
+
+            <div class="form-group penalty-field" id="loanPenaltyRateGroup" style="margin-bottom: var(--bn-space-5);">
+              <label class="form-label" for="loanPenaltyRateInput">Penalty Rate (%)</label>
+              <input type="number" id="loanPenaltyRateInput" class="form-input" min="0" max="100" step="0.01" placeholder="e.g., 2.5">
+              <small class="help-text">Percentage of the overdue amount, charged per period. Simple, never compounding. Maximum 100%.</small>
+            </div>
+
+            <div class="form-group" style="margin-bottom: var(--bn-space-5);">
+              <label class="form-label" for="loanPenaltyGraceInput">Grace Period (days)</label>
+              <input type="number" id="loanPenaltyGraceInput" class="form-input" min="0" step="1" placeholder="e.g., 3">
+              <small class="help-text">Days after the due date before any penalty starts accruing (0 = none).</small>
+            </div>
+
+            <!-- ── Contribution Penalty Settings ──────────────────────────── -->
+            <div style="border-top: 1px solid var(--bn-gray-200); margin: var(--bn-space-6) 0 var(--bn-space-5);"></div>
+
+            <h3 style="font-size: var(--bn-text-base); font-weight: 600; margin-bottom: var(--bn-space-2);">Contribution Penalty Settings</h3>
+            <p class="help-text" style="margin-bottom: var(--bn-space-4);">
+              Charged on the <strong>full month's obligation regardless of any part-payment</strong> — a member who pays all but a little
+              is penalised the same as one who paid nothing. This is deliberate: it removes the incentive to dribble in partial payments.
+            </p>
+
+            <div class="form-group" style="margin-bottom: var(--bn-space-5);">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--bn-space-3);">
+                <div>
+                  <label class="form-label" for="contributionPenaltyPeriodInput">Charge Per</label>
+                  <select id="contributionPenaltyPeriodInput" class="form-select">
+                    <option value="day">Each day late</option>
+                    <option value="month">Each month late</option>
+                  </select>
+                  <small class="help-text">Only completed periods are charged.</small>
+                </div>
+                <div>
+                  <label class="form-label" for="contributionPenaltyTypeInput">Penalty Basis</label>
+                  <select id="contributionPenaltyTypeInput" class="form-select">
+                    <option value="fixed">Fixed amount</option>
+                    <option value="percentage">Percentage of full obligation</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group penalty-field" id="contributionPenaltyDailyAmountGroup" style="margin-bottom: var(--bn-space-5);">
+              <label class="form-label" for="contributionPenaltyDailyAmountInput">Fixed Amount Per Day (MWK)</label>
+              <input type="number" id="contributionPenaltyDailyAmountInput" class="form-input" min="0" step="0.01" placeholder="e.g., 100">
+              <small class="help-text">Charged for each whole day late, after the grace period.</small>
+            </div>
+
+            <div class="form-group penalty-field" id="contributionPenaltyMonthlyAmountGroup" style="margin-bottom: var(--bn-space-5);">
+              <label class="form-label" for="contributionPenaltyMonthlyAmountInput">Fixed Amount Per Month (MWK)</label>
+              <input type="number" id="contributionPenaltyMonthlyAmountInput" class="form-input" min="0" step="0.01" placeholder="e.g., 1000">
+              <small class="help-text">Charged for each whole month late, after the grace period.</small>
+            </div>
+
+            <div class="form-group penalty-field" id="contributionPenaltyDailyRateGroup" style="margin-bottom: var(--bn-space-5);">
+              <label class="form-label" for="contributionPenaltyDailyRateInput">Penalty Rate Per Day (%)</label>
+              <input type="number" id="contributionPenaltyDailyRateInput" class="form-input" min="0" max="100" step="0.01" placeholder="e.g., 1">
+              <small class="help-text">Percentage of the full obligation, charged per day late. Simple, never compounding. Maximum 100%.</small>
+            </div>
+
+            <div class="form-group penalty-field" id="contributionPenaltyMonthlyRateGroup" style="margin-bottom: var(--bn-space-5);">
+              <label class="form-label" for="contributionPenaltyMonthlyRateInput">Penalty Rate Per Month (%)</label>
+              <input type="number" id="contributionPenaltyMonthlyRateInput" class="form-input" min="0" max="100" step="0.01" placeholder="e.g., 10">
+              <small class="help-text">Percentage of the full obligation, charged per month late. Simple, never compounding. Maximum 100%.</small>
+            </div>
+
+            <div class="form-group" style="margin-bottom: var(--bn-space-5);">
+              <label class="form-label" for="contributionPenaltyGraceInput">Grace Period (days)</label>
+              <input type="number" id="contributionPenaltyGraceInput" class="form-input" min="0" step="1" placeholder="e.g., 5">
+              <small class="help-text">Days after the due date before any penalty starts accruing (0 = none).</small>
+            </div>
+
             <div class="btn-group" style="margin-top: var(--bn-space-6);">
               <button class="btn btn-primary" id="saveGovernanceBtn">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -483,7 +595,7 @@
                   <polyline points="17 21 17 13 7 13 7 21"/>
                   <polyline points="7 3 7 8 15 8"/>
                 </svg>
-                Save Governance Settings
+                Save Settings
               </button>
             </div>
           </div>

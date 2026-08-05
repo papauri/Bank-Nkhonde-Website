@@ -28,6 +28,7 @@
 
 import { requireSession, apiGet, apiPost, logout, ApiError, redirectToLogin, listMyGroups, apiUrl } from "./api.js";
 import { attachCardInfo } from "./card_info.js";
+import { renderQuickAmounts } from "./ui.js";
 import { formatCurrency } from "./utils_financial.js";
 
 // Admin-equivalent roles: decide the admin toggle and the admin-switch button.
@@ -448,6 +449,8 @@ async function loadDashboard(groupId) {
     : [];
   const paymentsSummary = (payments && payments.summary) || {};
   const loanRows = loans && Array.isArray(loans.loans) ? loans.loans : [];
+  const loansSummary = (loans && loans.summary) || {};
+  const obligationsSummary = (obligations && obligations.summary) || {};
   const memberRows = members && Array.isArray(members.members)
     ? members.members
     : [];
@@ -456,15 +459,23 @@ async function loadDashboard(groupId) {
   renderGroupMembers(memberRows);
   renderNextMonthlyPayment(obligationRows);
   renderPaymentSplit(obligationRows);  // overdue + upcoming, split
-  renderActiveLoans(loanRows);
+  renderActiveLoans(loanRows, loansSummary);
+  renderBorrowingPower(groupId);
   await renderPaymentCalendar(obligationRows, loanRows);
 
   // Kept so the arrears / all-payments modals can render without re-fetching.
+  // The summaries travel with the rows: every modal footer below is a SERVER
+  // total, so it must come from the same response that produced the rows it sits
+  // under. Caching the rows without their summary is what forced the old
+  // client-side re-summation.
   window.__dashboardData = {
     groupId,
     obligations: obligationRows,
     payments: paymentRows,
     loans: loanRows,
+    obligationsSummary,
+    paymentsSummary,
+    loansSummary,
   };
 
   // Re-scope Contributed/Pending to the month-filter's current selection
@@ -527,34 +538,50 @@ function renderFinancialOverview(ob, payments, loans, paymentsSummary) {
 
   // Populate "i" popover with the type breakdown so the member can see HOW
   // their contributions split across seed money, monthly dues and service fees.
+  // The server returns the split as its own `contributionBreakdown` object —
+  // NOT as summary.seedMoneyContributed/monthlyContributed/serviceFeeContributed,
+  // which are names it has never sent. Reading those undefined keys is what left
+  // this popover empty, and an empty popover makes the "i" button a silent no-op.
   const contributedPopover = document.getElementById("totalContributedPopover");
   if (contributedPopover) {
-    contributedPopover.replaceChildren();
-    const seed = toMinor(summary.seedMoneyContributed || "0");
-    const monthly = toMinor(summary.monthlyContributed || "0");
-    const svc = toMinor(summary.serviceFeeContributed || "0");
-    const total = seed + monthly + svc;
+    const breakdown = (ob && ob.contributionBreakdown) || {};
+    const parts = [
+      ["Seed money", breakdown.seedMoney],
+      ["Monthly contributions", breakdown.monthly],
+      ["Service fees", breakdown.serviceFee],
+    ].filter(([, amount]) => amount !== undefined && toMinor(amount) > 0);
 
-    if (total > 0) {
+    // Only replace the card's shipped explanation once there is a real breakdown
+    // to show in its place — never blank it and leave nothing behind.
+    if (parts.length) {
+      contributedPopover.replaceChildren();
+
       const title = document.createElement("p");
       title.className = "hero-stat-popover-title";
       title.textContent = "How your contributions break down";
       contributedPopover.appendChild(title);
 
-      [
-        ["Seed money", seed],
-        ["Monthly contributions", monthly],
-        ["Service fees", svc],
-      ].filter(([, v]) => v > 0).forEach(([label, minor]) => {
+      for (const [label, amount] of parts) {
         const row = document.createElement("div");
         row.className = "hero-stat-popover-row";
         const l = document.createElement("span");
         l.textContent = label;
         const v = document.createElement("span");
-        v.textContent = formatCurrency(fromMinor(minor));
+        v.textContent = formatCurrency(amount);
         row.append(l, v);
         contributedPopover.appendChild(row);
-      });
+      }
+
+      // The derivation, closed: the parts above are the server's own split of
+      // this same server total, so the member can see the headline figure add up.
+      const totalRow = document.createElement("div");
+      totalRow.className = "hero-stat-popover-row";
+      const tl = document.createElement("span");
+      tl.textContent = "Total contributed";
+      const tv = document.createElement("span");
+      tv.textContent = formatCurrency(summary.contributed);
+      totalRow.append(tl, tv);
+      contributedPopover.appendChild(totalRow);
     }
   }
 
@@ -598,15 +625,19 @@ function renderFinancialOverview(ob, payments, loans, paymentsSummary) {
   if (arrearsDetailEl) {
     const detail = arrearsDetailEl.querySelector(".hero-stat-details");
     if (detail) {
-      const owedMinor = toMinor(summary.totalOwed);
-      const penaltyMinor = toMinor(summary.penaltyAccrued);
-      const arrearsOnly = owedMinor - penaltyMinor;
-      if (owedMinor <= 0) {
+      /* A2: read the split the server already sends; do NOT re-derive it.
+         This used to compute `totalOwed - penaltyAccrued` in the browser and
+         display the result — but the server sends that exact figure as
+         `summary.arrears`, and builds totalOwed FROM it
+         (totalOwed = arrears + penaltyAccrued), so the subtraction was
+         re-deriving a number it had already been given. The toMinor() calls
+         below only choose a branch; no displayed figure is computed here. */
+      if (toMinor(summary.totalOwed) <= 0) {
         detail.textContent = "All paid up — nothing owed";
-      } else if (penaltyMinor > 0) {
-        detail.textContent = `${formatCurrency(fromMinor(arrearsOnly))} to pay + ${formatCurrency(fromMinor(penaltyMinor))} in late penalties`;
+      } else if (toMinor(summary.penaltyAccrued) > 0) {
+        detail.textContent = `${formatCurrency(summary.arrears)} to pay + ${formatCurrency(summary.penaltyAccrued)} in late penalties`;
       } else {
-        detail.textContent = `${formatCurrency(fromMinor(owedMinor))} still to pay`;
+        detail.textContent = `${formatCurrency(summary.totalOwed)} still to pay`;
       }
     }
   }
@@ -1136,6 +1167,89 @@ function upcomingObligationItems(ob, windowDays) {
 }
 
 /**
+ * The obligations that are genuinely LATE, selected by the server's own rule.
+ *
+ * Deliberately NOT `upcomingObligationItems(...).filter(due < today)`. That
+ * compares due dates in the browser and so counts a month the group's cycle
+ * never raised — the server marks those `counts: false`, owes nothing on them
+ * and refuses to collect a penalty against them, so listing one as arrears
+ * quotes the member a debt the app would then decline to take. Seed money and
+ * the service fee have no future-dated grace in the server's summary either:
+ * outstanding means overdue. Matching that rule here is what lets the modal
+ * footer be a server total instead of a client re-summation.
+ *
+ * @param {Object} ob payments.obligations response
+ * @return {Array<Object>} rows with {type, month, amountStr, due}
+ */
+function overdueObligationItems(ob) {
+  const items = [];
+
+  const consider = (label, month, obl) => {
+    if (!obl) return;
+    if (toMinor(obl.arrears) <= 0) return;
+    items.push({
+      type: label,
+      month,
+      amountStr: String(obl.arrears),
+      due: parseServerDate(obl.dueDate),
+      // The server already computes the penalty and every term behind it
+      // (J2 Slice 3). Carried through verbatim so the modal can SHOW the
+      // derivation instead of just asserting a number.
+      penalty: obl.penalty || null,
+    });
+  };
+
+  if (ob.seedMoney && ob.seedMoney.configured) {
+    consider("Seed Money", "Seed Money", ob.seedMoney);
+  }
+  for (const m of monthsOf(ob)) {
+    if (m.counts === true && m.overdue === true) {
+      consider("Monthly Contribution", m.month, m);
+    }
+  }
+  if (ob.serviceFee) consider("Service Fee", "Service Fee", ob.serviceFee);
+
+  items.sort((a, b) => (a.due || 0) - (b.due || 0));
+  return items;
+}
+
+/**
+ * Plain-English derivation of one penalty, built ONLY from the terms the
+ * server returned with it (J2 Slice 3).
+ *
+ * "Transparency over mystery": a member who is charged a penalty is entitled
+ * to see the sum behind it, not just the result. Nothing is calculated here —
+ * every number in the sentence is a value the penalty engine already
+ * reported, so this text can never disagree with the amount beside it.
+ *
+ * @param {Object} p A payments.obligations `penalty` object.
+ * @return {string} "" when there is nothing to explain.
+ */
+function penaltyDerivationText(p) {
+  if (!p) return "";
+  const periods = Number(p.periodsCharged || 0);
+  if (periods <= 0) return "";
+  /* penaltyPeriod is the cadence the engine actually charged on and is set in
+     both fixed and percentage mode. ratePeriod is the percentage rate's own
+     period and is null in fixed mode — reading it alone would caption a
+     fixed/month penalty as "N days late". */
+  const unit = (p.penaltyPeriod || p.ratePeriod) === "month" ? "month" : "day";
+  const plural = periods === 1 ? unit : `${unit}s`;
+  let basis;
+  if (p.penaltyType === "percentage") {
+    basis = `${p.rate}% per ${unit} × ${periods} ${plural} late`;
+  } else {
+    basis = `${periods} ${plural} late × ${formatCurrency(p.dailyAmount)} per ${unit}`;
+  }
+  // Only mention settlement when some of the accrual has actually been
+  // paid or waived, so the common case stays a single clean sentence.
+  if (toMinor(p.amountSettled) > 0) {
+    return `${basis}, less ${formatCurrency(p.amountSettled)} already settled`;
+  }
+  return basis;
+}
+
+/**
  * One upcoming-payment list row, built entirely from nodes.
  * @param {Object} item
  * @return {HTMLElement}
@@ -1212,9 +1326,12 @@ function cleanAmount(value) {
 
 /**
  * Active-loans detail: count, amount received, outstanding balance.
- * @param {Array<Object>} loans
+ * @param {Array<Object>} loans Rows from loans.list — used for the COUNT and the
+ *   due badge only; never for money.
+ * @param {Object} summary loans.list `summary` — supplies activePrincipal and
+ *   activeBalance, both already totalled server-side over the same statuses.
  */
-function renderActiveLoans(loans) {
+function renderActiveLoans(loans, summary = {}) {
   const detailsEl = document.getElementById("activeLoansDetails");
   const statEl = document.getElementById("activeLoansStat");
   const badgeEl = document.getElementById("activeLoansBadge");
@@ -1230,23 +1347,18 @@ function renderActiveLoans(loans) {
     return;
   }
 
-  let receivedMinor = 0;
-  let balanceMinor = 0;
-  for (const loan of active) {
-    receivedMinor += toMinor(loan.approvedAmount || loan.principalAmount);
-    balanceMinor += toMinor(loan.remainingBalance);
-  }
+  // A2: both figures are SERVER totals over the same ['approved','disbursed']
+  // set this function filters on — activePrincipal is the principal actually
+  // handed over, activeBalance what is still owed on it. The client adds nothing.
+  const receivedStr = summary.activePrincipal;
+  const balanceStr = summary.activeBalance;
 
   detailsEl.replaceChildren();
-  if (receivedMinor > 0) {
-    detailsEl.appendChild(
-      makeLine(`Received: ${formatCurrency(fromMinor(receivedMinor))}`),
-    );
+  if (receivedStr !== undefined && toMinor(receivedStr) > 0) {
+    detailsEl.appendChild(makeLine(`Received: ${formatCurrency(receivedStr)}`));
   }
-  if (balanceMinor > 0) {
-    detailsEl.appendChild(
-      makeLine(`Balance: ${formatCurrency(fromMinor(balanceMinor))}`),
-    );
+  if (balanceStr !== undefined && toMinor(balanceStr) > 0) {
+    detailsEl.appendChild(makeLine(`Balance: ${formatCurrency(balanceStr)}`));
   }
   detailsEl.style.display = "block";
 
@@ -1254,6 +1366,134 @@ function renderActiveLoans(loans) {
     const isDue = active.some((loan) => isLoanDue(loan));
     badgeEl.style.display = isDue ? "block" : "none";
   }
+}
+
+/**
+ * J7 — "Borrowing Power": what this member actually qualifies for, shown before
+ * they apply rather than discovered when a request is refused.
+ *
+ * Every figure comes from loans.eligibility, which is the SAME
+ * loan_eligibility_check() that request_loan() enforces — so this card can never
+ * promise a loan the server then rejects, and never denies one it would allow.
+ *
+ * @param {string} groupId
+ */
+async function renderBorrowingPower(groupId) {
+  const valueEl = document.getElementById("borrowingPowerValue");
+  const detailsEl = document.getElementById("borrowingPowerDetails");
+  const popoverEl = document.getElementById("borrowingPowerPopover");
+  if (!valueEl || !detailsEl) return;
+
+  let data;
+  try {
+    data = await apiGet("loans.eligibility", { groupId });
+  } catch (e) {
+    // Never imply eligibility we could not confirm.
+    valueEl.textContent = "—";
+    detailsEl.textContent = "We could not check your borrowing power just now.";
+    if (popoverEl) popoverEl.textContent = "Please refresh to try again.";
+    return;
+  }
+
+  const eligible = data.eligible === true;
+  const reasons = Array.isArray(data.reasons) ? data.reasons : [];
+  // A group with no configured ceiling has NO limit — not a limit of zero.
+  const hasCap = data.maxLoanAmount !== null && data.maxLoanAmount !== undefined;
+
+  if (eligible) {
+    valueEl.textContent = hasCap ? formatCurrency(data.maxLoanAmount) : "Available";
+    detailsEl.textContent = hasCap
+      ? "You can request up to this amount"
+      : "You can request a loan — this group sets no fixed limit";
+  } else {
+    valueEl.textContent = "Not eligible";
+    // The FIRST reason inline; the popover carries all of them. A member is
+    // owed the actual reason, never a generic "you do not qualify".
+    detailsEl.textContent = reasons.length
+      ? reasons[0]
+      : "You cannot request a loan right now";
+  }
+
+  if (popoverEl) {
+    popoverEl.replaceChildren();
+
+    const title = document.createElement("p");
+    title.className = "hero-stat-popover-title";
+    title.textContent = eligible
+      ? "You qualify for a loan"
+      : "Why you cannot borrow right now";
+    popoverEl.appendChild(title);
+
+    if (!eligible) {
+      for (const reason of reasons) {
+        const row = document.createElement("div");
+        row.className = "hero-stat-popover-row";
+        const span = document.createElement("span");
+        span.textContent = reason;
+        row.appendChild(span);
+        popoverEl.appendChild(row);
+      }
+    }
+
+    const facts = [
+      ["Maximum single loan", hasCap ? formatCurrency(data.maxLoanAmount) : "No fixed limit"],
+      ["Active loans", `${data.activeLoanCount ?? 0} of ${data.maxActiveLoans ?? 0} allowed`],
+      ["You currently owe", formatCurrency(data.totalRemaining || "0.00")],
+      ["You have contributed", formatCurrency(data.contributed || "0.00")],
+    ];
+    const exposure = data.exposure || {};
+    facts.push([
+      "Debt vs contributions",
+      exposure.debtToContributionPercent === null
+        || exposure.debtToContributionPercent === undefined
+        ? "Not applicable yet"
+        : `${exposure.debtToContributionPercent}%`,
+    ]);
+
+    for (const [label, value] of facts) {
+      const row = document.createElement("div");
+      row.className = "hero-stat-popover-row";
+      const l = document.createElement("span");
+      l.textContent = label;
+      const v = document.createElement("span");
+      v.textContent = value;
+      row.append(l, v);
+      popoverEl.appendChild(row);
+    }
+  }
+
+  applyLoanRequestGate(eligible, reasons);
+}
+
+/**
+ * Reflect eligibility on the Request Loan button.
+ *
+ * UX ONLY — the server's gate is what actually refuses a loan. The button is
+ * left CLICKABLE when ineligible so a member can still open the modal and read
+ * the full standing panel; disabling it outright would hide the explanation
+ * behind a control they cannot press.
+ *
+ * @param {boolean} eligible
+ * @param {Array<string>} reasons
+ */
+function applyLoanRequestGate(eligible, reasons) {
+  const btn = document.getElementById("requestLoanBtn");
+  if (!btn) return;
+
+  if (eligible) {
+    btn.removeAttribute("title");
+    btn.removeAttribute("aria-describedby");
+    btn.classList.remove("is-ineligible");
+    return;
+  }
+
+  btn.classList.add("is-ineligible");
+  btn.setAttribute(
+    "title",
+    reasons.length
+      ? `You may not qualify right now: ${reasons.join(" ")}`
+      : "You may not qualify for a loan right now.",
+  );
 }
 
 /**
@@ -1751,10 +1991,7 @@ function openArrearsModal() {
   modal.classList.remove("hidden");
   modal.style.display = "flex";
 
-  const today = startOfToday();
-  const rows = upcomingObligationItems(data.obligations, 3650).filter(
-    (item) => item.overdue && item.due < today,
-  );
+  const rows = overdueObligationItems(data.obligations);
 
   container.replaceChildren();
 
@@ -1770,17 +2007,39 @@ function openArrearsModal() {
   const table = document.createElement("table");
   table.className = "table";
   const thead = document.createElement("thead");
-  thead.appendChild(makeRow(["Type", "Due", "Arrears", "Action"], "th"));
+  thead.appendChild(makeRow(["Type", "Due", "Arrears", "Late penalty", "Action"], "th"));
   table.appendChild(thead);
 
   const tbody = document.createElement("tbody");
-  let totalMinor = 0;
   for (const item of rows) {
-    totalMinor += toMinor(item.amountStr);
     const tr = document.createElement("tr");
     tr.appendChild(makeCell(`${item.type} (${item.month})`, "Type"));
-    tr.appendChild(makeCell(formatDate(item.due), "Due"));
+    tr.appendChild(makeCell(item.due ? formatDate(item.due) : "-", "Due"));
     tr.appendChild(makeCell(formatCurrency(item.amountStr), "Arrears"));
+
+    /* J2 Slice 3 — the penalty, and the sum behind it. The Arrears tile this
+       modal opens from includes penalties in its total, but the modal used to
+       show only the arrears column, so the tile and the rows behind it could
+       never be made to agree by reading them. */
+    const penaltyTd = document.createElement("td");
+    penaltyTd.setAttribute("data-label", "Late penalty");
+    const penalty = item.penalty;
+    if (penalty && toMinor(penalty.amountOutstanding) > 0) {
+      const amount = document.createElement("div");
+      amount.className = "penalty-amount";
+      amount.textContent = formatCurrency(penalty.amountOutstanding);
+      penaltyTd.appendChild(amount);
+      const why = penaltyDerivationText(penalty);
+      if (why) {
+        const note = document.createElement("div");
+        note.className = "penalty-why";
+        note.textContent = why;
+        penaltyTd.appendChild(note);
+      }
+    } else {
+      penaltyTd.textContent = "—";
+    }
+    tr.appendChild(penaltyTd);
 
     const actionTd = document.createElement("td");
     actionTd.setAttribute("data-label", "Action");
@@ -1804,7 +2063,45 @@ function openArrearsModal() {
   table.appendChild(tbody);
   container.appendChild(table);
 
-  if (totalEl) totalEl.textContent = formatCurrency(fromMinor(totalMinor));
+  /* J2 Slice 3 — make the modal reconcile with the tile that opened it.
+     The Arrears tile shows `totalOwed` (arrears + penalties); this modal's
+     header total shows overdue arrears only. Shown side by side those two
+     look like a discrepancy, so the three server figures are spelled out
+     here. All three are server strings rendered as-is: arrears and penalties
+     are the parts, total owed is the server's own sum of them — this code
+     does not add anything up. */
+  const obSummary = data.obligationsSummary;
+  if (obSummary) {
+    const recon = document.createElement("div");
+    recon.className = "arrears-reconcile";
+    const parts = [
+      ["Arrears", obSummary.arrears],
+      ["Late penalties", obSummary.penaltyAccrued],
+      ["Total owed", obSummary.totalOwed],
+    ];
+    for (const [label, value] of parts) {
+      if (value == null) continue;
+      const row = document.createElement("div");
+      row.className = "arrears-reconcile-row";
+      const l = document.createElement("span");
+      l.textContent = label;
+      const v = document.createElement("span");
+      v.textContent = formatCurrency(value);
+      row.appendChild(l);
+      row.appendChild(v);
+      recon.appendChild(row);
+    }
+    if (recon.childElementCount) container.appendChild(recon);
+  }
+
+  // A2: the footer is the server's own overdue total. Because the rows above are
+  // selected by the SAME server flags that produced it, footer and rows always
+  // reconcile — nothing is re-added here.
+  if (totalEl) {
+    totalEl.textContent = formatCurrency(
+      (data.obligationsSummary && data.obligationsSummary.overdue) || "0.00",
+    );
+  }
   if (countEl) countEl.textContent = String(rows.length);
   if (nextDueEl) nextDueEl.textContent = "Overdue";
 }
@@ -1850,16 +2147,21 @@ function showAllPaymentsModal() {
     tr.appendChild(td);
     tbody.appendChild(tr);
   } else {
-    let totalMinor = 0;
     for (const p of settled) {
-      totalMinor += toMinor(p.amountStr);
       const tr = document.createElement("tr");
       tr.appendChild(makeCell(p.type, "Type"));
       tr.appendChild(makeCell(p.date ? formatDate(p.date) : "-", "Date"));
       tr.appendChild(makeCell(formatCurrency(p.amountStr), "Amount"));
       tbody.appendChild(tr);
     }
-    if (totalEl) totalEl.textContent = formatCurrency(fromMinor(totalMinor));
+    // A2: verifiedCollected is payments.list's own total over the SAME
+    // approved/completed rows this table lists, from the same response — so the
+    // footer matches the rows by construction rather than by re-adding them.
+    if (totalEl) {
+      totalEl.textContent = formatCurrency(
+        (data.paymentsSummary && data.paymentsSummary.verifiedCollected) || "0.00",
+      );
+    }
   }
 
   modal.classList.remove("hidden");
@@ -1963,6 +2265,7 @@ function wireStaticHandlers() {
   // Now they get the same explicit "i" as every other tile.
   initHeroStatPopover("membersStat", "membersPopover");
   initHeroStatPopover("totalContributedStat", "totalContributedPopover");
+  initHeroStatPopover("borrowingPowerStat", "borrowingPowerPopover");
   document
     .getElementById("closeArrearsModal")
     ?.addEventListener("click", hideArrearsModal);
@@ -2005,13 +2308,38 @@ function wireStaticHandlers() {
     .getElementById("calendarNextMonth")
     ?.addEventListener("click", () => shiftCalendarMonth(1));
 
-  // No member-initiated "request a new loan" flow exists anywhere in the
-  // ported app yet (grepped loans.request across scripts/*_sql.js — the only
-  // caller is the admin-only manage_loans page). Be honest about that rather
-  // than dead-ending silently.
+  /* The member-initiated loan-request flow. (The comment that used to sit
+     here said no such flow existed anywhere in the app — that was true when
+     written and has been false since the flow below was built; the request
+     modal, its eligibility panel and its loans.request submit are all wired
+     in this file.) */
   document
     .getElementById("requestLoanBtn")
     ?.addEventListener("click", () => openLoanModal());
+
+  /* Deep link: ?open=loan-request opens the request modal straight away.
+     This is the entry point for the "Request a Loan" button on
+     loan_payments.html — the member's own loans page, which previously had no
+     route into borrowing at all. Linking to the one modal that already exists
+     keeps a single origination flow rather than cloning it onto a second
+     page. The param is cleared from the URL afterwards so a refresh or a
+     bookmark does not reopen it. */
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("open") === "loan-request") {
+      params.delete("open");
+      const qs = params.toString();
+      window.history.replaceState(
+        {},
+        "",
+        window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash,
+      );
+      openLoanModal();
+    }
+  } catch (err) {
+    // A malformed query string must never stop the dashboard wiring up.
+    console.warn("[dashboard] could not read deep-link params", err);
+  }
 
   // Loan-request modal wiring (loans.request). Members may book a loan per the
   // group rulebook; the request lands PENDING for admin approval.
@@ -2061,10 +2389,12 @@ function wireStaticHandlers() {
     }
     updateAdvancedPaymentVisibility();
     updatePaymentDueInfo();
+    refreshContributionQuickAmounts();
   });
   document.getElementById("paymentMonth")?.addEventListener("change", () => {
     updateAdvancedPaymentVisibility();
     updatePaymentDueInfo();
+    refreshContributionQuickAmounts();
   });
   document
     .getElementById("paymentUploadForm")
@@ -2244,6 +2574,14 @@ function initHeroStatPopover(cardId, popoverId, opts = {}) {
   // shared card_info module renders on <body>, which nothing can clip.
   source.hidden = true;
 
+  // The explanation the page SHIPS with, captured before any render function can
+  // overwrite it. card_info refuses to open an empty panel (deliberately — it
+  // will not flash an empty box), so a renderer that blanks this source turns the
+  // card's "i" button into a button that visibly does nothing. That is exactly
+  // how the Contributed toggle died. This fallback makes that failure impossible
+  // for every hero card at once, whatever a future renderer does.
+  const shippedText = (source.textContent || "").trim();
+
   // The card keeps its own primary action (navigate / open modal) — the info
   // toggle is a separate button that stops propagation, so the two never
   // collide. That also makes the old `ignoreSelector` workaround unnecessary.
@@ -2253,7 +2591,23 @@ function initHeroStatPopover(cardId, popoverId, opts = {}) {
     // Read lazily on each open, so content written later by a re-render (or a
     // month-filter change) is always the content shown.
     content: (host) => {
+      // Same opening structure as every other "i" panel in the app: the card's
+      // own name first, so a member always knows which figure they opened.
+      if (label) {
+        const heading = document.createElement("p");
+        heading.className = "bn-info-title";
+        heading.textContent = label;
+        host.appendChild(heading);
+      }
+
+      const before = host.childNodes.length;
       source.childNodes.forEach((n) => host.appendChild(n.cloneNode(true)));
+      if (host.childNodes.length > before) return;
+
+      const p = document.createElement("p");
+      p.className = "bn-info-desc";
+      p.textContent = shippedText || "No details available for this period.";
+      host.appendChild(p);
     },
   });
 }
@@ -2411,9 +2765,100 @@ function openPaymentModal(prefill) {
 
   updateAdvancedPaymentVisibility();
   updatePaymentDueInfo();
+  refreshContributionQuickAmounts();
 
   modal.classList.remove("hidden");
   modal.style.display = "flex";
+}
+
+/**
+ * Preset amounts for the contribution being recorded.
+ *
+ * A payment row is ONE type and ONE month, so the honest presets are that
+ * obligation's own two server figures: what is still owed on it, and its full
+ * amount. There is deliberately no "pay everything overdue" button — that would
+ * span several obligations and could not be filed as a single payment, so the
+ * server would reject the very figure the button suggested.
+ *
+ * Both values are read straight from payments.obligations. Nothing is computed.
+ */
+function refreshContributionQuickAmounts() {
+  const container = document.getElementById("paymentQuickAmounts");
+  const input = document.getElementById("paymentAmount");
+  if (!container || !input) return;
+
+  const data = window.__dashboardData;
+  const ob = data && data.obligations;
+  const type = document.getElementById("paymentType")?.value || "";
+  const month = document.getElementById("paymentMonth")?.value || "";
+
+  let row = null;
+  if (ob) {
+    if (type === "seed_money") row = ob.seedMoney;
+    else if (type === "service_fee") row = ob.serviceFee;
+    else if (type === "monthly_contribution") {
+      row = monthsOf(ob).find((m) => String(m.month) === month) || null;
+    }
+  }
+
+  if (!row) {
+    renderQuickAmounts(container, [], input);
+    return;
+  }
+
+  const options = [];
+  if (row.arrears !== undefined && toMinor(row.arrears) > 0) {
+    options.push({
+      key: "outstanding",
+      label: "Amount still owed",
+      description: "What remains unpaid on this obligation.",
+      amount: row.arrears,
+      dueDate: row.dueDate || null,
+    });
+  }
+  if (row.totalAmount !== undefined && toMinor(row.totalAmount) > 0) {
+    options.push({
+      key: "full",
+      label: "Full amount",
+      description: "The whole amount for this obligation, ignoring anything already paid.",
+      amount: row.totalAmount,
+      dueDate: row.dueDate || null,
+    });
+  }
+
+  renderQuickAmounts(container, options, input, "Another amount");
+  renderSeedMoneyFirstNote(container, ob, type);
+}
+
+/**
+ * Seed money comes FIRST in a village-banking cycle — it is the joining stake
+ * that capitalises the box, and it is due before monthly contributions run and
+ * before the group lends anything out. A member paying a monthly contribution
+ * while their seed money is still short is paying out of order, and the group's
+ * own eligibility rules already treat unpaid seed money as a bar to borrowing.
+ *
+ * This is a PROMPT, not a block: the server accepts the payment either way, and
+ * pretending otherwise here would be the UI inventing a rule the ledger does not
+ * enforce. It simply makes the ordering visible at the moment it matters.
+ *
+ * @param {HTMLElement} container the quick-amounts container to append to
+ * @param {Object} ob payments.obligations response
+ * @param {string} type the payment type being recorded
+ */
+function renderSeedMoneyFirstNote(container, ob, type) {
+  if (!container || type === "seed_money") return;
+
+  const seed = ob && ob.seedMoney;
+  if (!seed || seed.configured === false) return;
+  if (seed.arrears === undefined || toMinor(seed.arrears) <= 0) return;
+
+  const note = document.createElement("p");
+  note.className = "quick-amount-note";
+  note.textContent =
+    `Seed money of ${formatCurrency(seed.arrears)} is still outstanding. `
+    + "Seed money is normally settled first — it is what capitalises the group, "
+    + "and it must be cleared before you can borrow.";
+  container.appendChild(note);
 }
 
 function closePaymentModal() {

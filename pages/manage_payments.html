@@ -309,28 +309,47 @@
     .acct-banner {
       display: flex;
       align-items: center;
-      gap: var(--bn-space-2);
-      padding: var(--bn-space-3) var(--bn-space-4);
-      border-radius: var(--bn-radius-md);
+      gap: var(--bn-space-3);
+      padding: var(--bn-space-4) var(--bn-space-5);
+      border-radius: var(--bn-radius-lg);
       font-weight: 600;
-      font-size: var(--bn-text-sm);
-      margin-bottom: var(--bn-space-4);
+      font-size: var(--bn-text-base);
+      margin-bottom: var(--bn-space-5);
     }
     .acct-banner.caught-up {
-      background: var(--bn-success-light, rgba(22, 163, 74, 0.10));
-      color: var(--bn-success-dark, var(--bn-success));
-      border: 1px solid var(--bn-success);
+      background: var(--bn-success-light);
+      color: var(--bn-success-dark);
+      border: 1px solid rgba(5, 150, 105, 0.2);
     }
     .acct-banner.follow-up {
-      background: var(--bn-warning-light, rgba(217, 119, 6, 0.10));
-      color: var(--bn-warning-dark, var(--bn-warning));
-      border: 1px solid var(--bn-warning);
+      background: var(--bn-warning-light);
+      color: var(--bn-warning-dark);
+      border: 1px solid rgba(217, 119, 6, 0.2);
     }
     .acct-totals {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: var(--bn-space-4);
+      margin-bottom: var(--bn-space-6);
+    }
+
+    /* Section divider with label */
+    .acct-section-label {
+      display: flex;
+      align-items: center;
       gap: var(--bn-space-3);
-      margin-bottom: var(--bn-space-4);
+      margin: var(--bn-space-6) 0 var(--bn-space-4);
+      font-size: var(--bn-text-xs);
+      font-weight: 700;
+      color: var(--bn-gray-500);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .acct-section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--bn-gray-lighter);
     }
     .acct-total {
       position: relative;
@@ -789,6 +808,7 @@
             <div class="form-group">
               <label class="form-label">Amount (MWK) *</label>
               <div class="payment-amount-row" style="display: flex; gap: var(--bn-space-2); align-items: flex-end;">
+              <div id="paymentQuickAmounts" hidden></div>
               <input type="number" class="form-input" id="paymentAmount" required min="0.01" step="0.01" style="font-size: var(--bn-text-base); padding: var(--bn-space-3) var(--bn-space-4); font-weight: 600;">
               </div>
             </div>

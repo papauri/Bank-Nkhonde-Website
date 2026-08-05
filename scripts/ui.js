@@ -258,3 +258,162 @@ export function scrollToId(id) {
     document.getElementById(id)?.scrollIntoView({behavior: "smooth", block: "start"});
   };
 }
+
+/**
+ * Preset "pay this much" buttons that fill an amount field.
+ *
+ * WHY THIS IS SHARED: four different forms let someone record money (member and
+ * admin, loan repayments and contributions). Each one previously pre-filled a
+ * figure its own way, or not at all, so what the app suggested depended on which
+ * screen you happened to be on.
+ *
+ * EVERY AMOUNT PASSED IN MUST ALREADY BE A SERVER FIGURE. This renders values
+ * and writes the chosen one into the input — it never adds, subtracts or
+ * apportions anything. Callers pass amounts straight from an API response
+ * (repayments.balance `quickAmounts`, or an obligation's own `arrears` /
+ * `totalAmount`); deriving a new figure in the browser is what A2 forbids.
+ *
+ * @param {HTMLElement} container emptied and refilled
+ * @param {Array<{key:string,label:string,description?:string,amount:string}>} options
+ * @param {HTMLInputElement} input the amount field to fill
+ * @param {string} [customLabel] label for the "type my own" button
+ */
+export function renderQuickAmounts(container, options, input, customLabel) {
+  if (!container) return;
+  container.replaceChildren();
+
+  const list = Array.isArray(options) ? options.filter((o) => o && o.amount) : [];
+  if (!list.length) {
+    container.hidden = true;
+    return;
+  }
+  container.hidden = false;
+
+  const label = document.createElement("p");
+  label.className = "quick-amount-label";
+  label.textContent = "Paying for";
+  container.appendChild(label);
+
+  const row = document.createElement("div");
+  row.className = "quick-amount-row";
+
+  const buttons = [];
+  const select = (btn, value) => {
+    for (const b of buttons) b.classList.toggle("is-selected", b === btn);
+    if (!input) return;
+    input.value = value === null ? "" : String(value);
+    // Let any listener bound to the field (validation, hints) react as if the
+    // member had typed it.
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    if (value === null) input.focus();
+  };
+
+  for (const opt of list) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "quick-amount-btn";
+
+    const top = document.createElement("span");
+    top.className = "quick-amount-btn-label";
+    top.textContent = opt.label;
+
+    const amt = document.createElement("span");
+    amt.className = "quick-amount-btn-amount";
+    amt.textContent = formatAmountForChip(opt.amount);
+
+    btn.append(top, amt);
+
+    // When it is due. "How much" without "by when" is half the answer.
+    if (opt.dueDate) {
+        const due = document.createElement("span");
+        due.className = "quick-amount-btn-due";
+        due.textContent = formatDueForChip(opt.dueDate);
+        btn.appendChild(due);
+    }
+    if (opt.description) btn.title = opt.description;
+    btn.addEventListener("click", () => select(btn, opt.amount));
+    buttons.push(btn);
+    row.appendChild(btn);
+  }
+
+  const custom = document.createElement("button");
+  custom.type = "button";
+  custom.className = "quick-amount-btn quick-amount-btn-custom";
+  const customTop = document.createElement("span");
+  customTop.className = "quick-amount-btn-label";
+  customTop.textContent = customLabel || "Another amount";
+  const customSub = document.createElement("span");
+  customSub.className = "quick-amount-btn-amount";
+  customSub.textContent = "Type it in";
+  custom.append(customTop, customSub);
+  custom.addEventListener("click", () => select(custom, null));
+  buttons.push(custom);
+  row.appendChild(custom);
+
+  container.appendChild(row);
+}
+
+/**
+ * "Due 15 Sep 2026", or "Overdue since ..." when the date has passed.
+ * Date presentation only — the overdue JUDGEMENT that drives money is the
+ * server's (`overdue` flags on the schedule); this just phrases a date.
+ * @param {string} dueDate
+ * @return {string}
+ */
+function formatDueForChip(dueDate) {
+  const d = new Date(String(dueDate).replace(" ", "T"));
+  if (isNaN(d.getTime())) return "";
+  const text = d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return d < today ? `Overdue since ${text}` : `Due ${text}`;
+}
+
+/**
+ * A short "what comes after this" list of remaining instalments and their dates.
+ * @param {HTMLElement} container
+ * @param {Array<{month:number,dueDate:?string,amount:string,overdue:boolean}>} rows
+ */
+export function renderUpcomingInstalments(container, rows) {
+  if (!container) return;
+  container.replaceChildren();
+
+  const list = Array.isArray(rows) ? rows : [];
+  // One remaining instalment IS the "next payment" chip — repeating it as a
+  // schedule adds nothing.
+  if (list.length < 2) {
+    container.hidden = true;
+    return;
+  }
+  container.hidden = false;
+
+  const heading = document.createElement("p");
+  heading.className = "quick-amount-label";
+  heading.textContent = "Payments still to come";
+  container.appendChild(heading);
+
+  const ul = document.createElement("ul");
+  ul.className = "upcoming-instalments";
+  for (const row of list) {
+    const li = document.createElement("li");
+    li.className = row.overdue ? "upcoming-instalment is-overdue" : "upcoming-instalment";
+
+    const when = document.createElement("span");
+    when.textContent = row.dueDate ? formatDueForChip(row.dueDate) : `Instalment ${row.month}`;
+
+    const amount = document.createElement("span");
+    amount.className = "upcoming-instalment-amount";
+    amount.textContent = formatAmountForChip(row.amount);
+
+    li.append(when, amount);
+    ul.appendChild(li);
+  }
+  container.appendChild(ul);
+}
+
+/** Chip amounts are display-only; the real value written to the input is the raw server string. */
+function formatAmountForChip(amount) {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return String(amount);
+  return `MWK ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}

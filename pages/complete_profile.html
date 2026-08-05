@@ -84,12 +84,41 @@
       object-fit: cover;
     }
 
-    /* Locally scoped 44x44 touch-target floor for the compact ghost button
-       here; the shared .btn-sm rule in design-system.css is left untouched */
-    .avatar-upload .btn-sm {
-      min-height: 44px;
-      display: inline-flex;
-      align-items: center;
+    /* Click-to-change. The whole avatar is the control (matching
+       settings.html), so the old ghost button is gone and its touch-target
+       rule with it — the 120px avatar is its own generous target. */
+    .avatar-upload-label {
+      display: inline-block;
+      cursor: pointer;
+      font-family: var(--bn-font-sans);
+    }
+
+    .avatar-upload-label:hover .avatar-preview,
+    .profile-picture-input:focus-visible + .avatar-upload-note,
+    .avatar-upload-label:focus-within .avatar-preview {
+      border-color: var(--bn-accent);
+    }
+
+    .avatar-upload-hint {
+      display: block;
+      margin-bottom: var(--bn-space-4);
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-accent);
+      font-family: var(--bn-font-sans);
+    }
+
+    /* Hidden input — the label above is what opens the picker. Kept
+       focusable-by-label rather than display:none-and-forgotten. */
+    .profile-picture-input {
+      display: none;
+    }
+
+    .avatar-upload-note {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      margin-top: var(--bn-space-2);
+      font-family: var(--bn-font-sans);
     }
 
     .form-section {
@@ -160,13 +189,18 @@
         <p class="required-note"><span>*</span> Required fields</p>
 
         <!-- Profile Picture -->
+        <!-- Click-to-change: the avatar itself is the control, matching
+             settings.html. A wrapping label replaces the old inline-onclick
+             button, so the picker opens from the picture the member is
+             actually looking at, and the file input stays keyboard
+             reachable. -->
         <div class="avatar-upload">
-          <div class="avatar-preview" id="profilePicturePreview">👤</div>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('profilePictureInput').click()">
-            Upload Photo
-          </button>
-          <input type="file" id="profilePictureInput" accept="image/*" style="display: none;">
-          <p style="font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: var(--bn-space-2);">Max 5MB, JPG or PNG</p>
+          <label for="profilePictureInput" class="avatar-upload-label">
+            <div class="avatar-preview" id="profilePicturePreview">👤</div>
+            <span class="avatar-upload-hint">Click to add a photo</span>
+          </label>
+          <input type="file" id="profilePictureInput" accept="image/*" class="profile-picture-input">
+          <p class="avatar-upload-note">Max 5MB, JPG or PNG</p>
         </div>
 
         <!-- Personal Information -->

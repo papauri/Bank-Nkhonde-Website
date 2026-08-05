@@ -18,29 +18,61 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: var(--bn-space-8);
+      padding: var(--bn-space-10) var(--bn-space-8);
       margin-bottom: var(--bn-space-6);
       background: var(--bn-gradient-primary);
       border-radius: var(--bn-radius-2xl);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Subtle radial glow behind the avatar */
+    .profile-picture-section::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 220px;
+      height: 220px;
+      background: radial-gradient(circle, rgba(201, 162, 39, 0.12) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
     }
 
     .profile-picture-wrapper {
       position: relative;
-      margin-bottom: var(--bn-space-4);
+      display: inline-block;
+      margin-bottom: var(--bn-space-5);
+      cursor: pointer;
+      transition: transform 0.3s var(--bn-ease-out);
+    }
+
+    .profile-picture-wrapper:hover {
+      transform: scale(1.03);
     }
 
     .profile-picture {
       width: 120px;
       height: 120px;
       border-radius: var(--bn-radius-full);
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.08);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 3rem;
+      font-family: var(--bn-font-sans);
+      font-size: 2.5rem;
+      font-weight: 700;
       color: var(--bn-white);
-      border: 4px solid var(--bn-accent);
+      border: 3px solid rgba(201, 162, 39, 0.4);
       overflow: hidden;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+      box-shadow: 0 0 30px rgba(201, 162, 39, 0.08);
+    }
+
+    .profile-picture-wrapper:hover .profile-picture {
+      border-color: var(--bn-accent);
+      box-shadow: 0 0 40px rgba(201, 162, 39, 0.2);
     }
 
     .profile-picture img {
@@ -49,12 +81,17 @@
       object-fit: cover;
     }
 
+    /* Hidden file input — label on .profile-picture-wrapper triggers it */
+    .profile-picture-input {
+      display: none;
+    }
+
     .profile-picture-edit {
       position: absolute;
-      bottom: 0;
-      right: 0;
-      width: 44px;
-      height: 44px;
+      bottom: 4px;
+      right: 4px;
+      width: 38px;
+      height: 38px;
       border-radius: var(--bn-radius-full);
       background: var(--bn-accent);
       border: 3px solid var(--bn-primary);
@@ -63,28 +100,50 @@
       justify-content: center;
       cursor: pointer;
       transition: all var(--bn-transition-fast);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      pointer-events: none; /* click passes through to the label wrapping the wrapper */
     }
 
-    .profile-picture-edit:hover {
-      transform: scale(1.1);
+    .profile-picture-wrapper:hover .profile-picture-edit {
+      transform: scale(1.08);
     }
 
     .profile-picture-edit svg {
-      width: 16px;
-      height: 16px;
+      width: 14px;
+      height: 14px;
       color: var(--bn-dark);
     }
 
     .profile-name {
+      font-family: var(--bn-font-sans);
       font-size: var(--bn-text-xl);
       font-weight: 700;
       color: var(--bn-white);
       margin-bottom: var(--bn-space-1);
+      letter-spacing: -0.01em;
     }
 
     .profile-email {
+      font-family: var(--bn-font-sans);
       font-size: var(--bn-text-sm);
-      color: rgba(255, 255, 255, 0.7);
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    /* "Change photo" hint — appears on hover */
+    .profile-picture-hint {
+      font-family: var(--bn-font-sans);
+      font-size: var(--bn-text-xs);
+      color: var(--bn-accent);
+      margin-top: var(--bn-space-2);
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .profile-picture-wrapper:hover + .profile-picture-hint,
+    .profile-picture-hint:hover {
+      opacity: 1;
     }
 
     .settings-tabs {
@@ -330,19 +389,20 @@
 
     <!-- Profile Picture Section -->
     <div class="profile-picture-section">
-      <div class="profile-picture-wrapper">
+      <label for="profilePictureInput" class="profile-picture-wrapper">
         <div class="profile-picture" id="profilePicture">
           <span id="profileInitials">U</span>
           <img id="profileImage" src="" alt="Profile" style="display: none;">
         </div>
-        <label for="profilePictureInput" class="profile-picture-edit" title="Change photo" aria-label="Change profile photo">
+        <div class="profile-picture-edit" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
             <circle cx="12" cy="13" r="4"/>
           </svg>
-        </label>
-        <input type="file" id="profilePictureInput" accept="image/*" class="hidden">
-      </div>
+        </div>
+        <input type="file" id="profilePictureInput" accept="image/*" class="profile-picture-input">
+      </label>
+      <div class="profile-picture-hint">Click to change photo</div>
       <div class="profile-name" id="profileName">User Name</div>
       <div class="profile-email" id="profileEmail">email@example.com</div>
     </div>

@@ -505,6 +505,18 @@ function openEditRatesModal() {
 
   form.append(
     formSection("Loan Interest Rates", [
+      selectField(
+        "editLoanInterestMethod",
+        "Interest Calculation Method",
+        groupRules.loanInterestCalculationMethod,
+        [
+          ["reduced_balance", "Reducing balance (interest on what is still owed)"],
+          ["flat_rate", "Flat rate (interest on the original amount, every month)"],
+        ],
+        "Flat rate charges the Month 1 rate on the full loan amount for every month "
+        + "of the term, so it costs more than reducing balance at the same rate. "
+        + "Existing loans keep the terms they were approved on.",
+      ),
       numberField("editLoanInterestM1", "Month 1 Rate (%)", groupRules.loanInterestRateMonth1, {step: "0.1", min: "0"}),
       numberField("editLoanInterestM2", "Month 2 Rate (%)", groupRules.loanInterestRateMonth2, {step: "0.1", min: "0"}),
       numberField("editLoanInterestM3", "Month 3+ Rate (%)", groupRules.loanInterestRateMonth3, {step: "0.1", min: "0"}),
@@ -531,6 +543,46 @@ function formSection(title, fields) {
   fields.forEach((f) => row.appendChild(f));
   section.appendChild(row);
   return section;
+}
+
+/**
+ * A labelled <select>, with optional plain-English help beneath it. Used for the
+ * interest calculation method, which changes what every future loan costs — an
+ * admin should not have to guess what the two options mean.
+ * @param {string} id
+ * @param {string} label
+ * @param {*} value current value
+ * @param {Array<Array<string>>} options [value, label] pairs
+ * @param {string} [help] explanatory text shown under the control
+ * @return {HTMLElement}
+ */
+function selectField(id, label, value, options, help) {
+  const group = el("div", "form-group");
+  const labelEl = el("label", "form-label");
+  labelEl.textContent = label;
+
+  const select = document.createElement("select");
+  select.className = "form-input";
+  select.id = id;
+  for (const [optValue, optLabel] of options) {
+    const opt = document.createElement("option");
+    opt.value = optValue;
+    opt.textContent = optLabel;
+    select.appendChild(opt);
+  }
+  // Falls back to the conservative existing behaviour when the group has no
+  // value stored — never silently reprice a group's loans.
+  select.value = value === "flat_rate" ? "flat_rate" : "reduced_balance";
+
+  group.append(labelEl, select);
+
+  if (help) {
+    const hint = el("small", "form-hint");
+    hint.style.cssText = "color: var(--bn-gray); display: block; margin-top: 0.25rem;";
+    hint.textContent = help;
+    group.appendChild(hint);
+  }
+  return group;
 }
 
 function numberField(id, label, value, attrs = {}) {
@@ -568,6 +620,14 @@ async function saveRateChanges() {
   }
 
   const payload = {groupId: currentGroupId};
+
+  // Sent separately from RATE_FIELD_MAP: that loop parseFloat()s every value,
+  // which would turn this ENUM string into NaN and drop it.
+  const methodNode = document.getElementById("editLoanInterestMethod");
+  if (methodNode && methodNode.value) {
+    payload.loanInterestCalculationMethod = methodNode.value;
+  }
+
   RATE_FIELD_MAP.forEach(([inputId, ruleField]) => {
     const node = document.getElementById(inputId);
     if (!node || node.value === "") return;

@@ -1226,12 +1226,19 @@
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Payment Amount (MWK) *</label>
-              <input type="number" class="form-input" id="paymentAmount" required min="100" step="100">
+              <div id="paymentQuickAmounts" hidden></div>
+              <div id="paymentUpcoming" hidden></div>
+              <input type="number" class="form-input" id="paymentAmount" required min="0.01" step="0.01">
             </div>
             <div class="form-group">
               <label class="form-label">Payment Date *</label>
               <input type="date" class="form-input" id="paymentDate" required>
             </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Proof of Payment (optional)</label>
+            <input type="file" class="form-input" id="paymentProof" accept="image/*,.pdf">
+            <small style="color: var(--bn-gray); font-size: var(--bn-text-xs); margin-top: 4px; display: block;">Attach a receipt or transfer screenshot if you have one. Cash taken in person does not need it.</small>
           </div>
           <div class="form-group">
             <label class="form-label">Payment Method</label>

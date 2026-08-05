@@ -228,6 +228,197 @@ if (!function_exists('repayment_allocate')) {
     }
 }
 
+if (!function_exists('repayment_quick_amounts')) {
+    /**
+     * The preset amounts a borrower can pay, computed SERVER-SIDE.
+     *
+     * These exist so nobody has to work out what to type. The browser must never
+     * derive them: "the next instalment" is penalty + that instalment's
+     * outstanding, and getting it wrong hands someone a figure that under- or
+     * over-pays what they think they are settling.
+     *
+     * PENALTY IS INCLUDED IN EVERY OPTION, and that is deliberate.
+     * repayment_allocate() applies a payment to penalty FIRST, then interest,
+     * then principal. So an option worth exactly one instalment would have its
+     * penalty skimmed off the top and would NOT actually clear that instalment.
+     * Each preset is therefore what must be paid for the described outcome to
+     * genuinely happen.
+     *
+     * Every figure is capped by the same $totalOutstandingMinor that
+     * record_repayment() enforces, so a preset can never be rejected as an
+     * overpayment by the very endpoint it was built for.
+     *
+     * @param array $schedule loan_repayment_schedule rows, month ASC
+     * @param int   $penaltyOutstandingMinor live penalty still owed
+     * @return array<int, array{key:string,label:string,description:string,amount:string}>
+     */
+    function repayment_quick_amounts(array $schedule, int $penaltyOutstandingMinor): array
+    {
+        $today = new DateTimeImmutable('today');
+
+        $scheduleOutstandingMinor = 0;
+        $overdueOutstandingMinor = 0;
+        $nextInstalmentMinor = 0;
+        $nextInstalmentFound = false;
+        $nextDueDate = null;
+        $lastDueDate = null;
+        $overdueCount = 0;
+
+        foreach ($schedule as $row) {
+            $split = repayment_split_instalment($row);
+            $rowOutstanding = $split['interestOutstanding'] + $split['principalOutstanding'];
+            if ($rowOutstanding <= 0) {
+                continue;
+            }
+
+            $scheduleOutstandingMinor += $rowOutstanding;
+            $lastDueDate = $row['dueDate'] ?? $lastDueDate;
+
+            // The earliest unsettled instalment is the "next" one to pay.
+            if (!$nextInstalmentFound) {
+                $nextInstalmentMinor = $rowOutstanding;
+                $nextInstalmentFound = true;
+                $nextDueDate = $row['dueDate'] ?? null;
+            }
+
+            $due = $row['dueDate'] === null ? null : (string) $row['dueDate'];
+            if ($due !== null && $due !== '') {
+                try {
+                    if (new DateTimeImmutable($due) < $today) {
+                        $overdueOutstandingMinor += $rowOutstanding;
+                        $overdueCount++;
+                    }
+                } catch (Exception $e) {
+                    // An unparseable due date is not treated as overdue — never
+                    // demand money early on the strength of a bad date.
+                }
+            }
+        }
+
+        $totalOutstandingMinor = $penaltyOutstandingMinor + $scheduleOutstandingMinor;
+        if ($totalOutstandingMinor <= 0) {
+            return [];
+        }
+
+        $options = [];
+        $seen = [];
+
+        $add = static function (
+            string $key,
+            string $label,
+            string $description,
+            int $minor,
+            ?string $dueDate = null
+        ) use (&$options, &$seen, $totalOutstandingMinor): void {
+            if ($minor <= 0) {
+                return;
+            }
+            $minor = min($minor, $totalOutstandingMinor);
+            // Two presets worth the same money are one preset — offering "next
+            // instalment" and "pay off in full" as separate buttons for an
+            // identical figure just makes the choice look meaningful when it is not.
+            if (isset($seen[$minor])) {
+                return;
+            }
+            $seen[$minor] = true;
+            $options[] = [
+                'key' => $key,
+                'label' => $label,
+                'description' => $description,
+                'amount' => money_from_minor($minor),
+                // When this preset is due. Null where the concept does not apply
+                // (a penalty is owed now; a full settlement has no single date).
+                'dueDate' => $dueDate,
+            ];
+        };
+
+        if ($penaltyOutstandingMinor > 0) {
+            $add(
+                'penalty_only',
+                'Penalty only',
+                'Clears the penalty that has built up, leaving the loan itself unchanged.',
+                $penaltyOutstandingMinor
+            );
+        }
+
+        $add(
+            'next_instalment',
+            'Next instalment',
+            $penaltyOutstandingMinor > 0
+                ? 'The next instalment plus the outstanding penalty, which is what it takes to actually clear it.'
+                : 'The next instalment due on this loan.',
+            $penaltyOutstandingMinor + $nextInstalmentMinor,
+            $nextDueDate
+        );
+
+        $add(
+            'overdue',
+            'Everything overdue',
+            $overdueCount === 1
+                ? 'The one instalment already past its due date, plus the penalty.'
+                : $overdueCount . ' instalments already past their due date, plus the penalty.',
+            $penaltyOutstandingMinor + $overdueOutstandingMinor,
+            null
+        );
+
+        $add(
+            'settle_full',
+            'Pay off in full',
+            'Settles the loan completely — nothing further would be owed on it. Last instalment would otherwise fall due '
+                . ($lastDueDate === null ? 'later' : substr((string) $lastDueDate, 0, 10)) . '.',
+            $totalOutstandingMinor,
+            null
+        );
+
+        return $options;
+    }
+}
+
+if (!function_exists('repayment_upcoming_instalments')) {
+    /**
+     * The instalments still to pay, each with its date and whether it is late.
+     *
+     * "What do I owe next, and what comes after it" is a question a borrower
+     * asks constantly and the app could not previously answer — the form showed
+     * one figure and no dates at all.
+     *
+     * @param array $schedule loan_repayment_schedule rows, month ASC
+     * @return array<int, array{month:int,dueDate:?string,amount:string,overdue:bool}>
+     */
+    function repayment_upcoming_instalments(array $schedule): array
+    {
+        $today = new DateTimeImmutable('today');
+        $out = [];
+
+        foreach ($schedule as $row) {
+            $split = repayment_split_instalment($row);
+            $outstanding = $split['interestOutstanding'] + $split['principalOutstanding'];
+            if ($outstanding <= 0) {
+                continue;
+            }
+
+            $due = $row['dueDate'] ?? null;
+            $overdue = false;
+            if ($due !== null && $due !== '') {
+                try {
+                    $overdue = new DateTimeImmutable((string) $due) < $today;
+                } catch (Exception $e) {
+                    $overdue = false;
+                }
+            }
+
+            $out[] = [
+                'month' => (int) $row['month'],
+                'dueDate' => $due,
+                'amount' => money_from_minor($outstanding),
+                'overdue' => $overdue,
+            ];
+        }
+
+        return $out;
+    }
+}
+
 if (!function_exists('loan_balance')) {
     /**
      * GET repayments.balance — the loan, its schedule, and its LIVE penalty
@@ -254,10 +445,21 @@ if (!function_exists('loan_balance')) {
         $rules = penalty_fetch_rules($pdo, (string) $loan['groupId']);
         $penalty = repayment_penalty_or_501($loan, $rules);
 
+        $schedule = repayment_fetch_schedule($pdo, $loanId);
+
         json_response([
             'loan' => $loan,
-            'schedule' => repayment_fetch_schedule($pdo, $loanId),
+            'schedule' => $schedule,
             'penalty' => $penalty,
+            // Server-computed preset amounts for the record-payment form, so the
+            // borrower picks an outcome ("pay it off") rather than typing a figure.
+            'quickAmounts' => repayment_quick_amounts(
+                $schedule,
+                money_to_minor($penalty['amountOutstanding'])
+            ),
+            // Every instalment still to pay, with its date — so a borrower can see
+            // not just what is due next but what follows it and when.
+            'upcoming' => repayment_upcoming_instalments($schedule),
         ]);
     }
 }

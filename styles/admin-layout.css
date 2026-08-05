@@ -32,6 +32,40 @@ body {
 .sidebar-header {
   padding: var(--bn-space-6);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  /* Row so the mobile close control can sit opposite the logo. With the close
+     button hidden (desktop) the logo is the only child, so space-between
+     leaves it exactly where it was. */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bn-space-3);
+}
+
+/* Drawer close control — hidden on desktop, where there is no drawer to
+   close. See the note in nav_sql.js: the topbar burger is painted over by the
+   open drawer, so this is the in-drawer way back out. */
+.sidebar-close {
+  display: none;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--bn-radius-lg);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--bn-white);
+  cursor: pointer;
+  transition: background var(--bn-transition-fast);
+}
+
+.sidebar-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.sidebar-close svg {
+  width: 20px;
+  height: 20px;
 }
 
 .sidebar-logo {
@@ -228,6 +262,20 @@ body {
   color: var(--bn-dark);
   overflow: hidden;
   flex-shrink: 0;
+  /* Now an <a> to settings.html — kill the underline and inherited link
+     colour so it still reads as an avatar, and give it a visible focus ring
+     since it became keyboard-reachable. */
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.sidebar-user-avatar:hover {
+  box-shadow: 0 0 0 2px var(--bn-accent);
+}
+
+.sidebar-user-avatar:focus-visible {
+  outline: 2px solid var(--bn-accent);
+  outline-offset: 2px;
 }
 
 .sidebar-user-avatar img {
@@ -695,6 +743,12 @@ body {
     flex-shrink: 0;
   }
 
+  /* Only reachable affordance to close the drawer at these widths — the
+     burger that opened it is underneath the drawer. */
+  .sidebar-close {
+    display: flex;
+  }
+
   .topbar-search {
     display: none;
   }
@@ -732,6 +786,14 @@ body {
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
+  }
+
+  /* Scoped INSIDE the media query on purpose: if the drawer is open at 390px
+     and the viewport is then widened past 1024, the burger and drawer both
+     leave the layout while body still carries the class — a lock that could
+     never be released. Above this breakpoint the rule simply stops applying. */
+  body.bn-drawer-open {
+    overflow: hidden;
   }
 
   /* flex, not block: the bar's only child (.mobile-nav-items) has to be a

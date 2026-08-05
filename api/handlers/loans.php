@@ -102,15 +102,22 @@ if (!function_exists('loan_fetch_row')) {
     function loan_fetch_row(PDO $pdo, string $loanId): array
     {
         $stmt = $pdo->prepare(
-            'SELECT loanId, groupId, loanNumber, borrowerId, borrowerName, borrowerEmail, '
-            . 'principalAmount, approvedAmount, status, repaymentPeriod, '
-            . 'interestRateMonth1, interestRateMonth2, interestRateMonth3, '
-            . 'totalInterest, totalRepayment, monthlyPayment, disbursedAmount, disbursedAt, '
-            . 'disbursedBy, disbursementMethod, requestedAt, approvedBy, approvedAt, rejectedBy, '
-            . 'rejectedAt, rejectionReason, purpose, loanType, collateral, guarantorName, guarantorPhone, '
-            . 'guarantorRelationship, amountRepaid, remainingBalance, penaltiesCharged, '
-            . 'createdAt, updatedAt, completedAt '
-            . 'FROM loans WHERE loanId = :loanId LIMIT 1'
+            // borrowerName resolved live — see list_loans() for why the stored
+            // column is not trusted.
+            'SELECT l.loanId, l.groupId, l.loanNumber, l.borrowerId, '
+            . 'COALESCE(m.fullName, u.fullName, l.borrowerName) AS borrowerName, '
+            . 'l.borrowerEmail, '
+            . 'l.principalAmount, l.approvedAmount, l.status, l.repaymentPeriod, '
+            . 'l.interestRateMonth1, l.interestRateMonth2, l.interestRateMonth3, '
+            . 'l.totalInterest, l.totalRepayment, l.monthlyPayment, l.disbursedAmount, l.disbursedAt, '
+            . 'l.disbursedBy, l.disbursementMethod, l.requestedAt, l.approvedBy, l.approvedAt, l.rejectedBy, '
+            . 'l.rejectedAt, l.rejectionReason, l.purpose, l.loanType, l.collateral, l.guarantorName, l.guarantorPhone, '
+            . 'l.guarantorRelationship, l.amountRepaid, l.remainingBalance, l.penaltiesCharged, '
+            . 'l.createdAt, l.updatedAt, l.completedAt '
+            . 'FROM loans l '
+            . 'LEFT JOIN members m ON m.groupId = l.groupId AND m.uid = l.borrowerId '
+            . 'LEFT JOIN users u ON u.uid = l.borrowerId '
+            . 'WHERE l.loanId = :loanId LIMIT 1'
         );
         $stmt->execute([':loanId' => $loanId]);
         $loan = $stmt->fetch();
@@ -146,19 +153,33 @@ if (!function_exists('loan_fetch_group_rules')) {
 
 if (!function_exists('loan_guard_calculation_method')) {
     /**
-     * Only reduced_balance exists. flat_rate is in the ENUM but is implemented
-     * NOWHERE in this codebase — guessing at it would invent interest charges,
-     * so it is refused outright.
+     * Both ENUM values are now implemented (J4): reduced_balance charges
+     * interest on the reducing balance, flat_rate on the original principal for
+     * the full term. Anything ELSE is still refused outright rather than guessed
+     * at — inventing an interest formula invents charges against a real borrower.
      */
     function loan_guard_calculation_method(?array $rules): void
     {
-        $method = $rules['loanInterestCalculationMethod'] ?? 'reduced_balance';
-        if ($method !== 'reduced_balance') {
+        $method = loan_calculation_method($rules);
+        if (!in_array($method, ['reduced_balance', 'flat_rate'], true)) {
             json_error(
-                'flat_rate interest is not implemented; group rules must use reduced_balance.',
+                'This group\'s interest calculation method is not supported.',
                 501
             );
         }
+    }
+}
+
+if (!function_exists('loan_calculation_method')) {
+    /**
+     * The group's interest calculation method, defaulting to reduced_balance.
+     * ONE reader for this rule so a loan can never be priced by one method and
+     * gate-checked against another.
+     */
+    function loan_calculation_method(?array $rules): string
+    {
+        $method = trim((string) ($rules['loanInterestCalculationMethod'] ?? ''));
+        return $method === '' ? 'reduced_balance' : $method;
     }
 }
 
@@ -200,23 +221,35 @@ if (!function_exists('list_loans')) {
 
         $pdo = getDbConnection();
 
-        $sql = 'SELECT loanId, groupId, loanNumber, borrowerId, borrowerName, borrowerEmail, '
-            . 'principalAmount, approvedAmount, status, repaymentPeriod, '
-            . 'interestRateMonth1, interestRateMonth2, interestRateMonth3, '
-            . 'totalInterest, totalRepayment, monthlyPayment, disbursedAmount, disbursedAt, '
-            . 'requestedAt, approvedAt, rejectedAt, rejectionReason, purpose, loanType, '
-            . 'amountRepaid, remainingBalance, penaltiesCharged, createdAt, updatedAt, completedAt '
-            . 'FROM loans WHERE groupId = :groupId';
+        // borrowerName is resolved LIVE from members/users, not read from the
+        // loans row. That column is a denormalised snapshot written at request
+        // time; it drifts the moment a member's name changes, and seeded/imported
+        // rows can carry a placeholder — production rows here literally read
+        // "Member", so every loan on the admin dashboard showed "Member". The
+        // stored value is kept only as a last resort for a borrower whose member
+        // and user rows are both gone.
+        $sql = 'SELECT l.loanId, l.groupId, l.loanNumber, l.borrowerId, '
+            . 'COALESCE(m.fullName, u.fullName, l.borrowerName) AS borrowerName, '
+            . 'l.borrowerEmail, '
+            . 'l.principalAmount, l.approvedAmount, l.status, l.repaymentPeriod, '
+            . 'l.interestRateMonth1, l.interestRateMonth2, l.interestRateMonth3, '
+            . 'l.totalInterest, l.totalRepayment, l.monthlyPayment, l.disbursedAmount, l.disbursedAt, '
+            . 'l.requestedAt, l.approvedAt, l.rejectedAt, l.rejectionReason, l.purpose, l.loanType, '
+            . 'l.amountRepaid, l.remainingBalance, l.penaltiesCharged, l.createdAt, l.updatedAt, l.completedAt '
+            . 'FROM loans l '
+            . 'LEFT JOIN members m ON m.groupId = l.groupId AND m.uid = l.borrowerId '
+            . 'LEFT JOIN users u ON u.uid = l.borrowerId '
+            . 'WHERE l.groupId = :groupId';
         $params = [':groupId' => $groupId];
 
         // Authorization boundary, not a UI filter: a plain member's query can
         // only ever return their own rows.
         if ($caller['role'] === 'member') {
-            $sql .= ' AND borrowerId = :uid';
+            $sql .= ' AND l.borrowerId = :uid';
             $params[':uid'] = $caller['uid'];
         }
 
-        $sql .= ' ORDER BY requestedAt DESC';
+        $sql .= ' ORDER BY l.requestedAt DESC';
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
@@ -231,6 +264,11 @@ if (!function_exists('list_loans')) {
         // $principalMinor (approvedAmount ?? principalAmount) as every other
         // total in this loop.
         $issuedPrincipalMinor = 0;
+        // J5: outstanding balance across the loans that are still being repaid —
+        // the SAME ['approved','disbursed'] set as $activePrincipalMinor below, so
+        // "Received" and "Balance" on the member dashboard are two columns of one
+        // set of loans and can never be scoped differently.
+        $activeBalanceMinor = 0;
         foreach ($rows as $row) {
             $principalMinor = money_to_minor(
                 trim((string) ($row['approvedAmount'] ?? $row['principalAmount']))
@@ -240,6 +278,7 @@ if (!function_exists('list_loans')) {
             $totalInterestMinor += money_to_minor(trim((string) $row['totalInterest']));
             if (in_array((string) $row['status'], ['approved', 'disbursed'], true)) {
                 $activePrincipalMinor += $principalMinor;
+                $activeBalanceMinor += money_to_minor(trim((string) $row['remainingBalance']));
             }
             if (in_array((string) $row['status'], ['approved', 'disbursed', 'completed', 'defaulted'], true)) {
                 $issuedPrincipalMinor += $principalMinor;
@@ -253,6 +292,7 @@ if (!function_exists('list_loans')) {
                 'totalOutstanding' => money_from_minor($totalOutstandingMinor),
                 'totalInterest' => money_from_minor($totalInterestMinor),
                 'activePrincipal' => money_from_minor($activePrincipalMinor),
+                'activeBalance' => money_from_minor($activeBalanceMinor),
                 'issuedPrincipal' => money_from_minor($issuedPrincipalMinor),
             ],
         ]);
@@ -450,12 +490,85 @@ if (!function_exists('loan_member_standing')) {
 
         $arrearsPenalties = member_arrears_penalties_minor($groupId, $uid);
 
+        // J6: what this member has actually PAID IN — the other half of their
+        // position. Lending is a judgement about exposure relative to what
+        // someone has put in, so the two figures belong together and are read
+        // in the same pass rather than by a second caller.
+        $paidStmt = $pdo->prepare(
+            'SELECT amountPaid FROM payments WHERE groupId = :groupId AND uid = :uid '
+            . "AND approvalStatus IN ('approved', 'completed')"
+        );
+        $paidStmt->execute([':groupId' => $groupId, ':uid' => $uid]);
+        $contributedMinor = 0;
+        foreach ($paidStmt->fetchAll() as $paid) {
+            $contributedMinor += money_to_minor(trim((string) $paid['amountPaid']));
+        }
+
         return [
             'activeLoans' => $activeLoans,
             'activeLoanCount' => count($activeLoans),
             'totalRemainingMinor' => $totalRemainingMinor,
             'arrearsMinor' => $arrearsPenalties['arrearsMinor'],
             'penaltiesMinor' => $arrearsPenalties['penaltiesMinor'],
+            'contributedMinor' => $contributedMinor,
+        ];
+    }
+}
+
+if (!function_exists('loan_exposure_assessment')) {
+    /**
+     * J6 — the lending-risk read on a borrower, for an admin about to approve or
+     * disburse. Advisory ONLY: it never blocks anything. The blocking gate is
+     * loan_eligibility_check(), and conflating the two would let a soft warning
+     * silently start refusing loans the group's rules actually permit.
+     *
+     * debtToContributionPercent = outstanding loan balance / total contributed.
+     * Integer percent, computed in minor units — no float, no client maths.
+     *
+     * A member who has borrowed but contributed NOTHING has no meaningful ratio
+     * (the divisor is zero). That is reported as `null` plus its own warning,
+     * never as a fabricated 0% or a made-up ceiling — a missing number must not
+     * read as a safe one.
+     *
+     * @param array $standing loan_member_standing() output.
+     * @return array{debtToContributionPercent:?int, flagged:bool, warnings:string[]}
+     */
+    function loan_exposure_assessment(array $standing): array
+    {
+        $outstandingMinor = (int) $standing['totalRemainingMinor'];
+        $contributedMinor = (int) ($standing['contributedMinor'] ?? 0);
+        $arrearsMinor = (int) $standing['arrearsMinor'];
+        $penaltiesMinor = (int) $standing['penaltiesMinor'];
+
+        $percent = null;
+        if ($contributedMinor > 0) {
+            $percent = (int) money_div_round_half_up($outstandingMinor * 100, $contributedMinor);
+        }
+
+        // The warnings deliberately carry NO money amounts. money_from_minor()
+        // returns a bare "40000.00" with no currency, and only the client's
+        // formatCurrency() knows how to render money for display — embedding the
+        // raw string here put an unformatted number next to a formatted one in
+        // the same modal. Every figure referenced below is already shown, fully
+        // formatted, in the rows directly above these warnings.
+        $warnings = [];
+        if ($contributedMinor <= 0 && $outstandingMinor > 0) {
+            $warnings[] = 'This member has an outstanding loan balance but has never made a verified contribution.';
+        }
+        if ($percent !== null && $percent > 200) {
+            $warnings[] = 'Outstanding debt is ' . $percent . '% of everything this member has contributed.';
+        }
+        if ($arrearsMinor > 0) {
+            $warnings[] = 'This member has overdue contributions that are still unpaid.';
+        }
+        if ($penaltiesMinor > 0) {
+            $warnings[] = 'This member has outstanding penalties that have not been settled.';
+        }
+
+        return [
+            'debtToContributionPercent' => $percent,
+            'flagged' => !empty($warnings),
+            'warnings' => $warnings,
         ];
     }
 }
@@ -563,10 +676,22 @@ if (!function_exists('loan_eligibility_endpoint')) {
             'arrears' => money_from_minor((int) $standing['arrearsMinor']),
             'penalties' => money_from_minor((int) $standing['penaltiesMinor']),
             'maxActiveLoans' => (int) ($rules['loanRulesMaxActiveLoansByMember'] ?? LOAN_FALLBACK_MAX_ACTIVE_LOANS),
+            // J7 — the ceiling on a single request, so a member can see what they
+            // may ask for before they ask. NULL when the group sets no cap: an
+            // absent limit is not a limit of zero, and must not render as one.
+            'maxLoanAmount' => ($rules['loanRulesMaxLoanAmount'] ?? null) === null
+                || (string) ($rules['loanRulesMaxLoanAmount'] ?? '') === ''
+                ? null
+                : money_from_minor(money_to_minor(trim((string) $rules['loanRulesMaxLoanAmount']))),
             'requireArrearsCleared' => (int) ($rules['requireArrearsClearedBeforeLoan'] ?? 0) === 1,
             'requirePenaltiesCleared' => (int) ($rules['requirePenaltiesClearedBeforeLoan'] ?? 0) === 1,
             'eligible' => $eligibility['eligible'],
             'reasons' => $eligibility['reasons'],
+            // J6 — the borrower's full position, so an admin approving a loan is
+            // never looking at the request in isolation. Advisory; the gate above
+            // is what actually decides.
+            'contributed' => money_from_minor((int) ($standing['contributedMinor'] ?? 0)),
+            'exposure' => loan_exposure_assessment($standing),
         ];
 
         // Optional schedule preview: never let a bad/absent principal or
@@ -606,7 +731,12 @@ if (!function_exists('loan_eligibility_endpoint')) {
                 if ($previewPrincipalMinor > 0 && $previewPeriod > 0) {
                     loan_guard_calculation_method($rules);
                     $rates = loan_resolve_rates([], $rules);
-                    $computed = compute_loan_schedule(money_from_minor($previewPrincipalMinor), $previewPeriod, $rates);
+                    $computed = compute_loan_schedule(
+                        money_from_minor($previewPrincipalMinor),
+                        $previewPeriod,
+                        $rates,
+                        loan_calculation_method($rules)
+                    );
 
                     $response['preview'] = [
                         'totalInterest' => $computed['totalInterest'],
@@ -684,7 +814,12 @@ if (!function_exists('approve_loan')) {
         $rates = loan_resolve_rates($loan, $rules);
 
         try {
-            $computed = compute_loan_schedule(money_from_minor($approvedMinor), $period, $rates);
+            $computed = compute_loan_schedule(
+                money_from_minor($approvedMinor),
+                $period,
+                $rates,
+                loan_calculation_method($rules)
+            );
         } catch (InvalidArgumentException $e) {
             json_error('This loan cannot be priced: ' . $e->getMessage(), 422);
         }
@@ -913,7 +1048,12 @@ if (!function_exists('force_loan')) {
         $rates = loan_resolve_rates([], $rules);
 
         try {
-            $computed = compute_loan_schedule(money_from_minor($principalMinor), $period, $rates);
+            $computed = compute_loan_schedule(
+                money_from_minor($principalMinor),
+                $period,
+                $rates,
+                loan_calculation_method($rules)
+            );
         } catch (InvalidArgumentException $e) {
             json_error('This loan cannot be priced: ' . $e->getMessage(), 422);
         }

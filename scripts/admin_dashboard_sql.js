@@ -37,7 +37,7 @@
 
 import { requireSession, apiGet, logout, ApiError, redirectToLogin } from "./api.js";
 import { formatCurrency, formatCurrencyFromMinor } from "./utils_financial.js";
-import { attachCardInfo } from "./card_info.js";
+import { attachCardInfo, infoContent } from "./card_info.js";
 
 // Admin-equivalent roles: who may see the admin dashboard for a group.
 const ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
@@ -171,6 +171,10 @@ async function loadDashboardAfterGroupSelection() {
   groupData.groupArrears =
     groupArrears && groupArrears.totalArrears != null ? groupArrears : null;
   groupData.loans = loans && Array.isArray(loans.loans) ? loans.loans : [];
+  // Server-computed loan money (activePrincipal / activeBalance / issuedPrincipal),
+  // so the Active Loans info panel quotes a server total instead of re-adding rows.
+  groupData.loansSummary =
+    loans && loans.summary && typeof loans.summary === "object" ? loans.summary : {};
   groupData.members =
     members && Array.isArray(members.members) ? members.members : [];
 
@@ -220,7 +224,9 @@ function patchViewAllLinks(groupId) {
   // All <a> elements whose href points to a page that expects ?groupId.
   document.querySelectorAll("a[href^='manage_payments.html'], a[href^='manage_loans.html'], a[href^='approve_registrations.html']").forEach((a) => {
     const href = a.getAttribute("href") || "";
-    const url = new URL(href, window.location.origin);
+    // Resolve relative to the current page so "manage_loans.html" becomes
+    // "/pages/manage_loans.html", not "/manage_loans.html".
+    const url = new URL(href, window.location.href);
     url.searchParams.set("groupId", groupId);
     a.setAttribute("href", url.pathname + url.search);
   });
@@ -332,8 +338,8 @@ function renderDashboardStats() {
         ? summary.totalArrears
         : "0.00";
   setText("totalArrears", formatCurrency(arrearsValue));
-
-  renderStatCardPopovers(pendingPayments, pendingLoans);
+  // The info panels read groupData at OPEN time (see STAT_CARD_INFO), so there
+  // is nothing to re-render here when the stats change.
 }
 
 /**
@@ -1168,13 +1174,80 @@ function openStatModal(type) {
   overlay.classList.add("open");
   document.body.style.overflow = "hidden";
 
+  // Arrears and Collections are per-member MONEY totals. They are fetched from
+  // payments.memberBreakdown rather than re-added here, so the rows and the
+  // group figure on the card come from one server pass and cannot disagree.
+  if (type === "arrears" || type === "collections") {
+    renderStatModalLoading(body);
+    loadMemberBreakdown(type, body);
+    return;
+  }
+
   let items = [];
-  if (type === "arrears") items = buildArrearsItems();
-  else if (type === "loans") items = buildActiveLoanItems();
+  if (type === "loans") items = buildActiveLoanItems();
   else if (type === "pending") items = buildPendingItems();
-  else if (type === "collections") items = buildCollectionsItems();
 
   renderStatModalItems(items, type, body);
+}
+
+/**
+ * Placeholder while the server breakdown is in flight — an empty modal reads as
+ * "nothing to show", which is a different and wrong message.
+ * @param {HTMLElement} body
+ */
+function renderStatModalLoading(body) {
+  body.replaceChildren();
+  const p = document.createElement("p");
+  p.className = "stat-modal-empty-text";
+  p.textContent = "Loading…";
+  body.appendChild(p);
+}
+
+/**
+ * Fetch and render the per-member breakdown behind a stat card.
+ * @param {string} figure "arrears" | "collections"
+ * @param {HTMLElement} body
+ */
+async function loadMemberBreakdown(figure, body) {
+  const groupId = currentGroup && currentGroup.groupId;
+  if (!groupId) return;
+
+  let data;
+  try {
+    data = await apiGet("payments.memberBreakdown", { groupId, figure });
+  } catch (e) {
+    body.replaceChildren();
+    const p = document.createElement("p");
+    p.className = "stat-modal-empty-text";
+    p.textContent = "Could not load the breakdown. Please try again.";
+    body.appendChild(p);
+    return;
+  }
+
+  const members = Array.isArray(data && data.members) ? data.members : [];
+  const items = members.map((m) => ({
+    id: m.uid,
+    name: m.memberName,
+    amountStr: m.amount,
+    breakdown: Array.isArray(m.breakdown)
+      ? m.breakdown.map((b) => ({ type: b.label, amountStr: b.amount }))
+      : [],
+  }));
+
+  renderStatModalItems(items, figure, body);
+
+  // The server's own total for exactly these rows, shown above them so an admin
+  // can see the card's figure and the people behind it in one place.
+  if (data && data.total !== undefined) {
+    const summary = document.createElement("p");
+    summary.className = "stat-modal-empty-text";
+    summary.style.cssText =
+      "text-align:left; font-weight:600; margin:0 0 var(--bn-space-3);";
+    const count = members.length;
+    summary.textContent =
+      `${formatCurrency(data.total)} across ${count} member${count === 1 ? "" : "s"}`;
+    body.insertBefore(summary, body.firstChild);
+  }
 }
 window.openStatModal = openStatModal;
 
@@ -1198,38 +1271,15 @@ window.closeStatModalOnOverlay = function closeStatModalOnOverlay(event) {
   if (event.target && event.target.id === "statModalOverlay") closeStatModal();
 };
 
-/**
- * Per-member arrears breakdown, highest first.
- * @return {Array<Object>}
+/*
+ * buildArrearsItems() and buildCollectionsItems() used to live here. Both added
+ * money up in the browser, per member, from the cached payments list — the exact
+ * thing A2 forbids, and they were WRONG as well as disallowed: arrears is derived
+ * from group_rules, so an obligation with no payment row is invisible to the
+ * ledger. Against live QA data they produced 0.00 for a group whose true position
+ * was 200,000.00. Both are replaced by payments.memberBreakdown, which returns
+ * the rows and their total from one server pass. Do not reintroduce them.
  */
-function buildArrearsItems() {
-  const byMember = new Map();
-  for (const p of groupData.payments) {
-    let owedMinor = toMinor(p.arrears);
-    if (p.penalty) owedMinor += toMinor(penaltyOwed(p.penalty));
-    if (owedMinor <= 0) continue;
-
-    const uid = String(p.uid);
-    if (!byMember.has(uid)) {
-      byMember.set(uid, {
-        id: uid,
-        name: memberNameById.get(uid) || "Unknown Member",
-        totalMinor: 0,
-        breakdown: [],
-      });
-    }
-    const entry = byMember.get(uid);
-    entry.totalMinor += owedMinor;
-    entry.breakdown.push({
-      type:
-        String(p.paymentType) === "monthly_contribution"
-          ? `Monthly - ${p.month || "Unknown"}`
-          : paymentTypeLabel(p.paymentType),
-      amountStr: fromMinor(owedMinor),
-    });
-  }
-  return Array.from(byMember.values()).sort((a, b) => b.totalMinor - a.totalMinor);
-}
 
 /**
  * Active loans as modal items.
@@ -1273,31 +1323,6 @@ function buildPendingItems() {
     });
   }
   return items;
-}
-
-/**
- * Per-member verified collections, highest first.
- * @return {Array<Object>}
- */
-function buildCollectionsItems() {
-  const byMember = new Map();
-  for (const p of groupData.payments) {
-    if (!isVerifiedPayment(p)) continue;
-    const paidMinor = toMinor(p.amountPaid);
-    if (paidMinor <= 0) continue;
-    const uid = String(p.uid);
-    if (!byMember.has(uid)) {
-      byMember.set(uid, {
-        id: uid,
-        name: memberNameById.get(uid) || "Unknown Member",
-        totalMinor: 0,
-      });
-    }
-    byMember.get(uid).totalMinor += paidMinor;
-  }
-  return Array.from(byMember.values())
-    .map((e) => ({ ...e, amountStr: fromMinor(e.totalMinor) }))
-    .sort((a, b) => b.totalMinor - a.totalMinor);
 }
 
 /**
@@ -1527,173 +1552,158 @@ function setupEventListeners() {
  */
 function setupStatCardPopovers() {
   document.querySelectorAll(".stat-card-wrap").forEach((wrap) => {
-    // The in-card .stat-card-popover div is no longer DISPLAYED — it is kept
-    // purely as the content source, because renderStatCardPopovers() already
-    // fills it with the per-card detail lines. We hide it and mirror its
-    // children into the shared body-rendered panel instead.
-    //
-    // WHY: nested in the card, the panel was clipped by .stats-grid's
-    // horizontal overflow and confined by the card's own stacking context, so
-    // longer content was cut off. Rendering on <body> removes every one of
-    // those constraints.
+    // The in-card .stat-card-popover div is never displayed — the panel renders
+    // on <body> instead, because nested in the card it was clipped by
+    // .stats-grid's horizontal overflow and confined by the card's own stacking
+    // context. It is kept in the markup only so existing ids stay valid.
     const source = wrap.querySelector(".stat-card-popover");
     const oldToggle = wrap.querySelector(".stat-card-info-toggle");
-    if (!source) return;
-
-    source.hidden = true;
+    if (source) source.hidden = true;
     // The markup's own toggle is replaced by the shared one, so there is never
     // a second, dead "i" button sitting next to the working one.
     if (oldToggle) oldToggle.remove();
 
+    const key = source ? STAT_CARD_KEY_BY_POPOVER_ID[source.id] : null;
     const label = wrap.querySelector(".stat-label")?.textContent?.trim();
+
     attachCardInfo(wrap, {
       label: label ? `About ${label}` : "More information",
+      // Built at OPEN time, not at attach time, so the panel always reflects the
+      // latest loaded data (and the month filter) without re-attaching.
       content: (host) => {
-        // Clone so the source keeps its content for the next open — and so a
-        // re-render that rewrites the source is picked up next time.
-        source.childNodes.forEach((n) => host.appendChild(n.cloneNode(true)));
+        const spec = key ? STAT_CARD_INFO[key] : null;
+        if (!spec) {
+          return infoContent({
+            title: label || "Details",
+            description: "No details are available for this card.",
+          })(host);
+        }
+        return infoContent({
+          title: spec.title,
+          description: spec.description,
+          rows: spec.rows(),
+          action: {
+            label: spec.actionLabel,
+            onClick: () => openStatModal(spec.modal),
+          },
+        })(host);
       },
     });
   });
 }
 
-/**
- * Populate the four stat-card detail popovers from data already loaded for
- * this render — zero new fetches, only breakdown of numbers already summed
- * above. Uses createElement/textContent only (no innerHTML).
- * @param {number} pendingPayments
- * @param {number} pendingLoans
- */
-function renderStatCardPopovers(pendingPayments, pendingLoans) {
-  renderCollectionsPopover();
-  renderActiveLoansPopover();
-  renderPendingPopover(pendingPayments, pendingLoans);
-  renderArrearsPopover();
-}
+/** Which stat card each in-markup popover div belongs to. */
+const STAT_CARD_KEY_BY_POPOVER_ID = {
+  totalCollectionsPopover: "collections",
+  activeLoansPopover: "loans",
+  pendingApprovalsPopover: "pending",
+  totalArrearsPopover: "arrears",
+};
 
 /**
- * Collections popover: verified/approved amount per payment type.
+ * The four admin stat cards, described ONE way.
+ *
+ * Every panel answers the same three questions in the same order — what the
+ * figure is, what it means, and where the number came from — and then offers a
+ * route into the underlying detail. Previously each card hand-built its own
+ * body: some listed per-member rows, some a sentence, none offered a way
+ * through to the breakdown, and two of them re-summed money in the browser.
+ *
+ * MONEY HERE IS READ, NEVER ADDED. Each row quotes a figure the server already
+ * totalled (`payments.list` summary, `payments.groupArrears`, `loans.list`
+ * summary). Counts are counts, not money, so counting rows is fine.
  */
-function renderCollectionsPopover() {
-  const popover = document.getElementById("totalCollectionsPopover");
-  if (!popover) return;
-  popover.replaceChildren();
+const STAT_CARD_INFO = {
+  collections: {
+    title: "Collections",
+    description:
+      "Money members have paid in that an admin has verified. A payment a member has uploaded but nobody has approved yet is not counted here — it sits under Pending.",
+    modal: "collections",
+    actionLabel: "See who has paid →",
+    rows: () => {
+      const s = groupData.summary || {};
+      return [
+        ["Verified collections", formatCurrency(s.verifiedCollected ?? "0.00")],
+        ["Awaiting approval", formatCurrency(s.pending ?? "0.00")],
+        ["Members who have paid", String(countMembersWithVerifiedPayment())],
+      ];
+    },
+  },
+  loans: {
+    title: "Active loans",
+    description:
+      "Loans that have been approved or disbursed and are not yet fully repaid. Received is the money handed over; balance is what is still owed on it.",
+    modal: "loans",
+    actionLabel: "See each active loan →",
+    rows: () => {
+      const s = groupData.loansSummary || {};
+      return [
+        ["Active loans", String(groupData.loans.filter((l) => isActiveLoan(l.status)).length)],
+        ["Money handed out", formatCurrency(s.activePrincipal ?? "0.00")],
+        ["Still owed", formatCurrency(s.activeBalance ?? "0.00")],
+      ];
+    },
+  },
+  pending: {
+    title: "Pending approvals",
+    description:
+      "Things waiting on an admin decision: payments members say they have made, and loans they have requested. Nothing here has affected the group's money yet.",
+    modal: "pending",
+    actionLabel: "Review what is waiting →",
+    rows: () => {
+      const s = groupData.summary || {};
+      const payments = groupData.payments.filter(
+        (p) => String(p.approvalStatus) === "pending",
+      ).length;
+      const loans = groupData.loans.filter((l) => String(l.status) === "pending").length;
+      return [
+        ["Payments to verify", String(payments)],
+        ["Value awaiting approval", formatCurrency(s.pending ?? "0.00")],
+        ["Loan requests to decide", String(loans)],
+      ];
+    },
+  },
+  arrears: {
+    title: "Arrears",
+    description:
+      "What members owe the group and have not paid: overdue contributions plus any penalties on them. This counts obligations nobody has recorded a payment against, not just late payment rows.",
+    modal: "arrears",
+    actionLabel: "See who owes what →",
+    rows: () => {
+      const ga = groupData.groupArrears;
+      if (!ga) {
+        return [["Breakdown", "Unavailable right now"]];
+      }
+      return [
+        ["Overdue contributions", formatCurrency(ga.arrears ?? "0.00")],
+        ["Penalties accrued", formatCurrency(ga.penaltyAccrued ?? "0.00")],
+        ["Total owed", formatCurrency(ga.totalArrears ?? "0.00")],
+        // membersInArrears, NOT memberCount — the latter is every active member
+        // the server considered, so labelling it "behind" told an admin the whole
+        // group was in arrears. This matches the row count in the breakdown modal.
+        ["Members behind", `${ga.membersInArrears ?? 0} of ${ga.memberCount ?? 0}`],
+      ];
+    },
+  },
+};
 
-  const byType = new Map();
+/** How many distinct members have at least one verified payment. A COUNT, not money. */
+function countMembersWithVerifiedPayment() {
+  const seen = new Set();
   for (const p of groupData.payments) {
-    if (!isVerifiedPayment(p)) continue;
-    const type = String(p.paymentType);
-    byType.set(type, (byType.get(type) || 0) + toMinor(p.amountPaid));
+    if (isVerifiedPayment(p)) seen.add(String(p.uid));
   }
-
-  const order = ["monthly_contribution", "seed_money", "service_fee"];
-  const lines = [];
-  for (const type of order) {
-    const minor = byType.get(type) || 0;
-    if (minor > 0) lines.push(`${paymentTypeLabel(type)}: ${formatCurrencyFromMinor(minor)}`);
-  }
-  // Any other payment type not in the known set — still surface it rather
-  // than silently drop it.
-  for (const [type, minor] of byType) {
-    if (order.includes(type) || minor <= 0) continue;
-    lines.push(`${paymentTypeLabel(type)}: ${formatCurrencyFromMinor(minor)}`);
-  }
-
-  appendPopoverLines(popover, lines, "No verified collections yet");
+  return seen.size;
 }
 
-/**
- * Active loans popover: total outstanding balance + active count.
+/*
+ * renderCollectionsPopover / renderActiveLoansPopover / renderPendingPopover /
+ * renderArrearsPopover / appendPopoverLines used to live here. Each hand-built its
+ * own popover body, so the four cards read differently, none offered a route to the
+ * detail behind the number, and two of them re-summed money per member in the
+ * browser (A2). They are replaced by STAT_CARD_INFO above, which describes all four
+ * cards one way and quotes server totals. Do not reintroduce them.
  */
-function renderActiveLoansPopover() {
-  const popover = document.getElementById("activeLoansPopover");
-  if (!popover) return;
-  popover.replaceChildren();
-
-  const active = groupData.loans.filter((l) => isActiveLoan(l.status));
-  const outstandingMinor = active.reduce(
-    (acc, l) => acc + toMinor(l.remainingBalance),
-    0,
-  );
-
-  const lines = [];
-  if (active.length) {
-    lines.push(`Outstanding balance: ${formatCurrencyFromMinor(outstandingMinor)}`);
-    lines.push(`Active loans: ${active.length}`);
-  }
-  appendPopoverLines(popover, lines, "No active loans");
-}
-
-/**
- * Pending approvals popover: split payments/loans counts, plus a secondary
- * link to manage_loans.html (pending is that page's default tab) since the
- * card's own click-through only reaches the payments side.
- * @param {number} pendingPayments
- * @param {number} pendingLoans
- */
-function renderPendingPopover(pendingPayments, pendingLoans) {
-  const popover = document.getElementById("pendingApprovalsPopover");
-  if (!popover) return;
-  popover.replaceChildren();
-
-  const lines = [
-    `${pendingPayments} pending payment${pendingPayments === 1 ? "" : "s"}`,
-    `${pendingLoans} pending loan request${pendingLoans === 1 ? "" : "s"}`,
-  ];
-  appendPopoverLines(popover, lines, "Nothing pending");
-
-  if (pendingLoans > 0 && currentGroup && currentGroup.groupId) {
-    const link = document.createElement("a");
-    link.className = "stat-card-popover-link";
-    link.href = `manage_loans.html?groupId=${encodeURIComponent(currentGroup.groupId)}`;
-    link.textContent = "Review pending loans →";
-    popover.appendChild(link);
-  }
-}
-
-/**
- * Arrears popover: arrears, penalties accrued, and members with a balance —
- * straight from payments.groupArrears, already fetched.
- */
-function renderArrearsPopover() {
-  const popover = document.getElementById("totalArrearsPopover");
-  if (!popover) return;
-  popover.replaceChildren();
-
-  const ga = groupData.groupArrears;
-  if (!ga) {
-    appendPopoverLines(popover, [], "Breakdown unavailable");
-    return;
-  }
-  const lines = [
-    `Arrears: ${formatCurrency(ga.arrears ?? "0.00")}`,
-    `Penalties accrued: ${formatCurrency(ga.penaltyAccrued ?? "0.00")}`,
-    `${ga.memberCount ?? 0} member${(ga.memberCount ?? 0) === 1 ? "" : "s"} with an outstanding balance`,
-  ];
-  appendPopoverLines(popover, lines, "No arrears");
-}
-
-/**
- * Append a list of plain-text lines to a popover, or an empty-state line.
- * @param {HTMLElement} popover
- * @param {Array<string>} lines
- * @param {string} emptyText
- */
-function appendPopoverLines(popover, lines, emptyText) {
-  if (!lines.length) {
-    const p = document.createElement("p");
-    p.className = "stat-card-popover-line";
-    p.textContent = emptyText;
-    popover.appendChild(p);
-    return;
-  }
-  for (const line of lines) {
-    const p = document.createElement("p");
-    p.className = "stat-card-popover-line";
-    p.textContent = line;
-    popover.appendChild(p);
-  }
-}
 
 /**
  * Show/hide the "Switch to User View" affordance based on admin membership.
@@ -1885,8 +1895,16 @@ function showToast(message, type = "info") {
 function showSpinner(show) {
   const spinner = document.getElementById("spinner");
   if (!spinner) return;
-  if (show) spinner.classList.remove("hidden");
-  else spinner.classList.add("hidden");
+  if (show) {
+    // Populate the group name in the loader for a branded loading experience
+    const nameEl = document.getElementById("spinnerGroupName");
+    if (nameEl && currentGroup && currentGroup.groupName) {
+      nameEl.textContent = currentGroup.groupName;
+    }
+    spinner.classList.remove("hidden");
+  } else {
+    spinner.classList.add("hidden");
+  }
 }
 
 /**

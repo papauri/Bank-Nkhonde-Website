@@ -138,6 +138,78 @@ function openFor(toggle, build) {
 }
 
 /**
+ * THE standard shape of an info panel, so every "i" button on every page
+ * answers the same three questions in the same order:
+ *
+ *   1. WHAT is this figure          -> title
+ *   2. WHAT does it mean            -> description (one plain sentence)
+ *   3. WHERE did the number come from -> rows (the derivation), and
+ *      optionally an action that opens the underlying detail.
+ *
+ * Before this, each page hand-built its own panel body: some were a bare
+ * sentence, some were label/value rows, some had a heading and some did not,
+ * and none offered a route to the detail behind the number. Pass whichever
+ * parts apply — every part is optional, and the order is fixed here rather
+ * than at each call site, which is what keeps them uniform.
+ *
+ * @param {Object} opts
+ * @param {string} [opts.title]
+ * @param {string} [opts.description]
+ * @param {Array<Array<string>>} [opts.rows] [label, value] pairs
+ * @param {{label: string, onClick: function()}} [opts.action]
+ * @return {function(HTMLElement):void} a builder for attachCardInfo's `content`
+ */
+export function infoContent(opts) {
+  return (host) => {
+    if (opts.title) {
+      const t = document.createElement("p");
+      t.className = "bn-info-title";
+      t.textContent = opts.title;
+      host.appendChild(t);
+    }
+
+    if (opts.description) {
+      const d = document.createElement("p");
+      d.className = "bn-info-desc";
+      d.textContent = opts.description;
+      host.appendChild(d);
+    }
+
+    if (Array.isArray(opts.rows)) {
+      for (const [label, value] of opts.rows) {
+        if (value === undefined || value === null) continue;
+        const row = document.createElement("div");
+        row.className = "bn-info-row";
+        const l = document.createElement("span");
+        l.className = "bn-info-row-label";
+        l.textContent = label;
+        const v = document.createElement("span");
+        v.className = "bn-info-row-value";
+        v.textContent = String(value);
+        row.append(l, v);
+        host.appendChild(row);
+      }
+    }
+
+    if (opts.action && typeof opts.action.onClick === "function") {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "bn-info-action";
+      btn.textContent = opts.action.label || "View breakdown";
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // The panel is a transient overlay — close it before handing over, or
+        // it hangs over whatever the action opens.
+        closeInfoPanel();
+        opts.action.onClick();
+      });
+      host.appendChild(btn);
+    }
+  };
+}
+
+/**
  * Attach an "i" info toggle to a card.
  *
  * @param {HTMLElement} card the element the button is placed in
@@ -209,3 +281,30 @@ document.addEventListener("keydown", (e) => {
 // scrollable ancestor, not just the window.
 window.addEventListener("scroll", () => { if (openToggle) place(openToggle); }, true);
 window.addEventListener("resize", () => { if (openToggle) place(openToggle); });
+
+/**
+ * Attach a standardized info toggle to a `.page-stat` card.
+ *
+ * Every page-stat card across the app now answers the same three questions:
+ * what the figure is, what it means, and where the number came from.
+ *
+ * @param {HTMLElement} card — the `.page-stat` element
+ * @param {Object} opts
+ * @param {string} opts.title — what the figure is (e.g. "Active Loans")
+ * @param {string} opts.description — what it means (one plain sentence)
+ * @param {Array<Array<string>>} [opts.rows] — [label, value] derivation pairs
+ * @param {{label: string, onClick: function()}} [opts.action] — optional action button
+ */
+export function pageStatInfo(card, opts) {
+  if (!card || !opts) return;
+  const label = card.querySelector(".page-stat-label")?.textContent?.trim() || opts.title;
+  attachCardInfo(card, {
+    label: `About ${label}`,
+    content: infoContent({
+      title: opts.title,
+      description: opts.description,
+      rows: opts.rows,
+      action: opts.action,
+    }),
+  });
+}
