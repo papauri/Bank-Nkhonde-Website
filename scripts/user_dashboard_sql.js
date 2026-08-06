@@ -461,6 +461,8 @@ async function loadDashboard(groupId) {
   renderPaymentSplit(obligationRows);  // overdue + upcoming, split
   renderActiveLoans(loanRows, loansSummary);
   renderBorrowingPower(groupId);
+  renderWhatIOwe(obligationRows, obligationsSummary);
+  renderMyStanding(obligationRows, loanRows, loansSummary, obligationsSummary);
   await renderPaymentCalendar(obligationRows, loanRows);
 
   // Kept so the arrears / all-payments modals can render without re-fetching.
@@ -932,6 +934,184 @@ function renderContributionChart(ob) {
 }
 
 /**
+ * J13 — "What I Owe": a complete, per-obligation breakdown of everything the
+ * member still owes, with a Pay button on every row. Seed money is always
+ * listed FIRST (it is the entry obligation that capitalises the group), then
+ * monthly contributions, then service fee. Every figure is a server string
+ * rendered as-is — nothing is summed client-side.
+ *
+ * @param {Object} ob payments.obligations response
+ * @param {Object} summary ob.summary
+ */
+function renderWhatIOwe(ob, summary) {
+  const card = document.getElementById("whatIOweCard");
+  const body = document.getElementById("whatIOweBody");
+  const totalEl = document.getElementById("whatIOweTotal");
+  if (!card || !body) return;
+
+  const rows = [];
+
+  // Seed money first — the entry obligation.
+  if (ob.seedMoney && ob.seedMoney.configured && toMinor(ob.seedMoney.arrears) > 0) {
+    rows.push({
+      type: "seed_money",
+      label: "🌱 Seed Money (entry obligation)",
+      month: null,
+      amountStr: String(ob.seedMoney.arrears),
+      dueDate: ob.seedMoney.dueDate,
+      penalty: ob.seedMoney.penalty || null,
+    });
+  }
+
+  // Monthly contributions, in calendar order.
+  for (const m of monthsOf(ob)) {
+    if (toMinor(m.arrears) <= 0) continue;
+    rows.push({
+      type: "monthly_contribution",
+      label: `Monthly Contribution — ${m.month}`,
+      month: m.month,
+      amountStr: String(m.arrears),
+      dueDate: m.dueDate,
+      penalty: m.penalty || null,
+    });
+  }
+
+  // Service fee.
+  if (ob.serviceFee && ob.serviceFee.configured && toMinor(ob.serviceFee.arrears) > 0) {
+    rows.push({
+      type: "service_fee",
+      label: "Service Fee",
+      month: null,
+      amountStr: String(ob.serviceFee.arrears),
+      dueDate: ob.serviceFee.dueDate,
+      penalty: ob.serviceFee.penalty || null,
+    });
+  }
+
+  if (!rows.length) {
+    card.hidden = true;
+    return;
+  }
+
+  card.hidden = false;
+  body.replaceChildren();
+
+  // Summary total — the server's own totalOwed (arrears + penalties).
+  if (totalEl) totalEl.textContent = formatCurrency(summary.totalOwed || "0.00");
+
+  for (const row of rows) {
+    const item = document.createElement("div");
+    item.className = "payment-item";
+
+    const info = document.createElement("div");
+    info.className = "payment-info";
+
+    const title = document.createElement("h4");
+    title.textContent = row.label;
+    info.appendChild(title);
+
+    const due = parseServerDate(row.dueDate);
+    const dueText = document.createElement("p");
+    dueText.textContent = due ? `Due ${formatDate(due)}` : "Due now";
+    info.appendChild(dueText);
+
+    if (row.penalty && toMinor(row.penalty.amountOutstanding) > 0) {
+      const pen = document.createElement("p");
+      pen.style.color = "var(--bn-danger)";
+      pen.textContent = `+ ${formatCurrency(row.penalty.amountOutstanding)} late penalty`;
+      info.appendChild(pen);
+    }
+
+    const amountWrap = document.createElement("div");
+    amountWrap.className = "payment-amount";
+
+    const amount = document.createElement("div");
+    amount.className = "payment-amount-value";
+    amount.textContent = formatCurrency(row.amountStr);
+    amountWrap.appendChild(amount);
+
+    const payBtn = document.createElement("button");
+    payBtn.type = "button";
+    payBtn.className = "btn btn-accent btn-sm";
+    payBtn.textContent = "Pay";
+    payBtn.addEventListener("click", () =>
+      openPaymentModal({
+        paymentType: row.type,
+        month: row.month || undefined,
+        amount: cleanAmount(row.amountStr),
+      }),
+    );
+    amountWrap.appendChild(payBtn);
+
+    item.appendChild(info);
+    item.appendChild(amountWrap);
+    body.appendChild(item);
+  }
+}
+
+/**
+ * J13 — "My Standing": a quick summary of the member's financial position.
+ * Shows eligibility, active loans, contribution history, and next payment.
+ * All figures are server strings rendered as-is.
+ *
+ * @param {Object} ob payments.obligations response
+ * @param {Array<Object>} loans loans.list rows
+ * @param {Object} loansSummary loans.list summary
+ * @param {Object} obligationsSummary ob.summary
+ */
+function renderMyStanding(ob, loans, loansSummary, obligationsSummary) {
+  const card = document.getElementById("myStandingCard");
+  const body = document.getElementById("myStandingBody");
+  const badge = document.getElementById("myStandingBadge");
+  if (!card || !body) return;
+
+  card.hidden = false;
+  body.replaceChildren();
+
+  const active = loans.filter((l) => isActiveLoan(l.status));
+  const summary = obligationsSummary || {};
+
+  // Eligibility badge
+  if (badge) {
+    const eligible = summary.eligibleForLoan === 1;
+    badge.textContent = eligible ? "Eligible" : "Not eligible";
+    badge.className = "badge " + (eligible ? "badge-success" : "badge-danger");
+  }
+
+  const rows = [
+    ["Total outstanding", formatCurrency(summary.totalOwed || "0.00")],
+    ["Arrears", formatCurrency(summary.arrears || "0.00")],
+    ["Late penalties", formatCurrency(summary.penaltyAccrued || "0.00")],
+    ["Active loans", String(active.length)],
+    ["Loan balance", formatCurrency(loansSummary.activeBalance || "0.00")],
+  ];
+
+  for (const [label, value] of rows) {
+    const row = document.createElement("div");
+    row.className = "payment-due-row";
+    const l = document.createElement("span");
+    l.textContent = label;
+    const v = document.createElement("span");
+    v.textContent = value;
+    row.append(l, v);
+    body.appendChild(row);
+  }
+
+  // Next payment
+  const next = upcomingObligationItems(ob, 60).find((i) => i.due >= startOfToday());
+  if (next) {
+    const row = document.createElement("div");
+    row.className = "payment-due-row";
+    const l = document.createElement("span");
+    l.textContent = "Next payment";
+    const v = document.createElement("span");
+    v.textContent = `${formatCurrency(next.amountStr)} on ${formatDate(next.due)}`;
+    row.append(l, v);
+    body.appendChild(row);
+  }
+}
+
+/**
  * "Group Members" hero stat. members.list returns the group roster (any member
  * may read it); count those still in the group (active or suspended — an
  * 'inactive'/removed member has left and no longer occupies a slot). Updates
@@ -947,6 +1127,15 @@ function renderGroupMembers(members) {
     : 0;
   countSpan.textContent = String(count);
 }
+
+/* What the Next Payment card should DO when tapped, resolved by the same pass
+ * that decides what it SAYS — so the button can never offer to pay something
+ * different from the figure printed on it (J13).
+ *   {kind:'pay',     prefill:{...}}  a future obligation, pay it directly
+ *   {kind:'overdue'}                 nothing future, but money is late
+ *   {kind:'none'}                    all caught up
+ */
+let nextPaymentAction = { kind: "none" };
 
 /**
  * "Next monthly payment" card — earliest unpaid monthly obligation with a date.
@@ -985,12 +1174,29 @@ function renderNextMonthlyPayment(ob) {
   // First row of details: either the next payment or a status note
   if (nextFuture) {
     detailsEl.textContent = `${formatCurrency(nextFuture.amountStr)} on ${formatDate(nextFuture.due)}`;
+    /* Same branch that produced the text produces the action, so the card
+       cannot say one amount and pay another. The amount is the server's own
+       owed string for that month — nothing is recomputed here. */
+    nextPaymentAction = {
+      kind: "pay",
+      prefill: {
+        paymentType: "monthly_contribution",
+        month: nextFuture.month,
+        amount: cleanAmount(nextFuture.amountStr),
+      },
+    };
   } else if (hasOverdue) {
     detailsEl.textContent = "Everything is overdue — pay now";
+    // Nothing is due in future, but money IS late. The arrears modal is the
+    // honest destination: it lists every late item with its own Pay button,
+    // rather than guessing which one the member meant.
+    nextPaymentAction = { kind: "overdue" };
   } else {
     detailsEl.textContent = "All caught up — nothing due";
+    nextPaymentAction = { kind: "none" };
   }
   detailsEl.style.display = "block";
+  applyNextPaymentAffordance();
 
   // Badge shows when there is ANY unpaid obligation (past or future)
   if (badgeEl) badgeEl.style.display = hasOverdue ? "block" : "none";
@@ -1211,6 +1417,44 @@ function overdueObligationItems(ob) {
 
   items.sort((a, b) => (a.due || 0) - (b.due || 0));
   return items;
+}
+
+/**
+ * Make the Next Payment card look and read as actionable only when it IS.
+ * A card that offers "Pay now" when nothing is owed is worse than a card that
+ * offers nothing — the member taps it, gets an empty form, and stops trusting
+ * the number above it.
+ */
+function applyNextPaymentAffordance() {
+  const statEl = document.getElementById("nextPaymentStat");
+  if (!statEl) return;
+  const actionable = nextPaymentAction.kind !== "none";
+  statEl.classList.toggle("is-actionable", actionable);
+  if (actionable) {
+    statEl.setAttribute("role", "button");
+    statEl.setAttribute(
+      "title",
+      nextPaymentAction.kind === "pay"
+        ? "Pay this now"
+        : "See everything you are behind on",
+    );
+  } else {
+    statEl.removeAttribute("role");
+    statEl.removeAttribute("title");
+  }
+}
+
+/**
+ * Act on the Next Payment card (J13): pay the next obligation straight from
+ * the dashboard instead of navigating to a payments page to find it again.
+ */
+function handleNextPaymentActivate() {
+  if (nextPaymentAction.kind === "pay") {
+    openPaymentModal(nextPaymentAction.prefill);
+  } else if (nextPaymentAction.kind === "overdue") {
+    openArrearsModalGuarded();
+  }
+  // kind 'none' deliberately does nothing — there is nothing to pay.
 }
 
 /**
@@ -2307,6 +2551,23 @@ function wireStaticHandlers() {
   document
     .getElementById("calendarNextMonth")
     ?.addEventListener("click", () => shiftCalendarMonth(1));
+
+  /* Next Payment card → pay it, without leaving the dashboard (J13).
+     The dismiss badge lives INSIDE this card and has its own handler, so
+     clicks originating there must not also fire a payment. */
+  const nextPaymentStatEl = document.getElementById("nextPaymentStat");
+  if (nextPaymentStatEl) {
+    nextPaymentStatEl.addEventListener("click", (e) => {
+      if (e.target.closest("#nextPaymentBadge")) return;
+      handleNextPaymentActivate();
+    });
+    nextPaymentStatEl.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      if (e.target.closest("#nextPaymentBadge")) return;
+      e.preventDefault(); // Space would otherwise scroll the page
+      handleNextPaymentActivate();
+    });
+  }
 
   /* The member-initiated loan-request flow. (The comment that used to sit
      here said no such flow existed anywhere in the app — that was true when

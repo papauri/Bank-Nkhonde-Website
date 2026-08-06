@@ -1547,15 +1547,40 @@ if (!function_exists('group_member_breakdown')) {
         $byMember = [];
         $totalMinor = 0;
 
-        $add = static function (array &$byMember, int &$totalMinor, string $uid, string $name, string $label, int $minor): void {
+        // The optional $penalty carries the penalty engine's full read-out so the
+        // client can explain WHY a penalty is what it is (rate, days, period) and
+        // let an admin act on a single line. Omitted for non-penalty rows.
+        // $paymentType + $month let the client build a per-line "Pay" link that
+        // lands on the exact obligation (manage_payments.html?tab=record&...).
+        $add = static function (
+            array &$byMember,
+            int &$totalMinor,
+            string $uid,
+            string $name,
+            string $label,
+            int $minor,
+            ?array $penalty = null,
+            ?string $paymentType = null,
+            ?string $month = null
+        ): void {
             if ($minor <= 0) {
                 return;
             }
             if (!isset($byMember[$uid])) {
                 $byMember[$uid] = ['uid' => $uid, 'memberName' => $name, 'minor' => 0, 'breakdown' => []];
             }
+            $item = ['label' => $label, 'amount' => money_from_minor($minor)];
+            if ($penalty !== null) {
+                $item['penalty'] = $penalty;
+            }
+            if ($paymentType !== null) {
+                $item['paymentType'] = $paymentType;
+            }
+            if ($month !== null) {
+                $item['month'] = $month;
+            }
             $byMember[$uid]['minor'] += $minor;
-            $byMember[$uid]['breakdown'][] = ['label' => $label, 'amount' => money_from_minor($minor)];
+            $byMember[$uid]['breakdown'][] = $item;
             $totalMinor += $minor;
         };
 
@@ -1629,8 +1654,8 @@ if (!function_exists('group_member_breakdown')) {
                         $seedDueMinor,
                         $row === null ? null : (string) $row['paymentId']
                     );
-                    $add($byMember, $totalMinor, $uid, $name, 'Seed Money', $a);
-                    $add($byMember, $totalMinor, $uid, $name, 'Seed Money penalty', money_to_minor($pen['amountOutstanding']));
+                    $add($byMember, $totalMinor, $uid, $name, 'Seed Money', $a, null, 'seed_money');
+                    $add($byMember, $totalMinor, $uid, $name, 'Seed Money penalty', money_to_minor($pen['amountOutstanding']), $pen, 'seed_money');
                 }
 
                 if ($monthlyDueMinor !== null) {
@@ -1645,8 +1670,8 @@ if (!function_exists('group_member_breakdown')) {
                             $monthlyDueMinor,
                             $row === null ? null : (string) $row['paymentId']
                         );
-                        $add($byMember, $totalMinor, $uid, $name, 'Monthly - ' . $month, $a);
-                        $add($byMember, $totalMinor, $uid, $name, 'Monthly - ' . $month . ' penalty', money_to_minor($pen['amountOutstanding']));
+                        $add($byMember, $totalMinor, $uid, $name, 'Monthly - ' . $month, $a, null, 'monthly_contribution', $month);
+                        $add($byMember, $totalMinor, $uid, $name, 'Monthly - ' . $month . ' penalty', money_to_minor($pen['amountOutstanding']), $pen, 'monthly_contribution', $month);
                     }
                 }
 
@@ -1661,8 +1686,8 @@ if (!function_exists('group_member_breakdown')) {
                         $feeDueMinor,
                         $row === null ? null : (string) $row['paymentId']
                     );
-                    $add($byMember, $totalMinor, $uid, $name, 'Service Fee', $a);
-                    $add($byMember, $totalMinor, $uid, $name, 'Service Fee penalty', money_to_minor($pen['amountOutstanding']));
+                    $add($byMember, $totalMinor, $uid, $name, 'Service Fee', $a, null, 'service_fee');
+                    $add($byMember, $totalMinor, $uid, $name, 'Service Fee penalty', money_to_minor($pen['amountOutstanding']), $pen, 'service_fee');
                 }
             }
         }

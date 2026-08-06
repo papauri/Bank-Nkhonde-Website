@@ -37,7 +37,7 @@
 
 import { requireSession, apiGet, logout, ApiError, redirectToLogin } from "./api.js";
 import { formatCurrency, formatCurrencyFromMinor } from "./utils_financial.js";
-import { attachCardInfo, infoContent } from "./card_info.js";
+import { attachCardInfo, infoContent, closeInfoPanel } from "./card_info.js";
 
 // Admin-equivalent roles: who may see the admin dashboard for a group.
 const ADMIN_ROLES = ["admin", "senior_admin", "treasurer"];
@@ -1001,51 +1001,58 @@ function gotoApproval(item) {
  * ------------------------------------------------------------------ */
 
 /**
- * Render this month's still-owed monthly contributions as cards.
+ * Render this month's still-owed contributions as cards.
+ *
+ * Fetches the server-computed per-member arrears breakdown
+ * (payments.memberBreakdown?figure=arrears) so every member who owes money is
+ * shown — including members who have never uploaded a payment row, which the
+ * old payment-row-only scan could never see. The server is the single source
+ * of truth for what each member owes.
  */
-function loadDuePayments() {
+async function loadDuePayments() {
   const container = document.getElementById("duePaymentsCards");
   if (!container) return;
   container.replaceChildren();
 
-  const now = new Date();
-  const currentMonthName = MONTHS[now.getMonth()];
-  const currentYear = now.getFullYear();
-
-  const due = [];
-  for (const p of groupData.payments) {
-    if (String(p.paymentType) !== "monthly_contribution") continue;
-    if (String(p.month) !== currentMonthName) continue;
-    if (parseInt(p.year, 10) !== currentYear) continue;
-
-    const arrearsMinor = toMinor(p.arrears);
-    const totalMinor = toMinor(p.totalAmount);
-    const paidMinor = toMinor(p.amountPaid);
-    if (totalMinor <= 0) continue;
-    if (arrearsMinor <= 0 && paidMinor >= totalMinor) continue;
-
-    const dueDate = parseServerDate(p.dueDate);
-    const daysUntilDue = dueDate
-      ? Math.ceil((dueDate - now) / 86400000)
-      : 0;
-    const isOverdue = dueDate ? now > dueDate && arrearsMinor > 0 : arrearsMinor > 0;
-
-    due.push({
-      memberId: String(p.uid),
-      memberName: memberNameById.get(String(p.uid)) || "Unknown Member",
-      amountStr:
-        arrearsMinor > 0 ? String(p.arrears) : fromMinor(totalMinor - paidMinor),
-      dueDate,
-      daysUntilDue,
-      isOverdue,
-    });
+  const groupId = currentGroup ? currentGroup.groupId : "";
+  if (!groupId) {
+    container.appendChild(buildEmptyState("📅", "Select a group to see due payments"));
+    return;
   }
 
-  due.sort((a, b) => {
-    if (a.isOverdue && !b.isOverdue) return -1;
-    if (!a.isOverdue && b.isOverdue) return 1;
-    return a.daysUntilDue - b.daysUntilDue;
-  });
+  // Show a loading placeholder while the server call is in flight.
+  const loading = buildEmptyState("⏳", "Loading due payments…");
+  loading.style.gridColumn = "1 / -1";
+  container.appendChild(loading);
+
+  let breakdown;
+  try {
+    breakdown = await apiGet("payments.memberBreakdown", { groupId, figure: "arrears" });
+  } catch (e) {
+    handleSessionError(e);
+    container.replaceChildren();
+    const err = buildEmptyState("⚠️", "Could not load due payments");
+    err.style.gridColumn = "1 / -1";
+    container.appendChild(err);
+    return;
+  }
+
+  container.replaceChildren();
+
+  const members = Array.isArray(breakdown && breakdown.members) ? breakdown.members : [];
+
+  // Only members who actually owe something (amount > 0).
+  const due = members
+    .filter((m) => toMinor(m.amount) > 0)
+    .map((m) => ({
+      memberId: String(m.uid),
+      memberName: m.memberName || "Unknown Member",
+      amountStr: String(m.amount),
+      breakdown: Array.isArray(m.breakdown) ? m.breakdown : [],
+    }));
+
+  // Sort: highest amount first so the biggest problems are at the top.
+  due.sort((a, b) => toMinor(b.amountStr) - toMinor(a.amountStr));
 
   if (!due.length) {
     const empty = buildEmptyState("✅", "No payments due this month");
@@ -1054,9 +1061,13 @@ function loadDuePayments() {
     return;
   }
 
-  const groupId = currentGroup ? currentGroup.groupId : "";
   for (const payment of due.slice(0, 6)) {
-    container.appendChild(buildDuePaymentCard(payment, groupId));
+    const card = buildDuePaymentCard(payment);
+    container.appendChild(card);
+    // Attach an "i" info toggle that opens a bn-info-panel popover using the
+    // same shared pattern as the four stat cards — title, description, rows,
+    // and actions — so the UX is consistent across the entire dashboard.
+    attachDuePaymentCardInfo(card, payment, groupId);
   }
 
   if (due.length > 6) {
@@ -1065,52 +1076,235 @@ function loadDuePayments() {
 }
 
 /**
- * One due-payment card.
- * @param {Object} payment
- * @param {string} groupId
+ * One due-payment card — clean, compact summary. No inline action buttons.
+ * Tapping the "i" toggle opens a bn-info-panel with the full breakdown and
+ * the two actions (View Details / Record Payment).
+ *
+ * @param {Object} payment  { memberId, memberName, amountStr, breakdown }
  * @return {HTMLElement}
  */
-function buildDuePaymentCard(payment, groupId) {
-  const card = document.createElement("button");
-  card.type = "button";
-  card.className = "due-payment-card" + (payment.isOverdue ? " overdue" : "");
-  card.title = `View ${payment.memberName}'s payments`;
-  card.addEventListener("click", () => {
-    window.location.href = `manage_payments.html?groupId=${encodeURIComponent(groupId)}&memberId=${encodeURIComponent(payment.memberId)}&tab=arrears`;
-  });
+function buildDuePaymentCard(payment) {
+  const card = document.createElement("div");
+  card.className = "due-payment-card";
 
-  const header = document.createElement("div");
-  header.className = "due-payment-card-header";
+  // Top row: avatar + name + amount
+  const topRow = document.createElement("div");
+  topRow.className = "due-payment-top";
+
   const avatar = document.createElement("div");
   avatar.className = "due-payment-avatar";
   avatar.textContent = payment.memberName.charAt(0).toUpperCase();
+
   const name = document.createElement("div");
   name.className = "due-payment-name";
   name.textContent = payment.memberName;
-  header.appendChild(avatar);
-  header.appendChild(name);
 
   const amount = document.createElement("div");
   amount.className = "due-payment-amount";
-  amount.textContent = formatCurrency(payment.amountStr != null ? payment.amountStr : "0.00");
+  amount.textContent = formatCurrencyShort(payment.amountStr != null ? payment.amountStr : "0.00");
 
-  const type = document.createElement("div");
-  type.className = "due-payment-type";
-  type.textContent = "Monthly Contribution";
+  topRow.appendChild(avatar);
+  topRow.appendChild(name);
+  topRow.appendChild(amount);
 
-  const date = document.createElement("div");
-  date.className = "due-payment-date";
-  date.textContent = payment.isOverdue
-    ? `⚠️ Overdue (${Math.abs(payment.daysUntilDue)} days)`
-    : payment.dueDate
-      ? `Due: ${formatDateShort(payment.dueDate)}`
-      : "Due this month";
+  // Bottom row: one compact summary line — "3 obligations · 2 penalties".
+  // Individual pills overflowed the card when a member owed many months.
+  const meta = document.createElement("div");
+  meta.className = "due-payment-meta";
+  if (Array.isArray(payment.breakdown) && payment.breakdown.length) {
+    const obligationCount = payment.breakdown.filter((b) => !String(b.label).includes("penalty")).length;
+    const penaltyCount = payment.breakdown.filter((b) => String(b.label).includes("penalty")).length;
+    const parts = [];
+    if (obligationCount > 0) {
+      parts.push(`${obligationCount} obligation${obligationCount === 1 ? "" : "s"}`);
+    }
+    if (penaltyCount > 0) {
+      parts.push(`${penaltyCount} penalty${penaltyCount === 1 ? "" : "ies"}`);
+    }
+    meta.textContent = parts.length ? parts.join(" · ") : "Due";
+  } else {
+    meta.textContent = "Due";
+  }
 
-  card.appendChild(header);
-  card.appendChild(amount);
-  card.appendChild(type);
-  card.appendChild(date);
+  card.appendChild(topRow);
+  card.appendChild(meta);
   return card;
+}
+
+/**
+ * Attach a bn-info-toggle popover to a due-payment card.
+ * Uses the shared card_info.js pattern so the popover looks and behaves
+ * exactly like the stat-card info panels.
+ *
+ * @param {HTMLElement} card
+ * @param {Object} payment  { memberId, memberName, amountStr, breakdown }
+ * @param {string} groupId
+ */
+function attachDuePaymentCardInfo(card, payment, groupId) {
+  // Build the deep-link URL for a specific obligation line.
+  const payUrl = (b) => {
+    const params = new URLSearchParams({
+      groupId,
+      memberId: payment.memberId,
+      tab: "record",
+      paymentType: b.paymentType,
+    });
+    if (b.month) params.set("month", b.month);
+    return `manage_payments.html?${params.toString()}`;
+  };
+
+  attachCardInfo(card, {
+    label: `About ${payment.memberName}'s payment`,
+    content: (host) => {
+      // Title
+      const title = document.createElement("p");
+      title.className = "bn-info-title";
+      title.textContent = payment.memberName;
+      host.appendChild(title);
+
+      // Description
+      const desc = document.createElement("p");
+      desc.className = "bn-info-desc";
+      desc.textContent = "Tap any row to record a payment for that obligation.";
+      host.appendChild(desc);
+
+      // Per-line breakdown — single-line rows, penalty detail in a collapsible dropdown.
+      if (Array.isArray(payment.breakdown) && payment.breakdown.length) {
+        for (const b of payment.breakdown) {
+          const hasPenalty = b.penalty && b.penalty.penaltyType;
+
+          // Main row: label · amount  [▾ toggle if penalty]
+          const row = document.createElement("div");
+          row.className = "bn-info-row";
+          row.style.cssText =
+            "cursor:pointer; padding:var(--bn-space-2) 0; border-bottom:1px solid rgba(255,255,255,0.08); transition:background 0.15s;";
+          row.title = `Record payment for ${b.label}`;
+
+          const lbl = document.createElement("span");
+          lbl.className = "bn-info-row-label";
+          lbl.textContent = b.label;
+
+          const right = document.createElement("span");
+          right.style.cssText = "display:flex; align-items:center; gap:var(--bn-space-2); flex-shrink:0;";
+
+          const val = document.createElement("span");
+          val.className = "bn-info-row-value";
+          val.textContent = formatCurrency(b.amount != null ? b.amount : "0.00");
+          right.appendChild(val);
+
+          // Toggle for penalty detail
+          let toggleBtn = null;
+          if (hasPenalty) {
+            toggleBtn = document.createElement("button");
+            toggleBtn.type = "button";
+            toggleBtn.className = "bn-info-row-toggle";
+            toggleBtn.textContent = "▾";
+            toggleBtn.title = "Show penalty breakdown";
+            toggleBtn.addEventListener("click", (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            });
+            right.appendChild(toggleBtn);
+          }
+
+          row.append(lbl, right);
+
+          // Clicking the row navigates to pay this exact obligation.
+          if (b.paymentType) {
+            row.addEventListener("click", (e) => {
+              // Don't navigate if the toggle was clicked
+              if (e.target.closest(".bn-info-row-toggle")) return;
+              e.preventDefault();
+              e.stopPropagation();
+              closeInfoPanel();
+              window.location.href = payUrl(b);
+            });
+            row.addEventListener("mouseenter", () => {
+              row.style.background = "rgba(255,255,255,0.06)";
+            });
+            row.addEventListener("mouseleave", () => {
+              row.style.background = "";
+            });
+          }
+
+          host.appendChild(row);
+
+          // Collapsible penalty detail
+          if (hasPenalty) {
+            const pen = b.penalty;
+            const detail = document.createElement("div");
+            detail.className = "bn-info-row-detail";
+            detail.hidden = true;
+            detail.style.cssText =
+              "display:none; padding:var(--bn-space-2) 0 var(--bn-space-3) var(--bn-space-4); font-size:11px; color:var(--bn-gray-300); line-height:1.6; border-bottom:1px solid rgba(255,255,255,0.08);";
+
+            const lines = [];
+            if (pen.penaltyType === "fixed") {
+              const periodLabel = pen.penaltyPeriod === "month" ? "month" : "day";
+              lines.push(`${formatCurrency(pen.dailyAmount)}/${periodLabel} × ${pen.periodsCharged} ${periodLabel}${pen.periodsCharged === 1 ? "" : "s"} late`);
+            } else if (pen.penaltyType === "percentage") {
+              const periodLabel = pen.penaltyPeriod === "month" ? "month" : "day";
+              lines.push(`${pen.rate}% per ${periodLabel} × ${pen.periodsCharged} ${periodLabel}${pen.periodsCharged === 1 ? "" : "s"}`);
+            }
+            if (pen.gracePeriodDays > 0) {
+              lines.push(`${pen.gracePeriodDays}-day grace period`);
+            }
+            if (pen.dueDate) {
+              lines.push(`Due ${formatDateShort(parseServerDate(pen.dueDate))}`);
+            }
+            if (pen.amountAccrued && pen.amountAccrued !== "0.00") {
+              lines.push(`Accrued: ${formatCurrency(pen.amountAccrued)}`);
+            }
+            if (pen.amountSettled && pen.amountSettled !== "0.00") {
+              lines.push(`Settled: ${formatCurrency(pen.amountSettled)}`);
+            }
+
+            detail.textContent = lines.join(" · ");
+            host.appendChild(detail);
+
+            // Wire the toggle
+            if (toggleBtn) {
+              toggleBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const open = !detail.hidden;
+                detail.hidden = open;
+                detail.style.display = open ? "none" : "block";
+                toggleBtn.textContent = open ? "▾" : "▴";
+              });
+            }
+          }
+        }
+      }
+
+      // Total row
+      const totalRow = document.createElement("div");
+      totalRow.className = "bn-info-row";
+      totalRow.style.cssText = "margin-top:var(--bn-space-2);";
+      const totalLbl = document.createElement("span");
+      totalLbl.className = "bn-info-row-label";
+      totalLbl.textContent = "Total owed";
+      const totalVal = document.createElement("span");
+      totalVal.className = "bn-info-row-value";
+      totalVal.textContent = formatCurrency(payment.amountStr != null ? payment.amountStr : "0.00");
+      totalRow.append(totalLbl, totalVal);
+      host.appendChild(totalRow);
+
+      // Bottom action — view full payment history
+      const viewBtn = document.createElement("button");
+      viewBtn.type = "button";
+      viewBtn.className = "bn-info-action";
+      viewBtn.textContent = "View Full Payment History";
+      viewBtn.style.cssText = "margin-top:var(--bn-space-3);";
+      viewBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        closeInfoPanel();
+        window.location.href = `manage_payments.html?groupId=${encodeURIComponent(groupId)}&memberId=${encodeURIComponent(payment.memberId)}&tab=arrears`;
+      });
+      host.appendChild(viewBtn);
+    },
+  });
 }
 
 /**

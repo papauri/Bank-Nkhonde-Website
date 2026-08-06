@@ -119,9 +119,71 @@ export async function init() {
     return;
   }
   await loadAdminGroups();
+  // Deep-link support: the admin dashboard's due-payment "Pay" buttons land
+  // here with ?groupId=...&memberId=...&tab=record&paymentType=...&month=...
+  // so the record modal opens pre-selected for the exact obligation.
+  applyUrlDeepLink();
 }
 if (!window.__bnSpa) {
   document.addEventListener("DOMContentLoaded", () => { init(); });
+}
+
+/**
+ * Deep-link support: the admin dashboard's due-payment "Pay" buttons land here
+ * with ?groupId=...&memberId=...&tab=record&paymentType=...&month=... so the
+ * record modal opens pre-selected for the exact obligation. Runs after
+ * loadAdminGroups() so the group selector and member list are populated.
+ */
+function applyUrlDeepLink() {
+  const params = new URLSearchParams(window.location.search);
+  const groupId = params.get("groupId");
+  const memberId = params.get("memberId");
+  const tab = params.get("tab");
+  const paymentType = params.get("paymentType");
+  const month = params.get("month");
+
+  if (!groupId || !memberId) return;
+
+  // The group must be one the caller admins — never trust the URL blindly.
+  const group = adminGroups.find((g) => (g.groupId || g.id) === groupId);
+  if (!group) return;
+
+  // Switch the group selector to the deep-linked group.
+  selectedGroupId = groupId;
+  sessionStorage.setItem("selectedGroupId", groupId);
+  const selector = groupSelector();
+  if (selector) selector.value = groupId;
+
+  // The member must be a real member of this group.
+  const member = members.find((m) => m.uid === memberId);
+  if (!member) return;
+
+  // Open the record modal pre-selected for this member.
+  openRecordPaymentModal(memberId);
+
+  // Pre-select the payment type and month if provided.
+  if (paymentType) {
+    const typeSelect = document.getElementById("paymentType");
+    if (typeSelect && Array.from(typeSelect.options).some((o) => o.value === paymentType)) {
+      typeSelect.value = paymentType;
+      const monthGroup = document.getElementById("monthSelectGroup");
+      if (monthGroup) {
+        monthGroup.style.display = paymentType === "monthly_contribution" ? "block" : "none";
+      }
+      const advancedWrap = document.getElementById("isAdvancedPayment")?.parentElement?.parentElement;
+      if (advancedWrap) advancedWrap.style.display = paymentType === "monthly_contribution" ? "block" : "none";
+    }
+  }
+
+  if (month) {
+    const monthSelect = document.getElementById("paymentMonth");
+    if (monthSelect && Array.from(monthSelect.options).some((o) => o.value === month && !o.disabled)) {
+      monthSelect.value = month;
+    }
+  }
+
+  // Re-derive the owed panel + penalty for the pre-selected obligation.
+  refreshRecordModal({reloadMonths: false});
 }
 
 function setupEventListeners() {

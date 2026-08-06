@@ -1287,13 +1287,12 @@
       border-radius: var(--bn-radius-lg);
       padding: var(--bn-space-4);
       transition: all var(--bn-transition-fast);
-      cursor: pointer;
       border-left: 3px solid var(--bn-warning);
-      font: inherit;
-      color: inherit;
-      text-align: inherit;
       width: 100%;
-      display: block;
+      display: flex;
+      flex-direction: column;
+      gap: var(--bn-space-3);
+      position: relative;
     }
 
     .due-payment-card:hover {
@@ -1307,27 +1306,21 @@
       outline-offset: 2px;
     }
 
-    .due-payment-card.overdue {
-      border-left-color: var(--bn-danger);
-      background: linear-gradient(135deg, rgba(239, 68, 68, 0.03) 0%, var(--bn-white) 100%);
-    }
-
-    .due-payment-card-header {
+    .due-payment-top {
       display: flex;
       align-items: center;
-      gap: var(--bn-space-2);
-      margin-bottom: var(--bn-space-3);
+      gap: var(--bn-space-3);
     }
 
     .due-payment-avatar {
-      width: 32px;
-      height: 32px;
+      width: 36px;
+      height: 36px;
       border-radius: var(--bn-radius-full);
       background: var(--bn-gradient-primary);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 600;
+      font-weight: 700;
       font-size: var(--bn-text-sm);
       color: var(--bn-white);
       flex-shrink: 0;
@@ -1338,35 +1331,28 @@
       font-weight: 600;
       color: var(--bn-dark);
       flex: 1;
+      min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
     .due-payment-amount {
-      font-size: var(--bn-text-lg);
+      font-size: var(--bn-text-base);
       font-weight: 700;
       color: var(--bn-warning);
-      margin-bottom: var(--bn-space-1);
+      white-space: nowrap;
+      flex-shrink: 0;
+      font-feature-settings: 'tnum' 1;
     }
 
-    .due-payment-card.overdue .due-payment-amount {
-      color: var(--bn-danger);
-    }
-
-    .due-payment-type {
+    .due-payment-meta {
       font-size: var(--bn-text-xs);
       color: var(--bn-gray);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .due-payment-date {
-      font-size: var(--bn-text-xs);
-      color: var(--bn-gray);
-      margin-top: var(--bn-space-2);
-      padding-top: var(--bn-space-2);
-      border-top: 1px solid var(--bn-gray-lighter);
+      line-height: 1.5;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     /* ============================================

@@ -444,7 +444,23 @@ Logged, never auto-queued. Requires the owner's explicit promotion.
 
 ## 8. ACTIVE CYCLE
 
-No cycle in flight. All closed tasks, Cycle 127's UI pass, Cycle 126's brief and cycles 114–125 are in `archive/BUILD_PLAN_history_2026-08-06_run.md` (`grep CYCLE` / `grep DECISION`).
+### J13 IN FLIGHT — dashboard overhaul. Slice 1 built; scout says the brief overlaps heavily with what already ships.
+
+**SCOUT FIRST (2026-08-06) — much of J13's user-dashboard half ALREADY EXISTS. Do not rebuild it.**
+- **Arrears card → modal listing every overdue obligation with a per-row Pay button that pre-fills the payment form: ALREADY BUILT** (`openArrearsModal` → `openPaymentModal({paymentType, month, amount})`). J13 item 1's arrears ask is done, and J2 Slice 3 has since added the penalty column and the reconciliation block. **J13 item 2 ("What I owe" with per-row Pay + live penalty) is therefore ~80% the same surface** — it should be scoped as "promote the existing arrears modal into a section", NOT as a new build.
+- **Contributed card → history modal: ALREADY BUILT** (`showAllPaymentsModal`). Missing only a Record-Payment button.
+- **Admin stat modals for Arrears / Collections / Active Loans / Pending: ALREADY BUILT** and server-backed (`openStatModal` + `payments.memberBreakdown`).
+- **THE REAL ADMIN GAP, and it is exactly J13's stated complaint:** `appendStatModalActions()` is commented *"all navigate to a management page"* — every button in every admin stat modal is a link to `manage_payments.html` / `manage_loans.html`. And `payments.record` / `repayments.record` appear **nowhere** in `admin_dashboard_sql.js`. So the admin genuinely cannot record anything from the dashboard; the modals show, they do not act. That is the highest-value part of J13 and none of it exists.
+
+**SLICE 1 — DONE (BUILT, NOT BROWSER-PROVEN): Next Payment card is now actionable.** It previously had a popover and nothing else — tapping the card did nothing at all. Now: a future obligation opens the payment form pre-filled with that month and the server's own owed amount for it; when nothing is due but money is late it opens the arrears list (which already carries per-row Pay), rather than guessing which late item was meant; when the member is caught up the card stays inert and drops its button role, so it never invites a tap that leads to an empty form. **The action is resolved in the SAME branch that writes the card's text**, so the card cannot say one amount and pay another. Keyboard-activated too (Enter/Space, with Space's page-scroll suppressed), and clicks on the dismiss badge inside the card are excluded so dismissing a reminder cannot start a payment. Module parse, tag balance, token sweep and the hero cascade all re-checked clean.
+
+**REMAINING IN J13 (not started):** user Loans card → in-place repayment modal; Contributed → Record Payment; "My Standing" section; admin action-instead-of-navigate modals; "Who owes what" section; admin quick actions; "Group Health at a Glance".
+
+**BOUNDARY: no browser was available for any of this run.** J13 is almost entirely interaction work whose acceptance criteria are "opens a modal", "closes on Escape", "can pay without navigating away" — **none of which can be established without rendering it.** Slice 1 is built and statically verified only.
+
+---
+
+All closed tasks, Cycle 127's UI pass, Cycle 126's brief and cycles 114–125 are in `archive/BUILD_PLAN_history_2026-08-06_run.md` (`grep CYCLE` / `grep DECISION`).
 
 ⚠ **TAG COLLISION: "J11" names TWO different tasks.** The closed one is *quick-fill amounts + proof of payment* (2026-08-05); the open one is *profile picture* (Cline, 2026-08-06, in the HANDOVER checklist). Re-tag before either is cited again.
 

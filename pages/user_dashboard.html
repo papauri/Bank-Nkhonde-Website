@@ -643,6 +643,14 @@
 
     .hero-stat.clickable { cursor: pointer; }
 
+    /* Set by the dashboard only when the card actually has something to act
+       on, so an "all caught up" card does not invite a tap that does nothing. */
+    .hero-stat.is-actionable { cursor: pointer; }
+
+    .hero-stat.is-actionable:hover {
+      border-color: var(--bn-accent);
+    }
+
     button.hero-stat {
       cursor: pointer;
       width: 100%;
@@ -2444,6 +2452,34 @@
         <h2 class="content-card-title">Contributions: Paid vs Outstanding</h2>
       </div>
       <div class="content-card-body" id="contributionChart"></div>
+    </div>
+
+    <!-- What I Owe -->
+    <div class="content-card" style="margin-bottom: var(--bn-space-6);" id="whatIOweCard" hidden>
+      <div class="content-card-header">
+        <h2 class="content-card-title">What I Owe</h2>
+        <span class="badge badge-danger" id="whatIOweTotal">MWK 0</span>
+      </div>
+      <div class="content-card-body" id="whatIOweBody">
+        <div class="empty-state">
+          <div class="empty-state-icon">📋</div>
+          <p class="empty-state-text">Loading what you owe...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- My Standing -->
+    <div class="content-card" style="margin-bottom: var(--bn-space-6);" id="myStandingCard" hidden>
+      <div class="content-card-header">
+        <h2 class="content-card-title">My Standing</h2>
+        <span class="badge" id="myStandingBadge">Checking...</span>
+      </div>
+      <div class="content-card-body" id="myStandingBody">
+        <div class="empty-state">
+          <div class="empty-state-icon">📊</div>
+          <p class="empty-state-text">Loading your standing...</p>
+        </div>
+      </div>
     </div>
 
     <!-- Payment Calendar -->
