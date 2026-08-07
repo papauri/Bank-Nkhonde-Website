@@ -62,7 +62,7 @@ The pipeline is **plan → (scout) → build → polish → review → verify �
 
 ## Safety rails — hard stops
 
-- **Never `git commit`. Never `git push`.** The human commits. No exceptions, not even on a finished task.
+- **Committing and pushing is allowed** (owner-granted 2026-08-08, superseding the previous "the human commits" rail — which contradicted the handover in `BUILD_PLAN.md` and blocked the owner's own explicit requests). Still applies: never commit a credential or a `.env`; never commit throwaway verification output (screenshots, exports — see `.gitignore`); never force-push or rewrite pushed history without explicit sign-off.
 - **Never run destructive SQL** — no `DROP`/`TRUNCATE`, no unscoped `DELETE`/`UPDATE`, no unbounded batch writes. Additive, idempotent `ALTER … ADD COLUMN … DEFAULT` applied to the live DB (behaviour-preserving default) is allowed and recorded in `BUILD_PLAN.md`.
 - **Never delete a file** without explicit human sign-off — park it BLOCKED with a recommendation.
 - **Never weaken a server-side `require_role` / auth gate** to make a feature pass — automatic QA failure. If a gate blocks you, it is working.
