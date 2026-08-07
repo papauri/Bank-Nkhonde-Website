@@ -28,7 +28,7 @@ const RULES_SELECT_COLUMNS = 'groupId, '
     . 'loanPenaltyPeriod, loanPenaltyMonthlyAmount, '
     . 'contributionPenaltyDailyRate, contributionPenaltyMonthlyRate, contributionPenaltyType, '
     . 'contributionPenaltyGracePeriodDays, contributionPenaltyDailyAmount, shareOutPenalties, '
-    . 'shareOutInterestMethod, loanPenaltyEnabled, contributionPenaltyEnabled, '
+    . 'shareOutInterestMethod, shareOutReturnsCapital, loanPenaltyEnabled, contributionPenaltyEnabled, '
     . 'contributionPenaltyPeriod, contributionPenaltyMonthlyAmount, '
     . 'cycleDurationStartDate, cycleDurationEndDate, cycleDurationMonths, cycleDurationAutoRenew, '
     . 'loanRulesMaxLoanAmount, loanRulesMinCycleLoanAmount, loanRulesMaxActiveLoansByMember, '
@@ -618,17 +618,20 @@ if (!function_exists('update_rules')) {
             $params[':shareOutPenalties'] = $bool ? 1 : 0;
         }
 
-        /* Whether the group fines late payers at all. Separate switches for loans
-           and contributions — a group may well chase overdue loan instalments
-           while being relaxed about a late monthly contribution. */
-        foreach (['loanPenaltyEnabled', 'contributionPenaltyEnabled'] as $penaltyFlag) {
-            if (array_key_exists($penaltyFlag, $body)) {
-                $bool = filter_var($body[$penaltyFlag], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        /* Plain boolean group switches, each validated identically.
+           - loanPenaltyEnabled / contributionPenaltyEnabled: whether the group
+             fines late payers at all (separate, because a group may chase an
+             overdue loan instalment while being relaxed about a contribution).
+           - shareOutReturnsCapital: whether the cycle-end payout hands members
+             their own savings back alongside the dividend. */
+        foreach (['loanPenaltyEnabled', 'contributionPenaltyEnabled', 'shareOutReturnsCapital'] as $boolFlag) {
+            if (array_key_exists($boolFlag, $body)) {
+                $bool = filter_var($body[$boolFlag], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
                 if ($bool === null) {
-                    json_error($penaltyFlag . ' must be a boolean value.', 422);
+                    json_error($boolFlag . ' must be a boolean value.', 422);
                 }
-                $updates[] = $penaltyFlag . ' = :' . $penaltyFlag;
-                $params[':' . $penaltyFlag] = $bool ? 1 : 0;
+                $updates[] = $boolFlag . ' = :' . $boolFlag;
+                $params[':' . $boolFlag] = $bool ? 1 : 0;
             }
         }
 

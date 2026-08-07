@@ -248,6 +248,10 @@ async function loadRulesSettings() {
     const contribPenEl = document.getElementById("contributionPenaltyEnabledInput");
     if (contribPenEl) contribPenEl.checked = Number(rules.contributionPenaltyEnabled ?? 1) === 1;
 
+    // Share-out capital return. Absent reads as OFF, matching the column default.
+    const capEl = document.getElementById("shareOutReturnsCapitalInput");
+    if (capEl) capEl.checked = Number(rules.shareOutReturnsCapital ?? 0) === 1;
+
     // Interest sharing method. Falls back to the server's own default rather
     // than leaving the control on whatever option happens to be first, so it
     // never displays a rule the group is not actually on.
@@ -414,6 +418,8 @@ async function saveGovernanceSettings() {
     if (loanPenInput) rulesUpdate.loanPenaltyEnabled = loanPenInput.checked;
     const contribPenInput = document.getElementById("contributionPenaltyEnabledInput");
     if (contribPenInput) rulesUpdate.contributionPenaltyEnabled = contribPenInput.checked;
+    const capInput = document.getElementById("shareOutReturnsCapitalInput");
+    if (capInput) rulesUpdate.shareOutReturnsCapital = capInput.checked;
 
     // Only ever send one of the three values the server accepts; anything else
     // is rejected 422 by update_rules() rather than silently stored.

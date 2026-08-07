@@ -4,15 +4,32 @@
  *
  * THIS FILE DECIDES WHAT REAL MEMBERS ARE PAID AT CYCLE END.
  *
- * THE PAYOUT RULE (from the product owner, implemented verbatim):
- *   payout(member) = interestRefund(member) + penaltyShare(member)
+ * THE PAYOUT RULE:
+ *   payout(member) = capitalReturn(member)
+ *                  + interestShare(member)
+ *                  + penaltyShare(member)
  *
- *   interestRefund(member) = the total interest THAT MEMBER personally paid this
- *                            cycle. Interest goes back to whoever paid it.
+ *   capitalReturn(member) = the member's OWN contributed savings, handed back,
+ *                           and ONLY when group_rules.shareOutReturnsCapital = 1.
+ *                           A constitution of the Money Masters kind says
+ *                           "contributions PLUS dividends will be shared" — the
+ *                           member gets their savings back along with what those
+ *                           savings earned. Their own money: never pooled, never
+ *                           split, never redistributed.
+ *   interestShare(member)  = their share of the interest pool, divided by
+ *                            group_rules.shareOutInterestMethod:
+ *                              refund_to_payer       (default) the interest THAT
+ *                                                    MEMBER personally paid;
+ *                              split_equally         1/N of the pool;
+ *                              split_by_contribution pro rata to what they saved.
  *   penaltyShare(member)   = an EQUAL 1/N slice of the group's whole penalty pool,
  *                            and ONLY when group_rules.shareOutPenalties = 1.
  *                            Otherwise it is zero for everyone and the group simply
  *                            keeps the pot (which is still reported to the admin).
+ *
+ * All three switches default to the behaviour that existed before them, so no
+ * group's payout changes until an admin opts in. Each decides what real people
+ * are physically handed, which is why none of them is inherited silently.
  *
  * A PENALTY IS NEVER REFUNDED TO THE MEMBER WHO PAID IT. Handing a fine back to
  * the person fined would make the fine meaningless. The pot is split equally, so
@@ -20,9 +37,9 @@
  * same as every other member.
  *
  * The sum of all payouts is, by construction, exactly the interest pool plus the
- * penalties actually distributed — it always balances. That invariant is asserted
- * in integer minor units before any share-out is shown or written; a share-out
- * that does not reconcile is never produced.
+ * penalties actually distributed plus the capital returned — it always balances.
+ * That invariant is asserted in integer minor units before any share-out is shown
+ * or written; a share-out that does not reconcile is never produced.
  *
  * Because a member who borrows little pays little interest and would be refunded
  * little, the group compensates with FORCED LOANS (see force_loan() in
@@ -120,6 +137,9 @@ if (!function_exists('cycle_fetch_rules')) {
         $stmt = $pdo->prepare(
             'SELECT loanRulesMinCycleLoanAmount, cycleDurationStartDate, cycleDurationEndDate, '
             . 'cycleDurationMonths, shareOutPenalties, shareOutInterestMethod, '
+            // Must be selected, or the toggle reads as absent, defaults to off,
+            // and switching it on silently does nothing.
+            . 'shareOutReturnsCapital, '
             . 'forcedLoansEnabled, forcedLoansMethod, forcedLoansPercentageOfHighest '
             . 'FROM group_rules WHERE groupId = :groupId LIMIT 1'
         );
@@ -401,6 +421,16 @@ if (!function_exists('cycle_compute_payout')) {
         // How the INTEREST pool is divided. Defaults to today's rule.
         $interestMethod = (string) ($rules['shareOutInterestMethod'] ?? 'refund_to_payer');
 
+        /* DOES THE SHARE-OUT HAND BACK THE CAPITAL TOO?
+           A constitution of the Money Masters kind says "contributions PLUS
+           dividends will be shared" — the member gets their own savings back
+           along with what those savings earned. This app paid the earnings only,
+           so a member who had put in 1,000,000 and earned 150,000 would have
+           been shown 150,000 at cycle end.
+           DEFAULT 0. Switching this on changes what real people are physically
+           handed, so it is never inherited silently — an admin opts in. */
+        $returnsCapital = (int) ($rules['shareOutReturnsCapital'] ?? 0) === 1;
+
         $poolMinor = 0;
         $penaltyPoolMinor = 0;
         foreach ($figures as $row) {
@@ -436,6 +466,7 @@ if (!function_exists('cycle_compute_payout')) {
 
         $members = [];
         $payoutSumMinor = 0;
+        $capitalReturnedMinor = 0;
         foreach ($figures as $i => $row) {
             // Under refund_to_payer this is the member's own interest, exactly as
             // before. Under the split methods it is their slice of the pool.
@@ -449,17 +480,31 @@ if (!function_exists('cycle_compute_payout')) {
                 $penaltyShareMinor = $baseShareMinor + ($i < $remainderMinor ? 1 : 0);
             }
 
-            $payoutMinor = $interestRefundMinor + $penaltyShareMinor;
+            // The member's own savings, handed back only when the group's rules
+            // say the share-out returns capital. Their own money — never split,
+            // never redistributed, so it needs no pooling.
+            $capitalReturnMinor = $returnsCapital ? (int) $row['contributedMinor'] : 0;
+
+            $payoutMinor = $capitalReturnMinor + $interestRefundMinor + $penaltyShareMinor;
             $payoutSumMinor += $payoutMinor;
 
+            $row['capitalReturnMinor'] = $capitalReturnMinor;
             $row['interestRefundMinor'] = $interestRefundMinor;
             $row['penaltyShareMinor'] = $penaltyShareMinor;
             $row['payoutMinor'] = $payoutMinor;
+            $capitalReturnedMinor += $capitalReturnMinor;
             $members[] = $row;
         }
 
-        // THE GATE. Integer comparison. Nothing unbalanced gets past this line.
-        if ($payoutSumMinor !== $poolMinor + $distributedPenaltyMinor) {
+        /* THE GATE. Integer comparison. Nothing unbalanced gets past this line.
+           EXTENDED, NOT RELAXED: capital is added to BOTH sides. The expected
+           total now includes every tambala of contributed savings being handed
+           back, so the share-out still has to account for exactly the money it
+           claims to distribute — a capital return that did not reconcile would
+           throw here just as an unbalanced interest split always has.
+           When the toggle is off, $capitalReturnedMinor is 0 and this is the
+           identical assertion it has always been. */
+        if ($payoutSumMinor !== $poolMinor + $distributedPenaltyMinor + $capitalReturnedMinor) {
             throw new RuntimeException(
                 'Cycle payout failed reconciliation; refusing to produce a share-out that does not balance.'
             );
@@ -471,6 +516,8 @@ if (!function_exists('cycle_compute_payout')) {
             'penaltyPoolMinor' => $penaltyPoolMinor,
             'shareOutPenalties' => $shareOut,
             'shareOutInterestMethod' => $interestMethod,
+            'shareOutReturnsCapital' => $returnsCapital,
+            'capitalReturnedMinor' => $capitalReturnedMinor,
             'distributedPenaltyMinor' => $distributedPenaltyMinor,
             'payoutSumMinor' => $payoutSumMinor,
         ];
@@ -717,15 +764,20 @@ if (!function_exists('cycle_payout_preview')) {
                 'totalBorrowed' => money_from_minor($row['borrowedMinor']),
                 'totalInterestPaid' => money_from_minor($row['interestPaidMinor']),
                 'totalPenaltiesPaid' => money_from_minor($row['penaltiesPaidMinor']),
-                // The two components of the payout, shown separately so a member can
-                // see exactly why they are owed what they are owed.
+                // The components of the payout, shown separately so a member can
+                // see exactly why they are owed what they are owed. Capital is
+                // their own savings coming back, not something they earned —
+                // conflating it with the dividend would misdescribe both.
+                'capitalReturn' => money_from_minor($row['capitalReturnMinor']),
                 'interestRefund' => money_from_minor($row['interestRefundMinor']),
                 'penaltyShare' => money_from_minor($row['penaltyShareMinor']),
                 'payoutAmount' => money_from_minor($row['payoutMinor']),
             ];
         }
 
-        $expectedMinor = $computed['poolMinor'] + $computed['distributedPenaltyMinor'];
+        // Capital handed back counts toward what the share-out must account for.
+        $expectedMinor = $computed['poolMinor'] + $computed['distributedPenaltyMinor']
+            + $computed['capitalReturnedMinor'];
 
         json_response([
             'groupId' => $groupId,
@@ -739,6 +791,8 @@ if (!function_exists('cycle_payout_preview')) {
                 // Which interest rule produced these figures, so the page can
                 // label the column honestly instead of always saying "refund".
                 'shareOutInterestMethod' => $computed['shareOutInterestMethod'],
+                'shareOutReturnsCapital' => $computed['shareOutReturnsCapital'],
+                'capitalReturned' => money_from_minor($computed['capitalReturnedMinor']),
                 'distributedPenalties' => money_from_minor($computed['distributedPenaltyMinor']),
                 'totalPayout' => money_from_minor($computed['payoutSumMinor']),
                 'balances' => $computed['payoutSumMinor'] === $expectedMinor,
@@ -810,7 +864,9 @@ if (!function_exists('cycle_settle')) {
         // total handed out must equal the interest pool plus whatever share of the
         // penalty pot the group actually chose to distribute — nothing conjured,
         // nothing left stranded.
-        $expectedMinor = $computed['poolMinor'] + $computed['distributedPenaltyMinor'];
+        // Capital handed back counts toward what the share-out must account for.
+        $expectedMinor = $computed['poolMinor'] + $computed['distributedPenaltyMinor']
+            + $computed['capitalReturnedMinor'];
         if ($computed['payoutSumMinor'] !== $expectedMinor) {
             json_error('The share-out does not balance; the cycle cannot be settled.', 500);
         }

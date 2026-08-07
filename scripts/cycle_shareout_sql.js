@@ -13,10 +13,16 @@
  * being built in parallel by a backend brief and was NOT probed live):
  *   cycle.payout.preview  -> GET, {groupId} ->
  *       {groupId, members:[{uid, fullName, totalContributed, totalBorrowed,
- *         totalInterestPaid, totalPenaltiesPaid, interestRefund,
- *         penaltyShare, payoutAmount}],
+ *         totalInterestPaid, totalPenaltiesPaid, capitalReturn,
+ *         interestRefund, penaltyShare, payoutAmount}],
  *        summary:{memberCount, groupInterestPool, groupPenaltyPool,
- *         shareOutPenalties, distributedPenalties, totalPayout, balances}}
+ *         shareOutPenalties, shareOutInterestMethod, shareOutReturnsCapital,
+ *         capitalReturned, distributedPenalties, totalPayout, balances}}
+ *
+ *       payout = capitalReturn + interestRefund + penaltyShare. capitalReturn
+ *       is the member's OWN savings handed back and is 0.00 unless the group's
+ *       shareOutReturnsCapital is on — it is not something they earned, so the
+ *       page shows it in its own column rather than folded into the dividend.
  *   cycle.payouts.list    -> GET, {groupId} ->
  *       {groupId, settled, cycleStartDate, cycleEndDate, settledAt,
  *        settledBy, summary:{memberCount, groupInterestPool,
@@ -64,6 +70,8 @@ let adminGroups = [];
 let pendingSettleSummary = null;
 // Heading for the interest column — depends on the group's sharing method.
 let interestColumnLabel = "Interest Share";
+// Whether the payout includes members' own savings coming back.
+let showsCapital = false;
 
 const groupSelector = () => document.getElementById("groupSelector");
 const spinner = () => document.getElementById("spinner");
@@ -263,6 +271,22 @@ function renderInterestHeading(mode, summary) {
     : "Interest Share";
   const heading = document.getElementById("interestShareHeading");
   if (heading) heading.textContent = interestColumnLabel;
+
+  /* THE CAPITAL COLUMN ONLY APPEARS WHEN THE GROUP RETURNS CAPITAL.
+     Showing a column of zeroes would suggest members are owed nothing of their
+     own savings, which is a different and wrong statement from "this group's
+     share-out is dividends only". A settled record does not carry the flag, so
+     the column is driven by whether the rows actually contain a capital figure —
+     never by today's rule, which may not be the rule that was settled under. */
+  showsCapital = summary
+    ? (summary.shareOutReturnsCapital === true
+       || (summary.capitalReturned != null && Number(summary.capitalReturned) > 0))
+    : false;
+
+  const capHead = document.getElementById("capitalReturnHeading");
+  if (capHead) capHead.hidden = !showsCapital;
+  const groupHead = document.getElementById("payoutGroupHeader");
+  if (groupHead) groupHead.colSpan = showsCapital ? 4 : 3;
 }
 
 function renderStateBanner(mode, data) {
@@ -288,7 +312,7 @@ function renderMemberTable(rows) {
   if (!rows || rows.length === 0) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
-    td.colSpan = 8;
+    td.colSpan = showsCapital ? 9 : 8;
     td.appendChild(emptyState("👥", "No members to show for this cycle."));
     tr.appendChild(td);
     tbody.appendChild(tr);
@@ -308,6 +332,9 @@ function renderMemberTable(rows) {
     tr.appendChild(moneyTd("Borrowed", member.totalBorrowed));
     tr.appendChild(moneyTd("Interest Paid", member.totalInterestPaid));
     tr.appendChild(moneyTd("Penalties Paid", member.totalPenaltiesPaid));
+    if (showsCapital) {
+      tr.appendChild(moneyTd("Savings Returned", member.capitalReturn, "cell-payout"));
+    }
     tr.appendChild(moneyTd(interestColumnLabel, member.interestRefund, "cell-payout"));
     tr.appendChild(moneyTd("Penalty Share", member.penaltyShare, "cell-payout"));
     tr.appendChild(moneyTd("Payout", member.payoutAmount, "cell-payout cell-success"));
@@ -386,17 +413,27 @@ function renderReconciliation(summary) {
   const balances = summary.balances === true;
   banner.className = balances ? "alert alert-success" : "alert alert-danger";
 
+  /* The sentence must name EVERY component of the total, or it asserts a
+     balance the figures beside it do not show. When capital is being returned
+     it is by far the largest part of the payout — omitting it would have the
+     line claim 377,683.34 "equals the interest pool plus penalties" (12,583.34). */
   const headline = document.createElement("p");
   headline.textContent = balances
-    ? "Reconciles: total payout equals the interest pool plus the penalties distributed."
+    ? (showsCapital
+       ? "Reconciles: total payout equals the savings returned plus the interest pool plus the penalties distributed."
+       : "Reconciles: total payout equals the interest pool plus the penalties distributed.")
     : "DOES NOT RECONCILE — this cycle cannot be settled.";
   banner.appendChild(headline);
 
   const detail = document.createElement("p");
   detail.className = "cell-muted";
-  detail.textContent = `Total payout: ${formatCurrency(summary.totalPayout)} · `
-    + `Interest pool: ${formatCurrency(summary.groupInterestPool)} · `
-    + `Penalties distributed: ${formatCurrency(summary.distributedPenalties)}`;
+  const parts = [`Total payout: ${formatCurrency(summary.totalPayout)}`];
+  if (showsCapital && summary.capitalReturned != null) {
+    parts.push(`Savings returned: ${formatCurrency(summary.capitalReturned)}`);
+  }
+  parts.push(`Interest pool: ${formatCurrency(summary.groupInterestPool)}`);
+  parts.push(`Penalties distributed: ${formatCurrency(summary.distributedPenalties)}`);
+  detail.textContent = parts.join(" · ");
   banner.appendChild(detail);
 }
 
