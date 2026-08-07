@@ -476,6 +476,20 @@
               <small class="help-text">Minimum months a member must belong before exit is permitted (0 = no restriction)</small>
             </div>
 
+            <!-- Interest Sharing at Cycle End -->
+            <div class="form-group" style="margin-bottom: var(--bn-space-5);">
+              <label class="form-label" for="shareOutInterestMethodInput">Interest Sharing at Cycle End</label>
+              <select id="shareOutInterestMethodInput" class="form-select">
+                <option value="refund_to_payer">Interest goes back to whoever paid it</option>
+                <option value="split_equally">Split the interest equally between all members</option>
+                <option value="split_by_contribution">Split the interest by how much each member saved</option>
+              </select>
+              <small class="help-text">
+                Decides who receives the group's earnings at cycle end. Changing this changes the next
+                share-out, not any cycle already settled.
+              </small>
+            </div>
+
             <!-- ── Loan Penalty Settings ──────────────────────────────────── -->
             <div style="border-top: 1px solid var(--bn-gray-200); margin: var(--bn-space-6) 0 var(--bn-space-5);"></div>
 

@@ -28,6 +28,7 @@ const RULES_SELECT_COLUMNS = 'groupId, '
     . 'loanPenaltyPeriod, loanPenaltyMonthlyAmount, '
     . 'contributionPenaltyDailyRate, contributionPenaltyMonthlyRate, contributionPenaltyType, '
     . 'contributionPenaltyGracePeriodDays, contributionPenaltyDailyAmount, shareOutPenalties, '
+    . 'shareOutInterestMethod, '
     . 'contributionPenaltyPeriod, contributionPenaltyMonthlyAmount, '
     . 'cycleDurationStartDate, cycleDurationEndDate, cycleDurationMonths, cycleDurationAutoRenew, '
     . 'loanRulesMaxLoanAmount, loanRulesMinCycleLoanAmount, loanRulesMaxActiveLoansByMember, '
@@ -35,7 +36,15 @@ const RULES_SELECT_COLUMNS = 'groupId, '
     . 'requireArrearsClearedBeforeLoan, requirePenaltiesClearedBeforeLoan, '
     . 'forcedLoansEnabled, forcedLoansMethod, forcedLoansPercentageOfHighest, '
     // Loan booking deadlines (migration 011)
-    . 'loanBookingDay, lastLoanMonth, minMembershipMonths';
+    . 'loanBookingDay, lastLoanMonth, minMembershipMonths, '
+    // Amount-banded max repayment term (owner constitution, 2026-08-07) —
+    // see loan_term_bounds_for_principal() in api/handlers/loans.php, the
+    // single reader shared by both loan-request enforcement sites and the
+    // loans.eligibility preview. Disabled by default (loanTermBandEnabled =
+    // 0), so a group that has never configured this behaves exactly as
+    // before these columns existed.
+    . 'loanTermBandEnabled, loanTermBandThreshold, '
+    . 'loanTermBandLowerMaxMonths, loanTermBandUpperMaxMonths';
 
 if (!function_exists('rules_select_row')) {
     function rules_select_row(PDO $pdo, string $groupId): ?array
@@ -276,6 +285,64 @@ if (!function_exists('update_rules')) {
         if (array_key_exists('seedMoneyAmount', $body)) {
             $updates[] = 'seedMoneyAmount = :seedMoneyAmount';
             $params[':seedMoneyAmount'] = rules_money_string($body['seedMoneyAmount'], 'seedMoneyAmount');
+        }
+
+        /* WHETHER an obligation applies at all — not just how much it is.
+           These three columns exist and get_rules() already returns them, but
+           update_rules() had no writer, so they were permanently stuck at their
+           schema defaults (seed money and monthly contributions REQUIRED, service
+           fee not). A group that does not use seed money therefore still carried
+           a required seed obligation of 0.00, which is the shape that bars
+           borrowing on "unpaid seed" and puts a meaningless line in every
+           member's what-I-owe. Now settable, so "we don't run this obligation"
+           is a real stored answer.
+           Additive and opt-in: a caller that omits the key changes nothing. */
+        foreach (
+            [
+                'seedMoneyRequired',
+                'monthlyContributionRequired',
+                'serviceFeeRequired',
+            ] as $flag
+        ) {
+            if (!array_key_exists($flag, $body)) {
+                continue;
+            }
+            $bool = filter_var($body[$flag], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($bool === null) {
+                json_error($flag . ' must be a boolean value.', 422);
+            }
+            $updates[] = $flag . ' = :' . $flag;
+            $params[':' . $flag] = $bool ? 1 : 0;
+        }
+
+        /* CYCLE LENGTH. Also read-only until now, so every group was pinned to
+           the schema default of 12 months with no way to change it — and this
+           column is not cosmetic: payment_cycle_months_to_date() uses it to
+           decide which months a group is actually owed for. A constitution
+           running an 11-month cycle (the common shape — share out in December)
+           could not be expressed at all. */
+        if (array_key_exists('cycleDurationMonths', $body)) {
+            $months = filter_var($body['cycleDurationMonths'], FILTER_VALIDATE_INT);
+            if ($months === false || $months < 1 || $months > 60) {
+                json_error('cycleDurationMonths must be a whole number between 1 and 60.', 422);
+            }
+            $updates[] = 'cycleDurationMonths = :cycleDurationMonths';
+            $params[':cycleDurationMonths'] = $months;
+        }
+
+        /* Whether a loan needs declared collateral. Constitutions differ on
+           this; the column existed and defaulted to off, with no way to opt in. */
+        if (array_key_exists('loanRulesRequireCollateral', $body)) {
+            $bool = filter_var(
+                $body['loanRulesRequireCollateral'],
+                FILTER_VALIDATE_BOOLEAN,
+                FILTER_NULL_ON_FAILURE
+            );
+            if ($bool === null) {
+                json_error('loanRulesRequireCollateral must be a boolean value.', 422);
+            }
+            $updates[] = 'loanRulesRequireCollateral = :loanRulesRequireCollateral';
+            $params[':loanRulesRequireCollateral'] = $bool ? 1 : 0;
         }
 
         if (array_key_exists('monthlyContributionAmount', $body)) {
@@ -551,6 +618,23 @@ if (!function_exists('update_rules')) {
             $params[':shareOutPenalties'] = $bool ? 1 : 0;
         }
 
+        // How the interest pool is divided at cycle end. Decides who receives the
+        // group's earnings, so only the three known rules are accepted.
+        if (array_key_exists('shareOutInterestMethod', $body)) {
+            $allowed = ['refund_to_payer', 'split_equally', 'split_by_contribution'];
+            $value = is_string($body['shareOutInterestMethod'])
+                ? trim($body['shareOutInterestMethod'])
+                : '';
+            if (!in_array($value, $allowed, true)) {
+                json_error(
+                    'shareOutInterestMethod must be one of: ' . implode(', ', $allowed) . '.',
+                    422
+                );
+            }
+            $updates[] = 'shareOutInterestMethod = :shareOutInterestMethod';
+            $params[':shareOutInterestMethod'] = $value;
+        }
+
         if (array_key_exists('forcedLoansEnabled', $body)) {
             $value = $body['forcedLoansEnabled'];
             $bool = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
@@ -614,6 +698,57 @@ if (!function_exists('update_rules')) {
             $months = rules_nonneg_int($body['minMembershipMonths'], 'minMembershipMonths');
             $updates[] = 'minMembershipMonths = :minMembershipMonths';
             $params[':minMembershipMonths'] = $months;
+        }
+
+        // Amount-banded max repayment term (owner constitution, 2026-08-07).
+        // Off by default; an admin opts a group in explicitly. Read together
+        // by api/handlers/loans.php::loan_term_bounds_for_principal() — see
+        // that function's docblock for the exact under/at-or-above rule.
+        if (array_key_exists('loanTermBandEnabled', $body)) {
+            $bool = filter_var($body['loanTermBandEnabled'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($bool === null) {
+                json_error('loanTermBandEnabled must be a boolean value.', 422);
+            }
+            $updates[] = 'loanTermBandEnabled = :loanTermBandEnabled';
+            $params[':loanTermBandEnabled'] = $bool ? 1 : 0;
+        }
+
+        if (array_key_exists('loanTermBandThreshold', $body)) {
+            if ($body['loanTermBandThreshold'] === null) {
+                $updates[] = 'loanTermBandThreshold = NULL';
+            } else {
+                $updates[] = 'loanTermBandThreshold = :loanTermBandThreshold';
+                $params[':loanTermBandThreshold'] = rules_money_string(
+                    $body['loanTermBandThreshold'],
+                    'loanTermBandThreshold'
+                );
+            }
+        }
+
+        if (array_key_exists('loanTermBandLowerMaxMonths', $body)) {
+            if ($body['loanTermBandLowerMaxMonths'] === null) {
+                $updates[] = 'loanTermBandLowerMaxMonths = NULL';
+            } else {
+                $months = rules_nonneg_int($body['loanTermBandLowerMaxMonths'], 'loanTermBandLowerMaxMonths');
+                if ($months < 1 || $months > 60) {
+                    json_error('loanTermBandLowerMaxMonths must be a whole number between 1 and 60.', 422);
+                }
+                $updates[] = 'loanTermBandLowerMaxMonths = :loanTermBandLowerMaxMonths';
+                $params[':loanTermBandLowerMaxMonths'] = $months;
+            }
+        }
+
+        if (array_key_exists('loanTermBandUpperMaxMonths', $body)) {
+            if ($body['loanTermBandUpperMaxMonths'] === null) {
+                $updates[] = 'loanTermBandUpperMaxMonths = NULL';
+            } else {
+                $months = rules_nonneg_int($body['loanTermBandUpperMaxMonths'], 'loanTermBandUpperMaxMonths');
+                if ($months < 1 || $months > 60) {
+                    json_error('loanTermBandUpperMaxMonths must be a whole number between 1 and 60.', 422);
+                }
+                $updates[] = 'loanTermBandUpperMaxMonths = :loanTermBandUpperMaxMonths';
+                $params[':loanTermBandUpperMaxMonths'] = $months;
+            }
         }
 
         if (empty($updates)) {

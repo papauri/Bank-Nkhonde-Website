@@ -141,13 +141,145 @@ if (!function_exists('loan_fetch_group_rules')) {
             . 'loanInterestCalculationMethod, loanRulesMaxLoanAmount, '
             . 'loanRulesMaxActiveLoansByMember, loanRulesMinRepaymentMonths, '
             . 'loanRulesMaxRepaymentMonths, requireArrearsClearedBeforeLoan, '
-            . 'requirePenaltiesClearedBeforeLoan '
+            . 'requirePenaltiesClearedBeforeLoan, '
+            // Amount-banded max repayment term (owner constitution, cycle
+            // 2026-08-07) — see loan_term_bounds_for_principal(). Disabled by
+            // default (loanTermBandEnabled = 0) so an unconfigured group's
+            // behaviour is byte-identical to before this column existed.
+            . 'loanTermBandEnabled, loanTermBandThreshold, '
+            . 'loanTermBandLowerMaxMonths, loanTermBandUpperMaxMonths '
             . 'FROM group_rules WHERE groupId = :groupId LIMIT 1'
         );
         $stmt->execute([':groupId' => $groupId]);
         $rules = $stmt->fetch();
 
         return $rules === false ? null : $rules;
+    }
+}
+
+if (!function_exists('loan_term_bounds_for_principal')) {
+    /**
+     * The min/max repayment term (in months) allowed for a loan of
+     * $principalMinor, under this group's rules — the SINGLE shared source
+     * used by BOTH server-side enforcement sites (request_loan(),
+     * force_loan()) AND the read-only loans.eligibility preview
+     * (loan_eligibility_endpoint()), so a member's preview and the gate that
+     * actually approves/rejects a request can never disagree.
+     *
+     * Owner constitution (2026-08-07): a loan's maximum term depends on the
+     * amount borrowed — under a threshold gets the shorter band, at-or-above
+     * it gets the longer band. Opt-in per group via loanTermBandEnabled
+     * (group_rules, DEFAULT 0) — until an admin configures it, this returns
+     * EXACTLY loanRulesMinRepaymentMonths/loanRulesMaxRepaymentMonths (with
+     * the existing LOAN_FALLBACK_* fallbacks), unchanged from before this
+     * function existed. Same for a group that enables the flag but leaves
+     * the threshold/band columns NULL/invalid — treated as "not configured",
+     * never as a zero-width or unbounded term.
+     *
+     * BOUNDARY: principal < threshold takes the LOWER (shorter) band;
+     * principal >= threshold takes the UPPER (longer) band. The owner's
+     * "500,000 and above gets the longer term" phrasing is read as
+     * INCLUSIVE of the threshold itself — the more forgiving reading for the
+     * borrower at exactly the boundary. Do not silently flip this without
+     * an explicit owner decision; it changes what every borrower at the
+     * threshold amount is allowed to do.
+     *
+     * Money is compared in INTEGER MINOR UNITS only — never a float
+     * comparison of a money value.
+     *
+     * @param array|null $rules          group_rules row (must include the
+     *                                   loanRulesMin/MaxRepaymentMonths and
+     *                                   loanTermBand* columns — see
+     *                                   loan_fetch_group_rules()), or null
+     *                                   when the group has no rules row at
+     *                                   all (falls back to LOAN_FALLBACK_*,
+     *                                   same as every other reader of this
+     *                                   nullable row in this file).
+     * @param int        $principalMinor The loan principal, in minor units.
+     * @return array{min:int,max:int,banded:bool,thresholdMinor:?int,appliedBand:?string}
+     *              appliedBand is 'lower'|'upper' when banded is true, else null.
+     */
+    function loan_term_bounds_for_principal(?array $rules, int $principalMinor): array
+    {
+        $minMonths = (int) ($rules['loanRulesMinRepaymentMonths'] ?? LOAN_FALLBACK_MIN_MONTHS);
+        $maxMonths = (int) ($rules['loanRulesMaxRepaymentMonths'] ?? LOAN_FALLBACK_MAX_MONTHS);
+
+        $unbanded = [
+            'min' => $minMonths,
+            'max' => $maxMonths,
+            'banded' => false,
+            'thresholdMinor' => null,
+            'appliedBand' => null,
+        ];
+
+        $bandEnabled = (int) ($rules['loanTermBandEnabled'] ?? 0) === 1;
+        if (!$bandEnabled) {
+            return $unbanded;
+        }
+
+        $thresholdRaw = $rules['loanTermBandThreshold'] ?? null;
+        $lowerRaw = $rules['loanTermBandLowerMaxMonths'] ?? null;
+        $upperRaw = $rules['loanTermBandUpperMaxMonths'] ?? null;
+
+        if ($thresholdRaw === null || $thresholdRaw === ''
+            || $lowerRaw === null || $lowerRaw === ''
+            || $upperRaw === null || $upperRaw === ''
+        ) {
+            // Flag on but not fully configured — behave exactly as if it
+            // were off, rather than guessing at a missing band.
+            return $unbanded;
+        }
+
+        $lowerMonths = (int) $lowerRaw;
+        $upperMonths = (int) $upperRaw;
+        if ($lowerMonths < 1 || $upperMonths < 1) {
+            return $unbanded;
+        }
+
+        try {
+            $thresholdMinor = money_to_minor((string) $thresholdRaw);
+        } catch (InvalidArgumentException $e) {
+            return $unbanded;
+        }
+        if ($thresholdMinor < 0) {
+            return $unbanded;
+        }
+
+        $appliedBand = $principalMinor < $thresholdMinor ? 'lower' : 'upper';
+        $bandedMax = $appliedBand === 'lower' ? $lowerMonths : $upperMonths;
+
+        return [
+            'min' => $minMonths,
+            'max' => $bandedMax,
+            'banded' => true,
+            'thresholdMinor' => $thresholdMinor,
+            'appliedBand' => $appliedBand,
+        ];
+    }
+}
+
+if (!function_exists('loan_repayment_period_error')) {
+    /**
+     * The 422 message for an out-of-range repaymentPeriod, built from the
+     * ACTUAL bounds loan_term_bounds_for_principal() computed — so a member
+     * refused a term is told the number they were actually held to, and
+     * (when a band applied) WHY, rather than a bound they cannot explain.
+     * Keeps the original flat wording shape when banding is off/unconfigured.
+     */
+    function loan_repayment_period_error(array $bounds): string
+    {
+        $message = 'repaymentPeriod must be between ' . $bounds['min'] . ' and ' . $bounds['max'] . ' months';
+
+        if ($bounds['banded']) {
+            $thresholdStr = money_from_minor((int) $bounds['thresholdMinor']);
+            $message .= $bounds['appliedBand'] === 'lower'
+                ? ' for a loan under ' . $thresholdStr . '.'
+                : ' for a loan of ' . $thresholdStr . ' or more.';
+        } else {
+            $message .= '.';
+        }
+
+        return $message;
     }
 }
 
@@ -372,13 +504,12 @@ if (!function_exists('request_loan')) {
             json_error('principalAmount exceeds the maximum loan amount for this group.', 422);
         }
 
-        $minMonths = (int) ($rules['loanRulesMinRepaymentMonths'] ?? LOAN_FALLBACK_MIN_MONTHS);
-        $maxMonths = (int) ($rules['loanRulesMaxRepaymentMonths'] ?? LOAN_FALLBACK_MAX_MONTHS);
-        if ($period < $minMonths || $period > $maxMonths) {
-            json_error(
-                'repaymentPeriod must be between ' . $minMonths . ' and ' . $maxMonths . ' months.',
-                422
-            );
+        // Amount-banded term bounds — the SAME helper used by force_loan() and
+        // loans.eligibility, so this gate, the forced-loan path, and the
+        // member's preview can never disagree on the allowed term.
+        $termBounds = loan_term_bounds_for_principal($rules, $principalMinor);
+        if ($period < $termBounds['min'] || $period > $termBounds['max']) {
+            json_error(loan_repayment_period_error($termBounds), 422);
         }
 
         // Single source of truth shared with loans.eligibility (loan_eligibility_endpoint)
@@ -704,28 +835,33 @@ if (!function_exists('loan_eligibility_endpoint')) {
                 $previewPrincipalMinor = money_to_minor(trim((string) $principalRaw));
                 $previewPeriod = (int) $periodRaw;
 
-                // Same bounds request_loan() enforces (loans.php ~283-290):
-                // clamp the preview into range rather than let an
-                // out-of-range repaymentPeriod reach compute_loan_schedule(),
-                // which loops 1..$period with no internal cap
-                // (money.php:159) — an unbounded period is an unbounded
-                // loop/payload.
-                $previewMinMonths = (int) ($rules['loanRulesMinRepaymentMonths'] ?? LOAN_FALLBACK_MIN_MONTHS);
-                $previewMaxMonths = (int) ($rules['loanRulesMaxRepaymentMonths'] ?? LOAN_FALLBACK_MAX_MONTHS);
-                if ($previewPeriod > $previewMaxMonths) {
-                    $previewPeriod = $previewMaxMonths;
-                } elseif ($previewPeriod > 0 && $previewPeriod < $previewMinMonths) {
-                    $previewPeriod = $previewMinMonths;
-                }
-
                 // Same principal cap request_loan() enforces (loans.php
                 // ~278-281) — a preview principal can't exceed the group
-                // max either.
+                // max either. Clamped BEFORE the term bounds below, since the
+                // amount band (loan_term_bounds_for_principal()) reads the
+                // principal that will actually be requested.
                 $previewMaxAmount = $rules['loanRulesMaxLoanAmount'] ?? null;
                 if ($previewMaxAmount !== null && $previewMaxAmount !== ''
                     && $previewPrincipalMinor > money_to_minor((string) $previewMaxAmount)
                 ) {
                     $previewPrincipalMinor = money_to_minor((string) $previewMaxAmount);
+                }
+
+                // Same amount-banded bounds request_loan()/force_loan()
+                // enforce (loan_term_bounds_for_principal()) — clamp the
+                // preview into range rather than let an out-of-range
+                // repaymentPeriod reach compute_loan_schedule(), which loops
+                // 1..$period with no internal cap (money.php:159) — an
+                // unbounded period is an unbounded loop/payload. Using the
+                // SAME helper as the enforcement gate is what keeps this
+                // preview and that gate from ever disagreeing.
+                $previewBounds = loan_term_bounds_for_principal($rules, $previewPrincipalMinor);
+                $previewMinMonths = $previewBounds['min'];
+                $previewMaxMonths = $previewBounds['max'];
+                if ($previewPeriod > $previewMaxMonths) {
+                    $previewPeriod = $previewMaxMonths;
+                } elseif ($previewPeriod > 0 && $previewPeriod < $previewMinMonths) {
+                    $previewPeriod = $previewMinMonths;
                 }
 
                 if ($previewPrincipalMinor > 0 && $previewPeriod > 0) {
@@ -1023,13 +1159,12 @@ if (!function_exists('force_loan')) {
             json_error('principalAmount exceeds the maximum loan amount for this group.', 422);
         }
 
-        $minMonths = (int) ($rules['loanRulesMinRepaymentMonths'] ?? LOAN_FALLBACK_MIN_MONTHS);
-        $maxMonths = (int) ($rules['loanRulesMaxRepaymentMonths'] ?? LOAN_FALLBACK_MAX_MONTHS);
-        if ($period < $minMonths || $period > $maxMonths) {
-            json_error(
-                'repaymentPeriod must be between ' . $minMonths . ' and ' . $maxMonths . ' months.',
-                422
-            );
+        // Amount-banded term bounds — the SAME helper request_loan() and
+        // loans.eligibility use, so a forced loan is never held to a
+        // different term rule than a self-requested one.
+        $termBounds = loan_term_bounds_for_principal($rules, $principalMinor);
+        if ($period < $termBounds['min'] || $period > $termBounds['max']) {
+            json_error(loan_repayment_period_error($termBounds), 422);
         }
 
         // loanRulesMaxActiveLoansByMember is deliberately NOT enforced here. That

@@ -31,6 +31,7 @@ Per-section format (live stack): `| Feature | Page | Script(s) | Endpoint(s) ?ac
 | group_rules penalty schema & live values | Live penalty columns, types, defaults + per-group values for J2 DDL | 119 | CURRENT |
 | Accounting-figure display surface | Ten cumulative group accounting figures across five pages, sources, verdicts, and live reconciliation | 121 | CURRENT |
 | Accounting drill-down surface | Group accounting position cards, modal mechanics, per-figure drill-down row sources | 125 | CURRENT |
+| Share-out / cycle settlement surface | `cycle.php` endpoints, response shapes, role gates, page shell/script patterns | 126 | CURRENT |
 
 ## Known before scanning (from setup scan, unverified detail)
 
@@ -2291,3 +2292,75 @@ Scripted via `getDbConnection()` + DESCRIBE queries + SELECT non-null counts on 
 ### DEAD
 
 None. All ten figures are rendered and referenced by renderAccountingFigures() (analytics_sql.js:572–574). Modal markup and handler are wired end-to-end.
+
+---
+
+## Share-out / cycle settlement surface (2026-08-07 scout)
+
+Three endpoints compose the end-of-cycle dividend/payout surface: `cycle.equity` (who is behind the borrowing target), `cycle.payout.preview` (show the share-out before settling), and `cycle.settle` (record payouts). **NOT wired to any page yet** — `financial_reports.html` loads shell + stub data, but does not call any cycle endpoints.
+
+### Endpoints
+
+| Endpoint | Route (api/index.php) | Method | Handler fn:line | Auth (role) | Request body keys | Response shape / HTTP status |
+|---|---|---|---|---|---|---|
+| `cycle.equity` | 113 | GET | `cycle_equity`:388 | admin, senior_admin, treasurer (line 392) | `groupId` (query param) | {groupId, members:[{uid, fullName, role, totalContributed, totalBorrowed, totalInterestPaid, interestOwed, shortfallVsTarget, needsForcedLoan}], summary:{memberCount, groupInterestPool, groupPenaltyPool, totalBorrowed, averageBorrowed, averageInterestPaid, minCycleLoanAmount}} (456–469) |
+| `cycle.payout.preview` | 114 | GET | `cycle_payout_preview`:598 | admin, senior_admin, treasurer (line 602) | `groupId` (query param) | {groupId, members:[{uid, fullName, totalContributed, totalBorrowed, totalInterestPaid, totalPenaltiesPaid, interestRefund, penaltyShare, payoutAmount}], summary:{memberCount, groupInterestPool, groupPenaltyPool, shareOutPenalties (bool), distributedPenalties, totalPayout, balances (bool)}} (629–642). **All money values are 2dp strings via money_from_minor(); balances is boolean.** Throws 500 if share-out does not reconcile (line 608 comment). |
+| `cycle.settle` | 115 | POST | `cycle_settle`:657 | **senior_admin only** (line 668) | groupId (required), confirm:**true** (boolean, must be strictly true, line 664) | {groupId, cycleStartDate, cycleEndDate, groupInterestPool, groupPenaltyPool, shareOutPenalties (bool), distributedPenalties, totalPayout, balances:**true**, payouts:[{payoutId, groupId, uid, cycleStartDate, cycleEndDate, totalContributed, totalBorrowed, totalInterestPaid, totalPenaltiesPaid, groupInterestPool, groupPenaltyPool, interestRefund, penaltyShare, payoutAmount, status:'settled', settledBy (uid), settledAt, createdAt, updatedAt}]} HTTP 201 (782). |
+
+### Preconditions & Error Responses
+
+**cycle.settle only:**
+- confirm !== true → 422: "confirm must be true to settle a cycle." (line 665)
+- No cycle configured (cycleDurationStartDate empty) → 409: "This group has no cycle configured; a cycle cannot be settled." (line 674)
+- Already settled for this cycle (cycle_payouts row with status='settled' exists) → 409: "This cycle has already been settled." (line 690)
+- Share-out does not balance (reconciliation fails) → 500: "The share-out does not balance; the cycle cannot be settled." (lines 698, 711)
+- No active members → 409: "This group has no active members to settle." (line 702)
+
+### Page Shell Pattern (financial_reports.html)
+
+**HEAD:** Lines 12–15 (required stylesheet imports)
+```html
+<link rel="stylesheet" href="../styles/design-system.css">
+<link rel="stylesheet" href="../styles/admin-layout.css">
+<link rel="stylesheet" href="../styles/pages.css">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+```
+
+**NAV:** Line 41 — `<body data-nav-variant="admin" data-nav-active-page="reports" data-nav-page-title="Financial Reports">`
+
+**SCRIPT MODULES:** Lines 196–197 — **two modules, always in this order** (page-bootstrap injected first, then page-specific):
+```html
+<script type="module" src="../scripts/page-bootstrap.js?v=20260722"></script>
+<script type="module" src="../scripts/financial_reports_sql.js?v=20260722"></script>
+```
+
+### Script Pattern (financial_reports_sql.js)
+
+**Bootstrap (lines 100–111):**
+- Export `init()` function called by bootstrap + SPA router (line 100)
+- Line 104: `currentUser = await requireSession()` — 401 redirects to login; throws if no session
+- Line 110: `await loadAdminGroups()` — calls `listMyGroups()`, filters by role, populates group selector
+
+**Group Resolution (lines 208–211):**
+- `currentGroupId = group.groupId || group.id` (can be either key; mirrors group object shape from listMyGroups)
+- Stored in sessionStorage at line 211: `sessionStorage.setItem("selectedGroupId", currentGroupId)`
+
+**apiGet Usage (examples):**
+- Line 244: `const data = await apiGet("members.list", {groupId: currentGroupId});`
+- Line 254: `const data = await apiGet("payments.list", {groupId: currentGroupId});`
+- Line 265: `await apiGet("cycle.equity", {groupId: currentGroupId});` ← **cycle endpoint already in use in analytics_sql.js, not here**
+- Line 588: `const data = await apiGet("statement.get", {groupId: currentGroupId, uid});`
+
+**Money Display (line 50, used throughout):**
+- Import: `import { formatCurrency } from "./utils_financial.js";`
+- Usage: `formatCurrency(serverAmount)` where serverAmount is a 2dp money string from the API (lines 330–333, 378, 644, 645, 681, 714–721)
+
+### GAPS
+
+None. All three endpoints are routed, handlers exist, and role gates are in place.
+
+### DEAD
+
+**cycle.payout.preview not called by any page.** Grep returns no matches in pages/ or scripts/ (searched for `cycle\.(payout|settle|equity|forced)` and `share.?out|dividend|payout|cycle\.(settle|payout)`). References exist only in cycle.php comments and at the route table (api/index.php:114–115). **financial_reports.html does not wire to any cycle endpoint yet** — it loads shell + data, but the "Share-out" / "Cycle Settlement" section is a stub (not rendered from live API calls).
+
+**cycle.settle not called by any page.** Same grep evidence as above — no call sites in pages/ or scripts/.

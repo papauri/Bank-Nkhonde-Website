@@ -77,7 +77,7 @@ import {
   downloadExport,
 } from "./api.js";
 import { formatCurrency, formatCurrencyFromMinor } from "./utils_financial.js";
-import { attachCardInfo, pageStatInfo } from "./card_info.js";
+import { attachCardInfo, infoContent, pageStatInfo } from "./card_info.js";
 import { emptyState, skeletonRows, renderQuickAmounts } from "./ui.js";
 
 // ── Global state ────────────────────────────────────────────────────────────
@@ -247,18 +247,42 @@ function setupEventListeners() {
   document.getElementById("collectedStat")?.addEventListener("click", () => activateTab("recent"));
 
   // Standardized info toggles on the four headline stat cards
+  // Rows are lazy (see attachPageStatInfo) so they show the CURRENT data, and
+  // "go and look at it" is an action button rather than a pretend row.
+  const jumpTo = (tab, label) => ({
+    label,
+    onClick: () => {
+      activateTab(tab);
+      document.getElementById("pendingPaymentsList")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    },
+  });
+
   attachPageStatInfo("pendingCount", "Pending Payments",
     "Payments members have submitted that are waiting for an admin to approve or reject. None of this money is counted as received yet.",
-    [["Click the card", "to see pending payments"]]);
+    () => pendingByMemberRows(),
+    jumpTo("pending", "See pending payments →"));
   attachPageStatInfo("approvedCount", "Approved Payments",
     "Payments an admin has verified — the money has been received and counted toward the member's standing.",
-    [["Click the card", "to see recent activity"]]);
+    () => recordedByStatusRows(),
+    jumpTo("recent", "See recent activity →"));
   attachPageStatInfo("totalCollected", "Total Collected",
     "Total verified money received from members — seed money, monthly contributions and service fees combined.",
-    [["Click the card", "to see recent activity"]]);
+    () => collectedByTypeRows(),
+    jumpTo("recent", "See recent activity →"));
   attachPageStatInfo("totalArrears", "Outstanding Arrears",
     "What members still owe the group right now. This is today's live position — contributions not yet paid plus any penalties.",
-    [["Click the card", "to see members in arrears"]]);
+    () => {
+      const d = complianceData;
+      if (!d || !d.toDate) return undefined;
+      return [
+        ["Already overdue", formatCurrency(d.toDate.overdue)],
+        ["Not yet due", formatCurrency(d.toDate.notYetDue)],
+        ["Total outstanding", formatCurrency(d.toDate.outstanding)],
+        ["Members behind", String(d.membersBehind ?? 0)],
+      ];
+    },
+    jumpTo("arrears", "See members in arrears →"));
 
   document.getElementById("filterByMember")?.addEventListener("change", renderCurrentTab);
   document.getElementById("filterByPaymentType")?.addEventListener("change", renderCurrentTab);
@@ -554,18 +578,26 @@ function updateStats() {
   const approved = allPayments.filter((p) => SETTLED_STATUSES.includes(p.approvalStatus)).length;
 
   let totalCollected = 0;
-  let totalArrears = 0;
   allPayments.forEach((p) => {
     if (SETTLED_STATUSES.includes(p.approvalStatus)) {
       totalCollected += numberOf(p.amountPaid);
     }
-    totalArrears += numberOf(p.arrears);
   });
 
   setText("pendingCount", pending);
   setText("approvedCount", approved);
   setText("totalCollected", formatCurrency(totalCollected));
-  setText("totalArrears", formatCurrency(totalArrears));
+
+  /* The Arrears headline reads the SERVER's group figure, matching the Arrears
+     tile on the admin dashboard so the same word means the same money on both
+     screens. It used to sum the persisted `payments.arrears` column here and
+     showed MWK 204,900.00 while the server's position was 135,000.00 overdue +
+     258,200.00 penalties = 393,200.00 — a figure that matched nothing, and the
+     source of the contradiction the owner saw inside the Accounting Summary.
+     Left blank rather than guessed if the endpoint has not answered yet. */
+  if (groupArrearsData && groupArrearsData.totalArrears != null) {
+    setText("totalArrears", formatCurrency(groupArrearsData.totalArrears));
+  }
 }
 
 // ── Accounting summary (status banner + period totals + follow-up list) ──────
@@ -620,7 +652,22 @@ function acctTotalTile(label, value, cls, opts = {}) {
   tile.append(l, v);
 
   if (opts.info) {
-    attachCardInfo(tile, {label: `About ${label}`, content: opts.info});
+    /* A plain string used to be passed straight through as the panel's whole
+       body, so these tiles opened as one unlabelled paragraph — no title, no
+       derivation rows — while the stat tiles above them opened as a titled,
+       itemised panel. Wrapping it here fixes every tile on the page at once,
+       including any added later.
+       `rows` is resolved at OPEN time so it reflects the current period filter. */
+    attachCardInfo(tile, {
+      label: `About ${label}`,
+      content: (host) =>
+        infoContent({
+          title: label,
+          description: opts.info,
+          rows: typeof opts.rows === "function" ? opts.rows() : opts.rows,
+          action: opts.action,
+        })(host),
+    });
   }
   return tile;
 }
@@ -629,20 +676,37 @@ function acctTotalTile(label, value, cls, opts = {}) {
 let complianceData = null;
 
 /**
+ * Latest payments.groupArrears response, or null.
+ *
+ * The Accounting Summary needs it: compliance answers "what is still owed",
+ * but it carries NO penalty figure at all, so the summary could state a group's
+ * receivable while silently omitting MWK 258,200.00 of accrued penalties. An
+ * accounting summary that leaves out a quarter of a million kwacha of charges
+ * is not a summary.
+ */
+let groupArrearsData = null;
+
+/**
  * Load the group's rule-based position for the current month — what the rules
  * say SHOULD come in, what actually has, and exactly who is short. Every figure
  * is computed server-side; this only renders.
  */
 async function loadCompliance() {
   if (!selectedGroupId) return;
-  try {
-    complianceData = await apiGet("payments.compliance", {groupId: selectedGroupId});
-  } catch (error) {
-    // A group with no rules configured yet legitimately has nothing to compare
-    // against — that's not an error worth interrupting the page for.
-    complianceData = null;
-  }
+  const [comp, arrears] = await Promise.all([
+    apiGet("payments.compliance", {groupId: selectedGroupId}).catch(() => null),
+    apiGet("payments.groupArrears", {groupId: selectedGroupId}).catch(() => null),
+  ]);
+  // A group with no rules configured yet legitimately has nothing to compare
+  // against — that's not an error worth interrupting the page for.
+  complianceData = comp;
+  groupArrearsData = arrears && arrears.totalArrears != null ? arrears : null;
   renderCompliance();
+  // The Arrears headline waits on groupArrears, so refresh it once that lands.
+  updateStats();
+  // The Accounting Summary quotes both of these, so it has to re-render once
+  // they land — otherwise it shows its first-paint figures forever.
+  renderAccountantSummary();
 }
 
 /**
@@ -804,69 +868,46 @@ function renderCompliance() {
       toDateNote
     );
     row.classList.add("has-info");
+    // The ONLY info panel in the app that passed a bare string, so it opened as
+    // a wall of prose with no title and none of the derivation rows every other
+    // panel shows. Now on the shared shape: title → sentence → the figures.
     attachCardInfo(row, {
       label: "About cycle to date",
-      content:
-        "Everything the group's rules have actually asked for since the cycle began: seed money once per "
-        + "member, plus one contribution per member for each month of the cycle that has started. Months "
-        + "before the cycle started were never owed, and months that have not begun are not counted. "
-        + "The member list below adds up to exactly the outstanding figure on this row.",
+      content: infoContent({
+        title: "Cycle to date",
+        description:
+          "Everything the group's rules have actually asked for since the cycle began: seed money once per "
+          + "member, plus one contribution per member for each month of the cycle that has started. Months "
+          + "before the cycle started were never owed, and months that have not begun are not counted.",
+        rows: [
+          ["Months counted", String((toDate.monthsCounted || []).length)],
+          ["Of those, overdue", String((toDate.overdueMonths || []).length)],
+          ["Expected", formatCurrency(toDate.expected)],
+          ["Collected", formatCurrency(toDate.collected)],
+          ["Still outstanding", formatCurrency(toDate.outstanding)],
+          ["…already overdue", formatCurrency(toDate.overdue)],
+          ["…not yet due", formatCurrency(toDate.notYetDue)],
+        ],
+      }),
     });
     panel.appendChild(row);
   }
 
-  // Exactly who, and which obligation they're missing. This list belongs to the
-  // cycle-to-date row above and sums to its outstanding total.
-  if (Array.isArray(d.behind) && d.behind.length) {
-    const listHead = document.createElement("div");
-    listHead.className = "compliance-list-head";
-    listHead.textContent = toDate
-      ? `Who owes what — ${formatCurrency(toDate.outstanding)} in total`
-      : "Who owes what";
-    panel.appendChild(listHead);
-
-    const list = document.createElement("div");
-    list.className = "acct-followups-list";
-    d.behind.slice(0, 8).forEach((m) => {
-      const row = document.createElement("div");
-      row.className = "acct-followup-row";
-
-      const who = document.createElement("span");
-      who.className = "acct-followup-name";
-      who.textContent = m.name;
-
-      const what = document.createElement("span");
-      what.className = "field-hint";
-      what.style.margin = "0";
-      what.textContent = Array.isArray(m.missing) ? m.missing.join(", ") : "";
-
-      const amt = document.createElement("span");
-      amt.className = "acct-followup-amt";
-      amt.textContent = formatCurrency(m.owed);
-
-      // A member who owes money that is not yet due is not "behind" — label the
-      // two states differently so the treasurer knows who to actually chase.
-      const state = document.createElement("span");
-      state.className = "acct-followup-state" + (m.isOverdue ? " is-overdue" : " is-pending");
-      state.textContent = m.isOverdue ? `${formatCurrency(m.overdue)} overdue` : "not due yet";
-
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "btn btn-ghost btn-sm";
-      btn.textContent = "Remind";
-      btn.addEventListener("click", () => openSendRemindersModal());
-
-      row.append(who, what, amt, state, btn);
-      list.appendChild(row);
-    });
-    panel.appendChild(list);
-
-    if (d.behind.length > 8) {
-      const more = document.createElement("div");
-      more.className = "acct-followup-more";
-      more.textContent = `+${d.behind.length - 8} more owing`;
-      panel.appendChild(more);
-    }
+  /* The per-member list lived here AND in the follow-up block below, rendering
+     the same five members with the same amounts twice inside one section. The
+     follow-up block owns it: it carries the overdue/not-yet-due split per
+     member, an expandable breakdown, the penalties line and Send reminders.
+     This block's job is the two collected-vs-expected scopes, so it now ends
+     with a pointer instead of a second copy. */
+  if (Array.isArray(d.behind) && d.behind.length && toDate) {
+    const pointer = document.createElement("div");
+    pointer.className = "field-hint";
+    pointer.style.cssText = "margin: var(--bn-space-2) 0 0;";
+    const n = d.behind.length;
+    pointer.textContent =
+      `Who owes what — ${formatCurrency(toDate.outstanding)} across ${n} member${n === 1 ? "" : "s"} — ` +
+      "is listed under “Who to follow up on” below.";
+    panel.appendChild(pointer);
   }
 
   host.appendChild(panel);
@@ -917,11 +958,28 @@ function renderCategoryBreakdown(period) {
   if (!host) return;
   host.textContent = "";
 
+  /* ONE money figure per card — what was COLLECTED in the selected period —
+     and a server-derived COUNT of who still owes it.
+
+     The cards used to also print a per-category "owed" and "penalties" figure,
+     both re-summed in the browser from the persisted arrears column. Those
+     subtotals came to 204,900.00 and 252,600.00 against the server's true
+     184,900.00 outstanding and 258,200.00 penalties — so the breakdown
+     contradicted the section it sat inside, in two different directions.
+     The server does not split the receivable by payment type, so rather than
+     invent a split, the cards now show how many members are still missing that
+     category (counted from compliance.behind[].missing) and leave the one
+     authoritative money total to the tile and follow-up block above. */
+  const behindRows = Array.isArray(complianceData?.behind) ? complianceData.behind : [];
+  const categoryOf = (missingLabel) => {
+    if (/seed/i.test(missingLabel)) return "seed_money";
+    if (/service/i.test(missingLabel)) return "service_fee";
+    if (/contribution/i.test(missingLabel)) return "monthly_contribution";
+    return null;
+  };
+
   const rows = PAYMENT_CATEGORIES.map((cat) => {
     let collected = 0;
-    let outstanding = 0;
-    let penalties = 0;
-    const behind = new Set();
     let present = false;
 
     allPayments.forEach((p) => {
@@ -933,17 +991,16 @@ function renderCategoryBreakdown(period) {
       ) {
         collected += numberOf(p.amountPaid);
       }
-      // Arrears/penalties are the CURRENT receivable — deliberately not
-      // period-scoped, so "who is behind" is always today's truth.
-      const owed = numberOf(p.arrears);
-      if (owed > 0) {
-        outstanding += owed;
-        behind.add(p.uid);
-      }
-      if (p.penalty) penalties += numberOf(penaltyOwed(p.penalty));
     });
 
-    return {cat, collected, outstanding, penalties, behind: behind.size, present};
+    // How many members are still missing anything in this category, per the
+    // server's own list. A count, not money.
+    const owingMembers = behindRows.filter((b) =>
+      (Array.isArray(b.missing) ? b.missing : []).some((m) => categoryOf(m) === cat.type),
+    ).length;
+    if (owingMembers > 0) present = true;
+
+    return {cat, collected, owingMembers, present};
   }).filter((r) => r.present);
 
   if (label) label.style.display = rows.length ? "" : "none";
@@ -983,32 +1040,23 @@ function renderCategoryBreakdown(period) {
     const meta = document.createElement("div");
     meta.className = "acct-category-meta";
 
+    // The figure's own caption carries its scope: a bare "collected" under a
+    // period-scoped amount, beside a not-period-scoped "owed", was the reason
+    // these cards could not be read against each other.
     const collectedNote = document.createElement("span");
-    collectedNote.textContent = "collected";
+    collectedNote.textContent = `collected · ${acctPeriodLabel(period).toLowerCase()}`;
     meta.appendChild(collectedNote);
 
-    if (r.outstanding > 0) {
-      const owed = document.createElement("span");
-      owed.className = "acct-category-flag";
-      owed.textContent = `${formatCurrency(r.outstanding)} owed`;
-      meta.appendChild(owed);
-
+    if (r.owingMembers > 0) {
       const who = document.createElement("span");
       who.className = "acct-category-flag";
-      who.textContent = `${r.behind} behind`;
+      who.textContent = `${r.owingMembers} member${r.owingMembers === 1 ? "" : "s"} still owe this`;
       meta.appendChild(who);
     } else {
       const ok = document.createElement("span");
       ok.className = "acct-category-ok";
-      ok.textContent = "✓ all paid";
+      ok.textContent = "✓ nobody owes this";
       meta.appendChild(ok);
-    }
-
-    if (r.penalties > 0) {
-      const pen = document.createElement("span");
-      pen.className = "acct-category-flag";
-      pen.textContent = `${formatCurrency(r.penalties)} penalties`;
-      meta.appendChild(pen);
     }
 
     card.append(head, amount, meta);
@@ -1019,6 +1067,103 @@ function renderCategoryBreakdown(period) {
     });
     host.appendChild(card);
   });
+}
+
+/* ── Info-panel derivations for the period tiles ─────────────────────────────
+   DELIBERATELY COUNTS AND PER-ROW FIGURES ONLY — these helpers never add money
+   up. `collected` on the tile above is already summed in the browser (a
+   pre-existing A2 violation on this page, left alone here rather than
+   compounded); bucketing those same rows into per-type money subtotals would
+   add a second client-side total that could drift from the first. A count is
+   not money, and a row's own `amountPaid` is the server's figure for that row.
+──────────────────────────────────────────────────────────────────────────── */
+
+/** Payments in the selected period, settled only. */
+function settledInPeriod() {
+  const period = document.getElementById("acctPeriodFilter")?.value || "all";
+  return allPayments.filter(
+    (p) =>
+      inAcctPeriod(p.paidAt || p.createdAt, period) &&
+      SETTLED_STATUSES.includes(p.approvalStatus),
+  );
+}
+
+/** How many settled payments of each type, each expandable to the actual rows. */
+function collectedByTypeRows() {
+  const rows = settledInPeriod();
+  if (!rows.length) return undefined;
+  const types = new Map();
+  for (const p of rows) {
+    const key = String(p.paymentType || "other");
+    if (!types.has(key)) types.set(key, []);
+    types.get(key).push(p);
+  }
+  return [...types.entries()].map(([type, list]) => ({
+    label: paymentTypeName(type),
+    value: `${list.length} payment${list.length === 1 ? "" : "s"}`,
+    detail: () =>
+      list.map((p) => [
+        `${memberName(p.uid)}${p.month ? ` · ${p.month}` : ""}`,
+        formatCurrency(p.amountPaid ?? "0.00"),
+      ]),
+    detailLabel: `Show the ${paymentTypeName(type)} payments`,
+  }));
+}
+
+/** How many payments in the period sit at each status. Counts only. */
+function recordedByStatusRows() {
+  const period = document.getElementById("acctPeriodFilter")?.value || "all";
+  const rows = allPayments.filter((p) => inAcctPeriod(p.paidAt || p.createdAt, period));
+  if (!rows.length) return undefined;
+  const byStatus = new Map();
+  for (const p of rows) {
+    const key = String(p.approvalStatus || "unknown");
+    byStatus.set(key, (byStatus.get(key) || 0) + 1);
+  }
+  return [...byStatus.entries()].map(([status, count]) => [
+    status.charAt(0).toUpperCase() + status.slice(1),
+    String(count),
+  ]);
+}
+
+/** Each pending payment, with its own server amount. Nothing totalled. */
+function pendingByMemberRows() {
+  const rows = allPayments.filter((p) => p.approvalStatus === "pending");
+  if (!rows.length) return undefined;
+  return rows.map((p) => [
+    `${memberName(p.uid)} · ${paymentTypeName(p.paymentType)}`,
+    formatCurrency(p.amountPaid ?? "0.00"),
+  ]);
+}
+
+/**
+ * Plain-language name for the period selector's value, so a tile can carry its
+ * own scope in its label instead of leaving the reader to check the dropdown.
+ * @param {string} period
+ * @return {string}
+ */
+function acctPeriodLabel(period) {
+  const map = {
+    all: "All time",
+    month: "This month",
+    quarter: "This quarter",
+    year: "This year",
+    q1: "Q1 (Jan–Mar)",
+    q2: "Q2 (Apr–Jun)",
+    q3: "Q3 (Jul–Sep)",
+    q4: "Q4 (Oct–Dec)",
+  };
+  return map[String(period)] || "Selected period";
+}
+
+/** Human label for a payment type enum. */
+function paymentTypeName(type) {
+  const map = {
+    seed_money: "Seed money",
+    monthly_contribution: "Monthly contribution",
+    service_fee: "Service fee",
+  };
+  return map[String(type)] || "Other";
 }
 
 function renderAccountantSummary() {
@@ -1043,17 +1188,37 @@ function renderAccountantSummary() {
     if (p.approvalStatus === "pending") pending += 1;
   });
 
-  // Current arrears per member = the live receivable (not period-scoped): who
-  // is behind right now, ranked most-behind first.
-  const arrearsByMember = new Map();
-  allPayments.forEach((p) => {
-    const a = numberOf(p.arrears);
-    if (a > 0) arrearsByMember.set(p.uid, (arrearsByMember.get(p.uid) || 0) + a);
-  });
-  const followups = Array.from(arrearsByMember.entries())
-    .map(([uid, amt]) => ({ uid, amt, name: memberName(uid) }))
+  /* WHO OWES WHAT — the SERVER's own list, not a re-summation here.
+     This used to bucket the persisted `payments.arrears` column by member in
+     the browser. That produced MWK 204,900.00 against a true MWK 184,900.00,
+     because the column carries rows for months outside the cycle window (a
+     December obligation the group is not yet owed) — the same defect already
+     fixed on the admin dashboard and in the arrears modal.
+     `compliance.behind[]` reconciles BY CONSTRUCTION: sum(owed) ===
+     toDate.outstanding, and each row carries its own overdue / notYetDue
+     split. Proven live: 5 rows summing to exactly 184,900.00. */
+  const behind = Array.isArray(complianceData?.behind) ? complianceData.behind : [];
+  const followups = behind
+    .map((b) => ({
+      uid: b.uid,
+      name: b.name || memberName(b.uid),
+      amt: numberOf(b.owed),
+      overdue: numberOf(b.overdue),
+      notYetDue: numberOf(b.notYetDue),
+      isOverdue: !!b.isOverdue,
+      missing: Array.isArray(b.missing) ? b.missing : [],
+      overdueMissing: Array.isArray(b.overdueMissing) ? b.overdueMissing : [],
+    }))
     .sort((a, b) => b.amt - a.amt);
-  const totalArrears = followups.reduce((s, f) => s + f.amt, 0);
+
+  // The section's headline figures, all server strings.
+  const toDate = complianceData?.toDate || null;
+  const outstandingStr = toDate ? String(toDate.outstanding) : "0.00";
+  const overdueStr = toDate ? String(toDate.overdue) : "0.00";
+  const notYetDueStr = toDate ? String(toDate.notYetDue) : "0.00";
+  const penaltyStr = groupArrearsData ? String(groupArrearsData.penaltyAccrued) : null;
+  const membersBehindN = Number(complianceData?.membersBehind ?? 0);
+  const membersOwingN = Number(complianceData?.membersOwing ?? 0);
 
   // Status banner — use the server's compliance data (which includes seed money
   // and all obligations) rather than just the payments list (which only has rows
@@ -1064,30 +1229,37 @@ function renderAccountantSummary() {
     banner.textContent = "";
     const b = document.createElement("div");
 
-    // The compliance endpoint returns membersOwing (anyone with an outstanding
-    // balance, including seed money) and membersBehind (anyone LATE). Use
-    // membersOwing for the "caught up" check — if anyone owes anything, the
-    // group is not caught up, even if nothing is overdue yet.
-    const membersOwing = Number(complianceData?.membersOwing ?? 0);
-    const membersBehind = Number(complianceData?.membersBehind ?? 0);
-    const complianceOutstanding = toMinorSafe(complianceData?.toDate?.outstanding ?? "0");
-
-    if (membersOwing === 0 && followups.length === 0) {
+    /* ONE definition per figure, straight from the server.
+       This previously printed `Math.max(serverOutstanding, clientSummedArrears)`
+       and `Math.max(membersBehind, followups.length)` — deliberately whichever
+       number was BIGGER. That manufactured a headline ("5 members · MWK
+       204,900.00 outstanding") that matched neither source and contradicted the
+       compliance block directly beneath it, which read 184,900.00.
+       LATE and OWING are also different questions and are now stated as two
+       clauses instead of being collapsed into one ambiguous count. */
+    if (membersOwingN === 0) {
       b.className = "acct-banner caught-up";
-      b.textContent = "✓ All caught up — no outstanding arrears";
-    } else if (membersBehind > 0 || followups.length > 0) {
+      b.textContent = "✓ All caught up — every member is paid up to date";
+    } else if (membersBehindN > 0) {
       b.className = "acct-banner follow-up";
-      const count = Math.max(membersBehind, followups.length);
-      b.textContent =
-        `⚠ ${count} member${count === 1 ? "" : "s"} to follow up · ` +
-        `${formatCurrency(Math.max(complianceOutstanding / 100, totalArrears))} outstanding`;
+      const parts = [
+        `⚠ ${membersBehindN} of ${membersOwingN} member${membersOwingN === 1 ? "" : "s"} who owe money ${membersBehindN === 1 ? "is" : "are"} LATE`,
+        `${formatCurrency(overdueStr)} overdue now`,
+      ];
+      if (numberOf(notYetDueStr) > 0) {
+        parts.push(`${formatCurrency(notYetDueStr)} not yet due`);
+      }
+      if (penaltyStr && numberOf(penaltyStr) > 0) {
+        parts.push(`${formatCurrency(penaltyStr)} penalties accrued`);
+      }
+      b.textContent = parts.join(" · ");
     } else {
-      // membersOwing > 0 but membersBehind === 0: people owe money but nothing
-      // is overdue yet (e.g., seed money due next week).
+      // Owing but nothing late yet — e.g. seed money due next week. Saying
+      // "behind" here would accuse members who have not missed anything.
       b.className = "acct-banner follow-up";
       b.textContent =
-        `⚠ ${membersOwing} member${membersOwing === 1 ? "" : "s"} still owe money · ` +
-        `${formatCurrency(complianceOutstanding / 100)} outstanding`;
+        `⚠ ${membersOwingN} member${membersOwingN === 1 ? "" : "s"} still owe ${formatCurrency(outstandingStr)} — ` +
+        "nothing is late yet";
     }
     banner.appendChild(b);
   }
@@ -1102,24 +1274,61 @@ function renderAccountantSummary() {
         ?.scrollIntoView({behavior: "smooth", block: "start"});
     };
 
+    /* EVERY TILE NAMES ITS OWN SCOPE.
+       Three of these four are scoped to the period selector and the fourth is
+       today's live position, and nothing said so — four figures sat in a row
+       looking like one set. The period name is now in the label itself, so a
+       tile cannot be read against the wrong window. */
+    const periodName = acctPeriodLabel(period);
+
     totals.append(
-      acctTotalTile("Collected", formatCurrency(collected), "pos", {
+      acctTotalTile(`Collected · ${periodName}`, formatCurrency(collected), "pos", {
         onClick: jump("recent"),
-        info: "Money actually received in the selected period — payments approved or completed. "
+        info: `Money actually received ${periodName.toLowerCase()} — payments approved or completed. `
           + "Pending payments are not counted until an admin approves them.",
+        // Split by what the money was FOR. Each figure is that payment row's own
+        // server amount, bucketed — the tile total is not re-derived from these.
+        rows: () => collectedByTypeRows(),
       }),
-      acctTotalTile("Payments recorded", String(recorded), "", {
+      acctTotalTile(`Payments recorded · ${periodName}`, String(recorded), "", {
         onClick: jump("recent"),
-        info: "How many payment entries were logged in the selected period, whatever their status.",
+        info: `How many payment entries were logged ${periodName.toLowerCase()}, whatever their status.`,
+        rows: () => recordedByStatusRows(),
       }),
-      acctTotalTile("Pending approval", String(pending), pending > 0 ? "warn" : "", {
+      acctTotalTile("Pending approval · now", String(pending), pending > 0 ? "warn" : "", {
         onClick: jump("pending"),
-        info: "Payments members have submitted that still need an admin to approve or reject them.",
+        info: "Payments members have submitted that still need an admin to approve or reject them. "
+          + "Not scoped to the period above — this is everything currently waiting.",
+        rows: () => pendingByMemberRows(),
       }),
-      acctTotalTile("Outstanding arrears", formatCurrency(totalArrears), totalArrears > 0 ? "neg" : "", {
+      // The receivable, from the server. Was a browser re-summation of the
+      // persisted arrears column and read 204,900.00 against a true 184,900.00.
+      acctTotalTile("Still owed · today", formatCurrency(outstandingStr), numberOf(outstandingStr) > 0 ? "neg" : "", {
         onClick: jump("arrears"),
-        info: "Total still owed across the group right now. This is today's position, not the "
-          + "selected period — it is what members currently owe.",
+        info: "What members still owe for the cycle so far — overdue money plus money that is due "
+          + "but not late yet. Today's position, NOT the period selected above. Penalties are "
+          + "charged on top and are shown separately.",
+        rows: () => {
+          const rows = [
+            ["Overdue now", formatCurrency(overdueStr)],
+            ["Not yet due", formatCurrency(notYetDueStr)],
+            ["Still owed in total", formatCurrency(outstandingStr)],
+          ];
+          if (penaltyStr != null) {
+            rows.push(["Penalties accrued (on top)", formatCurrency(penaltyStr)]);
+            if (groupArrearsData && groupArrearsData.totalArrears != null) {
+              rows.push([
+                "Overdue + penalties",
+                formatCurrency(groupArrearsData.totalArrears),
+              ]);
+            }
+          }
+          rows.push(
+            ["Members late", String(membersBehindN)],
+            ["Members with any balance", String(membersOwingN)],
+          );
+          return rows;
+        },
       }),
     );
   }
@@ -1148,14 +1357,38 @@ function renderAccountantSummary() {
       const summary = document.createElement("div");
       summary.className = "acct-followups-summary";
       summary.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: var(--bn-space-4) var(--bn-space-5); background: var(--bn-gray-50); border-radius: var(--bn-radius-lg); margin-bottom: var(--bn-space-3); border: 1px solid var(--bn-gray-lighter);";
+      /* The label says WHICH members and WHAT the amount is, and the amount is
+         the server's own total for exactly the rows listed below it. It read
+         "N members behind · total owed" against a client-summed figure, so the
+         count included members who owed but were not late, and the total did
+         not match the list. */
       const summaryLabel = document.createElement("span");
       summaryLabel.style.cssText = "font-weight: 700; color: var(--bn-dark); font-size: var(--bn-text-base);";
-      summaryLabel.textContent = `${followups.length} member${followups.length === 1 ? "" : "s"} behind · total owed`;
+      const lateN = followups.filter((f) => f.isOverdue).length;
+      summaryLabel.textContent =
+        `${followups.length} member${followups.length === 1 ? "" : "s"} owe money` +
+        (lateN ? ` (${lateN} late)` : "") +
+        " · still owed in total";
       const summaryAmt = document.createElement("span");
       summaryAmt.style.cssText = "font-weight: 800; color: var(--bn-danger-dark); font-size: var(--bn-text-lg); font-variant-numeric: tabular-nums;";
-      summaryAmt.textContent = formatCurrency(totalArrears);
+      summaryAmt.textContent = formatCurrency(outstandingStr);
       summary.append(summaryLabel, summaryAmt);
       fu.appendChild(summary);
+
+      // Penalties are charged ON TOP of the figure above. Leaving them out of a
+      // "who to follow up on" block understates what the group is actually owed.
+      if (penaltyStr != null && numberOf(penaltyStr) > 0) {
+        const pen = document.createElement("div");
+        pen.style.cssText =
+          "display:flex; justify-content:space-between; padding:0 var(--bn-space-5) var(--bn-space-3); font-size:var(--bn-text-sm); color:var(--bn-gray);";
+        const pl = document.createElement("span");
+        pl.textContent = "Late penalties accrued, charged on top";
+        const pv = document.createElement("span");
+        pv.style.cssText = "font-weight:700; font-variant-numeric:tabular-nums;";
+        pv.textContent = formatCurrency(penaltyStr);
+        pen.append(pl, pv);
+        fu.appendChild(pen);
+      }
 
       const list = document.createElement("div");
       list.className = "acct-followups-list";
@@ -1168,7 +1401,8 @@ function renderAccountantSummary() {
       if (followups.length > 8) {
         const more = document.createElement("div");
         more.className = "acct-followup-more";
-        more.textContent = `+${followups.length - 8} more with arrears`;
+        // "with arrears" was wrong for anyone owing money that is not late yet.
+        more.textContent = `+${followups.length - 8} more member${followups.length - 8 === 1 ? "" : "s"} owing money (not shown)`;
         fu.appendChild(more);
       }
     }
@@ -1176,61 +1410,36 @@ function renderAccountantSummary() {
 }
 
 /**
- * Build a rich follow-up row for a member in arrears — shows what they owe
- * with an expandable dropdown showing each obligation separately.
+ * One follow-up row, built ENTIRELY from the server's `compliance.behind[]`
+ * entry for that member.
  *
- * SEED MONEY IS THE ENTRY OBLIGATION. It is always listed first — before
- * any monthly contributions — because it must be paid before a member can
- * access loans or be considered in good standing. The dropdown makes this
- * ordering explicit so no one reads a seed-money figure as "just another
- * monthly contribution".
+ * It used to gather the member's obligations by scanning `allPayments` for a
+ * non-zero `arrears` column. That column carries rows the group is not yet owed
+ * — it produced a duplicate "Seed" line and a December obligation for a cycle
+ * that has only reached August — so a row could neither be trusted nor add up
+ * to the total above it.
  *
- * @param {{uid:string, amt:number, name:string}} f
+ * SEED MONEY IS THE ENTRY OBLIGATION and is listed first: it is due before
+ * monthly contributions run and bars borrowing until it is paid, so it must
+ * never read as just another month.
+ *
+ * @param {{uid:string, name:string, amt:number, overdue:number, notYetDue:number,
+ *          isOverdue:boolean, missing:string[], overdueMissing:string[]}} f
  * @return {HTMLElement}
  */
 function buildFollowupRow(f) {
   const row = document.createElement("div");
   row.className = "acct-followup-row";
 
-  // Gather obligations from allPayments, ordering seed money FIRST
-  const obligations = [];
-  const now = new Date();
-  let hasOverdue = false;
-  let totalPenalty = 0;
-
-  for (const p of allPayments) {
-    if (String(p.uid) !== String(f.uid)) continue;
-    const a = numberOf(p.arrears);
-    if (a <= 0) continue;
-    const label = PAYMENT_TYPE_LABELS[p.paymentType] || p.paymentType;
-    const penaltyMinor = p.penalty ? toMinorSafe(penaltyOwed(p.penalty)) : 0;
-    const due = p.dueDate ? new Date(String(p.dueDate).replace(" ", "T")) : null;
-    const isOverdue = (p.paymentType === "seed_money" && a > 0)
-      || (due && !Number.isNaN(due.getTime()) && due < now);
-
-    if (isOverdue) hasOverdue = true;
-    totalPenalty += penaltyMinor;
-
-    obligations.push({
-      type: p.paymentType,
-      label,
-      month: p.month || null,
-      arrears: a,
-      penalty: penaltyMinor,
-      isOverdue,
-      totalAmount: numberOf(p.totalAmount || "0"),
-      paid: numberOf(p.amountPaid || "0"),
-    });
-  }
-
-  // Sort: seed_money first, then monthly by month order, then rest
-  obligations.sort((a, b) => {
-    if (a.type === "seed_money" && b.type !== "seed_money") return -1;
-    if (b.type === "seed_money" && a.type !== "seed_money") return 1;
-    return 0;
+  const overdueSet = new Set(f.overdueMissing);
+  // Seed money first, then everything else in the server's own order.
+  const missing = [...f.missing].sort((a, b) => {
+    const seedA = /seed/i.test(a) ? 0 : 1;
+    const seedB = /seed/i.test(b) ? 0 : 1;
+    return seedA - seedB;
   });
 
-  // Left: member name + summary
+  // ── Left: name + what is missing, by name ────────────────────────────────
   const left = document.createElement("div");
   left.style.cssText = "flex: 1; min-width: 0;";
 
@@ -1239,28 +1448,42 @@ function buildFollowupRow(f) {
   name.textContent = f.name;
 
   const summary = document.createElement("div");
-  summary.style.cssText = "font-size: var(--bn-text-xs); color: var(--bn-gray); line-height: 1.5;";
-  const seedCount = obligations.filter((o) => o.type === "seed_money").length;
-  const monthlyCount = obligations.filter((o) => o.type === "monthly_contribution").length;
-  const summaryParts = [];
-  if (seedCount > 0) summaryParts.push(`${seedCount} seed obligation`);
-  if (monthlyCount > 0) summaryParts.push(`${monthlyCount} month${monthlyCount === 1 ? "" : "s"}`);
-  summaryParts.push("behind");
-  if (totalPenalty > 0) summaryParts.push(`+ ${formatCurrencyFromMinor(totalPenalty)} penalty`);
-  summary.textContent = summaryParts.join(" · ");
+  summary.style.cssText =
+    "font-size: var(--bn-text-xs); color: var(--bn-gray); line-height: 1.5;";
+  summary.textContent = missing.length
+    ? `Missing: ${missing.join(" · ")}`
+    : "Nothing missing";
   left.append(name, summary);
 
-  // Right: amount + state badge + dropdown toggle + remind
+  // ── Right: the three amounts, each labelled ──────────────────────────────
   const right = document.createElement("div");
-  right.style.cssText = "display: flex; align-items: center; gap: var(--bn-space-3); flex-shrink: 0;";
+  right.style.cssText =
+    "display: flex; align-items: center; gap: var(--bn-space-3); flex-shrink: 0;";
 
-  const amt = document.createElement("span");
-  amt.className = "acct-followup-amt";
-  amt.textContent = formatCurrency(f.amt);
+  // Every amount says what it is. The bare figure used to sit next to a badge
+  // repeating the SAME number with the word "overdue" after it, even when part
+  // of it was not overdue at all.
+  const amounts = document.createElement("div");
+  amounts.style.cssText = "text-align: right; white-space: nowrap;";
+
+  const owedLine = document.createElement("div");
+  owedLine.className = "acct-followup-amt";
+  owedLine.textContent = `${formatCurrency(f.amt)} owed`;
+  amounts.appendChild(owedLine);
+
+  const splitLine = document.createElement("div");
+  splitLine.style.cssText =
+    "font-size: var(--bn-text-xs); color: var(--bn-gray); margin-top: 2px;";
+  const bits = [];
+  if (f.overdue > 0) bits.push(`${formatCurrency(f.overdue)} overdue`);
+  if (f.notYetDue > 0) bits.push(`${formatCurrency(f.notYetDue)} not yet due`);
+  splitLine.textContent = bits.join(" · ");
+  if (bits.length) amounts.appendChild(splitLine);
 
   const state = document.createElement("span");
-  state.className = "acct-followup-state" + (hasOverdue ? " is-overdue" : " is-pending");
-  state.textContent = hasOverdue ? `${formatCurrency(f.amt)} overdue` : "not due yet";
+  state.className =
+    "acct-followup-state" + (f.isOverdue ? " is-overdue" : " is-pending");
+  state.textContent = f.isOverdue ? "LATE" : "not due yet";
 
   const toggleBtn = document.createElement("button");
   toggleBtn.type = "button";
@@ -1268,20 +1491,22 @@ function buildFollowupRow(f) {
   toggleBtn.textContent = "▾ Detail";
   toggleBtn.style.cssText = "font-size: var(--bn-text-xs);";
 
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "btn btn-ghost btn-sm";
-  btn.textContent = "Remind";
-  btn.addEventListener("click", () => openSendRemindersModal());
+  const payBtn = document.createElement("button");
+  payBtn.type = "button";
+  payBtn.className = "btn btn-ghost btn-sm";
+  payBtn.textContent = "Remind";
+  payBtn.addEventListener("click", () => openSendRemindersModal());
 
-  right.append(amt, state, toggleBtn, btn);
+  right.append(amounts, state, toggleBtn, payBtn);
   row.append(left, right);
 
-  // ── Expandable detail dropdown ──────────────────────────────────────────
+  // ── Detail: each missing obligation, split by whether it is actually late ─
   const detail = document.createElement("div");
   detail.className = "acct-followup-detail";
   detail.hidden = true;
-  detail.style.cssText = "padding: var(--bn-space-3) 0 0 var(--bn-space-6); margin-top: var(--bn-space-3); border-top: 1px solid var(--bn-gray-100); display: none;";
+  detail.style.cssText =
+    "padding: var(--bn-space-3) 0 0 var(--bn-space-6); margin-top: var(--bn-space-3); " +
+    "border-top: 1px solid var(--bn-gray-100); display: none;";
 
   toggleBtn.addEventListener("click", () => {
     const open = !detail.hidden;
@@ -1290,46 +1515,50 @@ function buildFollowupRow(f) {
     toggleBtn.textContent = open ? "▾ Detail" : "▴ Detail";
   });
 
-  obligations.forEach((ob) => {
-    const item = document.createElement("div");
-    item.style.cssText = "display: flex; justify-content: space-between; align-items: center; gap: var(--bn-space-3); padding: var(--bn-space-1) 0; font-size: var(--bn-text-xs);";
-
-    const label = document.createElement("span");
-    label.style.cssText = "color: var(--bn-gray-700); font-weight: 500;";
-    // Seed money label is distinguished from monthly labels
-    if (ob.type === "seed_money") {
-      label.style.cssText += "color: var(--bn-warning-dark);";
-      label.textContent = "🌱 Seed Money (entry obligation)";
-    } else {
-      label.textContent = ob.month ? `${ob.month}` : ob.label;
+  const addGroup = (heading, items, isLate) => {
+    if (!items.length) return;
+    const h = document.createElement("div");
+    h.style.cssText =
+      "font-size: var(--bn-text-xs); font-weight: 700; text-transform: uppercase; " +
+      "letter-spacing: 0.04em; margin: var(--bn-space-2) 0 var(--bn-space-1); color: " +
+      (isLate ? "var(--bn-danger-dark)" : "var(--bn-gray)") + ";";
+    h.textContent = heading;
+    detail.appendChild(h);
+    for (const label of items) {
+      const item = document.createElement("div");
+      item.style.cssText =
+        "display: flex; justify-content: space-between; gap: var(--bn-space-3); " +
+        "padding: var(--bn-space-1) 0; font-size: var(--bn-text-xs);";
+      const l = document.createElement("span");
+      const isSeed = /seed/i.test(label);
+      l.style.cssText = isSeed
+        ? "color: var(--bn-warning-dark); font-weight: 600;"
+        : "color: var(--bn-gray-700); font-weight: 500;";
+      l.textContent = isSeed ? `🌱 ${label} (entry obligation)` : label;
+      const r = document.createElement("span");
+      r.style.cssText = "color: var(--bn-gray); white-space: nowrap;";
+      r.textContent = isLate ? "past its due date" : "due later this cycle";
+      item.append(l, r);
+      detail.appendChild(item);
     }
-    if (ob.isOverdue) {
-      label.style.cssText += "text-decoration: none;";
-    }
+  };
 
-    const values = document.createElement("span");
-    values.style.cssText = "text-align: right; white-space: nowrap;";
-    const amtSpan = document.createElement("span");
-    amtSpan.style.cssText = `font-weight: 600; color: ${ob.isOverdue ? "var(--bn-danger-dark)" : "var(--bn-dark)"};`;
-    amtSpan.textContent = formatCurrency(ob.arrears);
-    values.appendChild(amtSpan);
+  addGroup("Overdue", missing.filter((m) => overdueSet.has(m)), true);
+  addGroup("Not yet due", missing.filter((m) => !overdueSet.has(m)), false);
 
-    if (ob.penalty > 0) {
-      const pen = document.createElement("span");
-      pen.style.cssText = "color: var(--bn-danger); margin-left: var(--bn-space-2);";
-      pen.textContent = `+ ${formatCurrencyFromMinor(ob.penalty)} penalty`;
-      values.appendChild(pen);
-    }
-
-    // Show progress: paid / total
-    const progress = document.createElement("span");
-    progress.style.cssText = "display: block; color: var(--bn-gray-500); font-size: 0.7rem;";
-    progress.textContent = `${formatCurrency(ob.paid)} of ${formatCurrency(ob.totalAmount)} paid`;
-    values.appendChild(progress);
-
-    item.append(label, values);
-    detail.appendChild(item);
-  });
+  // Close the loop: the member's own figures, so the detail reconciles with the
+  // row's headline and with the section total above it.
+  const foot = document.createElement("div");
+  foot.style.cssText =
+    "display: flex; justify-content: space-between; gap: var(--bn-space-3); " +
+    "margin-top: var(--bn-space-2); padding-top: var(--bn-space-2); " +
+    "border-top: 1px dashed var(--bn-gray-200); font-size: var(--bn-text-xs); font-weight: 700;";
+  const fl = document.createElement("span");
+  fl.textContent = "Still owed by this member";
+  const fr = document.createElement("span");
+  fr.textContent = formatCurrency(f.amt);
+  foot.append(fl, fr);
+  detail.appendChild(foot);
 
   row.appendChild(detail);
   return row;
@@ -2502,11 +2731,25 @@ function promptForReason(opts) {
  * Attach a standardized "i" info toggle to a `.page-stat` card identified by
  * the id of its value element (e.g. "pendingCount").
  */
-function attachPageStatInfo(valueElId, title, description, rows) {
+function attachPageStatInfo(valueElId, title, description, rows, action) {
   const valueEl = document.getElementById(valueElId);
   const card = valueEl?.closest(".page-stat");
   if (!card) return;
-  pageStatInfo(card, { title, description, rows });
+  /* Rows may be a FUNCTION, resolved when the panel opens. These toggles are
+     attached during init, before any payment data has loaded, so a plain array
+     could only ever hold placeholders — which is exactly what they held: a fake
+     row reading "Click the card / to see pending payments". That is an action,
+     not a derivation, and it left all four panels with no figures at all. */
+  attachCardInfo(card, {
+    label: `About ${title}`,
+    content: (host) =>
+      infoContent({
+        title,
+        description,
+        rows: typeof rows === "function" ? rows() : rows,
+        action,
+      })(host),
+  });
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

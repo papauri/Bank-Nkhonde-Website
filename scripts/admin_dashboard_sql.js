@@ -35,7 +35,10 @@
  * modules and are not re-wired here (named in the report).
  */
 
-import { requireSession, apiGet, logout, ApiError, redirectToLogin } from "./api.js";
+// apiPost added for J13: the dashboard can now ACT (approve/reject a pending
+// payment claim), not just display. It was read-only before, which is why every
+// stat-modal button was a link to a management page.
+import { requireSession, apiGet, apiPost, logout, ApiError, redirectToLogin } from "./api.js";
 import { formatCurrency, formatCurrencyFromMinor } from "./utils_financial.js";
 import { attachCardInfo, infoContent, closeInfoPanel } from "./card_info.js";
 
@@ -177,6 +180,10 @@ async function loadDashboardAfterGroupSelection() {
     loans && loans.summary && typeof loans.summary === "object" ? loans.summary : {};
   groupData.members =
     members && Array.isArray(members.members) ? members.members : [];
+
+  // J13 Group Health — fire-and-forget, so its two extra reads never delay the
+  // stat cards. It renders its own error state.
+  renderGroupHealth(groupId);
 
   // A failed section renders as an empty list above (by design, so the rest of
   // the dashboard still works) — but "zero" must never be silently confused
@@ -470,11 +477,20 @@ function renderCollectionTrends() {
 
   const totalMembers = groupData.members.length;
   const membersWithPayments = payingMembers.size;
-  const arrearsMinor = rangedPayments.reduce((acc, p) => {
-    let v = toMinor(p.arrears);
-    if (p.penalty) v += toMinor(penaltyOwed(p.penalty));
-    return acc + v;
-  }, 0);
+  // Arrears is a POINT-IN-TIME BALANCE, not a flow, so it is neither re-summed
+  // in the browser nor scoped to the trend range. It reads the same
+  // server figure as the Arrears tile (payments.groupArrears.totalArrears =
+  // unpaid obligations + live penalties across all active members).
+  //
+  // It previously summed the persisted `payments.arrears` column over
+  // rangedPayments. That was wrong twice over: arrears is DERIVED from
+  // group_rules (an obligation nobody recorded a row for has no row to sum),
+  // and range-scoping a balance invents a figure. Live proof: it rendered
+  // 172,800.00 against a true 393,200.00 on the same screen as the tile.
+  const arrearsMinor =
+    groupData.groupArrears && groupData.groupArrears.totalArrears != null
+      ? toMinor(groupData.groupArrears.totalArrears)
+      : 0;
 
   // Only chart months that actually have activity, in calendar order.
   const activeMonths = MONTHS.filter(
@@ -492,15 +508,28 @@ function renderCollectionTrends() {
         { label: "Monthly Contributions", value: monthlyMinor, color: "var(--bn-info)" },
       ],
       typeTotal,
-      "Total Collections",
+      // NOT "Total Collections" — this pie IS range-scoped (it is a flow
+      // breakdown, which is the honest thing to scope), so calling it "total"
+      // put 260.0K next to the all-time 505,000.00 with no way to tell why.
+      "Collections in range",
     );
   }
-  const financialTotal = approvedMinor + arrearsMinor;
+  // Both segments are CUMULATIVE and server-computed, because arrears above is a
+  // balance. Pairing the range-scoped `approvedMinor` against a cumulative
+  // arrears would put two different scopes in one ratio — the same defect the
+  // compliance panel was fixed for ("a list under a total must add up to it").
+  const collectedAllTimeMinor =
+    groupData.summary && groupData.summary.verifiedCollected != null
+      ? toMinor(groupData.summary.verifiedCollected)
+      : approvedMinor;
+  const financialTotal = collectedAllTimeMinor + arrearsMinor;
   if (financialTotal > 0) {
     pieHTML += createPieChart(
-      "Collections vs Arrears",
+      // Scope is in the title on purpose: these pies sit inside the
+      // "Last 6 months" trend card, and this one deliberately is not ranged.
+      "Collections vs Arrears (all time)",
       [
-        { label: "Collections", value: approvedMinor, color: "var(--bn-success)" },
+        { label: "Collections", value: collectedAllTimeMinor, color: "var(--bn-success)" },
         { label: "Arrears", value: arrearsMinor, color: "var(--bn-danger)" },
       ],
       financialTotal,
@@ -1087,7 +1116,7 @@ function buildDuePaymentCard(payment) {
   const card = document.createElement("div");
   card.className = "due-payment-card";
 
-  // Top row: avatar + name + amount
+  // Row 1: avatar + name (amount on its own row below so the identity is clear)
   const topRow = document.createElement("div");
   topRow.className = "due-payment-top";
 
@@ -1099,16 +1128,15 @@ function buildDuePaymentCard(payment) {
   name.className = "due-payment-name";
   name.textContent = payment.memberName;
 
-  const amount = document.createElement("div");
-  amount.className = "due-payment-amount";
-  amount.textContent = formatCurrencyShort(payment.amountStr != null ? payment.amountStr : "0.00");
-
   topRow.appendChild(avatar);
   topRow.appendChild(name);
-  topRow.appendChild(amount);
 
-  // Bottom row: one compact summary line — "3 obligations · 2 penalties".
-  // Individual pills overflowed the card when a member owed many months.
+  // Row 2: amount — prominent, on its own line, full value visible
+  const amount = document.createElement("div");
+  amount.className = "due-payment-amount";
+  amount.textContent = formatCurrency(payment.amountStr != null ? payment.amountStr : "0.00");
+
+  // Row 3: one compact summary line — "3 obligations · 2 penalties".
   const meta = document.createElement("div");
   meta.className = "due-payment-meta";
   if (Array.isArray(payment.breakdown) && payment.breakdown.length) {
@@ -1119,7 +1147,7 @@ function buildDuePaymentCard(payment) {
       parts.push(`${obligationCount} obligation${obligationCount === 1 ? "" : "s"}`);
     }
     if (penaltyCount > 0) {
-      parts.push(`${penaltyCount} penalty${penaltyCount === 1 ? "" : "ies"}`);
+      parts.push(`${penaltyCount} ${penaltyCount === 1 ? "penalty" : "penalties"}`);
     }
     meta.textContent = parts.length ? parts.join(" · ") : "Due";
   } else {
@@ -1127,6 +1155,7 @@ function buildDuePaymentCard(payment) {
   }
 
   card.appendChild(topRow);
+  card.appendChild(amount);
   card.appendChild(meta);
   return card;
 }
@@ -1624,10 +1653,19 @@ function appendStatModalActions(actions, item, type) {
   };
 
   if (type === "arrears") {
+    // J13: collect in place. "View" stays as the secondary route for the full
+    // member history, which this compact modal deliberately does not duplicate.
+    const pay = document.createElement("button");
+    pay.className = "stat-modal-action-btn stat-modal-action-btn-primary";
+    const paySpan = document.createElement("span");
+    paySpan.textContent = "Record Payment";
+    pay.appendChild(paySpan);
+    pay.addEventListener("click", () => openRecordPaymentModal(item.id, item.name));
+    actions.appendChild(pay);
     actions.appendChild(
       makeBtn(
         "View",
-        true,
+        false,
         `manage_payments.html?groupId=${encodeURIComponent(groupId)}&memberId=${encodeURIComponent(item.id)}&tab=arrears`,
       ),
     );
@@ -1640,11 +1678,24 @@ function appendStatModalActions(actions, item, type) {
       ),
     );
   } else if (type === "pending") {
-    const href =
-      item.kind === "loan"
-        ? `manage_loans.html?groupId=${encodeURIComponent(groupId)}`
-        : `manage_payments.html?groupId=${encodeURIComponent(groupId)}&tab=pending`;
-    actions.appendChild(makeBtn("Review", true, href));
+    if (item.kind === "loan") {
+      /* A LOAN stays a navigation, deliberately. Approving one disburses the
+         group's cash, and manage_loans.html owns the borrower-context review
+         modal added by J6 precisely because "approval was previously a single
+         unconfirmed click". Putting a one-click Approve here would re-open that
+         hole on a second surface. Money IN can be confirmed in place; money OUT
+         gets the review it already has. */
+      const btn = makeBtn(
+        "Review",
+        true,
+        `manage_loans.html?groupId=${encodeURIComponent(groupId)}`,
+      );
+      btn.title = "Loan approval opens the borrower's full position first";
+      actions.appendChild(btn);
+    } else {
+      actions.appendChild(makeApproveBtn(item));
+      actions.appendChild(makeRejectBtn(item));
+    }
   } else if (type === "collections") {
     actions.appendChild(
       makeBtn(
@@ -1653,6 +1704,531 @@ function appendStatModalActions(actions, item, type) {
         `manage_payments.html?groupId=${encodeURIComponent(groupId)}&memberId=${encodeURIComponent(item.id)}&tab=collected`,
       ),
     );
+  }
+}
+
+/* ── J13: "Group Health at a Glance" ─────────────────────────────────────────
+   One card answering "how is this group doing right now". Two extra reads
+   (payments.compliance, payments.accountingSummary) which this page did not
+   previously make; everything else reuses what is already loaded.
+
+   NOTHING here is computed in the browser — including the collection-rate bar,
+   which is drawn from the server's own percentCollected rather than dividing
+   collected by expected. The whole point of the card is that its figures agree
+   with the pages they link to.
+──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Load and render the Group Health card. Never throws into the caller: this is
+ * one card, and a hiccup on it must not blank the rest of the dashboard.
+ * @param {string} groupId
+ */
+async function renderGroupHealth(groupId) {
+  const host = document.getElementById("groupHealth");
+  const badge = document.getElementById("groupHealthBadge");
+  if (!host) return;
+
+  const [compliance, accounting] = await Promise.all([
+    apiGet("payments.compliance", { groupId }).catch(() => null),
+    apiGet("payments.accountingSummary", { groupId }).catch(() => null),
+  ]);
+
+  host.replaceChildren();
+  if (!compliance && !accounting) {
+    const p = document.createElement("p");
+    p.className = "stat-modal-empty-text";
+    p.textContent = "Couldn't load group health just now.";
+    host.appendChild(p);
+    return;
+  }
+
+  // ── Collection rate this month (server percentage) ────────────────────────
+  if (compliance && compliance.percentCollected != null) {
+    const pct = Number(compliance.percentCollected);
+    if (badge) {
+      badge.style.display = "";
+      badge.className =
+        "badge " + (pct >= 80 ? "badge-success" : pct >= 50 ? "badge-warning" : "badge-danger");
+      badge.textContent = `${pct}% collected this month`;
+    }
+
+    const label = document.createElement("div");
+    label.style.cssText =
+      "display:flex; justify-content:space-between; font-size:var(--bn-text-sm); margin-bottom:var(--bn-space-2);";
+    const l = document.createElement("span");
+    l.style.color = "var(--bn-gray)";
+    l.textContent = "Collected this month";
+    const v = document.createElement("span");
+    v.style.fontWeight = "700";
+    v.textContent = `${formatCurrency(compliance.collectedThisMonth || "0.00")} of ${formatCurrency(compliance.expectedThisMonth || "0.00")}`;
+    label.append(l, v);
+    host.appendChild(label);
+
+    const track = document.createElement("div");
+    track.style.cssText =
+      "height:10px; border-radius:999px; background:var(--bn-gray-100); overflow:hidden; margin-bottom:var(--bn-space-4);";
+    const fill = document.createElement("div");
+    // Clamp only for drawing — the printed number above is the server's.
+    const drawn = Math.max(0, Math.min(100, pct));
+    fill.style.cssText =
+      `height:100%; width:${drawn}%; border-radius:999px; background:var(--bn-success);`;
+    track.appendChild(fill);
+    host.appendChild(track);
+  }
+
+  // ── Figure rows ───────────────────────────────────────────────────────────
+  const rows = [];
+  if (compliance) {
+    const behind = compliance.membersBehind;
+    const owing = compliance.membersOwing;
+    const total = Array.isArray(groupData.members) ? groupData.members.length : null;
+    if (behind != null && total != null) {
+      // "Behind" means LATE (the server's own definition), which is why it is
+      // not the same as "has a balance" — both are shown rather than merged.
+      rows.push(["Members in good standing", `${Math.max(0, total - Number(behind))} of ${total}`]);
+      rows.push(["Members behind (late)", String(behind)]);
+    }
+    if (owing != null) rows.push(["Members with a balance", String(owing)]);
+    const toDate = compliance.toDate || {};
+    if (toDate.outstanding != null) {
+      rows.push(["Outstanding to date", formatCurrency(toDate.outstanding)]);
+    }
+    if (toDate.notYetDue != null && Number(toDate.notYetDue) > 0) {
+      rows.push(["…of which not yet due", formatCurrency(toDate.notYetDue)]);
+    }
+  }
+  if (groupData.loansSummary && groupData.loansSummary.activeBalance != null) {
+    rows.push(["Loans outstanding", formatCurrency(groupData.loansSummary.activeBalance)]);
+  }
+  if (accounting) {
+    if (accounting.cashPosition != null) {
+      rows.push(["Cash position", formatCurrency(accounting.cashPosition)]);
+    }
+    if (accounting.interestEarned != null) {
+      rows.push(["Interest earned", formatCurrency(accounting.interestEarned)]);
+    }
+    if (accounting.penaltiesOutstanding != null) {
+      rows.push(["Penalties outstanding", formatCurrency(accounting.penaltiesOutstanding)]);
+    }
+  }
+
+  for (const [label, value] of rows) {
+    const row = document.createElement("div");
+    row.style.cssText =
+      "display:flex; justify-content:space-between; gap:var(--bn-space-4); padding:var(--bn-space-2) 0; border-bottom:1px solid var(--bn-gray-100);";
+    const l = document.createElement("span");
+    l.style.cssText = "color:var(--bn-gray); font-size:var(--bn-text-sm);";
+    l.textContent = label;
+    const v = document.createElement("span");
+    v.style.cssText = "font-weight:700; font-feature-settings:'tnum' 1;";
+    v.textContent = value;
+    row.append(l, v);
+    host.appendChild(row);
+  }
+
+  // Drill-through: the two figures with a dedicated page behind them.
+  const links = document.createElement("div");
+  links.style.cssText = "display:flex; flex-wrap:wrap; gap:var(--bn-space-2); margin-top:var(--bn-space-4);";
+  const mkLink = (text, href) => {
+    const a = document.createElement("a");
+    a.className = "btn btn-secondary";
+    a.style.cssText = "min-height:44px; display:inline-flex; align-items:center; font-size:var(--bn-text-sm);";
+    a.textContent = text;
+    a.href = href;
+    return a;
+  };
+  const gid = encodeURIComponent(groupId);
+  links.appendChild(mkLink("Who owes what", `manage_payments.html?groupId=${gid}&tab=arrears`));
+  links.appendChild(mkLink("Full accounting", `analytics.html?groupId=${gid}`));
+  host.appendChild(links);
+}
+
+/* ── J13: record a payment without leaving the dashboard ─────────────────────
+   The admin previously had to navigate to manage_payments.html to bank cash a
+   member handed over. This modal does it in place.
+
+   MONEY RULES OBSERVED:
+   - What each obligation still owes comes from payments.obligations with the
+     admin `uid` override (server-computed, penalties included). The browser
+     never works out what is due.
+   - The amount field is PRE-FILLED from that server figure but stays editable:
+     admins legitimately record partial and advance payments (standing decision,
+     section 6 "Admin payment panel").
+   - Recording files a PENDING claim; it does not bank money. Approval is still a
+     separate, deliberate step — which is now also on this page.
+──────────────────────────────────────────────────────────────────────────── */
+
+/** Member the record-payment modal is currently filing against. */
+let recordPaymentTarget = null;
+
+/**
+ * Open the record-payment modal for one member.
+ * @param {string} memberId
+ * @param {string} memberName
+ * @param {Object} [prefill]  Optional {paymentType, month} to preselect.
+ */
+async function openRecordPaymentModal(memberId, memberName, prefill) {
+  if (!currentGroup || !currentGroup.groupId) {
+    showToast("Please select a group first", "warning");
+    return;
+  }
+  const overlay = document.getElementById("recordPaymentOverlay");
+  const body = document.getElementById("recordPaymentBody");
+  const titleEl = document.getElementById("recordPaymentTitleText");
+  if (!overlay || !body) return;
+
+  recordPaymentTarget = { memberId: String(memberId), memberName: String(memberName || "Member") };
+  if (titleEl) titleEl.textContent = `Record Payment — ${recordPaymentTarget.memberName}`;
+  overlay.classList.add("open");
+  document.body.style.overflow = "hidden";
+  renderStatModalLoading(body);
+
+  try {
+    // The admin uid-override: the server enforces the privilege and that the uid
+    // really belongs to this group. A plain member asking for someone else 403s.
+    const data = await apiGet("payments.obligations", {
+      groupId: currentGroup.groupId,
+      uid: recordPaymentTarget.memberId,
+    });
+    renderRecordPaymentForm(body, data, prefill);
+  } catch (error) {
+    body.replaceChildren();
+    const p = document.createElement("p");
+    p.className = "stat-modal-empty-text";
+    p.textContent =
+      error instanceof ApiError && error.message
+        ? error.message
+        : "Could not load what this member owes.";
+    body.appendChild(p);
+  }
+}
+
+/**
+ * Flatten the server's obligations payload into selectable rows.
+ * Only obligations with something still outstanding are offered — there is no
+ * sense recording against a settled month.
+ * @param {Object} data  payments.obligations response
+ * @returns {Array<Object>}
+ */
+function recordPaymentOptions(data) {
+  /* SHAPE (verified against a live response, not assumed): payments.obligations
+     returns seedMoney / serviceFee / monthlyContributions at the TOP level, and
+     the months live at monthlyContributions.months — there is no `obligations`
+     wrapper and no top-level `months`. Reading a wrapper that does not exist is
+     why this form first rendered "nothing outstanding" for a member who owed
+     MWK 200,000.00. */
+  const d = data || {};
+  const rows = [];
+  const owed = (o) => (o && o.arrears != null ? String(o.arrears) : "0.00");
+  const push = (o, type, label, month) => {
+    if (!o) return;
+    if (toMinor(owed(o)) <= 0) return;
+    rows.push({
+      type,
+      month: month || null,
+      label,
+      owedStr: owed(o),
+      // Seed money carries a timestamp ("2025-10-01 00:00:00"); show the date.
+      dueDate: o.dueDate ? String(o.dueDate).slice(0, 10) : null,
+      penaltyStr:
+        o.penalty && o.penalty.amountOutstanding != null
+          ? String(o.penalty.amountOutstanding)
+          : "0.00",
+    });
+  };
+  // Seed money first — it is the cycle-entry obligation and is due before
+  // monthly contributions run (section 6, "the basics").
+  push(d.seedMoney, "seed_money", "Seed Money", null);
+  push(d.serviceFee, "service_fee", "Service Fee", null);
+  const months =
+    d.monthlyContributions && Array.isArray(d.monthlyContributions.months)
+      ? d.monthlyContributions.months
+      : [];
+  for (const m of months) {
+    push(m, "monthly_contribution", `Monthly Contribution — ${m.month}`, m.month);
+  }
+  return rows;
+}
+
+/**
+ * Render the record-payment form. Every figure printed here is a server string.
+ * @param {HTMLElement} body
+ * @param {Object} data
+ * @param {Object} [prefill]
+ */
+function renderRecordPaymentForm(body, data, prefill) {
+  body.replaceChildren();
+  const options = recordPaymentOptions(data);
+
+  if (!options.length) {
+    const p = document.createElement("p");
+    p.className = "stat-modal-empty-text";
+    p.textContent = `${recordPaymentTarget.memberName} has nothing outstanding — there is nothing to record.`;
+    body.appendChild(p);
+    return;
+  }
+
+  const field = (labelText, control) => {
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "margin-bottom: var(--bn-space-4);";
+    const l = document.createElement("label");
+    l.textContent = labelText;
+    l.style.cssText =
+      "display:block; font-size:var(--bn-text-sm); font-weight:600; margin-bottom:var(--bn-space-2); color:var(--bn-gray-700);";
+    if (control.id) l.setAttribute("for", control.id);
+    wrap.appendChild(l);
+    wrap.appendChild(control);
+    return wrap;
+  };
+  const inputCss =
+    "width:100%; padding:var(--bn-space-3); border:1px solid var(--bn-gray-300); " +
+    "border-radius:var(--bn-radius-md); font-family:var(--bn-font-sans); font-size:var(--bn-text-base); min-height:44px;";
+
+  // What are we paying?
+  const select = document.createElement("select");
+  select.id = "recordPaymentObligation";
+  select.style.cssText = inputCss;
+  options.forEach((o, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    // textContent, never innerHTML — month/label are server-sourced strings.
+    opt.textContent = `${o.label} — ${formatCurrency(o.owedStr)} outstanding`;
+    select.appendChild(opt);
+  });
+  body.appendChild(field("Which obligation?", select));
+
+  // How much? Pre-filled from the server's outstanding figure for that row.
+  const amount = document.createElement("input");
+  amount.id = "recordPaymentAmount";
+  amount.type = "number";
+  amount.min = "0";
+  amount.step = "0.01";
+  amount.style.cssText = inputCss;
+  body.appendChild(field("Amount received", amount));
+
+  // Context line: due date + any live penalty on the selected obligation.
+  const context = document.createElement("p");
+  context.style.cssText =
+    "font-size:var(--bn-text-sm); color:var(--bn-gray); margin:calc(-1 * var(--bn-space-2)) 0 var(--bn-space-4);";
+  body.appendChild(context);
+
+  const syncToSelection = () => {
+    const o = options[Number(select.value) || 0];
+    if (!o) return;
+    amount.value = o.owedStr;
+    const bits = [];
+    if (o.dueDate) bits.push(`Due ${o.dueDate}`);
+    if (toMinor(o.penaltyStr) > 0) {
+      bits.push(`${formatCurrency(o.penaltyStr)} late penalty outstanding`);
+    }
+    bits.push("Editable — record a part payment if that is what was handed over");
+    context.textContent = bits.join(" · ");
+  };
+  select.addEventListener("change", syncToSelection);
+
+  // Honour a prefill from the card the admin clicked, so the form opens on the
+  // obligation they were actually looking at.
+  if (prefill && prefill.paymentType) {
+    const idx = options.findIndex(
+      (o) =>
+        o.type === prefill.paymentType &&
+        (!prefill.month || String(o.month) === String(prefill.month)),
+    );
+    if (idx >= 0) select.value = String(idx);
+  }
+  syncToSelection();
+
+  const method = document.createElement("select");
+  method.id = "recordPaymentMethod";
+  method.style.cssText = inputCss;
+  [
+    ["cash", "Cash"],
+    ["bank_transfer", "Bank transfer"],
+    ["mobile_money", "Mobile money"],
+    ["other", "Other"],
+  ].forEach(([v, t]) => {
+    const o = document.createElement("option");
+    o.value = v;
+    o.textContent = t;
+    method.appendChild(o);
+  });
+  body.appendChild(field("How was it paid?", method));
+
+  const notes = document.createElement("input");
+  notes.id = "recordPaymentNotes";
+  notes.type = "text";
+  notes.placeholder = "Optional — e.g. handed over at the meeting";
+  notes.style.cssText = inputCss;
+  body.appendChild(field("Note (optional)", notes));
+
+  const hint = document.createElement("p");
+  hint.style.cssText =
+    "font-size:var(--bn-text-sm); color:var(--bn-gray); margin-bottom:var(--bn-space-4);";
+  hint.textContent =
+    "This files the payment as pending. It is not counted as collected until it is approved.";
+  body.appendChild(hint);
+
+  const submit = document.createElement("button");
+  submit.className = "stat-modal-action-btn stat-modal-action-btn-primary";
+  submit.style.cssText = "width:100%; min-height:44px;";
+  const submitLabel = document.createElement("span");
+  submitLabel.textContent = "Record payment";
+  submit.appendChild(submitLabel);
+  submit.addEventListener("click", () => submitRecordPayment(options, select, amount, method, notes, submit));
+  body.appendChild(submit);
+}
+
+/**
+ * File the claim. Sends the admin's typed amount as a string — no client maths.
+ */
+async function submitRecordPayment(options, select, amount, method, notes, submit) {
+  const chosen = options[Number(select.value) || 0];
+  if (!chosen || !recordPaymentTarget) return;
+
+  const raw = String(amount.value || "").trim();
+  if (!raw || !(Number(raw) > 0)) {
+    showToast("Enter the amount that was received", "warning");
+    amount.focus();
+    return;
+  }
+
+  submit.disabled = true;
+  submit.querySelector("span").textContent = "Recording…";
+  try {
+    await apiPost("payments.record", {
+      groupId: currentGroup.groupId,
+      targetUid: recordPaymentTarget.memberId,
+      paymentType: chosen.type,
+      month: chosen.type === "monthly_contribution" ? chosen.month : undefined,
+      amount: raw,
+      paymentMethod: String(method.value || "cash"),
+      notes: String(notes.value || "").trim() || undefined,
+    });
+    showToast(
+      `Recorded ${formatCurrency(raw)} for ${recordPaymentTarget.memberName} — awaiting approval`,
+      "success",
+    );
+    closeRecordPaymentModal();
+    await loadDashboardAfterGroupSelection();
+  } catch (error) {
+    submit.disabled = false;
+    submit.querySelector("span").textContent = "Record payment";
+    showToast(
+      error instanceof ApiError && error.message
+        ? error.message
+        : "Could not record that payment",
+      "error",
+    );
+  }
+}
+
+/** Close the record-payment modal and release the scroll lock. */
+window.closeRecordPaymentModal = function closeRecordPaymentModal() {
+  const overlay = document.getElementById("recordPaymentOverlay");
+  if (overlay) overlay.classList.remove("open");
+  // Only release the page scroll if no other modal is still up.
+  const statOpen = document.getElementById("statModalOverlay");
+  if (!statOpen || !statOpen.classList.contains("open")) {
+    document.body.style.overflow = "";
+  }
+  recordPaymentTarget = null;
+};
+
+window.closeRecordPaymentOnOverlay = function closeRecordPaymentOnOverlay(event) {
+  if (event.target && event.target.id === "recordPaymentOverlay") {
+    window.closeRecordPaymentModal();
+  }
+};
+
+/**
+ * Build the inline "Approve" button for a pending PAYMENT claim (J13).
+ * @param {Object} item
+ * @returns {HTMLButtonElement}
+ */
+function makeApproveBtn(item) {
+  const btn = document.createElement("button");
+  btn.className = "stat-modal-action-btn stat-modal-action-btn-primary";
+  const span = document.createElement("span");
+  span.textContent = "Approve";
+  btn.appendChild(span);
+  btn.addEventListener("click", () => settlePendingPayment(item, "approve", btn));
+  return btn;
+}
+
+/**
+ * Build the inline "Reject" button for a pending PAYMENT claim (J13).
+ * @param {Object} item
+ * @returns {HTMLButtonElement}
+ */
+function makeRejectBtn(item) {
+  const btn = document.createElement("button");
+  btn.className = "stat-modal-action-btn stat-modal-action-btn-secondary";
+  const span = document.createElement("span");
+  span.textContent = "Reject";
+  btn.appendChild(span);
+  btn.addEventListener("click", () => settlePendingPayment(item, "reject", btn));
+  return btn;
+}
+
+/**
+ * Approve or reject a pending payment claim from the dashboard, then refresh
+ * so the stat cards and the modal cannot disagree with the server.
+ *
+ * The server re-checks the caller's group role on both endpoints; this is a
+ * convenience surface, never the gate. No money is computed here — approving
+ * banks the amount the member already claimed, and the server settles any
+ * penalty portion itself (payments.approve returns `penaltySettled`).
+ *
+ * @param {Object} item      Row from buildPendingItems() ({id, name, amountStr}).
+ * @param {string} action    'approve' | 'reject'
+ * @param {HTMLButtonElement} btn
+ */
+async function settlePendingPayment(item, action, btn) {
+  const paymentId = item && item.id ? String(item.id) : "";
+  if (!paymentId) return;
+
+  let rejectionReason = "";
+  if (action === "reject") {
+    // Both reject endpoints 422 on an empty reason, so ask before spending a
+    // request — and the member is told why their claim was turned down.
+    const answer = window.prompt(
+      `Why is ${item.name}'s payment of ${formatCurrency(item.amountStr || "0.00")} being rejected?`,
+      "",
+    );
+    if (answer === null) return; // cancelled — do nothing
+    rejectionReason = String(answer).trim();
+    if (!rejectionReason) {
+      showToast("A reason is required to reject a payment", "warning");
+      return;
+    }
+  }
+
+  // Freeze BOTH buttons in the row: a double-tap on Approve must not file twice.
+  const row = btn.closest(".stat-modal-item-actions") || btn.parentElement;
+  const siblings = row ? [...row.querySelectorAll("button")] : [btn];
+  siblings.forEach((b) => { b.disabled = true; });
+  btn.querySelector("span").textContent = action === "approve" ? "Approving…" : "Rejecting…";
+
+  try {
+    if (action === "approve") {
+      await apiPost("payments.approve", { paymentId });
+      showToast(`Approved ${item.name}'s payment`, "success");
+    } else {
+      await apiPost("payments.reject", { paymentId, rejectionReason });
+      showToast(`Rejected ${item.name}'s payment`, "success");
+    }
+    // Re-read from the server rather than mutating local state, so the Pending
+    // tile, the Collections tile and this list all move together.
+    await loadDashboardAfterGroupSelection();
+    openStatModal("pending");
+  } catch (error) {
+    siblings.forEach((b) => { b.disabled = false; });
+    btn.querySelector("span").textContent = action === "approve" ? "Approve" : "Reject";
+    const msg =
+      error instanceof ApiError && error.message
+        ? error.message
+        : "Could not complete that — please try again";
+    showToast(msg, "error");
   }
 }
 
@@ -1817,9 +2393,26 @@ const STAT_CARD_INFO = {
     rows: () => {
       const s = groupData.summary || {};
       return [
-        ["Verified collections", formatCurrency(s.verifiedCollected ?? "0.00")],
-        ["Awaiting approval", formatCurrency(s.pending ?? "0.00")],
-        ["Members who have paid", String(countMembersWithVerifiedPayment())],
+        {
+          label: "Verified collections",
+          value: formatCurrency(s.verifiedCollected ?? "0.00"),
+          // Per-member figures come from the SERVER (payments.memberBreakdown),
+          // never from re-adding payment rows in the browser.
+          detail: () => memberBreakdownDetail("collections"),
+          detailLabel: "Show who the money came from",
+        },
+        {
+          label: "Awaiting approval",
+          value: formatCurrency(s.pending ?? "0.00"),
+          detail: () => pendingPaymentsDetail(),
+          detailLabel: "Show what is awaiting approval",
+        },
+        {
+          label: "Members who have paid",
+          value: String(countMembersWithVerifiedPayment()),
+          detail: () => memberBreakdownDetail("collections"),
+          detailLabel: "Show which members have paid",
+        },
       ];
     },
   },
@@ -1831,10 +2424,40 @@ const STAT_CARD_INFO = {
     actionLabel: "See each active loan →",
     rows: () => {
       const s = groupData.loansSummary || {};
+      // Per-loan rows: each figure is that loan's OWN server field, listed —
+      // not a total re-derived here.
+      const perLoan = (field) => () =>
+        groupData.loans
+          .filter((l) => isActiveLoan(l.status))
+          .map((l) => [
+            l.borrowerName || "Unknown borrower",
+            formatCurrency(l[field] ?? "0.00"),
+          ]);
       return [
-        ["Active loans", String(groupData.loans.filter((l) => isActiveLoan(l.status)).length)],
-        ["Money handed out", formatCurrency(s.activePrincipal ?? "0.00")],
-        ["Still owed", formatCurrency(s.activeBalance ?? "0.00")],
+        {
+          label: "Active loans",
+          value: String(groupData.loans.filter((l) => isActiveLoan(l.status)).length),
+          detail: () =>
+            groupData.loans
+              .filter((l) => isActiveLoan(l.status))
+              .map((l) => [
+                `${l.borrowerName || "Unknown borrower"}${l.loanNumber ? ` (${l.loanNumber})` : ""}`,
+                formatCurrency(l.remainingBalance ?? "0.00"),
+              ]),
+          detailLabel: "Show each active loan",
+        },
+        {
+          label: "Money handed out",
+          value: formatCurrency(s.activePrincipal ?? "0.00"),
+          detail: perLoan("approvedAmount"),
+          detailLabel: "Show what each borrower received",
+        },
+        {
+          label: "Still owed",
+          value: formatCurrency(s.activeBalance ?? "0.00"),
+          detail: perLoan("remainingBalance"),
+          detailLabel: "Show what each borrower still owes",
+        },
       ];
     },
   },
@@ -1851,9 +2474,30 @@ const STAT_CARD_INFO = {
       ).length;
       const loans = groupData.loans.filter((l) => String(l.status) === "pending").length;
       return [
-        ["Payments to verify", String(payments)],
-        ["Value awaiting approval", formatCurrency(s.pending ?? "0.00")],
-        ["Loan requests to decide", String(loans)],
+        {
+          label: "Payments to verify",
+          value: String(payments),
+          detail: () => pendingPaymentsDetail(),
+          detailLabel: "Show the payments awaiting a decision",
+        },
+        {
+          label: "Value awaiting approval",
+          value: formatCurrency(s.pending ?? "0.00"),
+          detail: () => pendingPaymentsDetail(),
+          detailLabel: "Show what makes up the pending value",
+        },
+        {
+          label: "Loan requests to decide",
+          value: String(loans),
+          detail: () =>
+            groupData.loans
+              .filter((l) => String(l.status) === "pending")
+              .map((l) => [
+                l.borrowerName || "Unknown borrower",
+                formatCurrency(l.principalAmount ?? "0.00"),
+              ]),
+          detailLabel: "Show the loan requests waiting",
+        },
       ];
     },
   },
@@ -1871,15 +2515,80 @@ const STAT_CARD_INFO = {
       return [
         ["Overdue contributions", formatCurrency(ga.arrears ?? "0.00")],
         ["Penalties accrued", formatCurrency(ga.penaltyAccrued ?? "0.00")],
-        ["Total owed", formatCurrency(ga.totalArrears ?? "0.00")],
+        {
+          label: "Total owed",
+          value: formatCurrency(ga.totalArrears ?? "0.00"),
+          detail: () => memberBreakdownDetail("arrears"),
+          detailLabel: "Show what each member owes",
+        },
         // membersInArrears, NOT memberCount — the latter is every active member
         // the server considered, so labelling it "behind" told an admin the whole
         // group was in arrears. This matches the row count in the breakdown modal.
-        ["Members behind", `${ga.membersInArrears ?? 0} of ${ga.memberCount ?? 0}`],
+        {
+          label: "Members behind",
+          value: `${ga.membersInArrears ?? 0} of ${ga.memberCount ?? 0}`,
+          detail: () => memberBreakdownDetail("arrears"),
+          detailLabel: "Show which members are behind",
+        },
       ];
     },
   },
 };
+
+/**
+ * Per-member second level for an info-panel row: "who is behind this figure".
+ *
+ * Reads payments.memberBreakdown — the SAME admin-gated endpoint the Arrears
+ * and Collections modals use, which returns the rows AND their total from one
+ * server pass. The alternative (grouping payment rows by member in the browser
+ * and adding them up) is exactly the client-side money math that produced the
+ * wrong arrears figure on this page, so it is not done here.
+ *
+ * Cached per figure for the life of the page load: expanding the same row twice
+ * must not cost two requests.
+ *
+ * @param {string} figure 'arrears' | 'collections'
+ * @return {Promise<Array<Array<string>>>} [memberName, amount] pairs
+ */
+const memberBreakdownDetailCache = new Map();
+async function memberBreakdownDetail(figure) {
+  if (!currentGroup || !currentGroup.groupId) return [];
+  const key = `${currentGroup.groupId}:${figure}`;
+  if (memberBreakdownDetailCache.has(key)) {
+    return memberBreakdownDetailCache.get(key);
+  }
+  const promise = (async () => {
+    const data = await apiGet("payments.memberBreakdown", {
+      groupId: currentGroup.groupId,
+      figure,
+    });
+    // The payload key is `members` (alongside figure/total/memberCount) — NOT
+    // `rows`. Verified against a live response.
+    const rows = Array.isArray(data && data.members) ? data.members : [];
+    return rows.map((r) => [
+      r.memberName || "Unknown member",
+      formatCurrency(r.amount != null ? r.amount : "0.00"),
+    ]);
+  })();
+  memberBreakdownDetailCache.set(key, promise);
+  // A failed lookup must not be cached as a permanent empty list.
+  promise.catch(() => memberBreakdownDetailCache.delete(key));
+  return promise;
+}
+
+/**
+ * Second level for the pending rows: which member, what type, how much.
+ * Each amount is that payment row's own server field — nothing is totalled.
+ * @return {Array<Array<string>>}
+ */
+function pendingPaymentsDetail() {
+  return groupData.payments
+    .filter((p) => String(p.approvalStatus) === "pending")
+    .map((p) => [
+      `${memberNameById.get(String(p.uid)) || "Unknown member"} · ${paymentTypeLabel(p.paymentType)}`,
+      formatCurrency(p.amountPaid ?? "0.00"),
+    ]);
+}
 
 /** How many distinct members have at least one verified payment. A COUNT, not money. */
 function countMembersWithVerifiedPayment() {

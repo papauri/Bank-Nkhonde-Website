@@ -119,7 +119,7 @@ if (!function_exists('cycle_fetch_rules')) {
     {
         $stmt = $pdo->prepare(
             'SELECT loanRulesMinCycleLoanAmount, cycleDurationStartDate, cycleDurationEndDate, '
-            . 'cycleDurationMonths, shareOutPenalties, '
+            . 'cycleDurationMonths, shareOutPenalties, shareOutInterestMethod, '
             . 'forcedLoansEnabled, forcedLoansMethod, forcedLoansPercentageOfHighest '
             . 'FROM group_rules WHERE groupId = :groupId LIMIT 1'
         );
@@ -255,6 +255,99 @@ if (!function_exists('cycle_collect_member_figures')) {
     }
 }
 
+if (!function_exists('cycle_split_interest')) {
+    /**
+     * How the interest pool is divided among members. Returns one integer minor
+     * amount per member, in the same order as $figures.
+     *
+     * THE THREE METHODS (group_rules.shareOutInterestMethod):
+     *   refund_to_payer       - each member gets back the interest THEY paid.
+     *                           Borrowing is effectively free; a member who never
+     *                           borrowed receives nothing. This is the DEFAULT and
+     *                           the behaviour every existing group already has.
+     *   split_equally         - the whole pool split 1/N, borrower or not.
+     *   split_by_contribution - the pool split in proportion to what each member
+     *                           contributed, so saving twice as much earns twice
+     *                           as much.
+     *
+     * INVARIANT: the returned shares ALWAYS sum to exactly $poolMinor. Every
+     * method is integer-only; the caller's reconciliation gate enforces it again.
+     */
+    function cycle_split_interest(array $figures, int $poolMinor, string $method): array
+    {
+        $n = count($figures);
+        $shares = array_fill(0, max(0, $n), 0);
+
+        if ($n === 0 || $poolMinor <= 0) {
+            return $shares;
+        }
+
+        if ($method === 'split_by_contribution') {
+            $totalContributedMinor = 0;
+            foreach ($figures as $row) {
+                $totalContributedMinor += (int) $row['contributedMinor'];
+            }
+
+            // Nobody has contributed anything, so a proportional split is
+            // undefined. Fall back to an equal split rather than divide by zero
+            // or hand everyone nothing while the pool sits undistributed.
+            if ($totalContributedMinor > 0) {
+                $remainders = [];
+                $assignedMinor = 0;
+
+                foreach ($figures as $i => $row) {
+                    // Multiply BEFORE dividing so no precision is lost. Both are
+                    // ints; PHP is 64-bit here, ample for realistic pools.
+                    $weighted = $poolMinor * (int) $row['contributedMinor'];
+                    $shares[$i] = intdiv($weighted, $totalContributedMinor);
+                    $remainders[$i] = $weighted % $totalContributedMinor;
+                    $assignedMinor += $shares[$i];
+                }
+
+                // Flooring leaves a few minor units unassigned. LARGEST REMAINDER
+                // takes them, ties broken by earliest joiner, so identical figures
+                // always produce an identical share-out.
+                $leftoverMinor = $poolMinor - $assignedMinor;
+                if ($leftoverMinor > 0) {
+                    $order = array_keys($remainders);
+                    usort($order, static function ($a, $b) use ($remainders) {
+                        if ($remainders[$a] === $remainders[$b]) {
+                            return $a <=> $b;
+                        }
+                        return $remainders[$b] <=> $remainders[$a];
+                    });
+                    for ($k = 0; $k < $leftoverMinor; $k++) {
+                        $shares[$order[$k % $n]]++;
+                    }
+                }
+
+                return $shares;
+            }
+
+            $method = 'split_equally';
+        }
+
+        if ($method === 'split_equally') {
+            // Same remainder convention the penalty pot already uses: figures
+            // arrive joinedAt ASC, so earliest joiners absorb the odd unit.
+            $baseMinor = intdiv($poolMinor, $n);
+            $remainderMinor = $poolMinor - ($baseMinor * $n);
+            foreach ($figures as $i => $row) {
+                $shares[$i] = $baseMinor + ($i < $remainderMinor ? 1 : 0);
+            }
+            return $shares;
+        }
+
+        // refund_to_payer, and ANY unrecognised value — an unknown method must
+        // fail safe to today's behaviour, never to a zero or unbalanced payout.
+        foreach ($figures as $i => $row) {
+            $shares[$i] = (int) $row['interestPaidMinor'];
+        }
+
+        return $shares;
+    }
+}
+
 if (!function_exists('cycle_compute_payout')) {
     /**
      * The share-out. Used by BOTH the preview and the settlement so the two can
@@ -305,6 +398,8 @@ if (!function_exists('cycle_compute_payout')) {
         $rules = cycle_fetch_rules($pdo, $groupId);
         // No rules row => the toggle is off. Never share out by default.
         $shareOut = $rules !== null && (int) ($rules['shareOutPenalties'] ?? 0) === 1;
+        // How the INTEREST pool is divided. Defaults to today's rule.
+        $interestMethod = (string) ($rules['shareOutInterestMethod'] ?? 'refund_to_payer');
 
         $poolMinor = 0;
         $penaltyPoolMinor = 0;
@@ -335,11 +430,16 @@ if (!function_exists('cycle_compute_payout')) {
         // though the pool itself is still reported.
         $distributedPenaltyMinor = $distribute ? $penaltyPoolMinor : 0;
 
+        // The interest pool, divided by whichever method the group chose. Always
+        // sums to exactly $poolMinor — see cycle_split_interest().
+        $interestSharesMinor = cycle_split_interest($figures, $poolMinor, $interestMethod);
+
         $members = [];
         $payoutSumMinor = 0;
         foreach ($figures as $i => $row) {
-            // THE RULE, verbatim: a member is refunded the interest they paid...
-            $interestRefundMinor = $row['interestPaidMinor'];
+            // Under refund_to_payer this is the member's own interest, exactly as
+            // before. Under the split methods it is their slice of the pool.
+            $interestRefundMinor = $interestSharesMinor[$i] ?? 0;
 
             // ...plus, optionally, an EQUAL slice of the penalty pot. The figures
             // arrive ordered by joinedAt ASC, so the earliest joiners absorb the
@@ -370,6 +470,7 @@ if (!function_exists('cycle_compute_payout')) {
             'poolMinor' => $poolMinor,
             'penaltyPoolMinor' => $penaltyPoolMinor,
             'shareOutPenalties' => $shareOut,
+            'shareOutInterestMethod' => $interestMethod,
             'distributedPenaltyMinor' => $distributedPenaltyMinor,
             'payoutSumMinor' => $payoutSumMinor,
         ];
@@ -635,6 +736,9 @@ if (!function_exists('cycle_payout_preview')) {
                 // Always reported, even when it is not distributed.
                 'groupPenaltyPool' => money_from_minor($computed['penaltyPoolMinor']),
                 'shareOutPenalties' => $computed['shareOutPenalties'],
+                // Which interest rule produced these figures, so the page can
+                // label the column honestly instead of always saying "refund".
+                'shareOutInterestMethod' => $computed['shareOutInterestMethod'],
                 'distributedPenalties' => money_from_minor($computed['distributedPenaltyMinor']),
                 'totalPayout' => money_from_minor($computed['payoutSumMinor']),
                 'balances' => $computed['payoutSumMinor'] === $expectedMinor,
@@ -758,13 +862,15 @@ if (!function_exists('cycle_settle')) {
         }
 
         $rowsStmt = $pdo->prepare(
-            'SELECT payoutId, groupId, uid, cycleStartDate, cycleEndDate, totalContributed, '
-            . 'totalBorrowed, totalInterestPaid, totalPenaltiesPaid, groupInterestPool, '
-            . 'groupPenaltyPool, interestRefund, penaltyShare, '
-            . 'payoutAmount, status, settledBy, settledAt, createdAt, updatedAt '
-            . 'FROM cycle_payouts '
-            . 'WHERE groupId = :groupId AND cycleStartDate = :cycleStartDate '
-            . 'ORDER BY payoutAmount DESC'
+            'SELECT cp.payoutId, cp.groupId, cp.uid, cp.cycleStartDate, cp.cycleEndDate, '
+            . 'cp.totalContributed, cp.totalBorrowed, cp.totalInterestPaid, cp.totalPenaltiesPaid, '
+            . 'cp.groupInterestPool, cp.groupPenaltyPool, cp.interestRefund, cp.penaltyShare, '
+            . 'cp.payoutAmount, cp.status, cp.settledBy, cp.settledAt, cp.createdAt, cp.updatedAt, '
+            . 'm.fullName '
+            . 'FROM cycle_payouts cp '
+            . 'LEFT JOIN members m ON m.groupId = cp.groupId AND m.uid = cp.uid '
+            . 'WHERE cp.groupId = :groupId AND cp.cycleStartDate = :cycleStartDate '
+            . 'ORDER BY cp.payoutAmount DESC'
         );
         $rowsStmt->execute([':groupId' => $groupId, ':cycleStartDate' => $cycleStartDate]);
 
@@ -780,5 +886,141 @@ if (!function_exists('cycle_settle')) {
             'balances' => true,
             'payouts' => $rowsStmt->fetchAll(),
         ], 201);
+    }
+}
+
+if (!function_exists('cycle_payouts_list')) {
+    /**
+     * GET action=cycle.payouts.list — the SETTLED share-out record for a group's
+     * CURRENT cycle, plus a settled/not-settled flag.
+     *
+     * READ-ONLY. This never computes a preview and never writes anything; it only
+     * reads back what cycle_settle() already recorded, using the byte-identical
+     * SELECT (plus a status filter and a display-name join) so the settled record
+     * a member sees can never drift from what settlement actually wrote.
+     *
+     * A group with no cycle configured, or a configured cycle that has not yet
+     * been settled, is NOT an error: it is a normal 200 with settled:false so the
+     * caller can fall back to the live preview.
+     */
+    function cycle_payouts_list(): void
+    {
+        $groupId = cycle_require_group_id((string) ($_GET['groupId'] ?? ''));
+        require_role($groupId, ['admin', 'senior_admin', 'treasurer']);
+
+        $pdo = getDbConnection();
+
+        $rules = cycle_fetch_rules($pdo, $groupId);
+        if ($rules === null || empty($rules['cycleDurationStartDate'])) {
+            json_response([
+                'groupId' => $groupId,
+                'settled' => false,
+                'cycleStartDate' => null,
+                'cycleEndDate' => null,
+                'settledAt' => null,
+                'settledBy' => null,
+                'summary' => [
+                    'memberCount' => 0,
+                    'groupInterestPool' => '0.00',
+                    'groupPenaltyPool' => '0.00',
+                    'distributedPenalties' => '0.00',
+                    'totalPayout' => '0.00',
+                    'balances' => false,
+                ],
+                'payouts' => [],
+            ]);
+        }
+
+        $cycleStartDate = (string) $rules['cycleDurationStartDate'];
+
+        $rowsStmt = $pdo->prepare(
+            'SELECT cp.payoutId, cp.groupId, cp.uid, cp.cycleStartDate, cp.cycleEndDate, '
+            . 'cp.totalContributed, cp.totalBorrowed, cp.totalInterestPaid, cp.totalPenaltiesPaid, '
+            . 'cp.groupInterestPool, cp.groupPenaltyPool, cp.interestRefund, cp.penaltyShare, '
+            . 'cp.payoutAmount, cp.status, cp.settledBy, cp.settledAt, cp.createdAt, cp.updatedAt, '
+            . 'm.fullName '
+            . 'FROM cycle_payouts cp '
+            . 'LEFT JOIN members m ON m.groupId = cp.groupId AND m.uid = cp.uid '
+            . "WHERE cp.groupId = :groupId AND cp.cycleStartDate = :cycleStartDate AND cp.status = 'settled' "
+            . 'ORDER BY cp.payoutAmount DESC'
+        );
+        $rowsStmt->execute([':groupId' => $groupId, ':cycleStartDate' => $cycleStartDate]);
+        $rows = $rowsStmt->fetchAll();
+
+        if ($rows === []) {
+            json_response([
+                'groupId' => $groupId,
+                'settled' => false,
+                'cycleStartDate' => null,
+                'cycleEndDate' => null,
+                'settledAt' => null,
+                'settledBy' => null,
+                'summary' => [
+                    'memberCount' => 0,
+                    'groupInterestPool' => '0.00',
+                    'groupPenaltyPool' => '0.00',
+                    'distributedPenalties' => '0.00',
+                    'totalPayout' => '0.00',
+                    'balances' => false,
+                ],
+                'payouts' => [],
+            ]);
+        }
+
+        $first = $rows[0];
+
+        $distributedPenaltiesMinor = 0;
+        $totalPayoutMinor = 0;
+        $settledAtMax = null;
+        foreach ($rows as $row) {
+            $distributedPenaltiesMinor += cycle_minor($row['penaltyShare']);
+            $totalPayoutMinor += cycle_minor($row['payoutAmount']);
+            if ($row['settledAt'] !== null && ($settledAtMax === null || $row['settledAt'] > $settledAtMax)) {
+                $settledAtMax = $row['settledAt'];
+            }
+        }
+
+        $interestPoolMinor = cycle_minor($first['groupInterestPool']);
+        $penaltyPoolMinor = cycle_minor($first['groupPenaltyPool']);
+
+        $payouts = array_map(static function (array $row): array {
+            return [
+                'payoutId' => (int) $row['payoutId'],
+                'uid' => $row['uid'],
+                'fullName' => $row['fullName'],
+                'cycleStartDate' => $row['cycleStartDate'],
+                'cycleEndDate' => $row['cycleEndDate'],
+                'totalContributed' => money_from_minor(cycle_minor($row['totalContributed'])),
+                'totalBorrowed' => money_from_minor(cycle_minor($row['totalBorrowed'])),
+                'totalInterestPaid' => money_from_minor(cycle_minor($row['totalInterestPaid'])),
+                'totalPenaltiesPaid' => money_from_minor(cycle_minor($row['totalPenaltiesPaid'])),
+                'groupInterestPool' => money_from_minor(cycle_minor($row['groupInterestPool'])),
+                'groupPenaltyPool' => money_from_minor(cycle_minor($row['groupPenaltyPool'])),
+                'interestRefund' => money_from_minor(cycle_minor($row['interestRefund'])),
+                'penaltyShare' => money_from_minor(cycle_minor($row['penaltyShare'])),
+                'payoutAmount' => money_from_minor(cycle_minor($row['payoutAmount'])),
+                'status' => $row['status'],
+                'settledBy' => $row['settledBy'],
+                'settledAt' => $row['settledAt'],
+            ];
+        }, $rows);
+
+        json_response([
+            'groupId' => $groupId,
+            'settled' => true,
+            'cycleStartDate' => $first['cycleStartDate'],
+            'cycleEndDate' => $first['cycleEndDate'],
+            'settledAt' => $settledAtMax,
+            'settledBy' => $first['settledBy'],
+            'summary' => [
+                'memberCount' => count($rows),
+                'groupInterestPool' => money_from_minor($interestPoolMinor),
+                'groupPenaltyPool' => money_from_minor($penaltyPoolMinor),
+                'distributedPenalties' => money_from_minor($distributedPenaltiesMinor),
+                'totalPayout' => money_from_minor($totalPayoutMinor),
+                'balances' => $totalPayoutMinor === ($interestPoolMinor + $distributedPenaltiesMinor),
+            ],
+            'payouts' => $payouts,
+        ]);
     }
 }

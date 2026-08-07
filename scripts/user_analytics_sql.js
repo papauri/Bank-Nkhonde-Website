@@ -54,7 +54,7 @@
 import {apiGet, requireSession, listMyGroups, ApiError, redirectToLogin, logout, downloadExport} from "./api.js";
 import { formatCurrency } from "./utils_financial.js";
 import { emptyState as uiEmptyState } from "./ui.js";
-import { attachCardInfo } from "./card_info.js";
+import { attachCardInfo, infoContent } from "./card_info.js";
 
 /**
  * Loan statuses where the loan was actually ISSUED (money left the box).
@@ -288,24 +288,21 @@ function renderTopStats() {
  * @param {string} ariaLabel accessible name for the toggle
  * @param {Array<Array<string>>} rows [label, value] pairs, already formatted
  */
-function attachCardPopover(cardEl, ariaLabel, rows) {
+function attachCardPopover(cardEl, ariaLabel, rows, opts = {}) {
   if (!cardEl || !Array.isArray(rows) || rows.length === 0) return;
+  /* Delegates to the shared infoContent() instead of hand-building rows.
+     This panel used to render rows ONLY — no title and no plain-language
+     sentence — so it was the one "i" on the app that opened straight into a
+     table of figures with nothing saying what they were. The shared builder
+     fixes the order (title → sentence → rows → action) in one place. */
   attachCardInfo(cardEl, {
     label: ariaLabel,
-    content: (host) => {
-      rows.forEach(([label, value]) => {
-        const row = document.createElement("div");
-        row.className = "bn-info-row";
-        const l = document.createElement("span");
-        l.className = "bn-info-row-label";
-        l.textContent = label;
-        const v = document.createElement("span");
-        v.className = "bn-info-row-value";
-        v.textContent = value;
-        row.append(l, v);
-        host.appendChild(row);
-      });
-    },
+    content: infoContent({
+      title: opts.title || ariaLabel,
+      description: opts.description,
+      rows,
+      action: opts.action,
+    }),
   });
 }
 
@@ -314,32 +311,80 @@ function attachCardPopover(cardEl, ariaLabel, rows) {
 // before re-attaching, so switching groups / re-rendering never duplicates.
 function renderBreakdownPopovers() {
   const cb = obligations?.contributionBreakdown || {};
+  const months = obligations?.monthlyContributions?.months || [];
+
   const contributedRows = [
     ["Seed money", formatCurrency(numberOf(cb.seedMoney))],
-    ["Monthly contributions", formatCurrency(numberOf(cb.monthly))],
+    {
+      label: "Monthly contributions",
+      value: formatCurrency(numberOf(cb.monthly)),
+      // Second level: what was actually paid each month. Each figure is that
+      // month's own server field — nothing is re-totalled here.
+      detail: () =>
+        months
+          .filter((m) => numberOf(m.amountPaid) > 0)
+          .map((m) => [m.month, formatCurrency(numberOf(m.amountPaid))]),
+      detailLabel: "Show what was paid each month",
+    },
     ["Service fee", formatCurrency(numberOf(cb.serviceFee))],
   ];
 
   const summary = obligations?.summary || {};
   const arrearsRows = [
-    ["Contribution arrears", formatCurrency(numberOf(summary.arrears))],
-    ["Penalties accrued", formatCurrency(numberOf(summary.penaltyAccrued))],
+    {
+      label: "Contribution arrears",
+      value: formatCurrency(numberOf(summary.arrears)),
+      detail: () =>
+        months
+          .filter((m) => numberOf(m.arrears) > 0)
+          .map((m) => [m.month, formatCurrency(numberOf(m.arrears))]),
+      detailLabel: "Show which months are short",
+    },
+    {
+      label: "Penalties accrued",
+      value: formatCurrency(numberOf(summary.penaltyAccrued)),
+      detail: () =>
+        months
+          .filter((m) => m.penalty && numberOf(m.penalty.amountOutstanding) > 0)
+          .map((m) => [m.month, formatCurrency(numberOf(m.penalty.amountOutstanding))]),
+      detailLabel: "Show which months carry a penalty",
+    },
   ];
 
-  attachBreakdown("totalContributed", ".page-stat", "Contributions breakdown", contributedRows);
-  attachBreakdown("userTotalContributed", ".stat-card", "Contributions breakdown", contributedRows);
-  attachBreakdown("totalArrears", ".page-stat", "Arrears breakdown", arrearsRows);
-  attachBreakdown("userTotalArrears", ".stat-card", "Arrears breakdown", arrearsRows);
+  const contributedInfo = {
+    title: "Contributions breakdown",
+    description:
+      "Everything you have paid into the group, split by what it was for. Seed money is your one-off joining stake; monthly contributions run for each month of the cycle.",
+  };
+  const arrearsInfo = {
+    title: "Arrears breakdown",
+    description:
+      "What you still owe and have not paid, plus any late penalties that have built up on it.",
+  };
+
+  /* SELECTOR LIST, not ".page-stat" / ".stat-card" alone.
+     This page was redesigned onto a `.hero-section` / `.hero-stat` layout and
+     these attach calls were never updated, so closest() matched nothing and
+     ALL FOUR "i" toggles on the member's analytics page silently never
+     rendered — no toggle, no panel, no error. (`userTotalContributed` and
+     `userTotalArrears` no longer exist at all; the two live ids are enough, and
+     attachBreakdown no-ops safely on a missing one.) Listing every card shell
+     this app uses keeps the attach working through the next re-skin. */
+  const CARD = ".hero-stat, .page-stat, .stat-card";
+  attachBreakdown("totalContributed", CARD, "Contributions breakdown", contributedRows, contributedInfo);
+  attachBreakdown("userTotalContributed", CARD, "Contributions breakdown", contributedRows, contributedInfo);
+  attachBreakdown("totalArrears", CARD, "Arrears breakdown", arrearsRows, arrearsInfo);
+  attachBreakdown("userTotalArrears", CARD, "Arrears breakdown", arrearsRows, arrearsInfo);
 }
 
-function attachBreakdown(valueElId, wrapSelector, ariaLabel, rows) {
+function attachBreakdown(valueElId, wrapSelector, ariaLabel, rows, opts) {
   const valueEl = document.getElementById(valueElId);
   const wrap = valueEl?.closest(wrapSelector);
   if (!wrap) return;
   // attachCardInfo() is itself idempotent (it removes any existing toggle
   // before adding a new one), so no manual cleanup is needed here — the panel
   // now lives on <body>, not in the card.
-  attachCardPopover(wrap, ariaLabel, rows);
+  attachCardPopover(wrap, ariaLabel, rows, opts);
 }
 
 function renderContributionTrendChart() {

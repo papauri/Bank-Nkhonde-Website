@@ -425,9 +425,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // 4. Create the group (also inserts the creator as senior_admin).
       toggleLoadingOverlay(true, "Setting up your group...");
+      // Optional membership cap — omitted entirely when left blank, so a group
+      // with no limit stores NULL rather than an invented ceiling.
+      const maxMembersRaw = document.getElementById("maxMembers")?.value?.trim();
+      const maxMembersNum = maxMembersRaw ? Number(maxMembersRaw) : null;
       const group = await apiPost("groups.create", {
         groupName,
         description: groupDescription,
+        ...(Number.isFinite(maxMembersNum) && maxMembersNum > 0
+          ? { maxMembers: maxMembersNum }
+          : {}),
       });
       const groupId = group?.groupId;
 
@@ -442,6 +449,22 @@ document.addEventListener("DOMContentLoaded", () => {
       };
       addRule("seedMoneyAmount", seedMoney);
       addRule("monthlyContributionAmount", monthlyContribution);
+
+      /* Turn the obligation OFF when its amount is zero or blank.
+         The amount alone is not enough: `seedMoneyRequired` /
+         `monthlyContributionRequired` both default to 1 in the schema, so a
+         group created without seed money still had a REQUIRED seed obligation
+         of 0.00 — which is the shape that bars borrowing on an unpaid seed and
+         puts a meaningless line in every member's "what I owe". Sending the
+         flag explicitly makes "we don't use this" a real, stored answer. */
+      if (seedMoney === null || Number(seedMoney) <= 0) {
+        addRule("seedMoneyRequired", false);
+      }
+      if (monthlyContribution === null || Number(monthlyContribution) <= 0) {
+        addRule("monthlyContributionRequired", false);
+      }
+      // A service fee is opt-in: only mark it required when one was actually set.
+      addRule("serviceFeeRequired", serviceFee !== null && Number(serviceFee) > 0);
       addRule("monthlyContributionDayOfMonth", contributionDueDay);
       addRule("serviceFeeAmount", serviceFee);
       addRule("loanInterestRateMonth1", interestRateMonth1);
@@ -451,6 +474,16 @@ document.addEventListener("DOMContentLoaded", () => {
       addRule("loanPenaltyGracePeriodDays", loanGracePeriod);
       addRule("loanRulesMaxLoanAmount", maxLoanAmount || null);
       addRule("loanRulesMinCycleLoanAmount", minCycleLoanAmount || null);
+      /* How the interest pool is divided at cycle end. This control used to be
+         "Surplus/Profit Distribution" and was NEVER SENT — a group creator chose
+         a distribution method and it was silently discarded, so every group ran
+         on the schema default no matter what they picked. It is now a real,
+         stored answer. Only the three values the server accepts are offered;
+         anything else is rejected 422 by update_rules(). */
+      const shareOutInterestMethod = document.getElementById("shareOutInterestMethod")?.value;
+      if (["refund_to_payer", "split_equally", "split_by_contribution"].includes(shareOutInterestMethod)) {
+        addRule("shareOutInterestMethod", shareOutInterestMethod);
+      }
       // Fixed-amount daily penalty maps directly to the SQL column. A
       // percentage-rate penalty (the original's default mode) has no
       // equivalent column — see the deferred list in this file's header.

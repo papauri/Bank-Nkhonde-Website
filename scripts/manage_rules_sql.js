@@ -240,6 +240,17 @@ async function loadRulesSettings() {
       minMembershipMonthsInput.value = rules.minMembershipMonths !== null && rules.minMembershipMonths !== undefined ? rules.minMembershipMonths : "0";
     }
 
+    // Interest sharing method. Falls back to the server's own default rather
+    // than leaving the control on whatever option happens to be first, so it
+    // never displays a rule the group is not actually on.
+    const shareOutInterestMethodInput = document.getElementById("shareOutInterestMethodInput");
+    if (shareOutInterestMethodInput) {
+      const allowed = ["refund_to_payer", "split_equally", "split_by_contribution"];
+      shareOutInterestMethodInput.value = allowed.includes(rules.shareOutInterestMethod)
+        ? rules.shareOutInterestMethod
+        : "refund_to_payer";
+    }
+
     renderPenaltySettings(rules);
   } catch (error) {
     // Rules may not exist yet — that's fine, leave fields empty
@@ -389,6 +400,13 @@ async function saveGovernanceSettings() {
     }
     if (minMembershipMonthsValue !== "") {
       rulesUpdate.minMembershipMonths = parseInt(minMembershipMonthsValue, 10);
+    }
+
+    // Only ever send one of the three values the server accepts; anything else
+    // is rejected 422 by update_rules() rather than silently stored.
+    const shareOutInterestMethodValue = document.getElementById("shareOutInterestMethodInput")?.value;
+    if (["refund_to_payer", "split_equally", "split_by_contribution"].includes(shareOutInterestMethodValue)) {
+      rulesUpdate.shareOutInterestMethod = shareOutInterestMethodValue;
     }
 
     collectPenaltySettings(rulesUpdate);

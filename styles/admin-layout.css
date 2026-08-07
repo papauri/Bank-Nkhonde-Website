@@ -120,6 +120,25 @@ body {
   margin-bottom: var(--bn-space-1);
 }
 
+/* Grouping heading in the sidebar. Not a link and not focusable — it exists to
+   break fourteen destinations into scannable groups. */
+.sidebar-nav-section {
+  padding: var(--bn-space-4) var(--bn-space-4) var(--bn-space-2);
+  font-size: var(--bn-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bn-gray-400);
+  opacity: 0.75;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* No dead space above the first heading — it already follows the header. */
+.sidebar-nav > .sidebar-nav-section:first-child {
+  padding-top: var(--bn-space-2);
+}
+
 .sidebar-nav-item {
   position: relative;
   display: flex;
@@ -260,13 +279,30 @@ body {
   font-weight: 700;
   font-size: var(--bn-text-sm);
   color: var(--bn-dark);
-  overflow: hidden;
   flex-shrink: 0;
-  /* Now an <a> to settings.html — kill the underline and inherited link
-     colour so it still reads as an avatar, and give it a visible focus ring
-     since it became keyboard-reachable. */
+  position: relative;
+  /* Now a <label for="navProfilePictureInput"> that opens the hidden file
+     input below — kill the underline it no longer needs, keep the pointer
+     cursor a link got for free, and keep a visible focus ring since it is
+     tabindex="0" and keyboard-activatable.
+     No `overflow: hidden` here on purpose: the ::before tap-target expander
+     below deliberately extends past this box's edge, and a host with
+     overflow: hidden clips its own pseudo-element exactly like the
+     .bn-info-toggle bug this pattern is copied from. The circular clip is
+     done on the <img> itself instead (see .sidebar-user-avatar img). */
   text-decoration: none;
   cursor: pointer;
+}
+
+/* Visual size stays 40px (matches the sidebar user block); the TAP target
+   becomes 44×44 via an invisible expander, same trick as .bn-info-toggle.
+   Inset -2px on a 40px box = 44px. Absolutely positioned so it adds no
+   layout width and cannot push the name/role block or Logout row. */
+.sidebar-user-avatar::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
 }
 
 .sidebar-user-avatar:hover {
@@ -282,6 +318,17 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* Circular clip lives here, not on the parent's overflow — see comment
+     above. Sized identically to its 40×40 parent so nothing bleeds past
+     the rounded corners. */
+  border-radius: var(--bn-radius-full);
+}
+
+/* Hidden file input — the label's for= still opens it; display:none keeps
+   it out of the tab order (the label itself carries the tabindex/focus
+   ring) and off-screen, matching .profile-picture-input on settings.html. */
+.sidebar-user-avatar-input {
+  display: none;
 }
 
 .sidebar-user-info {
@@ -698,10 +745,15 @@ body {
    so the page-level #spinner matches user_dashboard.html exactly.
    ============================================ */
 
-/* Inside admin layout, scope any section-level spinner to main-content only */
+/* Section-level spinners inside the admin layout stay FIXED TO THE VIEWPORT, so
+   the loader always lands in the middle of the screen. It was `absolute`, which
+   stretched the overlay to the full height of the content column and pushed the
+   flex-centred loader roughly 1100px down the page — usually off screen.
+   Loads here are short and blocking, so covering the chrome while one runs is
+   the honest signal; a loader you cannot see is not. */
 .main-content .spinner-overlay,
 .dashboard-content .spinner-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 100;
 }
@@ -980,6 +1032,17 @@ body {
   margin-bottom: var(--bn-space-5);
   overflow-x: auto;
   padding-bottom: var(--bn-space-2);
+  /* THIS STRIP WAS SLICING THE "i" BUTTONS IN HALF.
+     `overflow-x: auto` cannot be paired with a visible vertical overflow — CSS
+     computes the other axis to `auto` too — so this box clipped anything
+     overhanging its TOP edge. The toggles sit half outside their card's top-right
+     corner by design, so all four were cut off at the top on manage_payments,
+     manage_loans and analytics (12 in total).
+     Clipping happens at the PADDING edge, so padding here gives the overhang
+     somewhere legal to live. It is not decorative spacing — removing it
+     re-breaks the buttons. */
+  padding-top: 16px;
+  padding-right: 16px;
 }
 
 .dashboard-content .page-stat {

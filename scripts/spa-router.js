@@ -80,6 +80,12 @@ const PAGE_CONFIG = {
     nav: "reports",
     title: "Financial Reports",
   },
+  "cycle_shareout.html": {
+    variant: "admin",
+    module: "./cycle_shareout_sql.js",
+    nav: "shareout",
+    title: "Cycle Share-Out",
+  },
   "manage_payments.html": {
     variant: "admin",
     module: "./manage_payments_sql.js",

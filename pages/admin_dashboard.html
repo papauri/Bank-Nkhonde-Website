@@ -167,13 +167,17 @@
       font-weight: 700;
       font-size: var(--bn-text-sm);
       color: var(--bn-dark);
-      overflow: hidden;
+      /* No `overflow: hidden` here. The avatar is now a click-to-change control
+         whose 44x44 tap target is an invisible ::before expander, and an
+         overflow-hidden host clips its own pseudo-element away. The circular
+         clip lives on the img below instead. Mirrors styles/admin-layout.css. */
     }
 
     .sidebar-user-avatar img {
       width: 100%;
       height: 100%;
       object-fit: cover;
+      border-radius: var(--bn-radius-full);
     }
 
     .sidebar-user-info {
@@ -705,9 +709,20 @@
     /* Content Grid */
     .content-grid {
       display: grid;
-      grid-template-columns: 2fr 1fr;
+      /* minmax(0, …) NOT plain 2fr/1fr: an `fr` track carries an implicit `auto`
+         MINIMUM, so a grid item can refuse to shrink below its min-content width
+         and push the track wider than the grid. The Collection Trends chart did
+         exactly that — a 466px track inside a 385px container, clipped (not
+         scrollable) because body sets overflow-x: hidden. */
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
       gap: var(--bn-space-6);
       margin-bottom: var(--bn-space-8);
+    }
+
+    /* Grid items default to min-width: auto — the other half of the same
+       blowout. Belt and braces so a future wide child cannot re-break it. */
+    .content-grid > * {
+      min-width: 0;
     }
 
     .content-card {
@@ -1338,12 +1353,15 @@
     }
 
     .due-payment-amount {
-      font-size: var(--bn-text-base);
+      font-size: var(--bn-text-sm);
       font-weight: 700;
-      color: var(--bn-warning);
+      color: var(--bn-warning-dark);
       white-space: nowrap;
-      flex-shrink: 0;
       font-feature-settings: 'tnum' 1;
+      line-height: 1.3;
+      letter-spacing: -0.01em;
+      max-width: 100%;
+      overflow-wrap: anywhere;
     }
 
     .due-payment-meta {
@@ -1378,7 +1396,7 @@
       }
 
       .content-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
       }
 
       .groups-grid {
@@ -1978,6 +1996,25 @@
         </div>
       </div>
 
+      <!-- Group Health at a Glance (J13).
+           The one-screen answer to "how is this group doing". Every figure is a
+           server figure (payments.compliance, loans.list summary,
+           payments.accountingSummary) rendered by renderGroupHealth(); the
+           browser computes none of it, including the collection-rate bar, which
+           uses the server's own percentCollected. -->
+      <div class="content-card" style="margin-bottom: var(--bn-space-8);">
+        <div class="content-card-header">
+          <h2 class="content-card-title">Group Health at a Glance</h2>
+          <span class="badge" id="groupHealthBadge" style="display: none;"></span>
+        </div>
+        <div class="content-card-body" id="groupHealth">
+          <div class="empty-state">
+            <div class="empty-state-icon">⏳</div>
+            <p class="empty-state-text">Loading group health…</p>
+          </div>
+        </div>
+      </div>
+
       <!-- Content Grid -->
       <div class="content-grid">
         <!-- Chart Card -->
@@ -2054,6 +2091,35 @@
         <div class="stat-modal-empty">
           <div class="stat-modal-empty-icon">⏳</div>
           <p class="stat-modal-empty-text">Loading...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Record Payment modal (J13).
+       Lets an admin bank cash a member handed over WITHOUT leaving the
+       dashboard. Reuses the stat-modal shell so there is one modal look on this
+       page. Every amount shown is the SERVER's own outstanding figure for that
+       obligation (payments.obligations with the admin uid-override); the browser
+       never derives what is owed. -->
+  <div class="stat-modal-overlay" id="recordPaymentOverlay" onclick="closeRecordPaymentOnOverlay(event)">
+    <div class="stat-modal" onclick="event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="recordPaymentTitleText">
+      <div class="stat-modal-header">
+        <h2 class="stat-modal-title">
+          <span>💵</span>
+          <span id="recordPaymentTitleText">Record Payment</span>
+        </h2>
+        <button class="stat-modal-close" onclick="closeRecordPaymentModal()" aria-label="Close record payment">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="stat-modal-body" id="recordPaymentBody">
+        <div class="stat-modal-empty">
+          <div class="stat-modal-empty-icon">⏳</div>
+          <p class="stat-modal-empty-text">Loading…</p>
         </div>
       </div>
     </div>

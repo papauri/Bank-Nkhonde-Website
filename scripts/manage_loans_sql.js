@@ -54,7 +54,7 @@ import {
   apiUrl,
 } from "./api.js";
 import { formatCurrency } from "./utils_financial.js";
-import { attachCardInfo, pageStatInfo } from "./card_info.js";
+import { attachCardInfo, infoContent, pageStatInfo } from "./card_info.js";
 import { makeStatClickable, renderQuickAmounts, renderUpcomingInstalments } from "./ui.js";
 
 // ── Global state ────────────────────────────────────────────────────────────
@@ -361,12 +361,23 @@ function syncClearFiltersBtn() {
   btn.hidden = !borrower || borrower === "all";
 }
 
+/**
+ * Server-computed loan totals from loans.list (`summary`): issuedPrincipal,
+ * activeBalance, totalInterest. Kept so the Accounting Summary can quote the
+ * server's own figures instead of re-adding loan rows in the browser.
+ */
+let loansSummaryData = null;
+
 async function loadLoans() {
   try {
     const data = await apiGet("loans.list", {groupId: selectedGroupId});
     loans = Array.isArray(data && data.loans) ? data.loans : [];
+    loansSummaryData = data && data.summary && typeof data.summary === "object"
+      ? data.summary
+      : null;
   } catch (error) {
     loans = [];
+    loansSummaryData = null;
     handleApiError(error, "Failed to load loans");
   }
 }
@@ -629,9 +640,75 @@ function acctTotalTile(label, value, cls, opts = {}) {
   tile.append(l, v);
 
   if (opts.info) {
-    attachCardInfo(tile, {label: `About ${label}`, content: opts.info});
+    // Same fix as manage_payments' tile builder: a bare string was rendered as
+    // the panel's entire body, so these opened as one unlabelled paragraph while
+    // every other "i" in the app opened titled and itemised. `rows` resolves at
+    // OPEN time so it follows the current filter.
+    attachCardInfo(tile, {
+      label: `About ${label}`,
+      content: (host) =>
+        infoContent({
+          title: label,
+          description: opts.info,
+          rows: typeof opts.rows === "function" ? opts.rows() : opts.rows,
+          action: opts.action,
+        })(host),
+    });
   }
   return tile;
+}
+
+/**
+ * Plain-language name for the period selector's value, so each tile can carry
+ * its own scope. Two of these tiles are period-scoped and two are today's live
+ * position; nothing said which was which.
+ * @param {string} period
+ * @return {string}
+ */
+function acctPeriodLabel(period) {
+  const map = {
+    all: "All time",
+    month: "This month",
+    quarter: "This quarter",
+    year: "This year",
+    q1: "Q1 (Jan–Mar)",
+    q2: "Q2 (Apr–Jun)",
+    q3: "Q3 (Jul–Sep)",
+    q4: "Q4 (Oct–Dec)",
+  };
+  return map[String(period)] || "Selected period";
+}
+
+/* ── Info-panel derivations for the loan period tiles ────────────────────────
+   PER-LOAN ROWS ONLY. Each figure is that loan's own server field, listed —
+   these helpers never total anything, so they cannot drift from the tile above
+   them (which does its own summing, pre-existing on this page).
+──────────────────────────────────────────────────────────────────────────── */
+
+/** Each loan disbursed inside the selected period, with its own principal. */
+function loansDisbursedRows() {
+  const period = document.getElementById("acctPeriodFilter")?.value || "all";
+  const DISBURSED = new Set(["approved", "disbursed", "completed"]);
+  const rows = loans.filter(
+    (l) =>
+      DISBURSED.has(String(l.status)) &&
+      inAcctPeriod(l.disbursedAt || l.approvedAt || l.createdAt, period),
+  );
+  if (!rows.length) return undefined;
+  return rows.map((l) => [
+    `${loanBorrowerName(l.borrowerId)}${l.loanNumber ? ` (${l.loanNumber})` : ""}`,
+    formatCurrency(l.approvedAmount ?? l.principalAmount ?? "0.00"),
+  ]);
+}
+
+/** Each currently-active loan, with what is still owed on it. */
+function activeLoanRows() {
+  const rows = loans.filter((l) => l.status === "approved" || l.status === "disbursed");
+  if (!rows.length) return undefined;
+  return rows.map((l) => [
+    `${loanBorrowerName(l.borrowerId)}${l.loanNumber ? ` (${l.loanNumber})` : ""}`,
+    formatCurrency(l.remainingBalance ?? "0.00"),
+  ]);
 }
 
 function loanBorrowerName(borrowerId) {
@@ -905,6 +982,7 @@ function renderAccountantSummary() {
   const totals = document.getElementById("acctTotals");
   if (totals) {
     totals.textContent = "";
+    const periodName = acctPeriodLabel(period);
     const jump = (tab) => () => {
       currentTab = tab;
       document.querySelectorAll(".action-tab").forEach((t) => {
@@ -916,23 +994,59 @@ function renderAccountantSummary() {
     };
 
     totals.append(
-      acctTotalTile("Disbursed", formatCurrency(disbursed), "pos", {
+      // Each tile names its own scope: the first two follow the period selector,
+      // the rest are today's live position, and nothing previously said so.
+      acctTotalTile(`Disbursed · ${periodName}`, formatCurrency(disbursed), "pos", {
         onClick: jump("active"),
-        info: "Loan principal paid out in the selected period (approved, disbursed or completed "
+        info: `Loan principal paid out ${periodName.toLowerCase()} (approved, disbursed or completed `
           + "loans). Pending requests are not counted — no money has moved yet.",
+        // Per-loan rows: each borrower's OWN approved amount, listed. The tile
+        // total is not re-derived from these.
+        rows: () => loansDisbursedRows(),
       }),
-      acctTotalTile("Loans disbursed", String(disbursedCount), "", {
+      acctTotalTile(`Loans disbursed · ${periodName}`, String(disbursedCount), "", {
         onClick: jump("active"),
-        info: "How many loans had money paid out in the selected period.",
+        info: `How many loans had money paid out ${periodName.toLowerCase()}.`,
+        rows: () => loansDisbursedRows(),
       }),
-      acctTotalTile("Active loans", String(activeCount), "", {
+      acctTotalTile("Active loans · today", String(activeCount), "", {
         onClick: jump("active"),
-        info: "Loans currently being repaid — approved or disbursed, not yet fully repaid.",
+        info: "Loans currently being repaid — approved or disbursed, not yet fully repaid. "
+          + "Today's position, not the period selected above.",
+        rows: () => activeLoanRows(),
       }),
-      acctTotalTile("Outstanding", formatCurrency(outstanding), outstanding > 0 ? "neg" : "", {
+      acctTotalTile("Still owed on loans · today", formatCurrency(outstanding), outstanding > 0 ? "neg" : "", {
         onClick: jump("overdue"),
-        info: "Total still owed on active loans right now. This is today's position, not the "
-          + "selected period.",
+        info: "Total still owed on active loans right now — principal and interest not yet repaid. "
+          + "Today's position, not the period selected above.",
+        rows: () => {
+          const rows = activeLoanRows();
+          if (!rows) return undefined;
+          // Who is actually overdue is a different question from who has a
+          // balance — both are shown rather than conflated.
+          return [
+            ...rows,
+            ["Borrowers overdue", String(followups.length)],
+          ];
+        },
+      }),
+      /* Interest earned was missing entirely — a loan accounting summary that
+         omits what the lending actually EARNED is not a summary. It is the
+         server's own total, and it is the group's real income from lending
+         (principal coming back is just the group's own money returning). */
+      acctTotalTile("Interest earned · all time", formatCurrency(loansSummaryData?.totalInterest ?? "0.00"), "pos", {
+        onClick: jump("active"),
+        info: "Interest charged across this group's loans — the group's actual earnings from "
+          + "lending. Principal repaid is not earnings; it is the group's own money coming back.",
+        rows: () => {
+          const s = loansSummaryData;
+          if (!s) return undefined;
+          return [
+            ["Principal lent out (all time)", formatCurrency(s.issuedPrincipal ?? s.totalPrincipal ?? "0.00")],
+            ["Still owed on active loans", formatCurrency(s.activeBalance ?? "0.00")],
+            ["Interest charged", formatCurrency(s.totalInterest ?? "0.00")],
+          ];
+        },
       }),
     );
   }

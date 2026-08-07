@@ -8,29 +8,7 @@
 
 ---
 
-## ⇥ HANDOVER — CODING AGENT DISPATCH (2026-08-05, updated)
-
-> ## ⇦ HANDING BACK TO CLINE FOR RE-PLANNING (2026-08-05)
->
-> **Every checklist item below is `[x]`. Nothing is BLOCKED.** Full reasoning for each is in section 8; this is the summary.
->
-> **Completed this run:** J5 (three client money-math defects), J8 (dead "i" toggles), J8-SLICE-2 (per-member breakdown), J4 (flat-rate interest), J6 (borrower context at approval), J7 (member borrowing power). J3-SLICE-1, J2-SLICE-2, J9 and CYCLE-127-VERIFY were already closed by Cline.
->
-> **Owner-reported follow-up closed (J10, §8):** the "i" toggles are now one shared shape across all 15 of them, borrower names resolve live instead of reading a denormalised `loans.borrowerName` that said "Member", and a client-side money re-summation that had reappeared in two admin popovers was removed again. Also fixed: `groupArrears.memberCount` was being labelled "members behind" when it counts every active member.
->
-> **New API surface:** `payments.memberBreakdown` (GET, admin-gated, `figure=arrears|collections`). Additive fields: `loans.list summary.activeBalance`; `loans.eligibility` gained `contributed`, `exposure{debtToContributionPercent,flagged,warnings}` and `maxLoanAmount`; `update_rules()` now whitelists `loanInterestCalculationMethod`. **NO DDL was applied — section 5 is unchanged.** New file: none. Functions deleted: `buildArrearsItems()` / `buildCollectionsItems()` (client money math, replaced by the server endpoint).
->
-> **Three real accuracy bugs were found by BUILDING, not by reading** (detail in the archive): the admin Arrears modal showed nothing against a true 200,000.00 because it summed the persisted `payments.arrears` column when arrears is derived from `group_rules`; the member "Contributed" info button was dead on three field names the server never sent; and loan approval had **no confirmation step at all** — one click committed the group's cash. **The 2026-08-06 run repeated the pattern twice more** (member penalties invisible behind a tile that included them; a fixed/month penalty captioned in "days"), which is the standing argument for ending every cycle at a runtime pass.
->
-> **Briefs whose premise was false (evidence, not excuses) — four now, across two runs:** J4 named the wrong UI file, J8-SLICE-2's premise was the planner's own and wrong, J5 asked for three server fields of which two already existed, and J11 asked for a click-to-change label on avatars that have no file input. Detail in the archive. **Check the premise before building to it.**
->
-> **Decisions Cline should review (all recorded in §8):** flat rate uses the **Month 1 rate** as the single monthly rate (owner may prefer a dedicated field); the Request Loan button is left **clickable when ineligible** (a disabled button hides its own tooltip on touch) — divergence from J7's brief; the arrears modal's row filter now follows the server's overdue rule, so a non-cycle month with a past due date no longer shows as arrears.
->
-> **Two standing cautions:**
-> - **Live QA data moved mid-session** (group verified collections 140,000.00 → 505,000.00, loan balances changed, a fifth member gained payments). Every reconciliation was correct *when it ran*; the figures recorded in §8 are historical. Re-verify against live data.
-> - **Playwright MCP never connected.** Verification ran through a Node+Playwright harness in the session scratchpad that logs in for real with the owner's QA credentials. It is NOT in the repo and no credential was written to a tracked file. A future agent must re-create it or be given a browser.
->
-> **Suggested next dispatch — ALL FOUR CLOSED 2026-08-06; superseded by §4.** (a) hero grid rebalanced to 4/3 (owner-approved); (b) Quick Actions carry-over resolved, no bug; (c) J2 Slice 3 shipped; (d) J2-SLICE-2 penalty UI browser-tested.
+⇥ **HANDOVER 2026-08-05** — rotated to archive 2026-08-07; see `archive/BUILD_PLAN_history_2026-08-06_run.md` SUPERSEDED HANDOVER BLOCK.
 
 ---
 
@@ -45,116 +23,11 @@
 - Test widths: 320, 390, 768, 1024, 1025, 1440. The 1024↔1025 boundary is critical.
 - Use Playwright MCP for browser testing at `http://localhost:8000`. For API testing use curl or PHP test scripts. For DB verification use PHP scripts via `getDbConnection()`.
 
-### NEW CHECKLIST ITEMS (added by Cline 2026-08-06)
-
-- [ ] **J13: Dashboard overhaul — both admin and user dashboards become the command centre (owner-directed 2026-08-06)**
-
-  **The problem:** The dashboards show summary cards but the user/admin has to navigate away to do anything. Paying a loan, recording a contribution, checking what you owe, seeing who's behind — all require leaving the dashboard. The owner wants the dashboards to be the single place where everything happens.
-
-  **What to build — USER DASHBOARD (`pages/user_dashboard.html` + `scripts/user_dashboard_sql.js`):**
-
-  1. **Pay-from-card modals on every hero stat.** Each hero card that represents money should open a modal where the member can act:
-     - **Next Payment card** → opens a "Pay Now" modal pre-filled with the next due obligation (type, month, amount). Reuses the existing `openPaymentModal()` flow.
-     - **Arrears card** → opens a modal listing every obligation the member is behind on, with a "Pay" button per row that opens the payment form pre-filled for that obligation.
-     - **Loans card** → opens a modal listing active loans with "Make Payment" per loan, pre-filling the next instalment amount.
-     - **Contributed card** → opens a modal showing contribution history with a "Record Payment" button.
-
-  2. **"What I owe" section.** A dedicated section below the hero that shows:
-     - Total outstanding (arrears + penalties) with a "Pay All" button
-     - Breakdown by type: Seed Money, Monthly Contributions (per month), Service Fee
-     - Each row has a "Pay" button that opens the payment form pre-filled
-     - Live penalty on each overdue obligation
-
-  3. **"My Standing" section.** A card showing:
-     - Loan eligibility status (✅/❌ with reasons)
-     - Active loans count and total balance
-     - Contribution history summary (months paid vs missed)
-     - Debt-to-contribution ratio
-     - Next payment due date and amount
-
-  4. **Quick loan repayment.** The Loans card should have a "Make Payment" button that opens a modal with:
-     - Active loan selector
-     - Preset amounts (Next instalment, Pay off in full, Everything overdue, Penalty only)
-     - Due dates on each preset
-     - Proof of payment upload
-     - Submit → `repayments.record`
-
-  **What to build — ADMIN DASHBOARD (`pages/admin_dashboard.html` + `scripts/admin_dashboard_sql.js`):**
-
-  1. **Action modals on every stat card.** Each card opens a modal with actions:
-     - **Collections card** → opens a modal showing who paid what this month, with a "Record Payment" button that opens the record-payment form pre-selecting the member.
-     - **Active Loans card** → opens a modal listing all active loans with per-loan "Record Repayment" buttons.
-     - **Pending card** → opens the pending approvals list with inline Approve/Reject (reuses existing `openStatModal`).
-     - **Arrears card** → opens a modal showing who owes what, ranked most-behind first, with per-member "Record Payment" and "Send Reminder" buttons.
-
-  2. **"Who owes what" section.** A dedicated section showing:
-     - Summary total: "X members owe MWK Y"
-     - Per-member breakdown with expandable detail (seed money first, then monthly contributions)
-     - Per-member "Record Payment" button
-     - "Send Reminders" bulk action
-
-  3. **Quick actions that actually work from the dashboard.** The existing Quick Actions grid should:
-     - "Record Payment" → opens the record-payment modal (already wired)
-     - "Record Loan Repayment" → opens the loan repayment modal (NEW)
-     - "Approve Pending" → jumps to the pending section with inline approve/reject (NEW)
-     - "Send Reminders" → opens the reminders modal (already wired)
-
-  4. **"Group Health at a Glance" section.** Below the stat cards, show:
-     - Collection rate this month (progress bar)
-     - Members in good standing vs behind
-     - Total loans outstanding
-     - Cash position
-     - All figures clickable to drill into detail
-
-  **Files to edit:**
-  - `pages/user_dashboard.html` — add modals, "What I Owe" section, "My Standing" section
-  - `scripts/user_dashboard_sql.js` — wire card clicks to modals, build "What I Owe" and "My Standing" renderers
-  - `pages/admin_dashboard.html` — add modals, "Who Owes What" section, "Group Health" section
-  - `scripts/admin_dashboard_sql.js` — wire card clicks to modals, build "Who Owes What" and "Group Health" renderers
-
-  **Data already available (no new API calls needed):**
-  - User dashboard already loads: `payments.obligations`, `loans.list`, `payments.list`, `loans.eligibility`
-  - Admin dashboard already loads: `payments.list`, `loans.list`, `members.list`, `payments.groupArrears`, `payments.compliance`
-  - All payment/repayment recording endpoints already exist: `payments.record`, `repayments.record`
-  - All approval endpoints already exist: `payments.approve`, `repayments.approve`
-
-  **Acceptance:**
-  - Every hero stat card on both dashboards opens a modal with relevant actions.
-  - User can pay any obligation directly from the dashboard without navigating away.
-  - Admin can record payments, approve pending items, and send reminders from the dashboard.
-  - "What I Owe" / "Who Owes What" sections show complete, accurate breakdowns.
-  - All modals close on Escape, overlay click, or close button.
-  - No new API endpoints needed — reuse existing data and endpoints.
-  - `node --input-type=module --check` clean on all changed scripts.
-  - No innerHTML with user data.
-  - All money server-side, minor units. No client money math.
+**J13: Dashboard overhaul (both user and admin halves) — original specification rotated to archive 2026-08-07.** See `archive/BUILD_PLAN_history_2026-08-06_run.md` "J13 ORIGINAL SPECIFICATION".
 
 ---
 
-- [~] **J11: Profile picture — PARTLY BUILT 2026-08-06, NOT BROWSER-PROVEN. One deliberate divergence, one part not attempted.**
-  - **DONE — `complete_profile.html` now uses the settings click-to-change pattern.** The one page that genuinely matched the brief: it had a real file input behind a separate "Upload Photo" button with an inline `onclick`. Avatar now wrapped in a label, button gone, input hidden by class, hint added. Its existing `change` handler is untouched and still fires (same input id).
-  - **DIVERGED — sidebar avatar became a LINK TO SETTINGS, not a file picker. BRIEF'S PREMISE FALSE; needs owner review.** J11 said to copy click-to-change onto the sidebar/topbar avatars. Those are **display-only** `nav_sql.js` elements with **no file input to attach a label to**. The literal reading means putting an upload control + crop/refresh wiring into every page's global nav, duplicating the flow settings already owns, and letting a phone mis-tap open a file browser from the nav. A nav avatar's conventional affordance is "go to my profile", so it is now an `<a href="settings.html">` routing to the working flow. **One line to revert.**
-  - **NOT ATTEMPTED — dark mode + font verification.** Acceptance is "renders correctly / no unreadable contrast / Manrope applies" — unestablishable without a browser, and none was available. `--bn-font-sans` is set on the new elements. **Do not tick J11 until someone views `settings.html` in dark mode.**
-
-  **Status:** `pages/settings.html` profile picture section ALREADY FIXED by Cline. The pattern to replicate:
-  - The whole avatar is wrapped in a `<label for="profilePictureInput">` so clicking anywhere on the avatar opens the file picker — no separate "Choose file" button.
-  - The edit icon is a `<div class="profile-picture-edit" aria-hidden="true">` (pointer-events: none) so clicks pass through to the label.
-  - The file input uses `class="profile-picture-input"` (CSS `display: none`).
-  - A "Click to change photo" hint appears on hover (`.profile-picture-hint`).
-  - Font family explicitly set to `var(--bn-font-sans)` on `.profile-name`, `.profile-email`, `.profile-picture`, `.profile-picture-hint`.
-  - Dark mode: the section uses `var(--bn-gradient-primary)` background with white text, gold accent border, and a subtle radial gold glow behind the avatar.
-
-  **What to do:**
-  1. **Apply the same click-to-change pattern to the ADMIN view and USER view profile pictures.** Search for `profile-picture` in `pages/` — the admin dashboard sidebar avatar, the user dashboard topbar avatar, and any other profile picture display should also be click-to-change (wrap in a label, hide the file input, show a hover hint).
-  2. **Fix dark mode on the settings page.** The `.profile-picture-section` uses `var(--bn-gradient-primary)` (dark navy) — verify the text is readable (white on dark) and the form fields below use the light theme correctly. If the page has a dark-mode toggle, ensure the profile section adapts.
-  3. **Fix font issues.** Ensure `font-family: var(--bn-font-sans)` is applied consistently across the profile section and all settings form labels/inputs. The Manrope font should load from Google Fonts (already in `<head>`).
-  4. **Verify in browser** with Playwright MCP at `http://localhost:8000/pages/settings.html` — click the avatar, confirm the file picker opens, and the hover hint appears.
-
-  **Acceptance:**
-  - Clicking the avatar (not a separate button) opens the file picker on settings, admin, and user views.
-  - Dark mode renders correctly (white text on dark gradient, no unreadable contrast).
-  - Manrope font applies throughout the profile section.
-  - `node --input-type=module --check` clean on any JS touched.
+- [~] **J11: Profile picture — PARTLY BUILT. Rotated to archive 2026-08-07.** Settings page fixed; sidebar avatar now links to settings (needs owner review whether to revert).
 
 ### AUTONOMOUS THINKING RULE · HOW TO REPORT
 Both blocks lived here verbatim and are **unchanged, just not duplicated** — they are the same text as `CLAUDE.md`'s autonomy rules and the build-loop skill's STATUS/SESSION SUMMARY formats. Full wording: `archive/BUILD_PLAN_history_2026-08-06_run.md`. The short version: decide product/wording/defaults yourself from real village-banking flow, show the full financial picture at any money moment, make every figure traceable to its source, default new money features to the safe setting, ask ONE precise question only for a CRITICAL change, record each autonomous decision, and report per task in plain product language — no code or file paths in the summary.
@@ -254,7 +127,13 @@ When you receive the handover back, review the completed/blocked items, add new 
 
 ## 1. CURRENT STATE
 
-**A–F ticked. G/H/I closed. J1–J4 closed 2026-08-06.** One browser pass is the only open job (§4); one owner-directed item, J11 profile picture, is open in the HANDOVER checklist. History: `archive/BUILD_PLAN_history_2026-08-06_run.md`.
+**A–F ticked. G/H/I closed. J1–J4 closed 2026-08-06. The §4 browser pass is CLOSED 2026-08-07** — run for real against a live login, which also surfaced and fixed **five defects no static gate had caught** (a wrong arrears figure on the admin dashboard, a mis-scoped pie label, content clipped at ≤1280px, "Arrears" naming two different numbers in one modal, and analytics showing the cash position under the label "Net Profit"). Evidence in section 8.
+
+**J13 is CLOSED** (both halves built and browser-proven 2026-08-07). **J11 profile picture: acceptance MET and browser-confirmed** — only its sidebar-avatar divergence remains an owner call.
+
+**IN FLIGHT: deliverable K — end-of-cycle share-out / dividend.** Owner-fixed objective, dispatched 2026-08-07 as two parallel briefs (section 8): K1 a settled-share-out read endpoint, K2 the new `cycle_shareout.html` page. **The share-out BACKEND has been live since 2026-07-21 and the plan wrongly called it "not covered" — corrected in section 8 (fourth block) and recorded as the sixth false-premise entry on this project.**
+
+⚠ **CAP BREACH — this file is ~600 lines / ~90 KB against a 400-line / 60 KB cap.** The planner has collapsed what it may (the superseded J13 in-flight narrative) but **rotating history to `archive/` is `doc-curator`'s job and is now overdue.** Dispatch `doc-curator` at the close of cycle K: rotate the four 2026-08-07 narrative blocks in section 8 and the whole HANDOVER block (lines ~11-217) into `archive/BUILD_PLAN_history_2026-08-06_run.md`, leaving one line each. History: `archive/BUILD_PLAN_history_2026-08-06_run.md`.
 
 ---
 
@@ -320,6 +199,34 @@ When you receive the handover back, review the completed/blocked items, add new 
 
 **Sequence: J1 → J2 (moment BL-6 lands) → J3 → J4.** J1 ready now (backend live-verified); J2 waits for BL-6 answer; J3/J4 deferred. See archive for closed cycle 109-125 details.
 
+### K. End-of-cycle SHARE-OUT / DIVIDEND *(promoted 2026-08-07, owner-directed)* — **OPEN**
+
+Promoted as a new lettered group rather than folded into B1/J: it is a distinct money event (the cycle closing and paying members out), not a read surface or a settings gap. G/H/I/J were taken; K is next.
+
+- [x] **K1** — **Settled-share-out read endpoint. DONE + LIVE-PROVEN 2026-08-07.** `cycle.payouts.list` (GET, admin|senior_admin|treasurer) appended to `cycle.php`, one ROUTES line. No DDL. Live: 200 `settled:false` on the real group; auth boundary probed four ways (no session 401 · missing groupId 422 · POST to GET-only 405 · foreign group 403); `cycle_payouts` COUNT(*) = 0 before and after every probe — a read endpoint that never writes.
+- [x] **K2** — **Share-out UI. DONE + BROWSER-PROVEN 2026-08-07.** `pages/cycle_shareout.html` + `scripts/cycle_shareout_sql.js`, new dedicated page per owner decision. Preview + settle shipped together, settle behind a two-step confirm gate. Preview state proven end-to-end in a real authenticated browser; settled state proven by stubbing the endpoint response (no DB write); confirm gate proven to open, restate 5 members / MWK 10,050.00, gate on the checkbox both directions, and cancel. **The live cycle was NOT settled — `cycle_payouts` is still 0 rows.**
+- [x] **K3** — **SPA-router registration (defect found by the browser pass, not in any brief).** `pages/cycle_shareout.html` was missing from `PAGE_CONFIG` in `scripts/spa-router.js`. Because `window.__bnSpa === true` on every authenticated page, the module's own `if (!window.__bnSpa)` DOMContentLoaded fallback correctly stands down and waits for the router to call `init()` — and the router had no entry, so **nothing ever called `init()`**. The page rendered its static shell and then did nothing, with **zero console errors**. Fixed with one registry entry. **Standing lesson: a new page in this app needs THREE registrations — `ADMIN_NAV_ITEMS` (nav_sql.js), `PAGE_CONFIG` (spa-router.js), and the `data-nav-*` body attributes. Miss the router entry and the page is silently dead.** Add this to any future new-page brief.
+- **Backend already live (do not rebuild):** `cycle.equity`, `cycle.payout.preview`, `cycle.settle`, `cycle.forced.preview` — `api/index.php:113-116`. The payout rule is owner-specified and **not the loop's to change**: `payout = interestRefund + penaltyShare`, where `interestRefund` is the interest that member personally paid and `penaltyShare` is an equal 1/N slice of the group penalty pool **only when `group_rules.shareOutPenalties = 1`**. **Contributed capital is NOT part of the payout, and a penalty is never refunded to whoever paid it** (`api/handlers/cycle.php:7-20`).
+- [x] **K4** — **`cycle_settle`'s own 201 response now carries member names.** Its read-back SELECT queried `cycle_payouts` alone with no `members` JOIN, so every row came back without `fullName`. Inert as shipped (the page always re-reads `cycle.payouts.list`), but a live trap for any future caller rendering that 201 directly. Now `LEFT JOIN members` matching `cycle_payouts_list()` exactly — LEFT, so a member removed after settling still appears in the record they are owed by. Statement validated against the live schema with a no-match query; **no cycle settled, `cycle_payouts` still 0 rows.**
+
+### L. Money Masters constitution — rules with no home in the app *(owner-prioritised 2026-08-07)*
+
+- [x] **L1** — **Loan term banded by amount. DONE + LIVE-PROVEN 2026-08-07.** Owner's constitution: under 500,000 → 2 months; 500,000 and above → 3 months. **The plan's own note about this was FALSE** and was corrected: it claimed "the app has one `loanInterestMaxRepaymentMonths`", but the enforced fields are `loanRulesMinRepaymentMonths`/`loanRulesMaxRepaymentMonths` (a range), and `loanInterestMaxRepaymentMonths` is read-only decoration used by nothing. **Seventh false premise on this project.** Shipped as a single shared helper `loan_term_bounds_for_principal()` read by *both* enforcement sites and the `loans.eligibility` preview, so the client preview and the server gate cannot drift — the failure mode this project has shipped repeatedly. Four additive columns, `loanTermBandEnabled` DEFAULT 0 so every existing group is untouched until an admin opts in. **Boundary decision (mine, recorded): `principal < threshold` → lower band, `>= threshold` → upper.** The owner's phrasing left exactly 500,000 undefined; the longer term at the boundary is the standard reading and the more forgiving for the borrower. Proven live at threshold 50,000 (chosen inside the group's 100,000 principal cap so the cap could not mask the band): 49,999.99 → 2 months, 50,000.00 → 3, 50,000.01 → 3; the real gate refuses with `"repaymentPeriod must be between 1 and 2 months for a loan under 50000.00."`, naming the band rather than an unexplained number. Config restored to defaults; **no loan created.**
+- [ ] **L2** — **Termination after 3 months of non-payment.** NOT STARTED. Needs owner decisions before any build: what happens to the terminated member's contributed capital, their outstanding loan balance, and whether they are paid out at cycle end or forfeit.
+- [ ] **L3** — **Death rules.** NOT STARTED. Forfeit the loan balance; pay principal + interest to next of kin. Moves real money to someone outside the group and is irreversible once recorded — the most consequential item left.
+- [ ] **L4** — **Guarantor cap of 2 members.** NOT STARTED. The guarantor fields exist; nothing enforces the limit. Smallest of the four.
+
+- [x] **L5** — **Interest sharing method, chosen per group. DONE + PROVEN 2026-08-08.** One column `shareOutInterestMethod` DEFAULT `refund_to_payer` (so every existing group is unchanged), one branch in `cycle_split_interest()` (`cycle.php`), one dropdown on the creation form. Three methods: `refund_to_payer` (today's rule), `split_equally`, `split_by_contribution`. All three sum to the pool EXACTLY in integer minor units — equal split uses the penalty pot's existing earliest-joiner remainder convention; proportional uses largest-remainder, ties to earliest joiner. Zero total contributions falls back to equal split (never divide by zero); an unrecognised method falls back to `refund_to_payer` (never zero, never unbalanced). Proven against the live QA group inside a transaction that was ROLLED BACK: pool 10,050.00 → refund `0/4,050/0/2,000/4,000`, equal `2,010 × 5`, proportional `2,752.67/2,202.14/1,238.70/1,654.35/2,202.14`; all three BALANCE. Setting restored, **no cycle settled, `cycle_payouts` still 0 rows.**
+  - **Found while building: the creation form's "Surplus/Profit Distribution" dropdown was DEAD.** A group creator picked equal / proportional / rollover / reserve and it was silently discarded — never sent, so every group ran on the schema default regardless of what was chosen. Replaced with the three real, stored options. The two unimplemented ones (rollover, reserve) are gone rather than left lying; if they are wanted they are new features.
+  - Share-out page now labels the column "Interest Refund" only under `refund_to_payer`, "Interest Share" otherwise — and always the neutral wording on a SETTLED record, since the settled response deliberately does not carry the method.
+
+- [x] **L6** — **SEVEN working admin pages had NO nav entry. Fixed 2026-08-08, browser-proven.** Manage Rules, Financial Reports, Contributions Overview, Seed Money Overview, Interest & Penalties, Approve Registrations and Broadcast were all built, routed in `PAGE_CONFIG`, and functioning — reachable **only by typing the URL**. The owner hit this immediately ("how come I can't see the rules tab"). Sidebar regrouped into Dashboard/Analytics/Share-Out + **Money** + **Admin** sections (owner chose grouping over a flat 14). A `{section:"..."}` entry renders a heading, not a link; the mobile bottom bar filters markers out before taking its first four, or a heading would render as a dead tab.
+  - **Caught by an automated cross-check, not by eye:** `seed_money_overview.html` uses `data-nav-active-page="seed-money"`, not `seedmoney` — the item would have rendered but never highlighted as active. A script now compares every nav item against the router registry AND the page's own nav attribute; run it whenever a nav item is added.
+  - **Pre-existing, NOT introduced and NOT fixed:** `financial_reports.html`'s `.tabs` strip overflows the page body horizontally at 320px (body scrollWidth 332 vs viewport 303). Unrelated to the sidebar (`inSidebar: false`) and on a page this cycle did not touch. Reported for a later pass.
+
+### J11 — sidebar avatar *(owner-decided 2026-08-07)*
+- [x] **RESOLVED — reverted to a click-to-change file picker, per the owner.** The previous specialist had diverged to an `<a href="settings.html">`; that divergence was put to the owner with a recommendation to keep it and **the owner chose the revert**. Sidebar avatar is now a `<label>` + hidden `#navProfilePictureInput` (deliberately a different id from settings' `#profilePictureInput` — the nav renders on settings.html too, and a collision would have broken that page's own uploader; verified in-browser that both coexist and each label resolves to its own input). Topbar avatar deliberately untouched.
+
 ---
 
 ## 4. OPEN ITEMS — the only actionable backlog
@@ -343,9 +250,11 @@ When you receive the handover back, review the completed/blocked items, add new 
 
 > ⚠ **A curation pass on 2026-08-06 replaced this block with a line reading "all now done or archived" and deleted every BUILT-NOT-PROVEN marker, while leaving stale text that still described J1's entry point and J2/J3/J4 as outstanding. All four had shipped.** Restored below. **"Built" and "archived" are not "proven" — do not collapse that distinction again.**
 
-### THE ONLY OPEN JOB: ONE BROWSER PASS
+### ~~THE ONLY OPEN JOB: ONE BROWSER PASS~~ — **DONE 2026-08-07. All five items closed; see section 8.**
 
-**No browser was connected for the whole 2026-08-06 run (checked four times).** Everything below is `php -l` / module-parse clean, and the money is reconciled against the live DB through the real handler code — but **nothing has been rendered**. Widths to test: 320 · 390 · 768 · 1024 · 1025 · 1440.
+> ✅ **Items 1–5 below are all PROVEN as of 2026-08-07**, in the first authenticated browser session this project has had. Item 2 (hero band) passed unchanged at wide/≤768/≤480. Item 4's money reconciled but its *labelling* was defective and was fixed. **Three further defects were found that were not on this list at all** — a wrong arrears figure on the admin dashboard, content clipped at ≤1280px, and "Net Profit" on the analytics page actually showing the cash position. Detail and evidence in section 8. Kept below for the audit trail.
+
+**Historical note (2026-08-06):** no browser was connected for that whole run (checked four times). Everything was `php -l` / module-parse clean and reconciled against the live DB through the real handler code — but **nothing had been rendered**. Widths tested on 08-07: 480 · 768 · 1300 · 1600 (the browser applies a ~1.11× zoom, so requested sizes were compensated to land on real CSS breakpoints).
 
 1. **Drawer close control — BUILT, NOT PROVEN.** A 44×44 "Close menu" button in the drawer header (≤1024px only) wired to the existing close path; focus moves to it on open; `body.bn-drawer-open` scroll lock scoped inside the ≤1024px query. *Prove:* the drawer opens, the button closes it, Escape and overlay still close it, the page behind does not scroll, and `aria-expanded` flips both ways.
 2. **Hero 4/3 band — BUILT, NOT PROVEN. Highest-risk item of the run.** 12-column track; wide = 4 then 3, ≤768 = 3 per row with the 7th centred, ≤480 = 2 per row with the 7th centred. **QA caught a real cascade defect here and it was fixed on the one permitted retry** — the exactly-7 rules are (0,6,0) and media queries add no specificity, so unscoped they leaked into the narrow breakpoints and left cards 5–6 at the wrong span (row filling 8 of 12 columns). Now guarded by `@media (min-width: 769px)`. Reproduced with the guard disabled and re-resolved with it on, via a cascade resolver over the real stylesheet — **but a resolver is not a renderer.** *Prove:* card widths are uniform in every row, and the 7th card is centred at ≤768 and ≤480.
@@ -377,6 +286,10 @@ Owner rule: **schema changes are applied DIRECTLY to the live DB and recorded he
 | 2026-07-25 | `group_rules` | `ALTER TABLE group_rules ADD COLUMN loanPenaltyMonthlyAmount DECIMAL(15,2) NULL DEFAULT NULL;` | J2 Slice 1A. Fixed-per-month loan amount. NULL = unset, same shape as `loanPenaltyDailyAmount`. Verified present. |
 | 2026-07-25 | `group_rules` | `ALTER TABLE group_rules ADD COLUMN contributionPenaltyPeriod ENUM('day','month') NOT NULL DEFAULT 'day';` | J2 Slice 1A. Explicit contribution period selector. Default `'day'`. Verified present. |
 | 2026-07-25 | `group_rules` | `ALTER TABLE group_rules ADD COLUMN contributionPenaltyMonthlyAmount DECIMAL(15,2) NULL DEFAULT NULL;` | J2 Slice 1A. Fixed-per-month contribution amount. Verified present. |
+| 2026-08-07 | `group_rules` | `ALTER TABLE group_rules ADD COLUMN loanTermBandEnabled TINYINT(1) NOT NULL DEFAULT 0;` | Amount-banded max repayment term (owner constitution: <500,000 → 2 months, ≥500,000 → 3 months). Guarded by `INFORMATION_SCHEMA.COLUMNS` COUNT (idempotent, re-run confirmed as SKIP). Default `0` ⇒ every existing group behaves exactly as before until an admin opts in via `rules.update`. 2 live rows, both verified still `0`/`NULL` after apply — zero rows updated. |
+| 2026-08-07 | `group_rules` | `ALTER TABLE group_rules ADD COLUMN loanTermBandThreshold DECIMAL(15,2) NULL;` | Companion column — the principal boundary between the two bands. NULL until configured. Verified present. |
+| 2026-08-07 | `group_rules` | `ALTER TABLE group_rules ADD COLUMN loanTermBandLowerMaxMonths INT NULL;` | Companion column — max repayment months for principal `< loanTermBandThreshold`. Verified present. |
+| 2026-08-07 | `group_rules` | `ALTER TABLE group_rules ADD COLUMN loanTermBandUpperMaxMonths INT NULL;` | Companion column — max repayment months for principal `>= loanTermBandThreshold` (boundary is inclusive of the upper band — the more forgiving reading for the borrower). Verified present. Shared helper `loan_term_bounds_for_principal()` in `api/handlers/loans.php` is the single reader for both loan-request enforcement sites (`request_loan()`, `force_loan()`) and the `loans.eligibility` preview; writer whitelist added to `update_rules()` in `api/handlers/rules.php`. |
 
 Earlier migrations (001–011) predate this log and live in `database/migrations/` — historical only; the live-DB-direct rule supersedes them.
 
@@ -422,6 +335,10 @@ No loan percentage-rate column was added: the existing DEAD `loanPenaltyRate DEC
 | **THE OBLIGATION CLOCK — owner decision 2026-07-25 (both options put to the owner, both chosen)** | **What a group is owed is bounded by its CYCLE, not the calendar year, and bounded at TODAY.** New shared helpers in `api/handlers/payments.php`: `payment_cycle_months_to_date()` (months of the year inside `[cycleDurationStartDate, +cycleDurationMonths / cycleDurationEndDate)` that have already begun; falls back to Jan..current month when no cycle start is set) and `payment_overdue_months()` (that subset whose due date has passed). `payment_fetch_rules()` now also SELECTs `cycleDurationStartDate/EndDate/Months` — **omitting them does not fail loudly, it silently bills the whole calendar year.** Consumers: `group_live_contribution_penalty_minor()` (→ `payments.groupArrears`, `payments.accountingSummary` penaltiesOutstanding, admin-dashboard arrears tile) walks `payment_overdue_months()` instead of all twelve `PAYMENT_MONTHS`; `group_compliance_summary()` walks `payment_cycle_months_to_date()`. Seed money and service fee are **cycle-entry** obligations with no future due date — outstanding seed is always also overdue (unchanged). | The all-twelve-months loop billed a group in July for the following December **and** for months before its own cycle existed. Live proof on group `cf4156a1…` (cycle opened 2026-07-17): `payments.groupArrears` reported **750,000 arrears + 506,000 phantom penalties** against a real overdue position of **170,000 / 0**. Those penalties fed loan eligibility and the accounting summary. Outstanding-but-not-yet-due money is not arrears; it now lives in `payments.compliance`'s `toDate.notYetDue`. |
 | **Compliance panel = TWO SCOPES, never mixed — owner decision 2026-07-25 ("Both, stacked")** | `payments.compliance` returns the month scope (`expectedThisMonth`/`collectedThisMonth`/`shortfallThisMonth`/`percentCollected` + new `monthDueDate`/`monthIsOverdue`) **and** a separate `toDate` block (`monthsCounted`, `overdueMonths`, `expected`, `collected`, `outstanding`, `overdue`, `notYetDue`, `percentCollected`). `behind[]` gains `overdue`/`notYetDue`/`isOverdue`/`overdueMissing`, and `membersBehind` now means **late**, with new `membersOwing` for "has a balance". **RECONCILIATION GUARANTEE: `sum(behind[].owed) === toDate.outstanding` and `owed === overdue + notYetDue` per row** — the totals are derived FROM the rows, not computed a second way. `manage_payments.html` renders the two as separate `.compliance-row` blocks. | The panel printed a month-scoped headline ("0% collected · 50,000 short this month") directly above a cycle-scoped member list showing 60,000 each and summing to 220,000 — three scopes in one sentence, nothing reconciling. Owner reported it as "makes no sense", and it did not. A list under a total must add up to that total. |
 | Design tokens | **Split rule for undefined tokens: a missing *rung* is defined; a *wrong name* is fixed at the call site.** A rung has a canonical value and multiple consumers (define it). A wrong name is a typo for a token that already exists — `--bn-text-md`→`--bn-text-base`, `--bn-error`→`--bn-danger`, `--bn-shadow-2xl`→`--bn-shadow-xl` (fix the call site) | Defining a synonym would enshrine **two vocabularies for the same concept** in the design system permanently, for every future author. Cycle 114's define-don't-patch inversion was right for rungs and is wrong for synonyms; the discriminator is "does an equivalent token already exist?". |
+| **Share-out settled-state read (K1)** | A settled cycle is read back through a **new `cycle.payouts.list`**, never by re-running `cycle.payout.preview`. When the group has no cycle configured or has not settled, the endpoint returns **`settled: false` with an empty `payouts[]` and a 200 — it does NOT error**, so the page can still show the live preview. `distributedPenalties` is reported as `SUM(penaltyShare)` over the stored rows (a fact about the settlement); `shareOutPenalties` is deliberately **NOT** echoed from `group_rules`, because that is today's rule, not the rule in force when the cycle was settled | `cycle.payout.preview` recomputes live from current data, so after settling it silently shows a *fresh* preview with no indication the cycle is closed, and pressing settle returns 409. The settled rows would otherwise be write-only and invisible forever. A read that 404s/409s on "not settled yet" would force the client to treat a normal state as an error. |
+| **Share-out confirm gate (K2)** | Settle is a **two-step, in-page** gate: a "Settle this cycle" button reveals a confirmation panel restating member count + total payout, with a checkbox that must be ticked before "Confirm settlement" enables. No `window.confirm`. The button is additionally **disabled whenever `summary.balances` is false** | Settling is irreversible through this API and pays out real money. `window.confirm` cannot restate the figures being committed, and the owner's rule is that a money moment shows the full financial picture. Blocking on `balances === false` means the UI refuses before the server has to (the server refuses too — 500 — but a user should never reach it). |
+| **Share-out visibility (K2)** | The settle control renders **only** when the caller's group role is `senior_admin` (`myRole` from `groups.mine`, the `interest_penalties_sql.js:144-149` pattern). Preview is visible to admin/senior_admin/treasurer. **The client check is UX only — `cycle.settle`'s server-side `require_role($groupId, ['senior_admin'])` is the gate** and must never be relaxed to make the page work | Same posture as every other role-branched surface here: hiding a control an admin cannot use avoids a pointless 403, but the server stays the authority. Treasurer/admin still need the preview — they run the numbers; only the senior admin closes the cycle. |
+| **Share-out entry point (K2)** | `cycle_shareout.html` is added to `ADMIN_NAV_ITEMS` (`scripts/nav_sql.js:53-60`) as a 7th item, label **"Share-Out"**, `nav: "shareout"`, reusing `ICONS.analytics` | A page reachable only by typing its URL is a dead page — this project has already shipped one (`manage_payments`, cycle 117). `financial_reports.html`'s precedent of being nav-less is a defect to avoid, not to copy. The 7th item does tighten the shared mobile bottom-nav, so "7 items fit at 320px with zero horizontal overflow" is an explicit acceptance criterion; if it fails it comes back to the planner as a nav-density decision, not a silent squeeze. |
 | **Accounting drill-down = flows scope, balances don't (J3 decision, cycle 125)** | Only **flow** figures — money that MOVED in a period (contributions in, disbursements out, repayments in, interest in, penalties collected/waived) — get a period-scoped month/year drill-down with underlying rows. **Balance/derived** figures (`outstandingLoanPrincipal`, `penaltiesOutstanding`, `penaltiesCharged`, `cashPosition`) are point-in-time or formula-derived; their card modal shows the **cumulative** value with an explicit "running position, not a period total" label + a current-breakdown/derivation table (from fields the summary already returns), **never** synthetic period rows. `outstandingLoanPrincipal` is reclassified from the scout's scopable list to a balance. Period = **year required + month optional**; payments scoped by `year`+`month` ENUM, loans/loan_payments by `YEAR(approvedAt)`/`MONTH(approvedAt)`. The cumulative cards stay cumulative (unchanged from the standing "accountingSummary is not re-scoped by tabs" assumption); only the modal is period-scoped, via an additive opt-in `figure`+`year`(+`month`) drill on the same endpoint. | Accountant principle: never present a cumulative or point-in-time number as a month's activity. A period drill-down is only honest for a flow; forcing "outstanding principal for March" or "cash position for March" onto a snapshot invents a figure. Keeping the drill additive (opt-in param) leaves the no-param cumulative response byte-identical, so nothing existing regresses. |
 
 ---
@@ -444,19 +361,42 @@ Logged, never auto-queued. Requires the owner's explicit promotion.
 
 ## 8. ACTIVE CYCLE
 
-### J13 IN FLIGHT — dashboard overhaul. Slice 1 built; scout says the brief overlaps heavily with what already ships.
+### ✅ CLOSED 2026-08-07 (fifth) — **K1 + K2 + K3: end-of-cycle SHARE-OUT / DIVIDEND. SHIPPED, BROWSER-PROVEN.**
 
-**SCOUT FIRST (2026-08-06) — much of J13's user-dashboard half ALREADY EXISTS. Do not rebuild it.**
-- **Arrears card → modal listing every overdue obligation with a per-row Pay button that pre-fills the payment form: ALREADY BUILT** (`openArrearsModal` → `openPaymentModal({paymentType, month, amount})`). J13 item 1's arrears ask is done, and J2 Slice 3 has since added the penalty column and the reconciliation block. **J13 item 2 ("What I owe" with per-row Pay + live penalty) is therefore ~80% the same surface** — it should be scoped as "promote the existing arrears modal into a section", NOT as a new build.
-- **Contributed card → history modal: ALREADY BUILT** (`showAllPaymentsModal`). Missing only a Record-Payment button.
-- **Admin stat modals for Arrears / Collections / Active Loans / Pending: ALREADY BUILT** and server-backed (`openStatModal` + `payments.memberBreakdown`).
-- **THE REAL ADMIN GAP, and it is exactly J13's stated complaint:** `appendStatModalActions()` is commented *"all navigate to a management page"* — every button in every admin stat modal is a link to `manage_payments.html` / `manage_loans.html`. And `payments.record` / `repayments.record` appear **nowhere** in `admin_dashboard_sql.js`. So the admin genuinely cannot record anything from the dashboard; the modals show, they do not act. That is the highest-value part of J13 and none of it exists.
+Dispatch briefs deleted per section 1 writing rules (a brief expires with its cycle; the outcome persists). Outcome recorded at K1/K2/K3 in section 3.
 
-**SLICE 1 — DONE (BUILT, NOT BROWSER-PROVEN): Next Payment card is now actionable.** It previously had a popover and nothing else — tapping the card did nothing at all. Now: a future obligation opens the payment form pre-filled with that month and the server's own owed amount for it; when nothing is due but money is late it opens the arrears list (which already carries per-row Pay), rather than guessing which late item was meant; when the member is caught up the card stays inert and drops its button role, so it never invites a tap that leads to an empty form. **The action is resolved in the SAME branch that writes the card's text**, so the card cannot say one amount and pay another. Keyboard-activated too (Enter/Space, with Space's page-scroll suppressed), and clicks on the dismiss badge inside the card are excluded so dismissing a reminder cannot start a payment. Module parse, tag balance, token sweep and the hero cascade all re-checked clean.
+**What shipped:** a dedicated Share-Out page showing every member's payout at cycle end, the pool summary, an explicit reconciliation line, and a senior-admin-only two-step settle gate; plus `cycle.payouts.list` so a settled cycle stays readable as a permanent record instead of silently becoming a recomputed preview.
 
-**REMAINING IN J13 (not started):** user Loans card → in-place repayment modal; Contributed → Record Payment; "My Standing" section; admin action-instead-of-navigate modals; "Who owes what" section; admin quick actions; "Group Health at a Glance".
+**Proven live (real authenticated browser, QA Test Savings Group `cf4156a1…`):** preview renders 5 members reconciling to MWK 10,050.00 — every rendered cell byte-identical to the server string, zero client-side money math; the reconciliation line is green and driven by the server's own `balances` flag; the settled state proven via a stubbed endpoint response (banner flips green, settle section disappears, absent `shareOutPenalties` renders `—` not `undefined`); the confirm gate opens, restates 5 members / MWK 10,050.00, gates on the checkbox in both directions, and cancels clean. Auth boundary probed four ways: 401 · 422 · 405 · 403. **`cycle_payouts` COUNT(*) = 0 before and after every probe — the live cycle was never settled.** No page-body horizontal overflow at CSS 320 · 1024 · 1025 · 1440; the 8-column table scrolls inside its own container and collapses to per-member cards at ≤768.
 
-**BOUNDARY: no browser was available for any of this run.** J13 is almost entirely interaction work whose acceptance criteria are "opens a modal", "closes on Escape", "can pay without navigating away" — **none of which can be established without rendering it.** Slice 1 is built and statically verified only.
+**Three defects caught that the static gates had all passed:**
+1. **The page was silently dead on arrival** — `pages/cycle_shareout.html` was missing from `PAGE_CONFIG` in `scripts/spa-router.js`. Because `window.__bnSpa === true`, the module's own `if (!window.__bnSpa)` DOMContentLoaded fallback correctly stood down and waited for the router, and the router had no entry — so **nothing ever called `init()`**. Zero console errors. `php -l`, module-parse, the QA diff review and the API itself all passed it. Only opening the page in a browser found it. (See K3 for the three-registration rule this produced.)
+2. **A dead optimistic-render branch** (caught by QA REVIEW) — gated on `result.summary`, a key `cycle.settle` never returns. Inert today, but it would have shipped blank member names the moment someone "fixed" the shape mismatch without also fixing `cycle_settle`'s missing `members` JOIN. Removed.
+3. **A cascade trap caught pre-ship by `ui-designer`** — a bare `.cell-payout` selector (0,1,0) would have lost to the existing `.table th` rule (0,1,1), silently dropping the payout-column tint regardless of source order. Rescoped to (0,2,1).
+
+**Known-and-accepted (recorded, not fixed):** `cycle_settle`'s own 201 response builds `payouts[]` from `cycle_payouts` alone with no `members` JOIN, so those rows carry no `fullName`. Harmless as shipped — the page always re-reads `cycle.payouts.list`, which does join. Left untouched deliberately: this cycle's acceptance criteria forbade editing `cycle_settle`. **Fix that JOIN before anyone renders the 201 directly.**
+
+
+---
+
+- **2026-08-07 (fourth) — accounting audit, Money Masters rule coverage, uploads + exports.** Rotated to archive 2026-08-07.
+
+- **2026-08-07 (third) — "I cannot see the i button", and the Accounting Summary made decisive.** Rotated to archive 2026-08-07.
+
+- **2026-08-07 (later) — INFO-PANEL AUDIT: every "i" panel made uniform, and given a second level.** Rotated to archive 2026-08-07.
+
+- **2026-08-07 — FIRST AUTHENTICATED BROWSER RUN.** Rotated to archive 2026-08-07.
+
+**VERIFIED, NO CHANGE NEEDED (the deferred §4 browser pass, now closed):**
+- **Hero 4/3 band (was flagged "highest-risk item of the run") — PASSES at all three widths.** Wide: 4 × 220px then 3 × 299px. ≤768: 3/3/1, all 213px, 7th card centre 375 == band centre 375. ≤480: 2/2/2/1, all 183px, centre 231 == 231, zero overflow. The `@media (min-width: 769px)` cascade guard holds — no leak.
+- **"Request a Loan" round trip** — opens `#loanModal` ("Book a Loan"), strips `?open=loan-request` via replaceState, and a refresh does **not** reopen it.
+- **D4 seed-money line** — 2025: "MWK 245,000.00 in 2025" + "Seed money (one-time, not tied to a month): MWK 105,000.00 · included in the total above"; 140,000 + 105,000 == 245,000. 2026: correctly absent.
+- **Drawer close control** — 44×44, present and visible at mobile width. Fixed bottom nav is 73px against `body{padding-bottom:80px}`, so content clears it.
+- **J11 profile picture — dark mode + font ACCEPTANCE MET (was unestablishable without a browser).** Label wraps the avatar, input `display:none`, edit badge `pointer-events:none`, hint present. Contrast on the navy gradient: name 18.13:1, hint 7.49:1. Manrope resolves on every element checked. Visually confirmed.
+
+- **J13 (admin half) — CLOSED 2026-08-07.** Rotated to archive 2026-08-07.
+
+- **J13 (user half) — CLOSED 2026-08-07.** Rotated to archive 2026-08-07.
 
 ---
 

@@ -27,7 +27,7 @@
  */
 
 import { requireSession, apiGet, apiPost, logout, ApiError, redirectToLogin, listMyGroups, apiUrl } from "./api.js";
-import { attachCardInfo } from "./card_info.js";
+import { attachCardInfo, infoContent } from "./card_info.js";
 import { renderQuickAmounts } from "./ui.js";
 import { formatCurrency } from "./utils_financial.js";
 
@@ -478,6 +478,9 @@ async function loadDashboard(groupId) {
     obligationsSummary,
     paymentsSummary,
     loansSummary,
+    // A COUNT, for the Group Members info panel. Cached here so the panel does
+    // not have to read it back out of the DOM it just wrote.
+    memberCount: memberRows.length,
   };
 
   // Re-scope Contributed/Pending to the month-filter's current selection
@@ -1071,20 +1074,52 @@ function renderMyStanding(ob, loans, loansSummary, obligationsSummary) {
   const active = loans.filter((l) => isActiveLoan(l.status));
   const summary = obligationsSummary || {};
 
-  // Eligibility badge
+  /* Eligibility badge.
+     Reads ob.standing.eligibleForLoan — the field the server actually sends.
+     It previously tested `summary.eligibleForLoan === 1`, and the obligations
+     summary carries NO such key (verified live: 'eligibleForLoan' in summary
+     === false), so the badge was pinned to "Not eligible" for everyone. It read
+     correctly only by coincidence whenever the member genuinely was ineligible;
+     a member who qualified was still told they did not. */
+  const standing = (ob && ob.standing) || {};
+  const eligible = standing.eligibleForLoan === true || standing.eligibleForLoan === 1;
   if (badge) {
-    const eligible = summary.eligibleForLoan === 1;
     badge.textContent = eligible ? "Eligible" : "Not eligible";
     badge.className = "badge " + (eligible ? "badge-success" : "badge-danger");
   }
 
+  // Say WHY, from the server's own two standing flags. "Not eligible" with no
+  // reason leaves a member no way to know what to fix.
+  if (!eligible) {
+    const blockers = [];
+    if (standing.seedMoneyPaid === false) blockers.push("seed money not fully paid");
+    if (standing.monthlyContributionsCurrent === false) {
+      blockers.push("monthly contributions behind");
+    }
+    if (blockers.length) {
+      const why = document.createElement("p");
+      why.style.cssText =
+        "margin: 0 0 var(--bn-space-3); color: var(--bn-gray); font-size: var(--bn-text-sm);";
+      why.textContent = `Why: ${blockers.join(" · ")}.`;
+      body.appendChild(why);
+    }
+  }
+
+  /* Overdue and not-yet-due are shown SEPARATELY, matching the arrears modal.
+     A single "Arrears" line here meant the same word named a different figure
+     depending on which surface you read. Both are server strings. */
   const rows = [
     ["Total outstanding", formatCurrency(summary.totalOwed || "0.00")],
-    ["Arrears", formatCurrency(summary.arrears || "0.00")],
+    ["Overdue now", formatCurrency(summary.overdue || "0.00")],
+  ];
+  if (Number(summary.notYetDue || 0) > 0) {
+    rows.push(["Not yet due", formatCurrency(summary.notYetDue)]);
+  }
+  rows.push(
     ["Late penalties", formatCurrency(summary.penaltyAccrued || "0.00")],
     ["Active loans", String(active.length)],
     ["Loan balance", formatCurrency(loansSummary.activeBalance || "0.00")],
-  ];
+  );
 
   for (const [label, value] of rows) {
     const row = document.createElement("div");
@@ -2318,13 +2353,27 @@ function openArrearsModal() {
   if (obSummary) {
     const recon = document.createElement("div");
     recon.className = "arrears-reconcile";
+    /* "Arrears" is split into its two SERVER-PROVIDED parts on purpose.
+       It previously rendered `summary.arrears` (ALL outstanding) on a line
+       labelled "Arrears", directly under a table listing only the OVERDUE
+       rows and a header also labelled "TOTAL ARREARS". Live proof: rows and
+       header said 40,000.00 while this line said 50,000.00 — the same word
+       carrying two values 10,000.00 apart, with the difference (money owed
+       but not yet due) never shown. Splitting it makes the block add up to
+       the rows above it AND to Total owed:
+         overdue + notYetDue + penalties === totalOwed
+       Every figure is still a server string; nothing is summed here. */
     const parts = [
-      ["Arrears", obSummary.arrears],
+      ["Overdue now", obSummary.overdue],
+      ["Not yet due", obSummary.notYetDue],
       ["Late penalties", obSummary.penaltyAccrued],
       ["Total owed", obSummary.totalOwed],
     ];
     for (const [label, value] of parts) {
       if (value == null) continue;
+      // Hide a zero "Not yet due" — an all-overdue member should not be shown
+      // an empty category, but a non-zero one must never be silently dropped.
+      if (label === "Not yet due" && Number(value) === 0) continue;
       const row = document.createElement("div");
       row.className = "arrears-reconcile-row";
       const l = document.createElement("span");
@@ -2478,12 +2527,20 @@ function wireStaticHandlers() {
   // because its nested badge is itself a button — button-in-button is
   // invalid HTML). Guard against double-firing when Enter/Space is
   // pressed while focus is on the nested badge button.
+  // J13: the Loans card now opens the repayment modal in place rather than
+  // navigating to loan_payments.html. That page is still the full loan history;
+  // this is the "pay it" shortcut the owner asked for.
   const activeLoansStat = document.getElementById("activeLoansStat");
   activeLoansStat?.addEventListener("keydown", (e) => {
     if ((e.key === "Enter" || e.key === " ") && e.target === activeLoansStat) {
       e.preventDefault();
-      window.location.href = "loan_payments.html";
+      openLoanRepayModal();
     }
+  });
+  activeLoansStat?.addEventListener("click", (e) => {
+    // Let the nested "i" popover toggle and any inner button do their own job.
+    if (e.target.closest("button") && e.target !== activeLoansStat) return;
+    openLoanRepayModal();
   });
 
   // Arrears modal (tapping/clicking the amount opens the full arrears modal —
@@ -2519,6 +2576,21 @@ function wireStaticHandlers() {
   const arrearsModal = document.getElementById("arrearsModal");
   arrearsModal?.addEventListener("click", (e) => {
     if (e.target === arrearsModal) hideArrearsModal();
+  });
+
+  // J13 loan repayment modal: close button, overlay click and Escape, matching
+  // the behaviour of every other modal on this page.
+  document
+    .getElementById("closeLoanRepayModal")
+    ?.addEventListener("click", closeLoanRepayModal);
+  const loanRepayModal = document.getElementById("loanRepayModal");
+  loanRepayModal?.addEventListener("click", (e) => {
+    if (e.target === loanRepayModal) closeLoanRepayModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const m = document.getElementById("loanRepayModal");
+    if (m && !m.classList.contains("hidden")) closeLoanRepayModal();
   });
 
   // All-payments modal overlay click.
@@ -2852,8 +2924,24 @@ function initHeroStatPopover(cardId, popoverId, opts = {}) {
     // Read lazily on each open, so content written later by a re-render (or a
     // month-filter change) is always the content shown.
     content: (host) => {
-      // Same opening structure as every other "i" panel in the app: the card's
-      // own name first, so a member always knows which figure they opened.
+      /* PREFER a structured panel built from the server data this dashboard
+         already holds. These seven panels used to clone whatever ad-hoc markup
+         the hidden .hero-stat-popover happened to contain, which is why the
+         member's own dashboard — the screen they actually live on — was the
+         only place in the app whose "i" panels had no description, no
+         derivation rows and no action. The cloned markup remains the fallback,
+         so a card without a spec still says what it always said. */
+      const spec = heroStatInfoSpec(cardId, label);
+      if (spec) {
+        infoContent({
+          title: label || spec.title,
+          description: spec.description,
+          rows: spec.rows,
+          action: spec.action,
+        })(host);
+        if (host.childNodes.length) return;
+      }
+
       if (label) {
         const heading = document.createElement("p");
         heading.className = "bn-info-title";
@@ -2871,6 +2959,160 @@ function initHeroStatPopover(cardId, popoverId, opts = {}) {
       host.appendChild(p);
     },
   });
+}
+
+/**
+ * The structured panel for one hero card, built from `window.__dashboardData`
+ * at OPEN time. Returns null when the card has no spec (the caller then falls
+ * back to the page's own popover markup).
+ *
+ * Every money figure is a SERVER string rendered as-is. Counts are counts.
+ * Nothing here adds anything up.
+ *
+ * @param {string} cardId e.g. "totalContributedStat"
+ * @param {string} label the card's own label
+ * @return {?Object} {description, rows, action}
+ */
+function heroStatInfoSpec(cardId, label) {
+  const d = window.__dashboardData;
+  if (!d) return null;
+  const ob = d.obligations || {};
+  const sum = d.obligationsSummary || {};
+  const ls = d.loansSummary || {};
+  const months = monthsOf(ob);
+  const myUid = currentUser && (currentUser.uid || currentUser.userId);
+  const activeLoans = (Array.isArray(d.loans) ? d.loans : []).filter((l) =>
+    isActiveLoan(l.status),
+  );
+  const myLoans = activeLoans.filter(
+    (l) => !myUid || String(l.borrowerId) === String(myUid),
+  );
+
+  if (cardId === "totalArrearsStat") {
+    return {
+      description:
+        "What you owe the group and have not yet paid, plus any late penalties that have built up on it.",
+      rows: [
+        ["Overdue now", formatCurrency(sum.overdue || "0.00")],
+        ["Not yet due", formatCurrency(sum.notYetDue || "0.00")],
+        {
+          label: "Late penalties",
+          value: formatCurrency(sum.penaltyAccrued || "0.00"),
+          detail: () =>
+            months
+              .filter((m) => m.penalty && toMinor(m.penalty.amountOutstanding) > 0)
+              .map((m) => [m.month, formatCurrency(m.penalty.amountOutstanding)]),
+          detailLabel: "Show which months carry a penalty",
+        },
+        ["Total owed", formatCurrency(sum.totalOwed || "0.00")],
+      ],
+      action: { label: "See what you owe →", onClick: () => openArrearsModalGuarded() },
+    };
+  }
+
+  if (cardId === "totalContributedStat") {
+    const cb = ob.contributionBreakdown || {};
+    return {
+      description:
+        "Everything you have paid in and the group has verified, split by what it was for.",
+      rows: [
+        ["Seed money", formatCurrency(cb.seedMoney || "0.00")],
+        {
+          label: "Monthly contributions",
+          value: formatCurrency(cb.monthly || "0.00"),
+          detail: () =>
+            months
+              .filter((m) => toMinor(m.amountPaid) > 0)
+              .map((m) => [m.month, formatCurrency(m.amountPaid)]),
+          detailLabel: "Show what you paid each month",
+        },
+        ["Service fee", formatCurrency(cb.serviceFee || "0.00")],
+        ["Contributed in total", formatCurrency(sum.contributed || "0.00")],
+      ],
+      action: {
+        label: "See every payment →",
+        onClick: () => showAllPaymentsModal(),
+      },
+    };
+  }
+
+  if (cardId === "activeLoansStat") {
+    return {
+      description:
+        "Loans you have taken that are not fully repaid. Received is the money handed to you; balance is what is still owed.",
+      rows: [
+        {
+          label: "Active loans",
+          value: String(myLoans.length),
+          detail: () =>
+            myLoans.map((l) => [
+              l.loanNumber ? String(l.loanNumber) : "Loan",
+              formatCurrency(l.remainingBalance ?? "0.00"),
+            ]),
+          detailLabel: "Show each loan and its balance",
+        },
+        ["Money you received", formatCurrency(ls.activePrincipal || "0.00")],
+        ["Still owed", formatCurrency(ls.activeBalance || "0.00")],
+      ],
+      action: myLoans.length
+        ? { label: "Make a repayment →", onClick: () => openLoanRepayModal() }
+        : undefined,
+    };
+  }
+
+  if (cardId === "pendingPaymentsStat") {
+    const pend = (Array.isArray(d.payments) ? d.payments : []).filter(
+      (p) => String(p.approvalStatus) === "pending",
+    );
+    return {
+      description:
+        "Payments you have submitted that an admin has not approved yet. They do not count toward your standing until they are approved.",
+      rows: [
+        {
+          label: "Awaiting approval",
+          value: String(pend.length),
+          detail: () =>
+            pend.map((p) => [
+              `${PAYMENT_TYPE_LABELS[p.paymentType] || "Payment"}${p.month ? ` · ${p.month}` : ""}`,
+              formatCurrency(p.amountPaid ?? "0.00"),
+            ]),
+          detailLabel: "Show what is waiting",
+        },
+      ],
+    };
+  }
+
+  if (cardId === "nextPaymentStat") {
+    const next = upcomingObligationItems(ob, 60).find((i) => i.due >= startOfToday());
+    if (!next) {
+      return {
+        description: "You have nothing falling due in the next 60 days.",
+        rows: [["Overdue now", formatCurrency(sum.overdue || "0.00")]],
+      };
+    }
+    return {
+      description: "The next thing the group's rules ask you to pay, and when it is due.",
+      rows: [
+        ["What", next.label || "Contribution"],
+        ["Amount", formatCurrency(next.amountStr)],
+        ["Due", formatDate(next.due)],
+        ["Overdue now", formatCurrency(sum.overdue || "0.00")],
+      ],
+    };
+  }
+
+  if (cardId === "membersStat") {
+    return {
+      description:
+        "Everyone currently in this savings group. A member who has left no longer occupies a place.",
+      rows: [["Members in the group", String(d.memberCount ?? "—")]],
+    };
+  }
+
+  // borrowingPowerStat keeps its own renderer's popover: that card already
+  // writes a full server-backed explanation (eligibility + reasons) and
+  // duplicating it here would give two places to keep in step.
+  return null;
 }
 
 /**
@@ -3893,4 +4135,266 @@ function emptyObligations() {
     monthlyContributions: { months: [] },
     serviceFee: null,
   };
+}
+
+/* ── J13: repay a loan from the dashboard ────────────────────────────────────
+   The Loans hero card used to navigate to loan_payments.html. It now opens this
+   modal, so a member can pay without leaving the dashboard.
+
+   MONEY RULES OBSERVED:
+   - Preset amounts and upcoming instalments come from repayments.balance, which
+     computes them against the SAME schedule and penalty that repayments.record
+     allocates against. A preset can therefore never be rejected by the endpoint
+     it was built for, and NOTHING is calculated here. (That is also why "next
+     instalment" already includes any outstanding penalty — section 6: a preset
+     omitting it would not actually clear the instalment.)
+   - Proof of payment is REQUIRED, matching every other member-initiated payment
+     path in this app. The server does not enforce it, the app's policy does, and
+     a shortcut that quietly dropped it would be a weaker route to the same
+     endpoint.
+   - Only the member's OWN loans are listed. repayments.record 403s on paying
+     someone else's loan, and an ADMIN viewing this page gets the whole group's
+     rows from loans.list — so this filter is what stops an admin being offered a
+     member's loan as though it were their own.
+──────────────────────────────────────────────────────────────────────────── */
+
+/** Loans currently offered in the repayment modal, in render order. */
+let loanRepayChoices = [];
+
+/** Open the loan repayment modal. */
+function openLoanRepayModal() {
+  const modal = document.getElementById("loanRepayModal");
+  const body = document.getElementById("loanRepayBody");
+  if (!modal || !body) return;
+
+  const data = window.__dashboardData || {};
+  const myUid = currentUser && (currentUser.uid || currentUser.userId);
+  const active = (Array.isArray(data.loans) ? data.loans : []).filter(
+    (l) => isActiveLoan(l.status) && (!myUid || String(l.borrowerId) === String(myUid)),
+  );
+  loanRepayChoices = active;
+
+  modal.classList.remove("hidden");
+  body.replaceChildren();
+
+  if (!active.length) {
+    const p = document.createElement("p");
+    p.className = "empty-state-text";
+    p.textContent = "You have no active loans to repay.";
+    body.appendChild(p);
+    return;
+  }
+
+  const inputCss =
+    "width:100%; padding:var(--bn-space-3); border:1px solid var(--bn-gray-300); " +
+    "border-radius:var(--bn-radius-md); font-family:var(--bn-font-sans); " +
+    "font-size:var(--bn-text-base); min-height:44px;";
+  const labelCss =
+    "display:block; font-size:var(--bn-text-sm); font-weight:600; " +
+    "margin-bottom:var(--bn-space-2); color:var(--bn-gray-700);";
+
+  const field = (labelText, control) => {
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "margin-bottom: var(--bn-space-4);";
+    const l = document.createElement("label");
+    l.textContent = labelText;
+    l.style.cssText = labelCss;
+    if (control.id) l.setAttribute("for", control.id);
+    wrap.append(l, control);
+    return wrap;
+  };
+
+  const select = document.createElement("select");
+  select.id = "loanRepaySelect";
+  select.style.cssText = inputCss;
+  active.forEach((l, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    const bal = l.remainingBalance != null ? l.remainingBalance : l.totalRepayment;
+    opt.textContent = `Loan ${l.loanNumber || i + 1} — ${formatCurrency(bal || "0.00")} outstanding`;
+    select.appendChild(opt);
+  });
+  body.appendChild(field("Which loan?", select));
+
+  const presets = document.createElement("div");
+  presets.id = "loanRepayPresets";
+  presets.style.cssText =
+    "display:flex; flex-wrap:wrap; gap:var(--bn-space-2); margin-bottom:var(--bn-space-4);";
+  body.appendChild(presets);
+
+  const amount = document.createElement("input");
+  amount.id = "loanRepayAmount";
+  amount.type = "number";
+  amount.min = "0";
+  amount.step = "0.01";
+  amount.style.cssText = inputCss;
+  body.appendChild(field("Amount you are paying", amount));
+
+  const upcoming = document.createElement("div");
+  upcoming.id = "loanRepayUpcoming";
+  upcoming.style.cssText =
+    "font-size:var(--bn-text-sm); color:var(--bn-gray); margin-bottom:var(--bn-space-4);";
+  body.appendChild(upcoming);
+
+  const method = document.createElement("select");
+  method.id = "loanRepayMethod";
+  method.style.cssText = inputCss;
+  [
+    ["cash", "Cash"],
+    ["bank_transfer", "Bank transfer"],
+    ["mobile_money", "Mobile money"],
+  ].forEach(([v, t]) => {
+    const o = document.createElement("option");
+    o.value = v;
+    o.textContent = t;
+    method.appendChild(o);
+  });
+  body.appendChild(field("How did you pay?", method));
+
+  const proof = document.createElement("input");
+  proof.id = "loanRepayProof";
+  proof.type = "file";
+  proof.accept = "image/*,application/pdf";
+  proof.style.cssText = inputCss;
+  body.appendChild(field("Proof of payment (required)", proof));
+
+  const notes = document.createElement("input");
+  notes.id = "loanRepayNotes";
+  notes.type = "text";
+  notes.placeholder = "Optional reference or note";
+  notes.style.cssText = inputCss;
+  body.appendChild(field("Note (optional)", notes));
+
+  const hint = document.createElement("p");
+  hint.style.cssText =
+    "font-size:var(--bn-text-sm); color:var(--bn-gray); margin-bottom:var(--bn-space-4);";
+  hint.textContent =
+    "Your payment is submitted for approval. The group splits it across penalty, interest and principal.";
+  body.appendChild(hint);
+
+  const submit = document.createElement("button");
+  submit.id = "loanRepaySubmit";
+  submit.className = "btn btn-primary";
+  submit.style.cssText = "width:100%; min-height:44px;";
+  submit.textContent = "Submit repayment";
+  submit.addEventListener("click", submitLoanRepayment);
+  body.appendChild(submit);
+
+  select.addEventListener("change", () => loadLoanRepayPresets());
+  loadLoanRepayPresets();
+}
+
+/**
+ * Pull the server's preset amounts and upcoming instalments for the selected
+ * loan. A failure leaves the amount field usable — it never guesses a figure.
+ */
+async function loadLoanRepayPresets() {
+  const select = document.getElementById("loanRepaySelect");
+  const presets = document.getElementById("loanRepayPresets");
+  const amount = document.getElementById("loanRepayAmount");
+  const upcoming = document.getElementById("loanRepayUpcoming");
+  if (!select || !presets || !amount) return;
+
+  const loan = loanRepayChoices[Number(select.value) || 0];
+  if (!loan) return;
+  presets.replaceChildren();
+  if (upcoming) upcoming.textContent = "";
+  amount.value = "";
+
+  let data = null;
+  try {
+    data = await apiGet("repayments.balance", { loanId: loan.loanId });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      redirectToLogin();
+      return;
+    }
+    return;
+  }
+
+  for (const q of Array.isArray(data.quickAmounts) ? data.quickAmounts : []) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn-secondary";
+    btn.style.cssText = "min-height:44px; font-size:var(--bn-text-sm);";
+    btn.textContent = `${q.label} — ${formatCurrency(q.amount)}`;
+    if (q.description) btn.title = q.description;
+    btn.addEventListener("click", () => {
+      amount.value = String(q.amount);
+    });
+    presets.appendChild(btn);
+    // Default to the first preset (the next instalment) so the common case is
+    // one tap — still editable for a part payment.
+    if (!amount.value) amount.value = String(q.amount);
+  }
+
+  const next = (Array.isArray(data.upcoming) ? data.upcoming : [])[0];
+  if (next && upcoming) {
+    const due = String(next.dueDate || "").slice(0, 10);
+    upcoming.textContent = next.overdue
+      ? `Next instalment ${formatCurrency(next.amount)} was due ${due} — overdue`
+      : `Next instalment ${formatCurrency(next.amount)} due ${due}`;
+  }
+}
+
+/** File the repayment. The server computes the split; nothing is derived here. */
+async function submitLoanRepayment() {
+  const select = document.getElementById("loanRepaySelect");
+  const amountEl = document.getElementById("loanRepayAmount");
+  const methodEl = document.getElementById("loanRepayMethod");
+  const proofEl = document.getElementById("loanRepayProof");
+  const notesEl = document.getElementById("loanRepayNotes");
+  const submit = document.getElementById("loanRepaySubmit");
+  if (!select || !amountEl || !submit) return;
+
+  const loan = loanRepayChoices[Number(select.value) || 0];
+  const raw = String(amountEl.value || "").trim();
+  const proofFile = proofEl && proofEl.files ? proofEl.files[0] : null;
+
+  if (!loan) return;
+  if (!raw || !(Number(raw) > 0)) {
+    showToast("Enter the amount you are paying.", "error");
+    amountEl.focus();
+    return;
+  }
+  if (!proofFile) {
+    showToast("Attach a proof of payment (photo or PDF of the receipt).", "error");
+    return;
+  }
+
+  submit.disabled = true;
+  submit.textContent = "Submitting…";
+  try {
+    const groupId = getSelectedGroupId();
+    const proofUrl = await uploadProof(proofFile, groupId);
+    await apiPost("repayments.record", {
+      loanId: loan.loanId,
+      amount: raw,
+      paymentMethod: String(methodEl.value || "cash"),
+      notes: String((notesEl && notesEl.value) || "").trim() || undefined,
+      proofOfPaymentImageUrl: proofUrl,
+    });
+    closeLoanRepayModal();
+    showToast("Repayment submitted — awaiting admin approval.", "success");
+    await loadDashboard(groupId);
+  } catch (error) {
+    submit.disabled = false;
+    submit.textContent = "Submit repayment";
+    if (error instanceof ApiError && error.status === 401) {
+      redirectToLogin();
+      return;
+    }
+    showToast(
+      error instanceof ApiError && error.message
+        ? error.message
+        : "Could not submit that repayment.",
+      "error",
+    );
+  }
+}
+
+/** Close the loan repayment modal. */
+function closeLoanRepayModal() {
+  document.getElementById("loanRepayModal")?.classList.add("hidden");
+  loanRepayChoices = [];
 }

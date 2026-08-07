@@ -1031,6 +1031,110 @@ table.data-table tbody tr:last-child td {
 }
 
 /* ============================================
+   CYCLE SHARE-OUT (pages/cycle_shareout.html)
+   Payout column group + settle confirm gate.
+   ============================================ */
+
+/* Grouped "Payout" header (colspan 3) sits above Interest Refund /
+   Penalty Share / Payout. Gold tint ties it to the accent used for the
+   settle CTA elsewhere on the page, and marks it as the page's answer.
+   Selector is scoped `.table th.payout-group-header` (not the bare
+   class) because `.table th` already sets background/border-bottom/
+   text-align at specificity (0,1,1) — a bare `.payout-group-header`
+   class (0,1,0) would lose that fight silently and never render. */
+.table th.payout-group-header {
+  text-align: center;
+  background: var(--bn-accent-subtle);
+  border-bottom: 2px solid var(--bn-accent);
+}
+
+/* The three payout-group cells (both the sub-header row and the body
+   cells) get the same gold tint so the whole column group reads as one
+   unit, distinct from the four context columns beside it. Scoped the
+   same way, and to both th/td, for the same specificity reason above —
+   `.table td` sets no background today, but this keeps the rule correct
+   even if that changes. The left border marks only the group's first
+   column (Interest Refund) — the :not(.cell-payout + .cell-payout)
+   selector matches a .cell-payout cell that is NOT itself preceded by
+   another .cell-payout sibling, i.e. the first cell of the run — so the
+   group gets one accent edge, not three. */
+.table th.cell-payout,
+.table td.cell-payout {
+  background: var(--bn-accent-subtle);
+}
+
+.table th.cell-payout:not(.cell-payout + .cell-payout),
+.table td.cell-payout:not(.cell-payout + .cell-payout) {
+  border-left: 3px solid var(--bn-accent);
+}
+
+/* Settle confirm gate: an irreversible money action, styled to read as a
+   deliberate "are you sure" surface rather than more page flow. Reuses
+   the danger tokens already validated for .alert-danger — the *-light
+   token is a background tint only, text stays on --bn-dark for contrast. */
+.confirm-panel {
+  margin-top: var(--bn-space-4);
+  padding: var(--bn-space-5);
+  background: var(--bn-danger-light);
+  border: 1px solid var(--bn-danger);
+  border-radius: var(--bn-radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bn-space-4);
+  color: var(--bn-dark);
+}
+
+.confirm-panel #confirmSummaryText {
+  margin: 0;
+  font-weight: 600;
+}
+
+.confirm-checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--bn-space-3);
+  min-height: 44px;
+  padding: var(--bn-space-2) var(--bn-space-3);
+  background: var(--bn-white);
+  border: 1px solid var(--bn-gray-light);
+  border-radius: var(--bn-radius-md);
+  cursor: pointer;
+}
+
+.confirm-checkbox-row input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  cursor: pointer;
+  accent-color: var(--bn-danger);
+}
+
+.confirm-checkbox-row span {
+  font-size: var(--bn-text-sm);
+  line-height: var(--bn-leading-normal);
+  color: var(--bn-dark);
+}
+
+.confirm-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--bn-space-3);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .confirm-panel-actions {
+    flex-direction: column;
+  }
+
+  .confirm-panel-actions .btn {
+    width: 100%;
+  }
+}
+
+/* ============================================
    LOADING & SPINNER
    ============================================ */
 .spinner-overlay {
@@ -1162,15 +1266,27 @@ table.data-table tbody tr:last-child td {
   25%, 75% { opacity: 0.5; }
 }
 
-/* Scoped spinner inside main content — keeps nav visible */
+/* Spinner inside main content. Keeps the lighter in-content backdrop, but stays
+   FIXED TO THE VIEWPORT.
+   It was `position: absolute`, which sizes the overlay to the whole content
+   column — measured at 2196px tall on the admin dashboard. The overlay centres
+   its content with flex, so "centred" meant ~1100px down the page: on screen
+   only if you happened to be scrolled to the middle of the section, and
+   completely out of sight at the top or bottom.
+   Fixing the OVERLAY (rather than the .spinner-content inside it) is deliberate:
+   .spinner-content carries a transform animation, so translate-centring would be
+   overridden mid-animation, and this overlay's own `backdrop-filter` makes it a
+   containing block — a `position: fixed` child would anchor to the overlay, not
+   the screen, and nothing would change. */
 main#mainContent .spinner-overlay,
 .dashboard-content .spinner-overlay,
 .content-section-body .spinner-overlay {
-  position: absolute;
+  position: fixed;
+  inset: 0;
   background: rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  border-radius: inherit;
+  border-radius: 0;
 }
 
 /* ============================================
@@ -1790,10 +1906,36 @@ main#mainContent .spinner-overlay,
    Rendered dynamically by scripts/card_info.js — the toggle button is
    appended to a positioned card, the panel is appended to <body>.
    ============================================ */
+/* A card that carries an "i" toggle. The toggle is absolutely positioned and
+   therefore out of flow, so without this the card's own content runs underneath
+   it — measured at 390px on the admin dashboard, a stat value sat 19px behind
+   the button. Reserving the corner keeps the toggle top-right (where it belongs)
+   AND keeps the figure readable, instead of trading one for the other.
+   Applied by attachCardInfo() so every card with a toggle is covered, now and
+   later. 42px = the 26px button + its 10px inset + a 6px breathing gap. */
+/* Space for this button is reserved by attachCardInfo() (card_info.js), applied
+   inline so a card's own padding rule cannot win the cascade. Deliberately NOT
+   a rule here — two sources of truth for the same spacing is how it drifts. */
 .bn-info-toggle {
   position: absolute;
-  top: -10px;
-  right: -10px;
+  /* INSIDE the card, not overhanging it.
+     This was top/right: -10px, so the button sat outside its host's box — and
+     every host that sets `overflow: hidden` (.hero-stat, the acct tiles, the
+     stat cards) simply CLIPPED IT AWAY. The button was present, opaque and
+     visible per the computed styles, but nothing was painted: the owner
+     reported "I cannot see it" on manage_payments and the user dashboard, and
+     measurement confirmed the toggle's box lay 9–10px above and right of its
+     host's edge on all seven cards.
+     Positioning it inside means no host's overflow can ever clip it again,
+     whatever a future card does. */
+  /* HALF OUTSIDE the card, centred on the top-right corner, so it never covers
+     the card's own figures. attachCardInfo() forces the host to
+     `overflow: visible` when it attaches — without that a host with
+     `overflow: hidden` clips the overhang away and the button disappears, which
+     is exactly what happened the last time it sat outside. */
+  top: -13px;
+  right: -13px;
+  z-index: 3;
   width: 26px;
   height: 26px;
   border-radius: 50%;
@@ -1813,6 +1955,17 @@ main#mainContent .spinner-overlay,
   padding: 0;
   z-index: 2;
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* The visual dot stays 26px, but the TAP target becomes 44×44 (E3's bar) via an
+   invisible expander. Inset -9px on a 26px button = 44px. Positioning the
+   button at 10px keeps that whole area inside the card, so it is not clipped
+   either — which is why the offset above is 10 and not smaller. */
+.bn-info-toggle::before {
+  content: "";
+  position: absolute;
+  inset: -9px;
+  border-radius: 50%;
 }
 
 .bn-info-toggle:hover {
@@ -1847,6 +2000,12 @@ main#mainContent .spinner-overlay,
   padding: var(--bn-space-4) var(--bn-space-5);
   max-width: 320px;
   min-width: 180px;
+  /* Rows can now expand a second level, so the panel has to be able to grow
+     without running off screen. Without this a panel with several open rows
+     simply overflowed the viewport with no way to reach the bottom. */
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   box-shadow: var(--bn-shadow-xl);
   font-size: var(--bn-text-sm);
   line-height: 1.6;
@@ -1937,6 +2096,107 @@ main#mainContent .spinner-overlay,
 .bn-info-row-toggle:focus-visible {
   outline: 2px solid var(--bn-accent);
   outline-offset: 2px;
+}
+
+/* Chevron points down when closed, up when open, so the row's state is visible
+   without reading the panel. */
+.bn-info-row-toggle.is-open {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--bn-white);
+  transform: rotate(180deg);
+}
+
+/* A row that leads somewhere reads as clickable. Rows without an onClick keep
+   the default cursor — nothing should look tappable when it is not. */
+.bn-info-row.is-clickable {
+  cursor: pointer;
+  margin: 0 calc(-1 * var(--bn-space-2));
+  padding-left: var(--bn-space-2);
+  padding-right: var(--bn-space-2);
+  border-radius: var(--bn-radius-sm);
+  transition: background var(--bn-transition-fast);
+}
+
+.bn-info-row.is-clickable:hover,
+.bn-info-row.is-clickable:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.bn-info-row.is-clickable:focus-visible {
+  outline: 2px solid var(--bn-accent);
+  outline-offset: 0;
+}
+
+/* The expandable second level. This had NO css rule at all — the one panel that
+   used it (the admin due-payment card) hand-rolled ~6 inline styles, which is
+   exactly why the capability never spread to the other panels. */
+.bn-info-row-detail {
+  padding: 0 0 var(--bn-space-2) var(--bn-space-3);
+  border-left: 2px solid rgba(255, 255, 255, 0.12);
+  margin: 0 0 var(--bn-space-1) var(--bn-space-1);
+  font-size: 11px;
+  color: var(--bn-gray-300);
+  line-height: 1.7;
+}
+
+.bn-info-row-detail[hidden] {
+  display: none;
+}
+
+/* A detail block may itself be label/value pairs rather than a sentence. */
+.bn-info-row-detail-line {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--bn-space-3);
+}
+
+.bn-info-row-detail-line > span:last-child {
+  color: var(--bn-gray-100);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bn-info-row-detail-empty {
+  color: var(--bn-gray-400);
+  font-style: italic;
+}
+
+/* --- Cloned popover markup rendered INSIDE the shared dark panel -----------
+   Some cards still fill the panel by cloning their page's own
+   `.hero-stat-popover-*` nodes. Those rules were written for a LIGHT in-card
+   popover, so inside this dark panel `.hero-stat-popover-title` resolved to
+   var(--bn-dark) on a var(--bn-dark) background — **contrast ratio 1.0, i.e.
+   invisible**. The line it hid on the Borrowing Power card was "Why you cannot
+   borrow right now", the one sentence a member most needs.
+
+   These overrides win on specificity (0,2,0 vs 0,1,0), so they hold regardless
+   of stylesheet order, and they cover every cloned popover — not just the one
+   card where the bug was spotted.                                            */
+.bn-info-panel .hero-stat-popover-title,
+.bn-info-panel .hero-stat-popover-more {
+  color: var(--bn-white);
+}
+
+.bn-info-panel .hero-stat-popover-row {
+  color: var(--bn-gray-100);
+}
+
+.bn-info-panel .hero-stat-popover-row:not(:last-child) {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+/* The severity variants used the -dark tokens, which are equally unreadable on
+   a dark panel.
+   NOT --bn-danger-light / --bn-success-light: those are translucent BACKGROUND
+   tints (rgba at 0.12 alpha), so using them as a text colour would have swapped
+   one invisible colour for another. Literal Tailwind red-300 / green-300 —
+   ~7:1 and ~11:1 on this panel's background. */
+.bn-info-panel .hero-stat-popover-row.overdue span:last-child {
+  color: #FCA5A5;
+}
+
+.bn-info-panel .hero-stat-popover-row.on-time span:last-child {
+  color: #86EFAC;
 }
 
 .bn-info-action {

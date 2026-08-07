@@ -114,6 +114,7 @@ const ROUTES = [
     'cycle.payout.preview' => ['GET', 'cycle_payout_preview'],
     'cycle.settle'         => ['POST', 'cycle_settle'],
     'cycle.forced.preview' => ['GET', 'forced_loans_preview'],
+    'cycle.payouts.list'   => ['GET', 'cycle_payouts_list'],
 
     'notifications.list'    => ['GET', 'list_notifications'],
     'notifications.read'    => ['POST', 'mark_read'],

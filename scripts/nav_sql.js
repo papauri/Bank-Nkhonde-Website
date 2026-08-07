@@ -21,7 +21,15 @@
  * only — the server (require_role()) is the real gate.
  */
 
-import {getSession, logout as apiLogout, listMyGroups} from "./api.js";
+import {
+  getSession,
+  logout as apiLogout,
+  listMyGroups,
+  apiPost,
+  apiUrl,
+  ApiError,
+  redirectToLogin,
+} from "./api.js";
 import {initSpaRouter} from "./spa-router.js?v=20260722";
 import {initializeNotifications, cleanupNotifications} from "./notifications-handler_sql.js";
 
@@ -50,12 +58,34 @@ const ICONS = {
 };
 
 /** Nav items shared by the admin sidebar and admin mobile bottom-nav. */
+/**
+ * Admin sidebar. A `{section: "..."}` entry renders a heading rather than a
+ * link, so related pages read as a group instead of a flat list of fourteen.
+ *
+ * SEVEN of these were fully built, routed and working but had NO nav entry at
+ * all — Rules, Financial Reports, Contributions, Seed Money, Interest &
+ * Penalties, Approvals and Broadcast were reachable only by typing the URL.
+ * Anything added here must also be registered in PAGE_CONFIG (spa-router.js)
+ * and carry the data-nav-* body attributes, or the page loads and does nothing.
+ */
 const ADMIN_NAV_ITEMS = [
   {nav: "dashboard", label: "Dashboard", href: "admin_dashboard.html", icon: ICONS.dashboard},
   {nav: "analytics", label: "Analytics", href: "analytics.html", icon: ICONS.analytics},
-  {nav: "loans", label: "Manage Loans", href: "manage_loans.html", icon: ICONS.loans},
+  {nav: "shareout", label: "Share-Out", href: "cycle_shareout.html", icon: ICONS.analytics},
+
+  {section: "Money"},
   {nav: "payments", label: "Payments", href: "manage_payments.html", icon: ICONS.payments},
+  {nav: "loans", label: "Manage Loans", href: "manage_loans.html", icon: ICONS.loans},
+  {nav: "contributions", label: "Contributions", href: "contributions_overview.html", icon: ICONS.payments},
+  {nav: "seed-money", label: "Seed Money", href: "seed_money_overview.html", icon: ICONS.payments},
+  {nav: "penalties", label: "Interest & Penalties", href: "interest_penalties.html", icon: ICONS.loans},
+  {nav: "reports", label: "Financial Reports", href: "financial_reports.html", icon: ICONS.analytics},
+
+  {section: "Admin"},
   {nav: "members", label: "Members", href: "manage_members.html", icon: ICONS.members},
+  {nav: "approvals", label: "Approve Registrations", href: "approve_registrations.html", icon: ICONS.members},
+  {nav: "rules", label: "Manage Rules", href: "manage_rules.html", icon: ICONS.rules},
+  {nav: "broadcast", label: "Broadcast", href: "broadcast_notifications.html", icon: ICONS.messages},
   {nav: "settings", label: "Settings", href: "settings.html", icon: ICONS.settings},
 ];
 
@@ -190,6 +220,60 @@ export function showToast(message, type = "success", duration = 4000) {
   }, duration);
 }
 
+/** Matches the server's upload cap (see settings_sql.js MAX_IMAGE_BYTES). */
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Upload a new profile photo via files.upload, then persist it via
+ * profile.update — the same two-step sequence the settings page's picker
+ * uses (settings_sql.js uploadFile/uploadProfileImage), duplicated here
+ * because this module must not import from a page-specific script.
+ * @param {File} file Image file to upload.
+ * @return {Promise<string>} The saved image URL.
+ */
+async function uploadAndSaveNavAvatar(file) {
+  const groupId = sessionStorage.getItem("selectedGroupId") ||
+    localStorage.getItem("selectedGroupId") || "";
+
+  const form = new FormData();
+  form.append("file", file);
+  // files.upload requires a groupId (it gates on group membership).
+  form.append("groupId", groupId);
+
+  let response;
+  try {
+    response = await fetch(apiUrl("files.upload"), {
+      method: "POST",
+      credentials: "same-origin",
+      body: form, // no Content-Type — the browser sets the multipart boundary
+    });
+  } catch (networkError) {
+    throw new ApiError("Unable to reach the server. Check your connection.", 0, null);
+  }
+
+  const raw = await response.text();
+  let body = null;
+  try {
+    body = raw ? JSON.parse(raw) : null;
+  } catch (parseError) {
+    throw new ApiError("Unexpected server response", response.status, null);
+  }
+
+  if (!response.ok) {
+    throw new ApiError(
+      (body && (body.message || body.error)) || "Upload failed.",
+      response.status,
+      body,
+    );
+  }
+  if (!body || !body.url) {
+    throw new ApiError("Upload did not return a file URL.", response.status, body);
+  }
+
+  await apiPost("profile.update", {profileImageUrl: body.url});
+  return body.url;
+}
+
 /* ============================================================
    ADMIN VARIANT — sidebar + topbar + mobile bottom nav
    ============================================================ */
@@ -254,6 +338,14 @@ function renderSidebarNav(user, opts, config) {
   const sidebarNav = document.createElement("nav");
   sidebarNav.className = "sidebar-nav";
   navItems.forEach((item) => {
+    // A section marker is a heading, not a destination.
+    if (item.section) {
+      const heading = document.createElement("div");
+      heading.className = "sidebar-nav-section";
+      heading.textContent = item.section;
+      sidebarNav.appendChild(heading);
+      return;
+    }
     const a = document.createElement("a");
     a.href = item.href;
     const isActive = item.nav === activePage;
@@ -295,22 +387,17 @@ function renderSidebarNav(user, opts, config) {
   const sidebarUser = document.createElement("div");
   sidebarUser.className = "sidebar-user";
   sidebarUser.id = "sidebarUser";
-  const sidebarAvatar = document.createElement("a");
+  // Click-to-change profile picture, mirroring the settings page's picker:
+  // a <label> wraps a hidden file input so a click opens the OS file picker.
+  // Uses its own input id (navProfilePictureInput) — the settings page's own
+  // #profilePictureInput must keep working when this nav renders on that
+  // same page.
+  const sidebarAvatar = document.createElement("label");
   sidebarAvatar.className = "sidebar-user-avatar";
-  /* The avatar is a LINK TO SETTINGS, not a file picker.
-     J11 asked for the settings page's click-to-change pattern to be copied
-     onto this avatar and the topbar one. Those are display-only elements
-     inside the global nav — there is no file input here to put a <label>
-     on, so following that literally would mean adding an upload control
-     (and its crop/refresh wiring) to every page's chrome. It would also
-     make a mis-tap on a phone open a file browser from the navigation.
-     A nav avatar's conventional affordance is "go to my profile", and the
-     settings page already owns the upload flow that works. So the avatar
-     becomes a route to that flow rather than a second copy of it.
-     DIVERGES FROM THE J11 BRIEF DELIBERATELY — recorded for review. */
-  sidebarAvatar.setAttribute("href", "settings.html");
-  sidebarAvatar.setAttribute("aria-label", "Your profile and settings");
-  sidebarAvatar.title = "Profile & settings";
+  sidebarAvatar.setAttribute("for", "navProfilePictureInput");
+  sidebarAvatar.setAttribute("aria-label", "Change profile picture");
+  sidebarAvatar.title = "Change profile picture";
+  sidebarAvatar.tabIndex = 0;
   const sidebarInitials = document.createElement("span");
   sidebarInitials.id = "sidebarUserInitials";
   if (user && user.profileImageUrl) {
@@ -322,6 +409,59 @@ function renderSidebarNav(user, opts, config) {
     sidebarInitials.textContent = initialsFrom(user && user.fullName);
     sidebarAvatar.appendChild(sidebarInitials);
   }
+
+  const sidebarAvatarInput = document.createElement("input");
+  sidebarAvatarInput.type = "file";
+  sidebarAvatarInput.accept = "image/*";
+  sidebarAvatarInput.id = "navProfilePictureInput";
+  sidebarAvatarInput.className = "sidebar-user-avatar-input";
+  sidebarAvatar.appendChild(sidebarAvatarInput);
+
+  // Labels aren't in the default tab order in most browsers even with a
+  // `for` attribute, so tabIndex above plus this handler is what makes the
+  // control keyboard-operable (Enter/Space opens the picker, same as a click).
+  sidebarAvatar.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " " || event.key === "Spacebar") {
+      event.preventDefault();
+      sidebarAvatarInput.click();
+    }
+  });
+
+  sidebarAvatarInput.addEventListener("change", async (event) => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      showToast("Choose an image file (JPG, PNG or WebP).", "danger");
+      sidebarAvatarInput.value = "";
+      return;
+    }
+    if (file.size > MAX_AVATAR_BYTES) {
+      showToast("That image is too large. Maximum size is 5 MB.", "danger");
+      sidebarAvatarInput.value = "";
+      return;
+    }
+
+    try {
+      const uploadedUrl = await uploadAndSaveNavAvatar(file);
+      sidebarAvatar.querySelectorAll("img").forEach((node) => node.remove());
+      if (sidebarInitials.isConnected) sidebarInitials.remove();
+      const newImg = document.createElement("img");
+      newImg.src = uploadedUrl;
+      newImg.alt = (user && user.fullName) || "";
+      sidebarAvatar.insertBefore(newImg, sidebarAvatarInput);
+      showToast("Profile photo updated", "success");
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        redirectToLogin();
+        return;
+      }
+      showToast((error && error.message) || "Failed to upload your photo.", "danger");
+    } finally {
+      sidebarAvatarInput.value = "";
+    }
+  });
+
   const sidebarInfo = document.createElement("div");
   sidebarInfo.className = "sidebar-user-info";
   const sidebarName = document.createElement("div");
@@ -443,7 +583,9 @@ function renderSidebarNav(user, opts, config) {
   mobileNav.className = "mobile-nav";
   const mobileNavItems = document.createElement("div");
   mobileNavItems.className = "mobile-nav-items";
-  navItems.slice(0, 4).forEach((item) => {
+  // Section markers are sidebar-only headings — filter them out before taking
+  // the first four, or the bottom bar renders a heading as a dead tab.
+  navItems.filter((item) => !item.section).slice(0, 4).forEach((item) => {
     const a = document.createElement("a");
     a.href = item.href;
     const isActive = item.nav === activePage;

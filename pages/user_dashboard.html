@@ -2118,9 +2118,24 @@
         padding: var(--bn-space-4);
       }
 
+      /* Figures were running outside their card here: "MWK 117,500.00" measured
+         149px inside a 139px card. Two causes, both fixed rather than just
+         shrinking the type until it fit:
+           - a 16px padding-left left only 91px of usable width, so the value was
+             being squeezed by its own indent;
+           - `white-space: nowrap` meant a long figure could only overflow, never
+             wrap.
+         Reclaiming the indent and allowing a wrap after the currency keeps the
+         figure at a readable size — it breaks to "MWK / 117,500.00" instead of
+         spilling past the card edge. */
       .hero-stat-value {
         font-size: var(--bn-text-lg) !important;
         line-height: 1.2 !important;
+        padding-left: 0 !important;
+        white-space: normal !important;
+        flex-wrap: wrap !important;
+        gap: 0 4px !important;
+        overflow-wrap: anywhere;
       }
 
       .hero-stat-label {
@@ -2333,9 +2348,13 @@
           <div class="hero-stat-label">Next Payment</div>
           <div class="hero-stat-details" id="nextPaymentDetails"></div>
           <div class="hero-stat-popover" id="nextPaymentPopover" role="status"></div>
-          <button type="button" class="hero-stat-badge" id="nextPaymentBadge" aria-label="Dismiss payment due reminder" style="position: absolute; top: var(--bn-space-1); right: var(--bn-space-1); background: var(--bn-danger); color: var(--bn-white); font-size: 8px; padding: 2px 6px; border: none; font-family: inherit; border-radius: 10px; font-weight: 700; cursor: pointer; display: none; z-index: 10;" onclick="dismissNextPaymentBadge(event)">Due</button>
+          <button type="button" class="hero-stat-badge" id="nextPaymentBadge" aria-label="Dismiss payment due reminder" style="position: absolute; top: var(--bn-space-1); left: var(--bn-space-1); background: var(--bn-danger); color: var(--bn-white); font-size: 8px; padding: 2px 6px; border: none; font-family: inherit; border-radius: 10px; font-weight: 700; cursor: pointer; display: none; z-index: 10;" onclick="dismissNextPaymentBadge(event)">Due</button>
         </div>
-        <div class="hero-stat" id="activeLoansStat" onclick="window.location.href='loan_payments.html'" tabindex="0" role="button" aria-describedby="activeLoansPopover" style="cursor: pointer; position: relative;">
+        <!-- J13: no inline onclick. The card now opens the repayment modal, wired
+             in user_dashboard_sql.js. It previously carried
+             onclick="window.location.href='loan_payments.html'", which won the
+             race against the JS listener and navigated away regardless. -->
+        <div class="hero-stat" id="activeLoansStat" tabindex="0" role="button" aria-describedby="activeLoansPopover" style="cursor: pointer; position: relative;">
           <div class="hero-stat-value" id="activeLoans" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
             <span>0</span>
             <span style="font-size: 14px; line-height: 1;" title="Active Loans">💰</span>
@@ -2343,7 +2362,7 @@
           <div class="hero-stat-label">Loans</div>
           <div class="hero-stat-details" id="activeLoansDetails"></div>
           <div class="hero-stat-popover" id="activeLoansPopover" role="status">Loans issued to you that are approved or disbursed and not yet fully repaid.</div>
-          <button type="button" class="hero-stat-badge" id="activeLoansBadge" aria-label="Dismiss loan due reminder" style="position: absolute; top: var(--bn-space-1); right: var(--bn-space-1); background: var(--bn-danger); color: var(--bn-white); font-size: 8px; padding: 2px 6px; border: none; font-family: inherit; border-radius: 10px; font-weight: 700; cursor: pointer; display: none; z-index: 10;" onclick="dismissActiveLoansBadge(event)">Due</button>
+          <button type="button" class="hero-stat-badge" id="activeLoansBadge" aria-label="Dismiss loan due reminder" style="position: absolute; top: var(--bn-space-1); left: var(--bn-space-1); background: var(--bn-danger); color: var(--bn-white); font-size: 8px; padding: 2px 6px; border: none; font-family: inherit; border-radius: 10px; font-weight: 700; cursor: pointer; display: none; z-index: 10;" onclick="dismissActiveLoansBadge(event)">Due</button>
         </div>
         <div class="hero-stat" id="pendingPaymentsStat" tabindex="0" aria-describedby="pendingPaymentsPopover" style="position: relative;">
           <div class="hero-stat-value" id="pendingPayments">0</div>
@@ -3050,6 +3069,29 @@
     </div>
   </div>
 
+  <!-- Loan Repayment Modal (J13).
+       Lets a member repay from the dashboard instead of navigating to
+       loan_payments.html. The preset amounts come from repayments.balance,
+       which computes them against the SAME schedule and penalty that
+       repayments.record allocates against — so a preset can never be rejected
+       by the endpoint it was built for, and nothing is calculated here.
+       Proof of payment is required, matching the policy every other
+       member-initiated payment path on this app enforces. -->
+  <div class="modal-overlay hidden" id="loanRepayModal">
+    <div class="modal-content" style="max-width: 640px; max-height: 90vh;" role="dialog" aria-modal="true" aria-labelledby="loanRepayTitle">
+      <div class="modal-header">
+        <h2 class="modal-title" id="loanRepayTitle">💳 Make a Loan Repayment</h2>
+        <button class="modal-close" id="closeLoanRepayModal" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body" id="loanRepayBody">
+        <div class="empty-state">
+          <div class="empty-state-icon">⏳</div>
+          <p class="empty-state-text">Loading your loans…</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Arrears Dashboard Modal -->
   <div class="modal-overlay hidden" id="arrearsModal">
     <div class="modal-content" style="max-width: 900px; max-height: 90vh;">
@@ -3062,7 +3104,12 @@
         <div class="arrears-summary-box">
           <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--bn-space-4);">
             <div>
-              <div style="font-size: var(--bn-text-xs); font-weight: 600; color: var(--bn-gray); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--bn-space-1);">Total Arrears</div>
+              <div style="font-size: var(--bn-text-xs); font-weight: 600; color: var(--bn-gray); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--bn-space-1);">Overdue Now</div>
+              <!-- NOT "Total Arrears": #arrearsTotal is the server's `overdue`
+                   figure (past-due only), while the reconciliation block below
+                   also carries "Not yet due". Two different values under one
+                   "Arrears" label is the exact confusion this modal existed to
+                   remove. -->
               <div id="arrearsTotal" style="font-size: var(--bn-text-2xl); font-weight: 800; color: var(--bn-danger);">MWK 0</div>
             </div>
             <div style="display: flex; gap: var(--bn-space-6); flex-wrap: wrap;">

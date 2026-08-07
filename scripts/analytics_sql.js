@@ -1125,15 +1125,22 @@ function liveArrearsForMember(uid) {
 // .stat-card-wrap and is left untouched). Attaches a small "i" toggle +
 // popover to a positioned card ancestor (.page-stat or .breakdown-card, both
 // given `position: relative` in analytics.html's inline <style>).
+/* Titles and wording match what each tile ACTUALLY shows (see
+   applySummaryTilesFromServer). The old copy described figures these tiles do
+   not carry: "Total Income" claimed to include loan interest (it does not — it
+   is contributions only), and "Net Profit" claimed to be income minus loans
+   disbursed, which for the live QA group is 365,000.00 while the tile renders
+   cashPosition of 486,549.97. A tooltip that disagrees with the number beside
+   it is worse than no tooltip. */
 const STATIC_TILE_INFO = [
-  ["totalIncome", "Total Income",
-    "Settled member contributions plus loan interest earned — the money flowing into the group this period."],
-  ["totalExpenses", "Total Expenses",
-    "Loan principal disbursed to members (approved, disbursed, completed and defaulted loans)."],
-  ["netProfit", "Net Profit",
-    "Total income minus loans disbursed — the group's net position for the period."],
-  ["loanInterest", "Loan Interest",
-    "Interest paid into the group's interest pool from loan repayments this cycle."],
+  ["totalIncome", "Total Contributed",
+    "Settled member contributions (seed money, monthly contributions and service fees) paid into the group. This is members' own capital, not group earnings."],
+  ["totalExpenses", "Loans Disbursed",
+    "Loan principal paid out to members (approved, disbursed, completed and defaulted loans). This money is lent, not spent — it returns with interest."],
+  ["netProfit", "Cash Position",
+    "Money the group is holding right now: contributions, less loans disbursed, plus loan repayments and penalties collected. Most of it is members' capital and is owed back to them — it is NOT profit."],
+  ["loanInterest", "Interest Earned",
+    "Interest paid into the group's interest pool from loan repayments this cycle. This — with any penalties collected — is what the group has actually earned."],
 ];
 
 /**
@@ -1148,7 +1155,7 @@ const STATIC_TILE_INFO = [
  * @param {string} infoText plain-text explanation
  * @param {string} ariaLabel accessible name for the toggle
  */
-function attachCardPopover(cardEl, infoText, ariaLabel, cardTitle) {
+function attachCardPopover(cardEl, infoText, ariaLabel, cardTitle, rowsProvider) {
   if (!cardEl || !infoText) return;
   // Routed through the shared infoContent() so these panels carry the same
   // title-then-explanation structure as every other "i" button in the app,
@@ -1158,7 +1165,16 @@ function attachCardPopover(cardEl, infoText, ariaLabel, cardTitle) {
     || "";
   attachCardInfo(cardEl, {
     label: ariaLabel,
-    content: infoContent({title, description: infoText}),
+    /* Built at OPEN time, not attach time. These toggles are attached once,
+       before any group is chosen, so rows captured at attach time would be
+       permanently empty — which is why these four panels carried a sentence and
+       no derivation at all. */
+    content: (host) =>
+      infoContent({
+        title,
+        description: infoText,
+        rows: typeof rowsProvider === "function" ? rowsProvider() : undefined,
+      })(host),
   });
 }
 
@@ -1172,8 +1188,64 @@ function initStaticStatPopovers() {
     const valueEl = document.getElementById(id);
     const wrap = valueEl?.closest(".page-stat");
     if (!wrap) return;
-    attachCardPopover(wrap, infoText, `${label} explanation`);
+    attachCardPopover(wrap, infoText, `${label} explanation`, label, () =>
+      headlineTileRows(id),
+    );
   });
+}
+
+/**
+ * Derivation rows for the four headline tiles, read from the loaded accounting
+ * summary at OPEN time.
+ *
+ * These panels previously showed a sentence and nothing else — no way to see
+ * what a figure was made of. Cash Position especially: it is the one tile that
+ * is a formula rather than a stored total, and it was the tile that used to be
+ * mislabelled "Net Profit", so showing its parts is the whole point.
+ *
+ * Every value is a field the server already returned. Nothing is added up here.
+ * @param {string} id the tile's value-element id
+ * @return {Array|undefined}
+ */
+function headlineTileRows(id) {
+  const a = accounting;
+  if (!a) return undefined;
+  const m = (v) => formatCurrency(v != null ? v : "0.00");
+
+  if (id === "totalIncome") {
+    return [
+      ["Seed money", m(a.seedMoneyContributed)],
+      ["Monthly contributions", m(a.monthlyContributionContributed)],
+      ["Service fees", m(a.serviceFeeContributed)],
+      ["Total contributed", m(a.totalContributed)],
+    ];
+  }
+  if (id === "totalExpenses") {
+    return [
+      ["Principal lent out", m(a.totalDisbursed)],
+      ["Still owed on loans", m(a.outstandingLoanPrincipal)],
+      ["Repayments received", m(a.loanRepaymentsReceived)],
+    ];
+  }
+  if (id === "netProfit") {
+    // The formula, spelled out, in the order the server applies it.
+    return [
+      ["Contributions in", m(a.totalContributed)],
+      ["Less loans paid out", `− ${m(a.totalDisbursed)}`],
+      ["Plus repayments in", `+ ${m(a.loanRepaymentsReceived)}`],
+      ["Plus penalties collected", `+ ${m(a.penaltiesCollected)}`],
+      ["Cash position", m(a.cashPosition)],
+    ];
+  }
+  if (id === "loanInterest") {
+    return [
+      ["Interest earned", m(a.interestEarned)],
+      ["Penalties collected", m(a.penaltiesCollected)],
+      ["Penalties still outstanding", m(a.penaltiesOutstanding)],
+      ["Penalties waived", m(a.penaltiesWaived)],
+    ];
+  }
+  return undefined;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

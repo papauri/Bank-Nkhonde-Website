@@ -810,8 +810,19 @@ body {
     min-width: auto;
   }
 
-  .page-stat-value {
+  /* Figures were overflowing their tile: "MWK 505,100.00" measured 143px inside
+     an 88px content box, spilling out both sides and running under the "i"
+     toggle. `white-space: nowrap` (set above) meant it could only overflow,
+     never wrap — so release it here and let the break fall after the currency.
+     Reads as "MWK / 505,100.00" instead of bleeding past the card edge, and the
+     figure stays legible rather than being shrunk until it fits.
+     This lives in pages.css deliberately: admin-layout.css loads BEFORE this
+     file, so the same rule there loses to the nowrap above it. */
+  .page-stat-value,
+  .dashboard-content .page-stat-value {
     font-size: var(--bn-text-base);
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .content-section-header,

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Cycle Share-Out - Bank Nkhonde">
+  <meta name="theme-color" content="#0A1628">
+  <title>Cycle Share-Out - Bank Nkhonde</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles/design-system.css">
+  <link rel="stylesheet" href="../styles/admin-layout.css">
+  <link rel="stylesheet" href="../styles/pages.css">
+  <link rel="icon" type="image/png" href="../assets/favicon.png">
+</head>
+<body data-nav-variant="admin" data-nav-active-page="shareout" data-nav-page-title="Cycle Share-Out">
+  <!-- Sidebar, topbar, and mobile nav injected by nav_sql.js -->
+  <main class="main-content" id="mainContent">
+    <div class="dashboard-content">
+      <!-- Loading Overlay -->
+      <div class="spinner-overlay hidden" id="spinner">
+        <div class="spinner-content">
+          <div class="spinner"></div>
+          <p class="loading-text">Loading cycle share-out...</p>
+        </div>
+      </div>
+
+      <div class="page-group-selector">
+        <select id="groupSelector">
+          <option value="">Select a group...</option>
+        </select>
+      </div>
+
+      <!-- Static explanation of the payout rule — always visible, not tied
+           to load state, so no member misreads how a payout is worked out. -->
+      <section class="content-section">
+        <div class="content-section-header">
+          <h2 class="content-section-title">How a Payout Is Worked Out</h2>
+        </div>
+        <div class="content-section-body">
+          <p id="payoutRuleNote">
+            A member's payout is their <strong>interest refund</strong> plus their
+            <strong>penalty share</strong>. The interest refund is the interest that
+            member personally paid on their own loans. The penalty share is an equal
+            slice of the group's penalty pool, split evenly across members, and only
+            when this group's rules say penalties are shared out at cycle end.
+            Contributed capital is <strong>not</strong> part of the payout, and a
+            penalty is never refunded to the member who paid it.
+          </p>
+        </div>
+      </section>
+
+      <!-- Primary load-path message: no group selected / no admin groups /
+           request failed. Hidden once real content renders. -->
+      <section class="content-section" id="shareoutMessageSection">
+        <div class="content-section-body">
+          <div class="empty-state" id="shareoutMessage">
+            <div class="empty-state-icon">📊</div>
+            <p class="empty-state-text" id="shareoutMessageText">Select a group to view the cycle share-out.</p>
+          </div>
+        </div>
+      </section>
+
+      <div id="shareoutContent" hidden>
+        <!-- State banner: PREVIEW vs SETTLED -->
+        <section class="content-section">
+          <div class="content-section-body">
+            <div class="alert alert-warning" id="stateBanner" role="status"></div>
+          </div>
+        </section>
+
+        <!-- Per-member table -->
+        <section class="content-section">
+          <div class="content-section-header">
+            <h2 class="content-section-title">Per-Member Payouts</h2>
+          </div>
+          <div class="content-section-body">
+            <div class="table-container">
+              <table class="table table-responsive" id="payoutTable">
+                <thead>
+                  <tr>
+                    <th rowspan="2">Member</th>
+                    <th rowspan="2">Contributed</th>
+                    <th rowspan="2">Borrowed</th>
+                    <th rowspan="2">Interest Paid</th>
+                    <th rowspan="2">Penalties Paid</th>
+                    <th colspan="3" class="payout-group-header">Payout</th>
+                  </tr>
+                  <tr>
+                    <th class="cell-payout" id="interestShareHeading">Interest Refund</th>
+                    <th class="cell-payout">Penalty Share</th>
+                    <th class="cell-payout">Payout</th>
+                  </tr>
+                </thead>
+                <tbody id="payoutTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Pool summary + explicit reconciliation line -->
+        <section class="content-section">
+          <div class="content-section-header">
+            <h2 class="content-section-title">Pool Summary</h2>
+          </div>
+          <div class="content-section-body">
+            <div class="card-grid" id="poolSummaryGrid"></div>
+            <div class="alert alert-success" id="reconciliationBanner" role="status"></div>
+          </div>
+        </section>
+
+        <!-- Senior-admin-only settle control. Server-side require_role() is
+             the real gate; this section is UX only. -->
+        <section class="content-section" id="settleSection" hidden>
+          <div class="content-section-header">
+            <h2 class="content-section-title">Settle This Cycle</h2>
+          </div>
+          <div class="content-section-body">
+            <p class="cell-muted">
+              Settling is final and cannot be undone in the app. Every member's
+              interest refund and penalty share become the permanent record for
+              this cycle.
+            </p>
+            <button type="button" class="btn btn-primary" id="settleBtn" aria-controls="confirmPanel" aria-expanded="false">
+              Settle this cycle
+            </button>
+
+            <div class="confirm-panel" id="confirmPanel" hidden>
+              <p id="confirmSummaryText"></p>
+              <label class="confirm-checkbox-row" for="confirmCheckbox">
+                <input type="checkbox" id="confirmCheckbox">
+                <span>I confirm this share-out is final and cannot be undone in the app.</span>
+              </label>
+              <div class="confirm-panel-actions">
+                <button type="button" class="btn btn-secondary" id="cancelConfirmBtn">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmSettleBtn" disabled>Confirm settlement</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script type="module" src="../scripts/page-bootstrap.js?v=20260807"></script>
+  <script type="module" src="../scripts/cycle_shareout_sql.js?v=20260807"></script>
+</body>
+</html>
