@@ -49,3 +49,17 @@ uploads/proofs/*
 # Playwright MCP browser-test artifacts (page snapshots .yml, console logs,
 # and saved .md snapshots) — throwaway verification output, never commit.
 .playwright-mcp/
+
+# Screenshots taken while verifying a change in the browser. Throwaway — the
+# finding gets written up, the image does not. Scoped to the repo ROOT with a
+# leading slash so real assets (assets/favicon.png, and anything under pages/
+# or styles/) are unaffected. Eight of these were committed in 25b174e before
+# this rule existed.
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+
+# Exports downloaded during verification (CSV/Excel probes of the export routes).
+/*.csv
+/*.xlsx
