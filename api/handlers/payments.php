@@ -120,7 +120,9 @@ if (!function_exists('payment_fetch_rules')) {
             . 'contributionPenaltyType, contributionPenaltyDailyAmount, '
             . 'contributionPenaltyGracePeriodDays, contributionPenaltyDailyRate, '
             . 'contributionPenaltyMonthlyRate, contributionPenaltyMonthlyAmount, '
-            . 'contributionPenaltyPeriod, '
+            // The group's explicit "do we fine late contributions at all?" switch.
+            // Must be selected or the toggle reads as absent and defaults to on.
+            . 'contributionPenaltyPeriod, contributionPenaltyEnabled, '
             // The cycle window bounds the obligation clock
             // (payment_cycle_months_to_date): a month before the group's cycle
             // started was never owed. Omitting these columns does not fail
@@ -237,6 +239,13 @@ if (!function_exists('compute_contribution_penalty')) {
         // zero WITHOUT consulting the config — every other zero below is an
         // explicitly configured zero.
         if ($rules === null || $arrearsMinor <= 0 || $dueDate === null || trim($dueDate) === '') {
+            return $zero;
+        }
+
+        /* The group's explicit on/off switch — a group that does not fine late
+           contributions can now say so, rather than having to leave every rate at
+           zero and hope. DEFAULT 1, so existing groups are unaffected. */
+        if ((int) ($rules['contributionPenaltyEnabled'] ?? 1) !== 1) {
             return $zero;
         }
 

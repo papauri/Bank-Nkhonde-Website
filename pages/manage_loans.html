@@ -1228,6 +1228,9 @@
               <label class="form-label">Payment Amount (MWK) *</label>
               <div id="paymentQuickAmounts" hidden></div>
               <div id="paymentUpcoming" hidden></div>
+              <!-- What this borrower has already paid, and when. Populated by
+                   renderRepaymentHistory() from repayments.balance. -->
+              <div id="paymentHistory" hidden></div>
               <input type="number" class="form-input" id="paymentAmount" required min="0.01" step="0.01">
             </div>
             <div class="form-group">

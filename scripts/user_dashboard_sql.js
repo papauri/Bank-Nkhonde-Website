@@ -2419,32 +2419,88 @@ function showAllPaymentsModal() {
   const data = window.__dashboardData;
   if (!modal || !tbody || !data) return;
 
+  /* EVERY OBLIGATION, NOT JUST THE SETTLED ONES.
+     This listed approved payments only, so a member could see what had cleared
+     but never what was awaiting approval or what was still to come — and the
+     due date was nowhere at all. Seed money, monthly contributions and the
+     service fee now appear whatever their state, each with the date it was DUE
+     and the date it was PAID, newest activity first.
+     Rows with nothing paid and nothing owed are still skipped: an obligation
+     that never existed is noise, not history. */
+  /* THIS IS THE "MY" DASHBOARD, so it shows the SIGNED-IN PERSON's rows only.
+     `payments.list` scopes to the caller for a plain member, but returns the
+     whole group for an admin — so an admin opening their own dashboard saw
+     every member's obligations listed together, four identical "Monthly
+     Contribution — August" rows and no way to tell whose was whose.
+     Filtering by uid here makes the screen mean the same thing for everybody.
+     This is presentation, not protection: the server-side scoping above is what
+     actually stops a member seeing anyone else's payments. */
+  const myUid = currentUser && currentUser.uid;
   const settled = data.payments
-    .filter((row) => ["approved", "completed"].includes(String(row.approvalStatus)))
-    .filter((row) => toMinor(row.amountPaid) > 0)
-    .map((row) => ({
-      type: PAYMENT_TYPE_LABELS[row.paymentType] || String(row.paymentType),
-      amountStr: String(row.amountPaid),
-      date: parseServerDate(row.paidAt || row.approvedAt || row.createdAt),
-    }))
-    .sort((a, b) => (b.date || 0) - (a.date || 0));
+    .filter((row) => !myUid || String(row.uid) === String(myUid))
+    .filter((row) => toMinor(row.amountPaid) > 0 || toMinor(row.arrears) > 0)
+    .map((row) => {
+      const status = String(row.approvalStatus);
+      const paidDate = parseServerDate(row.paidAt || row.approvedAt);
+      const dueDate = parseServerDate(row.dueDate);
+      const cleared = ["approved", "completed"].includes(status);
+      return {
+        type: PAYMENT_TYPE_LABELS[row.paymentType] || String(row.paymentType),
+        month: row.month || null,
+        // What the member actually parted with, or what they still owe.
+        amountStr: cleared || status === "pending" ? String(row.amountPaid) : String(row.arrears),
+        paidDate,
+        dueDate,
+        status,
+        cleared,
+        // Sort by whatever date the row has, so the list reads chronologically
+        // whether an item is history or still ahead.
+        sortDate: paidDate || dueDate,
+      };
+    })
+    .sort((a, b) => (b.sortDate || 0) - (a.sortDate || 0));
 
   tbody.replaceChildren();
 
   if (!settled.length) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
-    td.colSpan = 3;
+    td.colSpan = 5;
     td.style.textAlign = "center";
-    td.textContent = "No approved payments found";
+    td.textContent = "No payments or obligations yet";
     tr.appendChild(td);
     tbody.appendChild(tr);
   } else {
+    const today = new Date();
     for (const p of settled) {
       const tr = document.createElement("tr");
-      tr.appendChild(makeCell(p.type, "Type"));
-      tr.appendChild(makeCell(p.date ? formatDate(p.date) : "-", "Date"));
+      tr.appendChild(makeCell(p.month ? `${p.type} — ${p.month}` : p.type, "Type"));
+      tr.appendChild(makeCell(p.dueDate ? formatDate(p.dueDate) : "—", "Due"));
+      tr.appendChild(makeCell(p.paidDate ? formatDate(p.paidDate) : "—", "Paid"));
       tr.appendChild(makeCell(formatCurrency(p.amountStr), "Amount"));
+
+      // Plain words, not jargon: a member should not have to decode
+      // "unpaid vs pending" to know where they stand.
+      let label = "Paid";
+      let cls = "badge badge-success";
+      if (!p.cleared) {
+        if (p.status === "pending") { label = "Awaiting approval"; cls = "badge badge-warning"; }
+        /* REJECTED IS ITS OWN OUTCOME. Without this branch a rejected payment
+           fell through to "Due" while still showing the date it was submitted —
+           telling a member their money is merely outstanding when in fact their
+           payment was turned down and they need to do something about it. */
+        else if (p.status === "rejected") { label = "Rejected"; cls = "badge badge-danger"; }
+        else if (p.dueDate && p.dueDate < today) { label = "Overdue"; cls = "badge badge-danger"; }
+        else { label = "Due"; cls = "badge badge-warning"; }
+      }
+      const statusCell = document.createElement("td");
+      statusCell.dataset.label = "Status";
+      const badge = document.createElement("span");
+      badge.className = cls;
+      badge.textContent = label;
+      statusCell.appendChild(badge);
+      tr.appendChild(statusCell);
+
       tbody.appendChild(tr);
     }
     // A2: verifiedCollected is payments.list's own total over the SAME

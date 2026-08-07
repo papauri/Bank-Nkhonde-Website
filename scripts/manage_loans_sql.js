@@ -286,7 +286,12 @@ async function loadAdminGroups() {
       return;
     }
 
-    const sessionGroupId = sessionStorage.getItem("selectedGroupId");
+    /* A groupId in the URL wins over the stored one: a deep link from another
+       page names the group it means, and honouring the session instead would
+       land the caller on a different group's loans. Still validated against
+       adminGroups, so a URL can never select a group the caller doesn't admin. */
+    const urlGroupId = new URLSearchParams(window.location.search).get("groupId");
+    const sessionGroupId = urlGroupId || sessionStorage.getItem("selectedGroupId");
     const match = adminGroups.find((g) => (g.groupId || g.id) === sessionGroupId);
     const chosen = match || adminGroups[0];
     selectedGroupId = chosen.groupId || chosen.id;
@@ -301,6 +306,42 @@ async function loadAdminGroups() {
   }
 }
 
+/**
+ * Open the loan named in the URL (`?loanId=…`), e.g. from the admin dashboard's
+ * Active Loans modal "Manage" button.
+ *
+ * THIS PAGE PREVIOUSLY READ NO URL PARAMETERS AT ALL, so every deep link into a
+ * specific loan silently landed on the general list — the owner's report was
+ * "it just sends me to the general manage loans instead of the individual".
+ * The link had always carried the id; nothing here consumed it.
+ *
+ * The id is only ever used to open a loan ALREADY LOADED for the selected group,
+ * so a hand-edited URL cannot surface a loan from another group — `loans.list`
+ * is the authorization boundary and it is scoped server-side.
+ *
+ * The parameter is stripped afterwards so a refresh does not re-open the modal.
+ */
+function applyLoanDeepLink() {
+  const params = new URLSearchParams(window.location.search);
+  const loanId = params.get("loanId");
+  if (!loanId) return;
+
+  const known = Array.isArray(loans) && loans.some((l) => String(l.loanId) === String(loanId));
+
+  params.delete("loanId");
+  const rest = params.toString();
+  window.history.replaceState({}, "", window.location.pathname + (rest ? "?" + rest : ""));
+
+  if (!known) {
+    // Reached only via a stale or hand-edited link. Say so rather than opening
+    // an empty detail panel or failing silently.
+    showToast("That loan is not in the selected group.", "warning");
+    return;
+  }
+
+  showLoanDetails(loanId);
+}
+
 // ── Load group data ──────────────────────────────────────────────────────────
 async function loadGroupData() {
   if (!selectedGroupId) return;
@@ -313,6 +354,7 @@ async function loadGroupData() {
     updateStats();
     renderAccountantSummary();
     renderLoans();
+    applyLoanDeepLink();
   } catch (error) {
     handleApiError(error, "Failed to load group data");
   } finally {
@@ -1183,7 +1225,16 @@ function createLoanRow(loan) {
   const repaid = numberOf(loan.amountRepaid);
   const totalDue = numberOf(loan.totalRepayment);
   const remaining = numberOf(loan.remainingBalance);
-  const progressPercent = totalDue > 0 ? Math.min((repaid / totalDue) * 100, 100) : 0;
+  /* "100% repaid" MUST mean nothing is owed.
+     This read `(repaid / totalDue) * 100` and printed it with toFixed(0), so a
+     loan repaid to within a tambala — 58,166.64 of 58,166.66 = 99.99997% —
+     rounded up and displayed "100% repaid" while 0.02 was still outstanding.
+     A settled-looking loan that is not settled is how a balance goes unchased.
+     The bar is now capped just below full whenever any balance remains, so the
+     only way to see 100% is for the remaining balance to actually be zero. */
+  const rawPercent = totalDue > 0 ? Math.min((repaid / totalDue) * 100, 100) : 0;
+  const fullySettled = remaining <= 0;
+  const progressPercent = fullySettled ? rawPercent : Math.min(rawPercent, 99);
 
   const createdDate = formatDate(loan.requestedAt);
 
@@ -1838,6 +1889,210 @@ function openRecordPaymentModal(loanId = null) {
 }
 
 /**
+ * A titled block inside the loan-details modal.
+ * @param {string} title
+ * @param {string} [countText]
+ * @return {{wrap: HTMLElement, list: HTMLElement}}
+ */
+function loanLogSection(title, countText) {
+  const wrap = el("div");
+  wrap.style.cssText = "margin-top: var(--bn-space-5);";
+
+  const heading = el("div");
+  heading.style.cssText =
+    "font-size: var(--bn-text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--bn-gray); margin-bottom: var(--bn-space-2);";
+  heading.textContent = countText ? `${title} (${countText})` : title;
+
+  const list = el("div");
+  list.style.cssText = "display: flex; flex-direction: column; max-height: 190px; overflow-y: auto;";
+
+  wrap.append(heading, list);
+  return { wrap, list };
+}
+
+/**
+ * One row in a loan log: a date on the left, an amount on the right, with an
+ * optional note under the date and an optional tag beside the amount.
+ * @return {HTMLElement}
+ */
+function loanLogRow(dateText, noteText, amountText, tagText, tagColor) {
+  const row = el("div");
+  row.style.cssText =
+    "display: flex; justify-content: space-between; align-items: baseline; gap: var(--bn-space-3); padding: 6px 0; border-bottom: 1px solid var(--bn-gray-lighter); font-size: var(--bn-text-sm);";
+
+  const left = el("div");
+  const date = el("div");
+  date.style.cssText = "font-weight: 600;";
+  date.textContent = dateText;
+  left.appendChild(date);
+  if (noteText) {
+    const note = el("div");
+    note.style.cssText = "color: var(--bn-gray); font-size: var(--bn-text-xs);";
+    note.textContent = noteText;
+    left.appendChild(note);
+  }
+
+  const right = el("div");
+  right.style.cssText = "text-align: right; white-space: nowrap;";
+  const amt = el("div");
+  amt.style.cssText = "font-weight: 700;";
+  amt.textContent = amountText;
+  right.appendChild(amt);
+  if (tagText) {
+    const tag = el("div");
+    tag.style.cssText = `font-size: 0.65rem; font-weight: 700; text-transform: uppercase; color: ${tagColor};`;
+    tag.textContent = tagText;
+    right.appendChild(tag);
+  }
+
+  row.append(left, right);
+  return row;
+}
+
+/**
+ * PAYMENTS ALREADY MADE — the log of what was actually handed over, newest
+ * first, each with its date. A pending row is money claimed, not money received,
+ * and is tagged as such.
+ * @param {HTMLElement} parent
+ * @param {Array<Object>|undefined} rows
+ */
+function appendLoanPaymentLog(parent, rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const { wrap, list: listEl } = loanLogSection("Payments made", list.length ? String(list.length) : "");
+
+  if (list.length === 0) {
+    const empty = el("div");
+    empty.style.cssText = "color: var(--bn-gray); font-size: var(--bn-text-sm); padding: 4px 0;";
+    empty.textContent = "No repayment has been received on this loan yet.";
+    listEl.appendChild(empty);
+  } else {
+    for (const row of list) {
+      const parts = [];
+      if (row.scheduledMonth) parts.push(`Month ${row.scheduledMonth}`);
+      if (row.paymentMethod) parts.push(String(row.paymentMethod).replace(/_/g, " "));
+      const pending = row.status === "pending";
+      listEl.appendChild(
+        loanLogRow(
+          formatDate(row.paidAt),
+          parts.join(" · "),
+          formatCurrency(row.amount),
+          pending ? "awaiting approval" : "",
+          "var(--bn-warning-dark)",
+        ),
+      );
+    }
+  }
+  parent.appendChild(wrap);
+}
+
+/**
+ * THE SCHEDULE — every instalment with its due date and whether it is settled,
+ * still to come, or already late. Answers "what is still owed and by when"
+ * without leaving the panel.
+ * @param {HTMLElement} parent
+ * @param {Array<Object>|undefined} rows
+ */
+function appendLoanScheduleLog(parent, rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (list.length === 0) return;
+
+  const { wrap, list: listEl } = loanLogSection("Repayment schedule", String(list.length));
+
+  for (const row of list) {
+    const balance = numberOf(row.balance);
+    const settled = balance <= 0;
+    // "paid" is only honest when nothing is left on the instalment — a row can
+    // be marked paid in the data while still carrying a rounding remainder.
+    const overdue = !settled && row.dueDate && new Date(String(row.dueDate).replace(" ", "T")) < new Date();
+
+    let tag = "settled";
+    let colour = "var(--bn-success-dark)";
+    if (!settled && overdue) { tag = "overdue"; colour = "var(--bn-danger)"; }
+    else if (!settled) { tag = "due"; colour = "var(--bn-gray)"; }
+
+    const note = settled
+      ? (row.paidAt ? `Paid ${formatDate(row.paidAt)}` : "Paid")
+      : `${formatCurrency(row.balance)} still owed`;
+
+    listEl.appendChild(
+      loanLogRow(
+        `Month ${row.month} · due ${formatDate(row.dueDate)}`,
+        note,
+        formatCurrency(row.totalDue),
+        tag,
+        colour,
+      ),
+    );
+  }
+  parent.appendChild(wrap);
+}
+
+/**
+ * What this borrower has already paid on this loan, newest first, each with its
+ * date. Shown inside the record-payment form so an admin taking cash can see the
+ * repayment history instead of recording blind — and can spot a repayment that
+ * is already filed and merely awaiting approval, rather than taking the money
+ * twice.
+ *
+ * Server strings only; nothing is totalled in the browser.
+ * @param {HTMLElement|null} container
+ * @param {Array<Object>|undefined} rows
+ */
+function renderRepaymentHistory(container, rows) {
+  if (!container) return;
+  container.replaceChildren();
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    container.hidden = true;
+    return;
+  }
+  container.hidden = false;
+
+  const heading = document.createElement("div");
+  heading.style.cssText =
+    "font-size: var(--bn-text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--bn-gray); margin: var(--bn-space-3) 0 var(--bn-space-2);";
+  heading.textContent = `Payment history (${rows.length})`;
+  container.appendChild(heading);
+
+  const list = document.createElement("div");
+  list.style.cssText = "display: flex; flex-direction: column; gap: 4px; max-height: 150px; overflow-y: auto;";
+
+  for (const row of rows) {
+    const item = document.createElement("div");
+    item.style.cssText =
+      "display: flex; justify-content: space-between; align-items: baseline; gap: var(--bn-space-2); font-size: var(--bn-text-sm); padding: 4px 0; border-bottom: 1px solid var(--bn-gray-lighter);";
+
+    const left = document.createElement("span");
+    // The DATE is the point of this list — it leads.
+    left.textContent = formatDate(row.paidAt);
+    if (row.scheduledMonth) {
+      const m = document.createElement("small");
+      m.style.cssText = "color: var(--bn-gray); margin-left: 6px;";
+      m.textContent = `month ${row.scheduledMonth}`;
+      left.appendChild(m);
+    }
+
+    const right = document.createElement("span");
+    right.style.cssText = "font-weight: 600; white-space: nowrap;";
+    right.textContent = formatCurrency(row.amount);
+
+    // A pending repayment is NOT money received — say so plainly.
+    if (row.status === "pending") {
+      const tag = document.createElement("small");
+      tag.style.cssText =
+        "margin-left: 6px; font-weight: 700; color: var(--bn-warning-dark); text-transform: uppercase; font-size: 0.65rem;";
+      tag.textContent = "awaiting approval";
+      right.appendChild(tag);
+    }
+
+    item.append(left, right);
+    list.appendChild(item);
+  }
+
+  container.appendChild(list);
+}
+
+/**
  * Preset amounts for the loan an admin is recording against.
  *
  * Same server source as the member's own form (repayments.balance), so an admin
@@ -1858,6 +2113,7 @@ async function loadAdminRepaymentQuickAmounts(loanId) {
     const data = await apiGet("repayments.balance", { loanId });
     renderQuickAmounts(container, data && data.quickAmounts, input, "Another amount");
     renderUpcomingInstalments(document.getElementById("paymentUpcoming"), data && data.upcoming);
+    renderRepaymentHistory(document.getElementById("paymentHistory"), data && data.history);
   } catch (error) {
     // No presets rather than a guessed figure.
     renderQuickAmounts(container, [], input);
@@ -2437,15 +2693,35 @@ async function showLoanDetails(loanId) {
 
   const grid = el("div");
   grid.style.cssText = "display: grid; grid-template-columns: 1fr 1fr; gap: var(--bn-space-4);";
+  /* OUTSTANDING and LAST PAID were both missing from this panel, which is the
+     one an admin opens to answer "where is this loan up to?". It listed what was
+     borrowed and what had been repaid but never the balance still owed, and gave
+     no sign whether the borrower paid last week or a year ago.
+     Both come straight from the server (`remainingBalance`, `lastPaymentAt`,
+     `lastPaymentAmount` on loans.get) — nothing is subtracted in the browser. */
+  const lastPaidText = loan.lastPaymentAt
+    ? `${formatDate(loan.lastPaymentAt)}${loan.lastPaymentAmount != null ? ` · ${formatCurrency(loan.lastPaymentAmount)}` : ""}`
+    : "No repayment yet";
+
   grid.append(
     detailPair("Principal", formatCurrency(principal)),
     detailPair("Interest", formatCurrency(interest)),
     detailPair("Total Repayable", formatCurrency(totalDue)),
     detailPair("Repaid", formatCurrency(repaid)),
+    detailPair("Outstanding", formatCurrency(loan.remainingBalance != null ? loan.remainingBalance : "0.00")),
+    detailPair("Last Paid", lastPaidText),
     detailPair("Status", loan.status || "N/A"),
     detailPair("Requested", formatDate(loan.requestedAt)),
   );
   modalBody.appendChild(grid);
+
+  /* THE MONEY TRAIL, both directions:
+       - what has already been paid, with dates (loan_payments)
+       - what is still to come, with due dates (loan_repayment_schedule)
+     The panel previously showed neither, so "where is this loan up to?" could
+     only be answered by leaving the screen. */
+  appendLoanPaymentLog(modalBody, data.history);
+  appendLoanScheduleLog(modalBody, data.schedule);
 
   if (loan.purpose) {
     const purposeWrap = el("div");

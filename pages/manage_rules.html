@@ -493,6 +493,21 @@
             <!-- ── Loan Penalty Settings ──────────────────────────────────── -->
             <div style="border-top: 1px solid var(--bn-gray-200); margin: var(--bn-space-6) 0 var(--bn-space-5);"></div>
 
+            <!-- The group's explicit "do we fine late payers at all?" switches.
+                 Untick and nothing accrues, whatever the rates below say. -->
+            <div class="form-group" style="margin-bottom: var(--bn-space-5);">
+              <label class="form-label">Does this group charge penalties?</label>
+              <label class="checkbox-item" style="display:flex; align-items:center; gap:var(--bn-space-2); margin-bottom:var(--bn-space-2);">
+                <input type="checkbox" id="loanPenaltyEnabledInput">
+                <span>Charge penalties on overdue loan instalments</span>
+              </label>
+              <label class="checkbox-item" style="display:flex; align-items:center; gap:var(--bn-space-2);">
+                <input type="checkbox" id="contributionPenaltyEnabledInput">
+                <span>Charge penalties on late monthly contributions</span>
+              </label>
+              <small class="help-text">Untick either one and no penalty will ever accrue for it, whatever the rates below say.</small>
+            </div>
+
             <h3 style="font-size: var(--bn-text-base); font-weight: 600; margin-bottom: var(--bn-space-2);">Loan Penalty Settings</h3>
             <p class="help-text" style="margin-bottom: var(--bn-space-4);">
               Charged on the <strong>amount actually past due</strong>, so the penalty shrinks as a borrower catches up.

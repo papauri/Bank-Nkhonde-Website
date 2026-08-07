@@ -28,7 +28,7 @@ const RULES_SELECT_COLUMNS = 'groupId, '
     . 'loanPenaltyPeriod, loanPenaltyMonthlyAmount, '
     . 'contributionPenaltyDailyRate, contributionPenaltyMonthlyRate, contributionPenaltyType, '
     . 'contributionPenaltyGracePeriodDays, contributionPenaltyDailyAmount, shareOutPenalties, '
-    . 'shareOutInterestMethod, '
+    . 'shareOutInterestMethod, loanPenaltyEnabled, contributionPenaltyEnabled, '
     . 'contributionPenaltyPeriod, contributionPenaltyMonthlyAmount, '
     . 'cycleDurationStartDate, cycleDurationEndDate, cycleDurationMonths, cycleDurationAutoRenew, '
     . 'loanRulesMaxLoanAmount, loanRulesMinCycleLoanAmount, loanRulesMaxActiveLoansByMember, '
@@ -616,6 +616,20 @@ if (!function_exists('update_rules')) {
             }
             $updates[] = 'shareOutPenalties = :shareOutPenalties';
             $params[':shareOutPenalties'] = $bool ? 1 : 0;
+        }
+
+        /* Whether the group fines late payers at all. Separate switches for loans
+           and contributions — a group may well chase overdue loan instalments
+           while being relaxed about a late monthly contribution. */
+        foreach (['loanPenaltyEnabled', 'contributionPenaltyEnabled'] as $penaltyFlag) {
+            if (array_key_exists($penaltyFlag, $body)) {
+                $bool = filter_var($body[$penaltyFlag], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                if ($bool === null) {
+                    json_error($penaltyFlag . ' must be a boolean value.', 422);
+                }
+                $updates[] = $penaltyFlag . ' = :' . $penaltyFlag;
+                $params[':' . $penaltyFlag] = $bool ? 1 : 0;
+            }
         }
 
         // How the interest pool is divided at cycle end. Decides who receives the

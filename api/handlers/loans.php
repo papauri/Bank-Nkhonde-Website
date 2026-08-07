@@ -113,7 +113,15 @@ if (!function_exists('loan_fetch_row')) {
             . 'l.disbursedBy, l.disbursementMethod, l.requestedAt, l.approvedBy, l.approvedAt, l.rejectedBy, '
             . 'l.rejectedAt, l.rejectionReason, l.purpose, l.loanType, l.collateral, l.guarantorName, l.guarantorPhone, '
             . 'l.guarantorRelationship, l.amountRepaid, l.remainingBalance, l.penaltiesCharged, '
-            . 'l.createdAt, l.updatedAt, l.completedAt '
+            . 'l.createdAt, l.updatedAt, l.completedAt, '
+            /* Same last-received-payment pair as list_loans(), so the detail
+               panel and the list can never tell different stories. APPROVED
+               only — a pending repayment is a claim, not money received. */
+            . '(SELECT MAX(lp.paidAt) FROM loan_payments lp '
+            . "  WHERE lp.loanId = l.loanId AND lp.status = 'approved') AS lastPaymentAt, "
+            . '(SELECT lp2.amount FROM loan_payments lp2 '
+            . "  WHERE lp2.loanId = l.loanId AND lp2.status = 'approved' "
+            . '  ORDER BY lp2.paidAt DESC, lp2.paymentId DESC LIMIT 1) AS lastPaymentAmount '
             . 'FROM loans l '
             . 'LEFT JOIN members m ON m.groupId = l.groupId AND m.uid = l.borrowerId '
             . 'LEFT JOIN users u ON u.uid = l.borrowerId '
@@ -367,7 +375,17 @@ if (!function_exists('list_loans')) {
             . 'l.interestRateMonth1, l.interestRateMonth2, l.interestRateMonth3, '
             . 'l.totalInterest, l.totalRepayment, l.monthlyPayment, l.disbursedAmount, l.disbursedAt, '
             . 'l.requestedAt, l.approvedAt, l.rejectedAt, l.rejectionReason, l.purpose, l.loanType, '
-            . 'l.amountRepaid, l.remainingBalance, l.penaltiesCharged, l.createdAt, l.updatedAt, l.completedAt '
+            . 'l.amountRepaid, l.remainingBalance, l.penaltiesCharged, l.createdAt, l.updatedAt, l.completedAt, '
+            /* Last payment actually RECEIVED against this loan. APPROVED only —
+               a pending repayment is a claim, not money in the box, and showing
+               it as "last paid" would tell an admin a loan is being serviced
+               when nothing has cleared. Correlated subqueries rather than a
+               JOIN + GROUP BY so the row count cannot change. */
+            . '(SELECT MAX(lp.paidAt) FROM loan_payments lp '
+            . "  WHERE lp.loanId = l.loanId AND lp.status = 'approved') AS lastPaymentAt, "
+            . '(SELECT lp2.amount FROM loan_payments lp2 '
+            . "  WHERE lp2.loanId = l.loanId AND lp2.status = 'approved' "
+            . '  ORDER BY lp2.paidAt DESC, lp2.paymentId DESC LIMIT 1) AS lastPaymentAmount '
             . 'FROM loans l '
             . 'LEFT JOIN members m ON m.groupId = l.groupId AND m.uid = l.borrowerId '
             . 'LEFT JOIN users u ON u.uid = l.borrowerId '
@@ -455,9 +473,27 @@ if (!function_exists('get_loan')) {
         );
         $scheduleStmt->execute([':loanId' => $loanId]);
 
+        /* THE PAYMENT LOG — what was actually handed over, and when.
+           The schedule says what SHOULD happen; this says what DID. A loan
+           detail panel without it can show a balance but never answer "when did
+           they last pay, and how much" without leaving the screen.
+           Pending rows are included and labelled by their status: not yet money
+           in the box, but omitting them invites recording the same payment twice.
+           Same shape and ordering as repayments.balance's history, so the two
+           surfaces can never tell different stories. */
+        $historyStmt = $pdo->prepare(
+            'SELECT paymentId, amount, principalPortion, interestPortion, penaltyPortion, '
+            . 'status, paidAt, approvedAt, scheduledMonth, paymentMethod '
+            . 'FROM loan_payments WHERE loanId = :loanId '
+            . "AND status IN ('approved','pending') "
+            . 'ORDER BY paidAt DESC, paymentId DESC'
+        );
+        $historyStmt->execute([':loanId' => $loanId]);
+
         json_response([
             'loan' => $loan,
             'schedule' => $scheduleStmt->fetchAll(),
+            'history' => $historyStmt->fetchAll(),
         ]);
     }
 }

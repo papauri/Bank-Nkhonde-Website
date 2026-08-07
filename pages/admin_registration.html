@@ -833,6 +833,28 @@
             <p><strong>How penalties work:</strong> After the grace period, penalties are calculated daily on unpaid amounts. This encourages timely payments.</p>
           </div>
 
+          <!-- Penalties are OPTIONAL. Until now a group could only avoid them by
+               leaving every rate at zero and hoping nothing set one later; there
+               was no way to say "we don't fine people". These write the explicit
+               loanPenaltyEnabled / contributionPenaltyEnabled flags. -->
+          <div class="form-group">
+            <label class="form-label">Does this group charge penalties?</label>
+            <div class="checkbox-grid">
+              <label class="checkbox-item">
+                <input type="checkbox" id="loanPenaltyEnabled" checked>
+                <span>Charge penalties on overdue loan instalments</span>
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="contributionPenaltyEnabled" checked>
+                <span>Charge penalties on late monthly contributions</span>
+              </label>
+            </div>
+            <span class="help-text">
+              Untick either one and no penalty will ever accrue for it, whatever the rates below say.
+              You can change this later in the group's rules.
+            </span>
+          </div>
+
           <div class="form-group">
             <label class="form-label">Penalty Type</label>
             <div style="display: flex; gap: var(--bn-space-4); margin-bottom: var(--bn-space-4);">

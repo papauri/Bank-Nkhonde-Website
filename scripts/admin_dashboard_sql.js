@@ -1511,12 +1511,58 @@ window.closeStatModalOnOverlay = function closeStatModalOnOverlay(event) {
 function buildActiveLoanItems() {
   return groupData.loans
     .filter((l) => isActiveLoan(l.status))
-    .map((l) => ({
-      id: l.loanId,
-      name: l.borrowerName || "Unknown Borrower",
-      amountStr: String(l.approvedAmount || l.principalAmount || "0.00"),
-      detail: l.purpose || "",
-    }));
+    .map((l) => {
+      /* The headline figure is what is STILL OWED, not what was borrowed. This
+         modal previously showed the original principal, so a loan repaid down
+         to almost nothing still read as its full amount — the one number an
+         admin chasing repayment actually needs was the one missing.
+         Every value below is a server string passed straight to formatCurrency;
+         nothing here is added up in the browser. */
+      const outstanding = l.remainingBalance != null
+        ? String(l.remainingBalance)
+        : String(l.approvedAmount || l.principalAmount || "0.00");
+
+      const facts = [];
+      if (l.purpose) facts.push(String(l.purpose));
+      if (l.amountRepaid != null) {
+        facts.push(`Repaid ${formatCurrency(l.amountRepaid)} of ${formatCurrency(l.totalRepayment || l.approvedAmount || "0.00")}`);
+      }
+      facts.push(
+        l.lastPaymentAt
+          ? `Last paid ${formatServerDate(l.lastPaymentAt)}${l.lastPaymentAmount != null ? ` · ${formatCurrency(l.lastPaymentAmount)}` : ""}`
+          : "No repayment received yet",
+      );
+      if (l.penaltiesCharged != null && String(l.penaltiesCharged) !== "0.00") {
+        facts.push(`Penalties ${formatCurrency(l.penaltiesCharged)}`);
+      }
+
+      return {
+        id: l.loanId,
+        name: l.borrowerName || "Unknown Borrower",
+        amountStr: outstanding,
+        amountCaption: "outstanding",
+        detail: facts.join(" · "),
+      };
+    });
+}
+
+/**
+ * A server datetime string ("2026-07-20 00:00:00") as "20 Jul 2026".
+ *
+ * Deliberately NOT the existing formatDateShort() further down this file: that
+ * one takes a Date object and omits the year. Loan repayments in this data span
+ * more than one year, so "20 Jul" alone would be ambiguous about which. Also
+ * guards an unparseable value instead of rendering "Invalid Date".
+ *
+ * @param {string} value
+ * @return {string}
+ */
+function formatServerDate(value) {
+  if (!value) return "";
+  // Safari refuses "YYYY-MM-DD HH:MM:SS"; the T separator parses everywhere.
+  const d = new Date(String(value).replace(" ", "T"));
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
 /**
@@ -1617,6 +1663,14 @@ function buildStatModalItem(item, type) {
   const amount = document.createElement("div");
   amount.className = "stat-modal-item-amount";
   amount.textContent = formatCurrency(item.amountStr != null ? item.amountStr : "0.00");
+  // An unlabelled figure beside a loan is ambiguous — principal or balance?
+  if (item.amountCaption) {
+    const caption = document.createElement("small");
+    caption.style.cssText =
+      "display:block; font-weight:600; font-size:0.7rem; color:var(--bn-gray); text-transform:uppercase; letter-spacing:0.04em;";
+    caption.textContent = item.amountCaption;
+    amount.appendChild(caption);
+  }
 
   const actions = document.createElement("div");
   actions.className = "stat-modal-item-actions";

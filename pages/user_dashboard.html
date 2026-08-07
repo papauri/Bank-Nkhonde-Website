@@ -3024,7 +3024,9 @@
   <div class="modal-overlay hidden" id="allPaymentsModal">
     <div class="modal-content" style="max-width: 600px; max-height: 80vh;">
       <div class="modal-header">
-        <h2 class="modal-title">All Approved Payments</h2>
+        <!-- No longer approved-only: the table now carries due and pending rows
+             too, so the old title would have misdescribed it. -->
+        <h2 class="modal-title">My Payments</h2>
         <button class="modal-close" aria-label="Close" onclick="document.getElementById('allPaymentsModal').classList.add('hidden')">&times;</button>
       </div>
       <div class="modal-body" style="padding: var(--bn-space-4);">
@@ -3033,19 +3035,25 @@
             <thead>
               <tr>
                 <th>Type</th>
-                <th>Date</th>
+                <th>Due</th>
+                <th>Paid</th>
                 <th class="cell-right">Amount</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody id="allPaymentsTableBody">
               <tr>
-                <td colspan="3" class="table-empty-cell">Loading payments...</td>
+                <td colspan="5" class="table-empty-cell">Loading payments...</td>
               </tr>
             </tbody>
             <tfoot class="totals-gray">
               <tr>
-                <td colspan="2" data-label="" style="text-align: right;">Total:</td>
-                <td class="cell-right" data-label="Total" id="allPaymentsTotal">MWK 0.00</td>
+                <!-- Labelled explicitly: the table now lists due and pending rows
+                     too, so an unqualified "Total" would read as the sum of every
+                     row rather than of the approved ones. -->
+                <td colspan="3" data-label="" style="text-align: right;">Total approved:</td>
+                <td class="cell-right" data-label="Total approved" id="allPaymentsTotal">MWK 0.00</td>
+                <td data-label=""></td>
               </tr>
             </tfoot>
           </table>

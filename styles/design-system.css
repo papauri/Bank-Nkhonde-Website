@@ -2497,6 +2497,18 @@ main#mainContent .spinner-overlay,
   color: var(--bn-gray-700);
 }
 
+/* "0.01 loan + 237,000.00 penalty" under a combined preset, so the headline
+   figure is never mistaken for the instalment alone. */
+.quick-amount-btn-split {
+  font-size: 0.6875rem;
+  color: var(--bn-gray);
+  line-height: 1.3;
+}
+
+.quick-amount-btn.is-selected .quick-amount-btn-split {
+  color: var(--bn-gray-700);
+}
+
 .upcoming-instalments {
   list-style: none;
   margin: 0 0 var(--bn-space-3);

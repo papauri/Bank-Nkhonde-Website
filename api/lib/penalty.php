@@ -50,7 +50,10 @@ if (!function_exists('penalty_fetch_rules')) {
     {
         $stmt = $pdo->prepare(
             'SELECT loanPenaltyType, loanPenaltyRate, loanPenaltyDailyAmount, '
-            . 'loanPenaltyGracePeriodDays, loanPenaltyPeriod, loanPenaltyMonthlyAmount '
+            . 'loanPenaltyGracePeriodDays, loanPenaltyPeriod, loanPenaltyMonthlyAmount, '
+            // Without this column in the SELECT the on/off switch would read as
+            // absent and default to "on" — the toggle would silently do nothing.
+            . 'loanPenaltyEnabled '
             . 'FROM group_rules WHERE groupId = :groupId LIMIT 1'
         );
         $stmt->execute([':groupId' => $groupId]);
@@ -127,6 +130,16 @@ if (!function_exists('compute_loan_penalty')) {
         // charge. This is the ONLY path that returns zero without consulting the
         // config — every other zero below is an explicitly configured zero.
         if ($rules === null) {
+            return $zero;
+        }
+
+        /* THE GROUP'S EXPLICIT ON/OFF SWITCH.
+           Penalties used to be switch-off-able only by accident — you had to
+           leave every rate and amount at zero and hope nothing set them later.
+           A group that does not fine its members can now say so outright.
+           DEFAULT 1, so every existing group keeps charging exactly as before;
+           a group already sitting on zero rates still computes zero either way. */
+        if ((int) ($rules['loanPenaltyEnabled'] ?? 1) !== 1) {
             return $zero;
         }
 

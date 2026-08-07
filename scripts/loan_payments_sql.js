@@ -373,7 +373,21 @@ function createLoanRow(loan) {
  * client-side rather than making a separate fetch.
  * @param {string} loanId
  */
-function showLoanHistory(loanId) {
+/**
+ * A server datetime ("2025-04-15 00:00:00") as a short local date. Returns "—"
+ * for a missing or unparseable value rather than "Invalid Date".
+ * @param {string} value
+ * @return {string}
+ */
+function formatDateOnly(value) {
+  if (!value) return "—";
+  // Safari rejects the space-separated form; the T separator parses everywhere.
+  const d = new Date(String(value).replace(" ", "T"));
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+async function showLoanHistory(loanId) {
   const relevant = paymentHistory.filter((p) => String(p.loanId) === String(loanId));
   const loan = allLoans.find((l) => String(l.loanId) === String(loanId));
   const ref = loan ? (loan.loanNumber || `#${String(loan.loanId || "").substring(0, 8)}`) : "loan";
@@ -383,11 +397,35 @@ function showLoanHistory(loanId) {
 
   const title = modal.querySelector("#loanHistoryTitle");
   const body = modal.querySelector("#loanHistoryBody");
-  if (title) title.textContent = `Payment History — Loan ${ref}`;
+  if (title) title.textContent = `Loan ${ref} — payments and schedule`;
   if (!body) return;
   body.textContent = "";
 
-  if (!relevant.length) {
+  /* The member could see what they had PAID but never what was still to come.
+     "When is my next instalment and how much" is the question this modal is
+     opened to answer, so the schedule is fetched alongside the history.
+     Failure is non-fatal: the payments list below still renders. */
+  let schedule = null;
+  let loanHistory = null;
+  try {
+    const balance = await apiGet("repayments.balance", { loanId });
+    schedule = balance && balance.schedule;
+    loanHistory = balance && balance.history;
+  } catch (e) {
+    schedule = null;
+  }
+
+  /* THE PAYMENT LIST IS SCOPED TO THIS LOAN, not to the viewer.
+     It used to filter `repayments.mine` — the caller's OWN repayments — which
+     is right for a member looking at their own loan but wrong for an admin
+     using this page: `loans.list` returns every loan in the group for an admin,
+     while `repayments.mine` returns only their own, so the modal showed
+     "No repayments recorded" over a schedule that plainly said Paid.
+     The loan's own history answers the question the modal is actually asking.
+     Falls back to the filtered list if the fetch failed. */
+  const rows = Array.isArray(loanHistory) ? loanHistory : relevant;
+
+  if (!rows.length) {
     const empty = el("div", "empty-state");
     const icon = el("div", "empty-state-icon");
     icon.textContent = "📋";
@@ -396,19 +434,29 @@ function showLoanHistory(loanId) {
     empty.append(icon, text);
     body.appendChild(empty);
   } else {
-    const totalPaid = relevant.reduce((sum, p) => sum + numberOf(p.amount - (p.penaltyPortion || 0)), 0);
+    /* TOTAL REPAID COMES FROM THE SERVER.
+       This used to be `relevant.reduce(...)` — adding money up in the browser,
+       and subtracting the penalty portion as it went. That is the defect class
+       this project has shipped repeatedly: a second, independently-derived
+       total that is free to drift from the one the rest of the app shows.
+       `loan.amountRepaid` is the figure every other surface uses. */
     const summary = el("div");
     summary.style.cssText = "margin-bottom: var(--bn-space-3); padding: var(--bn-space-3); background: var(--bn-gray-50); border-radius: var(--bn-radius-md);";
-    summary.innerHTML = ""; // safe — all values are parsed numbers
     const sLabel = document.createElement("span");
     sLabel.style.cssText = "font-size: var(--bn-text-sm); color: var(--bn-gray);";
     sLabel.textContent = "Total repaid: ";
     const sValue = document.createElement("strong");
-    sValue.textContent = formatCurrency(totalPaid);
+    sValue.textContent = formatCurrency((loan && loan.amountRepaid) || "0.00");
     summary.append(sLabel, sValue);
+    if (loan && loan.remainingBalance != null) {
+      const still = document.createElement("span");
+      still.style.cssText = "font-size: var(--bn-text-sm); color: var(--bn-gray); margin-left: var(--bn-space-3);";
+      still.textContent = `Still owed: ${formatCurrency(loan.remainingBalance)}`;
+      summary.appendChild(still);
+    }
     body.appendChild(summary);
 
-    relevant.forEach((p) => {
+    rows.forEach((p) => {
       const row = el("div");
       row.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: var(--bn-space-2) 0; border-bottom: 1px solid var(--bn-gray-100); font-size: var(--bn-text-sm);";
 
@@ -424,6 +472,55 @@ function showLoanHistory(loanId) {
       right.appendChild(badgeEl);
       row.appendChild(right);
 
+      body.appendChild(row);
+    });
+  }
+
+  /* WHAT IS STILL TO COME. Every instalment with its due date, whether it is
+     settled, due, or already late, and how much of it remains. A member could
+     previously see only what they had paid — never what was next. */
+  if (Array.isArray(schedule) && schedule.length) {
+    const schedHeading = el("div");
+    schedHeading.style.cssText =
+      "margin-top: var(--bn-space-4); margin-bottom: var(--bn-space-2); font-size: var(--bn-text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--bn-gray);";
+    schedHeading.textContent = "Repayment schedule";
+    body.appendChild(schedHeading);
+
+    schedule.forEach((s) => {
+      const outstanding = numberOf(s.balance);
+      const settled = outstanding <= 0;
+      // Driven by the actual balance, not the stored status flag — a row can be
+      // marked "paid" while still carrying a rounding remainder.
+      const late = !settled && s.dueDate
+        && new Date(String(s.dueDate).replace(" ", "T")) < new Date();
+
+      const row = el("div");
+      row.style.cssText =
+        "display: flex; justify-content: space-between; align-items: baseline; gap: var(--bn-space-3); padding: var(--bn-space-2) 0; border-bottom: 1px solid var(--bn-gray-100); font-size: var(--bn-text-sm);";
+
+      const left = el("div");
+      const when = el("div");
+      when.style.cssText = "font-weight: 600;";
+      when.textContent = `Month ${s.month} · due ${formatDateOnly(s.dueDate)}`;
+      const note = el("div");
+      note.style.cssText = "color: var(--bn-gray); font-size: var(--bn-text-xs);";
+      note.textContent = settled
+        ? (s.paidAt ? `Paid ${formatDateOnly(s.paidAt)}` : "Paid")
+        : `${formatCurrency(s.balance)} still to pay`;
+      left.append(when, note);
+
+      const right = el("div");
+      right.style.cssText = "text-align: right; white-space: nowrap;";
+      const amt = el("div");
+      amt.style.cssText = "font-weight: 700;";
+      amt.textContent = formatCurrency(s.totalDue);
+      const badgeEl = el("span", settled
+        ? "badge badge-success"
+        : late ? "badge badge-danger" : "badge badge-warning");
+      badgeEl.textContent = settled ? "settled" : late ? "overdue" : "due";
+      right.append(amt, badgeEl);
+
+      row.append(left, right);
       body.appendChild(row);
     });
   }

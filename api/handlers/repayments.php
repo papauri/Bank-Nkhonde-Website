@@ -308,7 +308,8 @@ if (!function_exists('repayment_quick_amounts')) {
             string $label,
             string $description,
             int $minor,
-            ?string $dueDate = null
+            ?string $dueDate = null,
+            int $penaltyPartMinor = 0
         ) use (&$options, &$seen, $totalOutstandingMinor): void {
             if ($minor <= 0) {
                 return;
@@ -321,11 +322,24 @@ if (!function_exists('repayment_quick_amounts')) {
                 return;
             }
             $seen[$minor] = true;
+            /* WHAT THE MONEY IS ACTUALLY FOR.
+               A preset labelled "Next instalment — MWK 237,000.01" reads as a
+               237,000 instalment. It is really a 0.01 instalment plus 237,000 of
+               accrued penalty. The figure was right and the label hid it, which
+               is worse than either alone. Sent as components so the UI can
+               itemise instead of presenting one opaque total.
+               `penalty` is capped at the (possibly clamped) preset so the two
+               parts always sum to `amount` exactly. */
+            $penaltyShown = min($penaltyPartMinor, $minor);
             $options[] = [
                 'key' => $key,
                 'label' => $label,
                 'description' => $description,
                 'amount' => money_from_minor($minor),
+                'breakdown' => [
+                    'loan' => money_from_minor($minor - $penaltyShown),
+                    'penalty' => money_from_minor($penaltyShown),
+                ],
                 // When this preset is due. Null where the concept does not apply
                 // (a penalty is owed now; a full settlement has no single date).
                 'dueDate' => $dueDate,
@@ -337,6 +351,8 @@ if (!function_exists('repayment_quick_amounts')) {
                 'penalty_only',
                 'Penalty only',
                 'Clears the penalty that has built up, leaving the loan itself unchanged.',
+                $penaltyOutstandingMinor,
+                null,
                 $penaltyOutstandingMinor
             );
         }
@@ -348,7 +364,8 @@ if (!function_exists('repayment_quick_amounts')) {
                 ? 'The next instalment plus the outstanding penalty, which is what it takes to actually clear it.'
                 : 'The next instalment due on this loan.',
             $penaltyOutstandingMinor + $nextInstalmentMinor,
-            $nextDueDate
+            $nextDueDate,
+            $penaltyOutstandingMinor
         );
 
         $add(
@@ -358,7 +375,8 @@ if (!function_exists('repayment_quick_amounts')) {
                 ? 'The one instalment already past its due date, plus the penalty.'
                 : $overdueCount . ' instalments already past their due date, plus the penalty.',
             $penaltyOutstandingMinor + $overdueOutstandingMinor,
-            null
+            null,
+            $penaltyOutstandingMinor
         );
 
         $add(
@@ -367,7 +385,8 @@ if (!function_exists('repayment_quick_amounts')) {
             'Settles the loan completely — nothing further would be owed on it. Last instalment would otherwise fall due '
                 . ($lastDueDate === null ? 'later' : substr((string) $lastDueDate, 0, 10)) . '.',
             $totalOutstandingMinor,
-            null
+            null,
+            $penaltyOutstandingMinor
         );
 
         return $options;
@@ -447,10 +466,44 @@ if (!function_exists('loan_balance')) {
 
         $schedule = repayment_fetch_schedule($pdo, $loanId);
 
+        /* WHAT HAS ACTUALLY BEEN PAID, AND WHEN.
+           The record-payment form previously showed only what was still owed —
+           an admin taking cash could not see whether the borrower paid last
+           month or a year ago, or whether a repayment was already sitting
+           unapproved. Every row carries its date so the money has a trace.
+           PENDING rows are included and labelled: they are not yet money in the
+           box, but hiding them invites a second payment being taken for one
+           that is merely awaiting approval. */
+        $historyStmt = $pdo->prepare(
+            'SELECT paymentId, amount, principalPortion, interestPortion, penaltyPortion, '
+            . 'status, paidAt, approvedAt, scheduledMonth, paymentMethod, proofOfPaymentImageUrl '
+            . 'FROM loan_payments WHERE loanId = :loanId '
+            . "AND status IN ('approved','pending') "
+            . 'ORDER BY paidAt DESC, paymentId DESC'
+        );
+        $historyStmt->execute([':loanId' => $loanId]);
+        $history = [];
+        foreach ($historyStmt->fetchAll() as $h) {
+            $history[] = [
+                'paymentId' => $h['paymentId'],
+                'amount' => money_from_minor(money_to_minor((string) $h['amount'])),
+                'principalPortion' => money_from_minor(money_to_minor((string) ($h['principalPortion'] ?? '0.00'))),
+                'interestPortion' => money_from_minor(money_to_minor((string) ($h['interestPortion'] ?? '0.00'))),
+                'penaltyPortion' => money_from_minor(money_to_minor((string) ($h['penaltyPortion'] ?? '0.00'))),
+                'status' => $h['status'],
+                'paidAt' => $h['paidAt'],
+                'approvedAt' => $h['approvedAt'],
+                'scheduledMonth' => $h['scheduledMonth'] !== null ? (int) $h['scheduledMonth'] : null,
+                'paymentMethod' => $h['paymentMethod'],
+                'hasProof' => !empty($h['proofOfPaymentImageUrl']),
+            ];
+        }
+
         json_response([
             'loan' => $loan,
             'schedule' => $schedule,
             'penalty' => $penalty,
+            'history' => $history,
             // Server-computed preset amounts for the record-payment form, so the
             // borrower picks an outcome ("pay it off") rather than typing a figure.
             'quickAmounts' => repayment_quick_amounts(

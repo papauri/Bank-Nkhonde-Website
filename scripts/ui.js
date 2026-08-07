@@ -323,6 +323,20 @@ export function renderQuickAmounts(container, options, input, customLabel) {
 
     btn.append(top, amt);
 
+    /* SAY WHAT THE MONEY IS FOR when a preset is part loan, part penalty.
+       "Next instalment — MWK 237,000.01" reads as a 237,000 instalment; it is
+       really 0.01 of instalment plus 237,000 of accrued penalty. The total was
+       correct and the label hid what you were paying, which is worse than
+       either problem alone. Only shown when BOTH parts are non-zero — on a
+       penalty-only or penalty-free preset the headline already says it all. */
+    const parts = opt.breakdown;
+    if (parts && Number(parts.penalty) > 0 && Number(parts.loan) > 0) {
+      const split = document.createElement("span");
+      split.className = "quick-amount-btn-split";
+      split.textContent = `${formatAmountForChip(parts.loan)} loan + ${formatAmountForChip(parts.penalty)} penalty`;
+      btn.appendChild(split);
+    }
+
     // When it is due. "How much" without "by when" is half the answer.
     if (opt.dueDate) {
         const due = document.createElement("span");

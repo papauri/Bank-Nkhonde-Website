@@ -142,17 +142,36 @@ function applyUrlDeepLink() {
   const paymentType = params.get("paymentType");
   const month = params.get("month");
 
-  if (!groupId || !memberId) return;
+  /* NEITHER groupId NOR memberId IS REQUIRED ANY MORE.
+     This used to bail out unless BOTH were present, so every link naming only a
+     tab was discarded and landed on the default "Pending Approval" — the owner's
+     report of being "sent to general pages". Two shapes exist in the app and
+     both were broken:
+       `?groupId=…&tab=arrears`  from the dashboard stat cards and info panels
+       `?tab=arrears`            from the dashboard Quick Action cards, which
+                                 name no group at all (admin_dashboard.html)
+     A tab-only link means "this tab, whichever group I'm already on", so the
+     group switch below is skipped rather than treated as a failure. */
+  if (groupId) {
+    // The group must be one the caller admins — never trust the URL blindly.
+    const group = adminGroups.find((g) => (g.groupId || g.id) === groupId);
+    if (!group) return;
 
-  // The group must be one the caller admins — never trust the URL blindly.
-  const group = adminGroups.find((g) => (g.groupId || g.id) === groupId);
-  if (!group) return;
+    // Switch the group selector to the deep-linked group.
+    selectedGroupId = groupId;
+    sessionStorage.setItem("selectedGroupId", groupId);
+    const selector = groupSelector();
+    if (selector) selector.value = groupId;
+  }
 
-  // Switch the group selector to the deep-linked group.
-  selectedGroupId = groupId;
-  sessionStorage.setItem("selectedGroupId", groupId);
-  const selector = groupSelector();
-  if (selector) selector.value = groupId;
+  /* `tab` was READ HERE AND NEVER USED — the variable was assigned and then
+     dropped, so `?tab=arrears` did nothing even when a member WAS supplied.
+     Applied before the member branch so a tab-only link still works. */
+  if (tab && document.querySelector(`.payment-tab[data-tab="${CSS.escape(tab)}"]`)) {
+    activateTab(tab);
+  }
+
+  if (!memberId) return;
 
   // The member must be a real member of this group.
   const member = members.find((m) => m.uid === memberId);

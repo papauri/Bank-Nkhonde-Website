@@ -472,6 +472,11 @@ document.addEventListener("DOMContentLoaded", () => {
       addRule("loanInterestRateMonth3", interestRateMonth3);
       addRule("contributionPenaltyGracePeriodDays", gracePeriod);
       addRule("loanPenaltyGracePeriodDays", loanGracePeriod);
+      /* Penalties are optional and are now an explicit, stored answer. Sent
+         unconditionally (not only when false) so "we do charge penalties" is
+         recorded as a decision rather than inferred from a schema default. */
+      addRule("loanPenaltyEnabled", !!document.getElementById("loanPenaltyEnabled")?.checked);
+      addRule("contributionPenaltyEnabled", !!document.getElementById("contributionPenaltyEnabled")?.checked);
       addRule("loanRulesMaxLoanAmount", maxLoanAmount || null);
       addRule("loanRulesMinCycleLoanAmount", minCycleLoanAmount || null);
       /* How the interest pool is divided at cycle end. This control used to be
