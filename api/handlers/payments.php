@@ -2063,6 +2063,12 @@ if (!function_exists('group_compliance_summary')) {
             $overdueLabels = [];
             $owedMinor = 0;          // outstanding, whether late or not
             $overdueMinor = 0;       // the late part of $owedMinor
+            // Itemised debt: one row per unpaid obligation, each with its OWN
+            // amount and due date. The card previously had only a list of labels
+            // and one lump total, so an admin could see that someone owed 40,000
+            // but not which months it was, what fell due when, or how late any of
+            // it was — which is exactly what a treasurer needs to chase it.
+            $items = [];
 
             // Seed money — a once-per-cycle entry obligation, not per-month. It
             // has no future due date, so it is owed from the moment the cycle
@@ -2077,6 +2083,14 @@ if (!function_exists('group_compliance_summary')) {
                     $overdueLabels[] = 'Seed money';
                     $owedMinor += $short;
                     $overdueMinor += $short;
+                    $items[] = payment_debt_item(
+                        'seed_money',
+                        'Seed money',
+                        null,
+                        $short,
+                        payment_due_date($rules, 'seed_money', null, $year),
+                        true
+                    );
                 }
             }
 
@@ -2099,10 +2113,19 @@ if (!function_exists('group_compliance_summary')) {
                     if ($short > 0) {
                         $missing[] = $cycleMonth . ' contribution';
                         $owedMinor += $short;
-                        if (in_array($cycleMonth, $overdueMonths, true)) {
+                        $late = in_array($cycleMonth, $overdueMonths, true);
+                        if ($late) {
                             $overdueLabels[] = $cycleMonth . ' contribution';
                             $overdueMinor += $short;
                         }
+                        $items[] = payment_debt_item(
+                            'monthly_contribution',
+                            $cycleMonth . ' contribution',
+                            $cycleMonth,
+                            $short,
+                            payment_due_date($rules, 'monthly_contribution', $cycleMonth, $year),
+                            $late
+                        );
                     }
                 }
             }
@@ -2131,10 +2154,19 @@ if (!function_exists('group_compliance_summary')) {
                     $overdueLabels[] = 'Service fee';
                     $owedMinor += $short;
                     $overdueMinor += $short;
+                    $items[] = payment_debt_item(
+                        'service_fee',
+                        'Service fee',
+                        null,
+                        $short,
+                        payment_due_date($rules, 'service_fee', null, $year),
+                        true
+                    );
                 }
             }
 
             if ($owedMinor > 0) {
+                $items = payment_sort_debt_items($items);
                 $behind[] = [
                     'uid' => $uid,
                     'name' => $m['fullName'] !== null ? (string) $m['fullName'] : 'Unknown',
@@ -2145,6 +2177,12 @@ if (!function_exists('group_compliance_summary')) {
                     'overdue' => money_from_minor($overdueMinor),
                     'notYetDue' => money_from_minor($owedMinor - $overdueMinor),
                     'isOverdue' => $overdueMinor > 0,
+                    // Oldest debt first: the one that has been outstanding
+                    // longest is the one a treasurer chases first.
+                    'items' => $items,
+                    // The earliest unpaid due date — "what should I chase, and
+                    // how late is it" in a single field the list can sort on.
+                    'oldestDueDate' => $items === [] ? null : $items[0]['dueDate'],
                     'owedMinor' => $owedMinor,
                     'overdueMinor' => $overdueMinor,
                 ];
@@ -2691,9 +2729,14 @@ if (!function_exists('member_group_stats')) {
 
         // --- Active loan count. ---
         $stmt = $pdo->prepare(
-            // matches LOAN_ACTIVE_STATUSES in loans.php — the codebase's active-loan set
+            // Matches loan_member_standing() in loans.php: a disbursed loan is
+            // only "active" while a balance remains, so a fully repaid loan left
+            // at status 'approved' no longer inflates this count. 'pending' is
+            // exempt from the balance test — not yet priced, so its balance is
+            // legitimately 0 while the request is still open.
             "SELECT COUNT(*) AS n FROM loans WHERE groupId = :groupId "
-            . "AND status IN ('pending', 'approved', 'disbursed')"
+            . "AND (status = 'pending' "
+            . "     OR (status IN ('approved', 'disbursed') AND remainingBalance > 0))"
         );
         $stmt->execute([':groupId' => $groupId]);
         $activeLoanCount = (int) $stmt->fetch()['n'];
@@ -3339,6 +3382,363 @@ if (!function_exists('reject_payment')) {
         json_response([
             'payment' => $stmt->fetch(),
             'member' => $flags,
+        ]);
+    }
+}
+
+if (!function_exists('payment_debt_item')) {
+    /**
+     * One unpaid obligation, itemised for the follow-up list: what it is, how
+     * much of it is left, when it fell due, and how late that makes it.
+     *
+     * daysLate is computed here, server-side, from the due date — the client
+     * never does date arithmetic on money it is chasing.
+     *
+     * @param string      $type    payments.paymentType, so the UI can deep-link
+     *                             straight into recording THAT obligation
+     * @param int         $amountMinor outstanding, not the original amount
+     * @return array<string,mixed>
+     */
+    function payment_debt_item(
+        string $type,
+        string $label,
+        ?string $month,
+        int $amountMinor,
+        ?string $dueDate,
+        bool $isOverdue
+    ): array {
+        $daysLate = null;
+        if ($dueDate !== null) {
+            $ts = strtotime($dueDate);
+            if ($ts !== false) {
+                $days = (int) floor((time() - $ts) / 86400);
+                $daysLate = $days > 0 ? $days : 0;
+            }
+        }
+
+        return [
+            'type' => $type,
+            'label' => $label,
+            'month' => $month,
+            'amount' => money_from_minor($amountMinor),
+            'dueDate' => $dueDate,
+            'isOverdue' => $isOverdue,
+            'daysLate' => $daysLate,
+        ];
+    }
+}
+
+if (!function_exists('payment_sort_debt_items')) {
+    /**
+     * Oldest debt first — the order a treasurer works a member's arrears in.
+     * Items with no due date sort last: they cannot be "more overdue" than a
+     * dated one, and guessing a date for them would invent lateness.
+     *
+     * @param array<int,array<string,mixed>> $items
+     * @return array<int,array<string,mixed>>
+     */
+    function payment_sort_debt_items(array $items): array
+    {
+        usort($items, static function (array $a, array $b): int {
+            $ad = $a['dueDate'] ?? null;
+            $bd = $b['dueDate'] ?? null;
+            if ($ad === null && $bd === null) {
+                return 0;
+            }
+            if ($ad === null) {
+                return 1;
+            }
+            if ($bd === null) {
+                return -1;
+            }
+            return strcmp($ad, $bd);
+        });
+
+        return $items;
+    }
+}
+
+if (!function_exists('payment_stream_row')) {
+    /**
+     * One collection stream as the client consumes it: money as formatted
+     * strings, the percentage already worked out server-side.
+     *
+     * percentCollected is floored EXCEPT that any nonzero collection against a
+     * nonzero target reports at least 1. Flooring alone printed "0% collected"
+     * over a group that had banked real money — MWK 100 against a MWK 50,000
+     * target is 0.2% — which reads as "nothing came in" and is simply wrong.
+     * `hasCollected` lets the UI say "under 1%" instead of implying either
+     * extreme.
+     *
+     * @return array<string,mixed>
+     */
+    function payment_stream_row(string $key, string $label, int $collectedMinor, int $targetMinor): array
+    {
+        $pct = $targetMinor > 0
+            ? (int) min(100, intdiv($collectedMinor * 100, $targetMinor))
+            : ($collectedMinor > 0 ? 100 : 0);
+        if ($pct === 0 && $collectedMinor > 0 && $targetMinor > 0) {
+            $pct = 1;
+        }
+
+        return [
+            'key' => $key,
+            'label' => $label,
+            'collected' => money_from_minor($collectedMinor),
+            'target' => money_from_minor($targetMinor),
+            'outstanding' => money_from_minor(max(0, $targetMinor - $collectedMinor)),
+            'percentCollected' => $pct,
+            'hasCollected' => $collectedMinor > 0,
+        ];
+    }
+}
+
+if (!function_exists('group_collections_breakdown')) {
+    /**
+     * Collections split BY MONEY STREAM, per month, each against its own target.
+     *
+     * Why this exists: the dashboard's only collection figure lumped seed money,
+     * monthly contributions and loan repayments into one "collected" number and
+     * compared it against the monthly-contribution target alone. Those are three
+     * different obligations, on three different clocks, sharing one bar — an
+     * admin could not tell whether the group was behind on entry money, on
+     * monthly savings, or on loan recovery.
+     *
+     * Each stream keeps its own target:
+     *   - seed money       one-off per member, due on seedMoneyDueDate
+     *   - monthly          monthlyContributionAmount x active members, per month
+     *   - loan repayments  the SCHEDULED instalments falling due that month, read
+     *                      from loan_repayment_schedule (the loans' own promise)
+     *                      rather than re-derived here
+     *
+     * All arithmetic is integer minor units; the client receives formatted
+     * strings plus ready-made percentages and divides nothing.
+     */
+    function group_collections_breakdown(): void
+    {
+        $groupId = (string) ($_GET['groupId'] ?? '');
+        if ($groupId === '') {
+            json_error('groupId is required.', 422);
+        }
+
+        require_role($groupId, PAYMENT_ADMIN_ROLES);
+
+        $year = (int) date('Y');
+        if (isset($_GET['year']) && $_GET['year'] !== '') {
+            $year = (int) $_GET['year'];
+            if ($year < 2000 || $year > 2100) {
+                json_error('Invalid year.', 422);
+            }
+        }
+
+        $pdo = getDbConnection();
+        $rules = payment_fetch_rules($pdo, $groupId);
+
+        $memStmt = $pdo->prepare(
+            "SELECT COUNT(*) AS n FROM members WHERE groupId = :groupId AND status = 'active'"
+        );
+        $memStmt->execute([':groupId' => $groupId]);
+        $memberCount = (int) $memStmt->fetch()['n'];
+
+        $seedDueMinor = payment_rule_amount_minor($rules, 'seed_money');
+        $monthlyDueMinor = payment_rule_amount_minor($rules, 'monthly_contribution');
+        $feeRequired = (int) ($rules['serviceFeeRequired'] ?? 0) === 1;
+        $feeDueMinor = $feeRequired ? payment_rule_amount_minor($rules, 'service_fee') : null;
+
+        // The SAME obligation clock as group_compliance_summary(), so the two
+        // cards cannot disagree about which months the group owes for.
+        $cycleMonths = payment_cycle_months_to_date($rules, $year);
+
+        // ── Collected, per month, per stream ─────────────────────────────────
+        // Contribution money is bucketed by the obligation it SETTLES (its own
+        // year/month columns), not by the date the cash arrived: a member paying
+        // March's contribution in May has settled March.
+        $rows = $pdo->prepare(
+            "SELECT paymentType, month, SUM(amountPaid) AS paid FROM payments "
+            . "WHERE groupId = :groupId AND year = :year "
+            . "AND approvalStatus IN ('approved', 'completed') "
+            . "GROUP BY paymentType, month"
+        );
+        $rows->execute([':groupId' => $groupId, ':year' => $year]);
+
+        $monthlyCollected = [];
+        $seedCollectedMinor = 0;
+        $feeCollectedMinor = 0;
+        foreach ($rows->fetchAll() as $r) {
+            $minor = money_to_minor(trim((string) $r['paid']));
+            $type = (string) $r['paymentType'];
+            if ($type === 'monthly_contribution') {
+                $m = (string) $r['month'];
+                $monthlyCollected[$m] = ($monthlyCollected[$m] ?? 0) + $minor;
+            } elseif ($type === 'seed_money') {
+                $seedCollectedMinor += $minor;
+            } elseif ($type === 'service_fee') {
+                $feeCollectedMinor += $minor;
+            }
+        }
+
+        // Seed money and the service fee are ONE-OFF, per-cycle obligations, and
+        // a cycle straddles two calendar years. Deriving their target as
+        // amount x memberCount would charge the whole obligation to BOTH years
+        // this view can be asked for — reporting 300,000 of seed owed by a group
+        // that was only ever billed 150,000. So the target for these two comes
+        // from the obligation rows actually RAISED in the year: totalAmount is
+        // what the group billed, which is the only figure that stays truthful
+        // across a cycle boundary or a mid-cycle joiner.
+        // Monthly contributions keep the computed target (rate x members x
+        // months) because that is group_compliance_summary()'s basis, and a
+        // month with no row yet is still owed.
+        $billed = $pdo->prepare(
+            "SELECT paymentType, SUM(totalAmount) AS due FROM payments "
+            . "WHERE groupId = :groupId AND year = :year "
+            . "AND paymentType IN ('seed_money', 'service_fee') GROUP BY paymentType"
+        );
+        $billed->execute([':groupId' => $groupId, ':year' => $year]);
+        $seedTargetTotalMinor = 0;
+        $feeTargetTotalMinor = 0;
+        foreach ($billed->fetchAll() as $r) {
+            $minor = money_to_minor(trim((string) $r['due']));
+            if ((string) $r['paymentType'] === 'seed_money') {
+                $seedTargetTotalMinor = $minor;
+            } else {
+                $feeTargetTotalMinor = $minor;
+            }
+        }
+
+        // Seed money has no month column — it is a cycle-entry obligation. It is
+        // spread across the chart by the month it was BANKED, but only ever
+        // within the obligations belonging to THIS year (`year = :year`, the
+        // same scope as the stream tile above).
+        //
+        // Bucketing purely by payment date instead put 61,500 of seed into
+        // August 2026 while the tile above it read 31,500 for the whole year:
+        // the L17 settlement banked 2025's seed rows in 2026, so the two views
+        // were counting different obligations. The chart under a total has to
+        // add up to that total or the card is worse than no card.
+        $seedRows = $pdo->prepare(
+            "SELECT MONTH(COALESCE(paidAt, approvedAt)) AS mi, "
+            . "YEAR(COALESCE(paidAt, approvedAt)) AS yr, SUM(amountPaid) AS paid FROM payments "
+            . "WHERE groupId = :groupId AND paymentType = 'seed_money' AND year = :year "
+            . "AND approvalStatus IN ('approved', 'completed') GROUP BY mi, yr"
+        );
+        $seedRows->execute([':groupId' => $groupId, ':year' => $year]);
+        $seedByMonth = [];
+        $seedFallbackMonth = $cycleMonths === [] ? null : $cycleMonths[0];
+        foreach ($seedRows->fetchAll() as $r) {
+            $minor = money_to_minor(trim((string) $r['paid']));
+            // Settled in another calendar year (or with no date at all): still
+            // this year's money, so it lands on the first month on show rather
+            // than disappearing from a chart that must reconcile to the tile.
+            $m = ($r['mi'] === null || (int) $r['yr'] !== $year)
+                ? $seedFallbackMonth
+                : PAYMENT_MONTHS[(int) $r['mi'] - 1];
+            if ($m !== null) {
+                $seedByMonth[$m] = ($seedByMonth[$m] ?? 0) + $minor;
+            }
+        }
+
+        // ── Loan repayments: banked, and scheduled, per month ────────────────
+        $lpRows = $pdo->prepare(
+            "SELECT MONTH(lp.paidAt) AS mi, SUM(lp.amount) AS paid FROM loan_payments lp "
+            . "WHERE lp.groupId = :groupId AND lp.status = 'approved' "
+            . "AND YEAR(lp.paidAt) = :year GROUP BY mi"
+        );
+        $lpRows->execute([':groupId' => $groupId, ':year' => $year]);
+        $loanCollected = [];
+        foreach ($lpRows->fetchAll() as $r) {
+            if ($r['mi'] !== null) {
+                $loanCollected[PAYMENT_MONTHS[(int) $r['mi'] - 1]] = money_to_minor(trim((string) $r['paid']));
+            }
+        }
+
+        $schedRows = $pdo->prepare(
+            "SELECT MONTH(s.dueDate) AS mi, SUM(s.totalDue) AS due FROM loan_repayment_schedule s "
+            . "JOIN loans l ON l.loanId = s.loanId "
+            . "WHERE l.groupId = :groupId AND YEAR(s.dueDate) = :year GROUP BY mi"
+        );
+        $schedRows->execute([':groupId' => $groupId, ':year' => $year]);
+        $loanTarget = [];
+        foreach ($schedRows->fetchAll() as $r) {
+            if ($r['mi'] !== null) {
+                $loanTarget[PAYMENT_MONTHS[(int) $r['mi'] - 1]] = money_to_minor(trim((string) $r['due']));
+            }
+        }
+
+        // Which month carries the seed target: the one seedMoneyDueDate falls in.
+        // When that date sits in a different calendar year (a cycle that opened
+        // last year), the target is shown against the first cycle month visible
+        // here rather than dropped — otherwise the year would display seed money
+        // collected against a target of zero.
+        $seedTargetMonth = $cycleMonths === [] ? null : $cycleMonths[0];
+        $seedDueRaw = payment_due_date($rules, 'seed_money', null, $year);
+        if ($seedDueRaw !== null) {
+            $ts = strtotime($seedDueRaw);
+            if ($ts !== false && (int) date('Y', $ts) === $year) {
+                $seedTargetMonth = PAYMENT_MONTHS[(int) date('n', $ts) - 1];
+            }
+        }
+
+        $monthlyTargetMinor = $monthlyDueMinor === null ? 0 : $monthlyDueMinor * $memberCount;
+        // Kept for the no-rows case: a group whose seed obligations have not been
+        // raised yet still has a target implied by its rules.
+        if ($seedTargetTotalMinor === 0 && $seedDueMinor !== null) {
+            $seedTargetTotalMinor = $seedDueMinor * $memberCount;
+        }
+
+        $months = [];
+        foreach ($cycleMonths as $m) {
+            $months[] = [
+                'month' => $m,
+                'label' => substr($m, 0, 3),
+                'seed' => [
+                    'collected' => money_from_minor($seedByMonth[$m] ?? 0),
+                    'target' => money_from_minor($m === $seedTargetMonth ? $seedTargetTotalMinor : 0),
+                ],
+                'monthly' => [
+                    'collected' => money_from_minor($monthlyCollected[$m] ?? 0),
+                    'target' => money_from_minor($monthlyTargetMinor),
+                ],
+                'loans' => [
+                    'collected' => money_from_minor($loanCollected[$m] ?? 0),
+                    'target' => money_from_minor($loanTarget[$m] ?? 0),
+                ],
+            ];
+        }
+
+        // ── Stream totals across the cycle to date ───────────────────────────
+        $monthlyCollectedCycleMinor = 0;
+        $loanCollectedCycleMinor = 0;
+        $loanTargetCycleMinor = 0;
+        foreach ($cycleMonths as $m) {
+            $monthlyCollectedCycleMinor += $monthlyCollected[$m] ?? 0;
+            $loanCollectedCycleMinor += $loanCollected[$m] ?? 0;
+            $loanTargetCycleMinor += $loanTarget[$m] ?? 0;
+        }
+
+        $streams = [
+            payment_stream_row('seed_money', 'Seed Money', $seedCollectedMinor, $seedTargetTotalMinor),
+            payment_stream_row(
+                'monthly_contribution',
+                'Monthly Contributions',
+                $monthlyCollectedCycleMinor,
+                $monthlyTargetMinor * count($cycleMonths)
+            ),
+            payment_stream_row('loan_repayments', 'Loan Repayments', $loanCollectedCycleMinor, $loanTargetCycleMinor),
+        ];
+        if ($feeRequired && $feeDueMinor !== null) {
+            $streams[] = payment_stream_row(
+                'service_fee',
+                'Service Fee',
+                $feeCollectedMinor,
+                $feeTargetTotalMinor > 0 ? $feeTargetTotalMinor : $feeDueMinor * $memberCount
+            );
+        }
+
+        json_response([
+            'year' => $year,
+            'memberCount' => $memberCount,
+            'months' => $months,
+            'streams' => $streams,
         ]);
     }
 }

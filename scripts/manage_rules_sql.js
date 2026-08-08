@@ -230,6 +230,10 @@ async function loadRulesSettings() {
     const lastLoanMonthInput = document.getElementById("lastLoanMonthInput");
     const minMembershipMonthsInput = document.getElementById("minMembershipMonthsInput");
 
+    const loanRepaymentDayInput = document.getElementById("loanRepaymentDayInput");
+    if (loanRepaymentDayInput) {
+      loanRepaymentDayInput.value = rules.loanRepaymentDayOfMonth !== null && rules.loanRepaymentDayOfMonth !== undefined ? rules.loanRepaymentDayOfMonth : "";
+    }
     if (loanBookingDayInput) {
       loanBookingDayInput.value = rules.loanBookingDay !== null && rules.loanBookingDay !== undefined ? rules.loanBookingDay : "";
     }
@@ -400,6 +404,13 @@ async function saveGovernanceSettings() {
     const minMembershipMonthsValue = document.getElementById("minMembershipMonthsInput")?.value;
 
     const rulesUpdate = {groupId: selectedGroupId};
+    // Blank clears it (null = no group-wide deadline), so an admin can turn the
+    // shared deadline off again rather than being stuck with it once set.
+    const loanRepaymentDayValue = document.getElementById("loanRepaymentDayInput")?.value;
+    rulesUpdate.loanRepaymentDayOfMonth = loanRepaymentDayValue !== "" && loanRepaymentDayValue != null
+      ? parseInt(loanRepaymentDayValue, 10)
+      : null;
+
     if (loanBookingDayValue !== "") {
       rulesUpdate.loanBookingDay = parseInt(loanBookingDayValue, 10);
     } else {

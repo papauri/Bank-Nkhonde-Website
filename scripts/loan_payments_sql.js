@@ -31,6 +31,34 @@ let currentLoanTab = "active";
 
 /** A loan that can actually receive a repayment (matches the server's payable set). */
 const PAYABLE_STATUSES = ["approved", "disbursed"];
+/** Statuses the server sets once a loan is closed out. */
+const SETTLED_STATUSES = ["repaid", "completed"];
+
+/**
+ * Fully repaid = nothing left to pay. Status alone is NOT enough: a balance can
+ * reach zero without approve_repayment() running its completion branch (a direct
+ * settlement, a correcting adjustment), which leaves a finished loan sitting at
+ * status "approved" with a 0.00 balance — and it then showed under Active while
+ * being absent from Repaid. The balance is the fact; the status is only a label.
+ * @param {Object} loan
+ * @return {boolean}
+ */
+function isLoanSettled(loan) {
+  if (SETTLED_STATUSES.includes(loan.status)) return true;
+  if (!PAYABLE_STATUSES.includes(loan.status)) return false;
+  // Half a cent of float dust is not a debt; anything real is > 0.01.
+  return numberOf(loan.remainingBalance) <= 0.004;
+}
+
+/**
+ * Active = still owes money. Excludes pending/rejected (never disbursed) and
+ * anything settled.
+ * @param {Object} loan
+ * @return {boolean}
+ */
+function isLoanActive(loan) {
+  return PAYABLE_STATUSES.includes(loan.status) && !isLoanSettled(loan);
+}
 
 export async function init() {
   setupEventListeners();
@@ -39,6 +67,21 @@ export async function init() {
     currentUser = await requireSession(); // redirects to login on 401
   } catch (error) {
     return;
+  }
+
+  /* ?status=repaid pre-selects the filter, so the dashboard's "settled loans"
+     link lands on the right view instead of the default Active list. Validated
+     against the select's own options — an unknown value is ignored rather than
+     leaving the control showing a state it is not in. */
+  try {
+    const wanted = new URLSearchParams(window.location.search).get("status");
+    const select = document.getElementById("loanStatusFilter");
+    if (wanted && select && Array.from(select.options).some((o) => o.value === wanted)) {
+      select.value = wanted;
+      currentLoanTab = wanted;
+    }
+  } catch (e) {
+    // A malformed query string must never stop the page loading.
   }
 
   await loadUserGroups();
@@ -149,7 +192,7 @@ async function loadLoanData() {
     ]);
 
     allLoans = Array.isArray(loansResp && loansResp.loans) ? loansResp.loans : [];
-    activeLoans = allLoans.filter((l) => PAYABLE_STATUSES.includes(l.status));
+    activeLoans = allLoans.filter(isLoanActive);
 
     const payments = Array.isArray(paymentsResp && paymentsResp.payments)
       ? paymentsResp.payments : [];
@@ -206,18 +249,22 @@ function displayLoansByTab(filterValue = null) {
   if (activeFilter === "all") {
     filtered = allLoans;
   } else if (activeFilter === "active") {
-    filtered = allLoans.filter((l) => PAYABLE_STATUSES.includes(l.status));
+    filtered = allLoans.filter(isLoanActive);
   } else if (activeFilter === "repaid") {
-    filtered = allLoans.filter((l) => l.status === "repaid" || l.status === "completed");
+    filtered = allLoans.filter(isLoanSettled);
+  } else if (activeFilter === "approved") {
+    // "Approved" means approved AND still owing — a settled loan belongs under
+    // Fully Repaid, not under a tab that implies money is still outstanding.
+    filtered = allLoans.filter((l) => l.status === "approved" && !isLoanSettled(l));
   } else {
     filtered = allLoans.filter((l) => l.status === activeFilter);
   }
 
   const titles = {
     pending: "Pending Loan Requests",
-    approved: "Approved Loans",
-    active: "Active Loans",
-    repaid: "Repaid Loans",
+    approved: "Approved Loans — Still Owing",
+    active: "Active Loans — Still Owing",
+    repaid: "Fully Repaid — Nothing Left to Pay",
     all: "All My Loans",
   };
   setText("loansSectionTitle", titles[activeFilter] || "My Loans");
@@ -266,8 +313,11 @@ function createLoanRow(loan) {
     completed: "success",
     rejected: "danger",
   };
-  const label = statusLabels[loan.status] || "Unknown";
-  const badgeClass = statusClasses[loan.status] || "secondary";
+  // A cleared balance beats the stored status: never badge a loan "Active" when
+  // the member owes nothing on it.
+  const settled = isLoanSettled(loan);
+  const label = settled ? "Fully Repaid" : (statusLabels[loan.status] || "Unknown");
+  const badgeClass = settled ? "success" : (statusClasses[loan.status] || "secondary");
 
   const loanCell = el("td");
   loanCell.dataset.label = "Loan";

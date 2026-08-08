@@ -964,6 +964,404 @@
       white-space: nowrap;
     }
 
+    /* ── Group Health at a Glance ──────────────────────────────────────────
+       Three blocks: collections split by stream, the same split month by
+       month against target, and the named list of who owes what.
+
+       Every width here is either a percentage of its own container or a
+       min-width paired with min-width:0 on the shrinkable ancestor, so no
+       block can widen the page — the month strip scrolls inside itself. */
+    .health-section-title {
+      margin: var(--bn-space-6) 0 var(--bn-space-3);
+    }
+
+    .health-section-title:first-child {
+      margin-top: 0;
+    }
+
+    .health-section-title h3 {
+      font-size: var(--bn-text-sm);
+      font-weight: 700;
+      color: var(--bn-gray-700);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin: 0;
+    }
+
+    .health-section-title p {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      margin: 2px 0 0;
+    }
+
+    .health-stream-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: var(--bn-space-3);
+    }
+
+    .health-stream {
+      background: var(--bn-gray-50);
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      padding: var(--bn-space-4);
+      min-width: 0;
+    }
+
+    .health-stream-head {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+      margin-bottom: var(--bn-space-3);
+      min-width: 0;
+    }
+
+    .health-stream-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .health-stream-name {
+      font-size: var(--bn-text-sm);
+      font-weight: 600;
+      color: var(--bn-gray-700);
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .health-stream-pct {
+      margin-left: auto;
+      font-size: var(--bn-text-sm);
+      font-weight: 700;
+      font-feature-settings: 'tnum' 1;
+      flex-shrink: 0;
+    }
+
+    .health-stream-track {
+      height: 8px;
+      border-radius: 999px;
+      background: var(--bn-gray-lighter);
+      overflow: hidden;
+    }
+
+    .health-stream-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width var(--bn-transition-base);
+    }
+
+    .health-stream-figures {
+      margin-top: var(--bn-space-2);
+      font-size: var(--bn-text-sm);
+      color: var(--bn-gray);
+      overflow-wrap: anywhere;
+    }
+
+    .health-stream-figures strong {
+      color: var(--bn-gray-900);
+      font-feature-settings: 'tnum' 1;
+    }
+
+    .health-stream-short {
+      margin-top: var(--bn-space-1);
+      font-size: var(--bn-text-xs);
+      color: var(--bn-warning-dark);
+      font-weight: 600;
+    }
+
+    /* ── Month-by-month strip ─────────────────────────────────────────────── */
+    .health-chart-wrap {
+      min-width: 0;
+    }
+
+    .health-chart-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--bn-space-3);
+      margin-bottom: var(--bn-space-3);
+    }
+
+    .health-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray-700);
+    }
+
+    .health-legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .health-legend-ghost {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      border: 1.5px dashed var(--bn-gray-400);
+      flex-shrink: 0;
+    }
+
+    /* The ONLY horizontally scrolling box in the card. min-width:0 is what
+       lets it actually shrink instead of pushing the card wider than the
+       viewport — without it the flex/grid default of min-width:auto keeps the
+       box at its content width and the page scrolls sideways instead. */
+    .health-chart-scroll {
+      min-width: 0;
+      max-width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-bottom: var(--bn-space-2);
+    }
+
+    .health-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: var(--bn-space-3);
+      height: 130px;
+    }
+
+    .health-chart-month {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--bn-space-2);
+      flex: 1 0 auto;
+      min-width: 44px;
+    }
+
+    .health-chart-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 100px;
+    }
+
+    .health-chart-slot {
+      position: relative;
+      width: 11px;
+      height: 100%;
+      display: flex;
+      align-items: flex-end;
+    }
+
+    /* Target sits behind as an outline; the solid bar in front is what came in,
+       so a shortfall is visible as shape rather than as two numbers to compare. */
+    .health-chart-ghost {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border: 1.5px dashed var(--bn-gray-400);
+      border-radius: 3px 3px 0 0;
+      background: transparent;
+    }
+
+    .health-chart-bar {
+      position: relative;
+      width: 100%;
+      border-radius: 3px 3px 0 0;
+      min-height: 0;
+    }
+
+    .health-chart-label {
+      font-size: var(--bn-text-xs);
+      font-weight: 600;
+      color: var(--bn-gray);
+      white-space: nowrap;
+    }
+
+    /* ── Who owes what ────────────────────────────────────────────────────── */
+    .health-debtors {
+      display: flex;
+      flex-direction: column;
+      gap: var(--bn-space-2);
+    }
+
+    .health-debtor {
+      border: 1px solid var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-lg);
+      background: var(--bn-white);
+      overflow: hidden;
+    }
+
+    .health-debtor-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--bn-space-3);
+      padding: var(--bn-space-3) var(--bn-space-4);
+      cursor: pointer;
+      min-height: 44px;
+      list-style: none;
+      min-width: 0;
+    }
+
+    .health-debtor-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .health-debtor-summary::after {
+      content: "▾";
+      color: var(--bn-gray);
+      font-size: var(--bn-text-xs);
+      flex-shrink: 0;
+      transition: transform var(--bn-transition-fast);
+    }
+
+    .health-debtor[open] .health-debtor-summary::after {
+      transform: rotate(180deg);
+    }
+
+    .health-debtor-summary:hover {
+      background: var(--bn-gray-50);
+    }
+
+    .health-debtor-who {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .health-debtor-name {
+      font-weight: 700;
+      color: var(--bn-gray-900);
+      overflow-wrap: anywhere;
+    }
+
+    .health-debtor-meta {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+      overflow-wrap: anywhere;
+    }
+
+    .health-debtor-amt {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .health-debtor-amt strong {
+      font-feature-settings: 'tnum' 1;
+      white-space: nowrap;
+    }
+
+    .health-pill {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 2px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .health-pill-late {
+      background: var(--bn-danger-light);
+      color: var(--bn-danger-dark);
+    }
+
+    .health-debtor-body {
+      border-top: 1px solid var(--bn-gray-lighter);
+      padding: var(--bn-space-2) var(--bn-space-4) var(--bn-space-3);
+    }
+
+    .health-debt-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--bn-space-3);
+      padding: var(--bn-space-2) 0;
+      border-bottom: 1px solid var(--bn-gray-50);
+      min-width: 0;
+    }
+
+    .health-debt-item:last-child {
+      border-bottom: none;
+    }
+
+    .health-debt-what {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      font-size: var(--bn-text-sm);
+    }
+
+    .health-debt-when {
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray);
+    }
+
+    /* Lateness is stated in words in this same element; the colour is a
+       reinforcement, never the only carrier of the status. */
+    .health-debt-when.is-late {
+      color: var(--bn-danger-dark);
+      font-weight: 600;
+    }
+
+    .health-debt-right {
+      display: flex;
+      align-items: center;
+      gap: var(--bn-space-2);
+      flex-shrink: 0;
+    }
+
+    .health-debt-amt {
+      font-weight: 700;
+      font-feature-settings: 'tnum' 1;
+      white-space: nowrap;
+      font-size: var(--bn-text-sm);
+    }
+
+    .health-debt-pay {
+      min-height: 36px;
+    }
+
+    .health-figure-row {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--bn-space-4);
+      padding: var(--bn-space-2) 0;
+      border-bottom: 1px solid var(--bn-gray-lighter);
+      min-width: 0;
+    }
+
+    .health-figure-label {
+      color: var(--bn-gray);
+      font-size: var(--bn-text-sm);
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .health-figure-value {
+      font-weight: 700;
+      font-feature-settings: 'tnum' 1;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 480px) {
+      /* At phone width the amount stacks under the name rather than fighting
+         it for the same row — a long name and a 6-figure sum will not both
+         fit, and truncating either one loses information the admin needs. */
+      .health-debt-item {
+        flex-wrap: wrap;
+      }
+
+      .health-debt-right {
+        width: 100%;
+        justify-content: space-between;
+      }
+    }
+
     /* Secondary breakdown pies, shown below the monthly trend. */
     .trend-breakdown-heading {
       font-size: var(--bn-text-sm);
@@ -1927,7 +2325,7 @@
         <div class="stat-card-wrap">
           <button class="stat-card clickable" onclick="navigateToStatPage('arrears')" aria-describedby="totalArrearsPopover">
             <div class="stat-value" id="totalArrears">MWK 0</div>
-            <div class="stat-label">Arrears</div>
+            <div class="stat-label">Contributions Owed</div>
           </button>
           <button type="button" class="stat-card-info-toggle" aria-expanded="false" aria-controls="totalArrearsPopover" aria-label="Arrears breakdown">i</button>
           <div class="stat-card-popover" id="totalArrearsPopover" role="status"></div>

@@ -57,7 +57,15 @@ if (!function_exists('statement_build_contributions')) {
      */
     function statement_build_contributions(PDO $pdo, string $groupId, string $uid, ?int $year): array
     {
-        $sql = 'SELECT paymentId, paymentType, year, month, amountPaid, approvedAt '
+        /* paidAt AS WELL AS approvedAt. A statement line showed "N/A" for its
+           date on every legacy row: approvedAt is NULL on payments recorded
+           before the approval path stamped it, while paidAt — the date the money
+           actually changed hands — was populated all along. Reading only
+           approvedAt threw away a real date and printed nothing.
+           COALESCE order is deliberate: when the money moved is what a statement
+           is about; when an admin ticked it off is the fallback. */
+        $sql = 'SELECT paymentId, paymentType, year, month, amountPaid, '
+            . 'COALESCE(paidAt, approvedAt) AS statementDate, approvedAt '
             . 'FROM payments '
             . 'WHERE groupId = :groupId AND uid = :uid '
             . "AND approvalStatus IN ('approved', 'completed') ";
@@ -66,7 +74,7 @@ if (!function_exists('statement_build_contributions')) {
             $sql .= 'AND year = :year ';
             $params[':year'] = $year;
         }
-        $sql .= 'ORDER BY approvedAt ASC';
+        $sql .= 'ORDER BY COALESCE(paidAt, approvedAt) ASC';
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
@@ -89,7 +97,7 @@ if (!function_exists('statement_build_contributions')) {
             }
 
             $lines[] = [
-                'date' => $row['approvedAt'],
+                'date' => $row['statementDate'],
                 'type' => $row['paymentType'],
                 'description' => $description,
                 'amountMinor' => $amountMinor,

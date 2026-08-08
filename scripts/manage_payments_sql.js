@@ -1476,8 +1476,14 @@ function buildFollowupRow(f) {
 
   // ── Right: the three amounts, each labelled ──────────────────────────────
   const right = document.createElement("div");
+  // `flex-shrink: 0` here made this group — a nowrap amount, a state pill and
+  // two buttons — refuse to shrink below its natural 410px inside a 366px row,
+  // and since the section does not clip, that pushed the whole PAGE 68px wider
+  // than the viewport at 400px. It wraps and shrinks instead; the amount keeps
+  // its own nowrap so a figure is never broken across lines.
   right.style.cssText =
-    "display: flex; align-items: center; gap: var(--bn-space-3); flex-shrink: 0;";
+    "display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; " +
+    "gap: var(--bn-space-2); min-width: 0;";
 
   // Every amount says what it is. The bare figure used to sit next to a badge
   // repeating the SAME number with the word "overdue" after it, even when part

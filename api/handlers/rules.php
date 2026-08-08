@@ -36,7 +36,7 @@ const RULES_SELECT_COLUMNS = 'groupId, '
     . 'requireArrearsClearedBeforeLoan, requirePenaltiesClearedBeforeLoan, '
     . 'forcedLoansEnabled, forcedLoansMethod, forcedLoansPercentageOfHighest, '
     // Loan booking deadlines (migration 011)
-    . 'loanBookingDay, lastLoanMonth, minMembershipMonths, '
+    . 'loanBookingDay, lastLoanMonth, minMembershipMonths, loanRepaymentDayOfMonth, '
     // Amount-banded max repayment term (owner constitution, 2026-08-07) —
     // see loan_term_bounds_for_principal() in api/handlers/loans.php, the
     // single reader shared by both loan-request enforcement sites and the
@@ -697,6 +697,25 @@ if (!function_exists('update_rules')) {
             }
             $updates[] = 'loanBookingDay = :loanBookingDay';
             $params[':loanBookingDay'] = $day;
+        }
+
+        /* The day of the month every loan instalment falls due, group-wide.
+           NULL means "no shared deadline" — each loan's dates run from its own
+           approval, which is how every existing loan was written. Setting it is
+           what makes a constitution's payments table (e.g. repayments due the
+           5th of each month) actually govern the schedule. */
+        if (array_key_exists('loanRepaymentDayOfMonth', $body)) {
+            $repayDay = $body['loanRepaymentDayOfMonth'];
+            if ($repayDay !== null && $repayDay !== '') {
+                $repayDay = (int) $repayDay;
+                if ($repayDay < 1 || $repayDay > 31) {
+                    json_error('loanRepaymentDayOfMonth must be between 1 and 31.', 422);
+                }
+            } else {
+                $repayDay = null;
+            }
+            $updates[] = 'loanRepaymentDayOfMonth = :loanRepaymentDayOfMonth';
+            $params[':loanRepaymentDayOfMonth'] = $repayDay;
         }
 
         if (array_key_exists('lastLoanMonth', $body)) {

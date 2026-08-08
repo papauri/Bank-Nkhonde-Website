@@ -223,6 +223,55 @@ body {
   border-top: none;
 }
 
+/* Uniform 2-up grid. Every tile is the same size whatever its label length,
+   so the block reads as one set rather than a ragged column of pills. */
+.sidebar-quick-actions-label {
+  font-size: var(--bn-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: var(--bn-space-2);
+  padding-inline: var(--bn-space-2);
+}
+
+.sidebar-quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--bn-space-2);
+}
+
+.sidebar-quick-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  /* 44px floor: these are the primary touch targets on a phone. */
+  min-height: 44px;
+  padding: var(--bn-space-2);
+  border-radius: var(--bn-radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: var(--bn-text-xs);
+  font-weight: 600;
+  line-height: 1.25;
+  text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.sidebar-quick-action:hover,
+.sidebar-quick-action:focus-visible {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: var(--bn-accent);
+  color: var(--bn-white);
+}
+
+.sidebar-quick-action:focus-visible {
+  outline: 2px solid var(--bn-accent);
+  outline-offset: 2px;
+}
+
 /* Desktop keeps its actions where the page put them. */
 @media (min-width: 1025px) {
   .sidebar-quick-actions {

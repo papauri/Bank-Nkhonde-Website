@@ -961,7 +961,14 @@ table.data-table tbody tr:last-child td {
     margin-inline: auto;
   }
 
-  /* Show the column label from data-label attr */
+  /* Show the column label from data-label attr.
+     min-width was 80px with max-width 35% — on a 390px phone that reserved a
+     wide fixed gutter and squeezed the VALUE into what was left, so a
+     description like "Monthly contribution (December 2026)" wrapped to two or
+     three lines. Measured on user_analytics: a 12-row statement rendered
+     2,574px tall, ~215px per row, on a page 6,169px long.
+     Letting the label shrink to its content and capping it at 40% gives the
+     value the room it actually needs. */
   .table-responsive td::before {
     content: attr(data-label);
     font-weight: 600;
@@ -971,8 +978,11 @@ table.data-table tbody tr:last-child td {
     letter-spacing: 0.03em;
     text-align: left;
     flex-shrink: 0;
-    min-width: 80px;
-    max-width: 35%;
+    max-width: 40%;
+    /* A column NAME is short by definition; letting it wrap cost a whole extra
+       line per cell ("RUNNING BALANCE" broke across two). The value beside it
+       still wraps freely. */
+    white-space: nowrap;
   }
 
   /* Reset alignment helpers on mobile */

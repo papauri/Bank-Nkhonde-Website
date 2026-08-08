@@ -67,6 +67,34 @@ let currentTab = "pending";
 let groupRules = null;
 let pendingPayments = [];
 
+/**
+ * Fully repaid = nothing left to collect. Status alone is NOT enough: a balance
+ * can reach zero without approve_repayment() running its completion branch (a
+ * direct settlement, a correcting adjustment), leaving a finished loan at status
+ * "approved" with a 0.00 balance — which then counted toward Active Loans and
+ * was missing from Fully Repaid on both the admin and member views.
+ * Kept identical to loan_payments_sql.js so the two sides cannot disagree about
+ * which loans are still owing.
+ * @param {Object} l
+ * @return {boolean}
+ */
+function isLoanSettled(l) {
+  if (l.status === "completed" || l.status === "repaid") return true;
+  if (l.status !== "approved" && l.status !== "disbursed") return false;
+  // Half a cent of float dust is not a debt; anything real is > 0.01.
+  return numberOf(l.remainingBalance) <= 0.004;
+}
+
+/**
+ * Active = disbursed and still owing. Excludes pending/rejected and anything
+ * settled.
+ * @param {Object} l
+ * @return {boolean}
+ */
+function isLoanActive(l) {
+  return (l.status === "approved" || l.status === "disbursed") && !isLoanSettled(l);
+}
+
 // ── DOM elements (IDs kept identical to the Firebase original) ─────────────
 const groupSelector = () => document.getElementById("groupSelector");
 const loansContainer = () => document.getElementById("loansContainer");
@@ -582,7 +610,7 @@ function rejectPendingPayment(payment) {
 // ── Stats ───────────────────────────────────────────────────────────────────
 function updateStats() {
   const pending = loans.filter((l) => l.status === "pending").length;
-  const active = loans.filter((l) => l.status === "approved" || l.status === "disbursed").length;
+  const active = loans.filter(isLoanActive).length;
 
   // NOT substituted with loans.list's `summary` block: totalDisbursed here is
   // scoped to approved+disbursed+completed (excludes pending/rejected, which
@@ -882,8 +910,8 @@ function renderLoanCategoryBreakdown() {
       note: "requested",
     },
     {
-      key: "active", label: "Active Loans", cls: "active", tab: "active",
-      rows: loans.filter((l) => l.status === "approved" || l.status === "disbursed"),
+      key: "active", label: "Active — Still Owing", cls: "active", tab: "active",
+      rows: loans.filter(isLoanActive),
       amount: (rs) => rs.reduce((s, l) => s + numberOf(l.remainingBalance), 0),
       note: "outstanding",
     },
@@ -895,7 +923,7 @@ function renderLoanCategoryBreakdown() {
     },
     {
       key: "repaid", label: "Fully Repaid", cls: "repaid", tab: "repaid",
-      rows: loans.filter((l) => l.status === "completed"),
+      rows: loans.filter(isLoanSettled),
       amount: (rs) => rs.reduce((s, l) => s + principalOf(l), 0),
       note: "repaid",
     },
@@ -1155,10 +1183,10 @@ function renderLoans() {
       filtered = loans.filter((l) => l.status === "pending");
       break;
     case "active":
-      filtered = loans.filter((l) => l.status === "approved" || l.status === "disbursed");
+      filtered = loans.filter(isLoanActive);
       break;
     case "repaid":
-      filtered = loans.filter((l) => l.status === "completed");
+      filtered = loans.filter(isLoanSettled);
       break;
     case "cancelled":
       filtered = loans.filter((l) => l.status === "rejected");
@@ -1238,7 +1266,9 @@ function createLoanRow(loan) {
 
   const createdDate = formatDate(loan.requestedAt);
 
-  const statusClass = loan.status === "completed" ? "success"
+  // A cleared balance beats the stored status: never badge a loan as owing when
+  // there is nothing left to collect.
+  const statusClass = isLoanSettled(loan) ? "success"
     : (loan.status === "approved" || loan.status === "disbursed") ? "info"
       : loan.status === "rejected" ? "danger"
         : "warning";
@@ -1258,7 +1288,16 @@ function createLoanRow(loan) {
   const statusCell = el("td");
   statusCell.dataset.label = "Status";
   const statusBadge = el("span", `badge badge-${statusClass}`);
-  statusBadge.textContent = loan.status;
+  // Was printing the raw DB enum ("approved"/"completed"). Same wording as the
+  // member view, and settled wins over the stored status.
+  const STATUS_WORDS = {
+    pending: "Pending", approved: "Active", disbursed: "Active",
+    completed: "Fully Repaid", repaid: "Fully Repaid",
+    rejected: "Rejected", defaulted: "Defaulted",
+  };
+  statusBadge.textContent = isLoanSettled(loan)
+    ? "Fully Repaid"
+    : (STATUS_WORDS[loan.status] || loan.status);
   statusCell.appendChild(statusBadge);
   row.appendChild(statusCell);
 

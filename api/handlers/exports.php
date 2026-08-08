@@ -162,14 +162,13 @@ if (!function_exists('export_payments')) {
 
         $out = fopen('php://output', 'w');
         export_csv_row($out, [
-            'uid', 'memberName', 'paymentType', 'year', 'month', 'totalAmount',
-            'amountPaid', 'arrears', 'approvalStatus', 'paidAt', 'approvedAt',
-            'paymentMethod', 'notes',
+            'Member', 'Payment Type', 'Year', 'Month', 'Amount Due',
+            'Amount Paid', 'Still Owed', 'Status', 'Paid On', 'Approved On',
+            'Method', 'Notes', 'Member ID',
         ]);
 
         while (($row = $stmt->fetch()) !== false) {
             export_csv_row($out, [
-                $row['uid'],
                 $row['memberName'],
                 $row['paymentType'],
                 $row['year'],
@@ -182,6 +181,7 @@ if (!function_exists('export_payments')) {
                 $row['approvedAt'],
                 $row['paymentMethod'],
                 $row['notes'],
+                $row['uid'],
             ]);
         }
 
@@ -215,15 +215,14 @@ if (!function_exists('export_loans')) {
 
         $out = fopen('php://output', 'w');
         export_csv_row($out, [
-            'loanId', 'loanNumber', 'borrowerName', 'principalAmount', 'approvedAmount',
-            'repaymentPeriod', 'totalInterest', 'totalRepayment', 'amountRepaid',
-            'remainingBalance', 'penaltiesCharged', 'status', 'isForced', 'requestedAt',
-            'approvedAt', 'purpose',
+            'Loan No.', 'Borrower', 'Principal', 'Approved Amount',
+            'Term (months)', 'Total Interest', 'Total Repayable', 'Repaid',
+            'Still Owed', 'Penalties Charged', 'Status', 'Forced Loan', 'Requested On',
+            'Approved On', 'Purpose', 'Loan ID',
         ]);
 
         while (($row = $stmt->fetch()) !== false) {
             export_csv_row($out, [
-                $row['loanId'],
                 $row['loanNumber'],
                 $row['borrowerName'],
                 $row['principalAmount'],
@@ -235,10 +234,11 @@ if (!function_exists('export_loans')) {
                 $row['remainingBalance'],
                 $row['penaltiesCharged'],
                 $row['status'],
-                (int) $row['isForced'] === 1 ? '1' : '0',
+                (int) $row['isForced'] === 1 ? 'Yes' : 'No',
                 $row['requestedAt'],
                 $row['approvedAt'],
                 $row['purpose'],
+                $row['loanId'],
             ]);
         }
 
@@ -271,22 +271,22 @@ if (!function_exists('export_members')) {
 
         $out = fopen('php://output', 'w');
         export_csv_row($out, [
-            'uid', 'fullName', 'email', 'phone', 'role', 'status', 'joinedAt',
-            'seedMoneyPaid', 'monthlyContributionsCurrent', 'eligibleForLoan',
+            'Name', 'Email', 'Phone', 'Role', 'Status', 'Joined On',
+            'Seed Money Paid', 'Contributions Up To Date', 'Eligible For Loan', 'Member ID',
         ]);
 
         while (($row = $stmt->fetch()) !== false) {
             export_csv_row($out, [
-                $row['uid'],
                 $row['fullName'],
                 $row['email'],
                 $row['phone'],
                 $row['role'],
                 $row['status'],
                 $row['joinedAt'],
-                (int) $row['seedMoneyPaid'] === 1 ? '1' : '0',
-                (int) $row['monthlyContributionsCurrent'] === 1 ? '1' : '0',
-                (int) $row['eligibleForLoan'] === 1 ? '1' : '0',
+                (int) $row['seedMoneyPaid'] === 1 ? 'Yes' : 'No',
+                (int) $row['monthlyContributionsCurrent'] === 1 ? 'Yes' : 'No',
+                (int) $row['eligibleForLoan'] === 1 ? 'Yes' : 'No',
+                $row['uid'],
             ]);
         }
 
@@ -349,8 +349,8 @@ if (!function_exists('export_report')) {
 
         $out = fopen('php://output', 'w');
         export_csv_row($out, [
-            'uid', 'fullName', 'totalContributed', 'totalBorrowed', 'totalInterestPaid',
-            'outstandingLoanBalance', 'arrears',
+            'Name', 'Total Contributed', 'Total Borrowed', 'Interest Paid',
+            'Loan Balance', 'Arrears', 'Member ID',
         ]);
 
         $totalContributedMinor = 0;
@@ -371,23 +371,24 @@ if (!function_exists('export_report')) {
             $totalArrearsMinor += $arrearsMinor;
 
             export_csv_row($out, [
-                $uid,
                 $row['fullName'],
                 money_from_minor($row['contributedMinor']),
                 money_from_minor($row['borrowedMinor']),
                 money_from_minor($row['interestPaidMinor']),
                 money_from_minor($outstandingMinor),
                 money_from_minor($arrearsMinor),
+                $uid,
             ]);
         }
 
         export_csv_row($out, [
-            '', 'TOTALS',
+            'TOTALS',
             money_from_minor($totalContributedMinor),
             money_from_minor($totalBorrowedMinor),
             money_from_minor($totalInterestPaidMinor),
             money_from_minor($totalOutstandingMinor),
             money_from_minor($totalArrearsMinor),
+            '',
         ]);
 
         fclose($out);

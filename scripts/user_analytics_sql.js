@@ -69,6 +69,10 @@ let currentGroupId = null;
 let userGroups = [];
 let obligations = null;
 let myLoans = [];
+/* This member's own row from loans.transparency — server-computed per-member
+   lending totals. Needed because loans.list's SUMMARY is group-wide for an
+   admin, so the summary figures cannot be trusted as "mine" on this page. */
+let myLendingRow = null;
 /** loans.list's server-computed `summary` block — already member-scoped since
  * a plain member's loans.list call only ever returns their own rows. */
 let myLoansSummary = null;
@@ -213,6 +217,7 @@ async function loadContributions() {
   showSpinner(true);
   try {
     obligations = await apiGet("payments.obligations", {groupId: currentGroupId});
+    renderPaymentBreakdown(obligations);
 
     renderTopStats();
     renderContributionTrendChart();
@@ -240,13 +245,23 @@ function renderTopStats() {
   // set, completed loans are repaid to 0), so summing over ALL of this caller's
   // rows (`summary.totalOutstanding` — loans.list is already member-scoped)
   // equals this filtered client-side sum.
-  const outstanding = myLoansSummary ? numberOf(myLoansSummary.totalOutstanding) : 0;
+  /* PER-MEMBER, not per-group. The note below used to say "loans.list is
+     already member-scoped" — true for a MEMBER, false for an ADMIN, where the
+     endpoint returns the whole group and its summary with it. That is why this
+     page showed an admin the group's 140,000 as their own borrowing.
+     myLendingRow is the server's own per-member total; the summary remains the
+     fallback, which is correct for a plain member. */
+  const outstanding = myLendingRow
+    ? numberOf(myLendingRow.outstanding)
+    : (myLoansSummary ? numberOf(myLoansSummary.totalOutstanding) : 0);
   // Substituted with the server summary: `summary.issuedPrincipal` sums
   // approvedAmount (falling back to principalAmount) over exactly the
   // approved/disbursed/completed/defaulted rows — the same scope
   // ISSUED_LOAN_STATUSES filtered client-side — so the old filter+reduce is
   // redundant.
-  const totalBorrowed = myLoansSummary ? numberOf(myLoansSummary.issuedPrincipal) : 0;
+  const totalBorrowed = myLendingRow
+    ? numberOf(myLendingRow.totalBorrowed)
+    : (myLoansSummary ? numberOf(myLoansSummary.issuedPrincipal) : 0);
 
   setText(document.getElementById("totalContributed"), formatCurrency(totalContributed));
   setText(document.getElementById("totalBorrowed"), formatCurrency(totalBorrowed));
@@ -257,10 +272,17 @@ function renderTopStats() {
   setText(document.getElementById("userTotalLoans"), formatCurrency(totalBorrowed));
   setText(document.getElementById("userLoanOutstanding"), formatCurrency(outstanding));
   setText(document.getElementById("userTotalArrears"), formatCurrency(totalArrears));
-  setText(
-      document.getElementById("userActiveLoans"),
-      String(myLoans.filter((l) => ISSUED_LOAN_STATUSES.includes(l.status)).length),
-  );
+  /* THESE TWO WROTE TO IDS THAT DO NOT EXIST ON THIS PAGE.
+     The markup carries #activeLoans and #groupsCount; the script targeted
+     #userActiveLoans / #userGroupsCount, so both cards sat on their hard-coded
+     "0" forever — a member with a live loan was shown "Active Loans 0".
+     setText on a missing element is a silent no-op, which is why it never
+     surfaced as an error. The legacy ids are kept alongside in case another
+     surface still renders them. */
+  const activeLoanCount = String(myLoans.filter((l) => ISSUED_LOAN_STATUSES.includes(l.status)).length);
+  setText(document.getElementById("activeLoans"), activeLoanCount);
+  setText(document.getElementById("userActiveLoans"), activeLoanCount);
+  setText(document.getElementById("groupsCount"), String(userGroups.length));
   setText(document.getElementById("userGroupsCount"), String(userGroups.length));
 
   // groupTotalContributed mirrors totalContributed: obligations is already
@@ -387,11 +409,34 @@ function attachBreakdown(valueElId, wrapSelector, ariaLabel, rows, opts) {
   attachCardPopover(wrap, ariaLabel, rows, opts);
 }
 
+
+/**
+ * Compact money for a chart label only ("12.5k"). Six full currency strings
+ * will not fit across a phone; every figure a member acts on elsewhere still
+ * uses formatCurrency at full precision.
+ * @param {number} n
+ * @return {string}
+ */
+function shortMoney(n) {
+  const v = Number(n) || 0;
+  if (v >= 1000000) return (v / 1000000).toFixed(v >= 10000000 ? 0 : 1).replace(/\.0$/, "") + "m";
+  if (v >= 1000) return (v / 1000).toFixed(v >= 10000 ? 0 : 1).replace(/\.0$/, "") + "k";
+  return String(Math.round(v));
+}
 function renderContributionTrendChart() {
   const container = chartContainerEl();
   if (!container) return;
   container.textContent = "";
   container.parentElement?.querySelector("#chartMonthsToggle")?.remove();
+
+  /* THE CHART CSS NEVER APPLIED. Every .chart-container rule in the page was
+     written against a class that no element carried — the host is
+     <div class="content-card-body" id="chartContainer">, so the bars inherited
+     display:block and stacked VERTICALLY, one full-width bar per row. That is
+     the "giant column" the chart has always rendered as.
+     The class is added here, on the element that actually holds the bars, and
+     removed for the empty state so an empty box is not laid out as a plot. */
+  container.classList.remove("chart-container");
 
   const months = obligations?.monthlyContributions?.months || [];
   if (months.length === 0) {
@@ -413,20 +458,55 @@ function renderContributionTrendChart() {
       ...monthsToShow.map((m) => Math.max(numberOf(m.amountPaid), numberOf(m.totalAmount))),
   );
 
+  container.classList.add("chart-container");
+  const legend = document.getElementById("chartLegend");
+  if (legend) legend.hidden = false;
+
   monthsToShow.forEach((month) => {
     const paid = numberOf(month.amountPaid);
     const expected = numberOf(month.totalAmount);
     const barHeight = maxAmount > 0 ? (paid / maxAmount) * 100 : 0;
+    // The TARGET drawn behind the paid bar, so "how much of what I owed did I
+    // actually pay" is visible as a shape rather than inferred from a tooltip.
+    const targetHeight = maxAmount > 0 ? (expected / maxAmount) * 100 : 0;
+
+    /* STATUS, not category: settled / part-paid / nothing.
+       Palette validated with the dataviz validator against the page surface —
+       --bn-success-dark + --bn-warning separate at ΔE 11.0 under protanopia,
+       where the lighter --bn-success paired at 7.9 (the band that is only legal
+       WITH secondary encoding). Both tokens already exist in the design system.
+       The value label below is that secondary encoding regardless: status must
+       never be carried by colour alone, and a tooltip is unreachable on touch —
+       which is why every bar is labelled instead of hover-only. */
+    let state = "none";
+    if (paid > 0 && expected > 0 && paid + 0.001 >= expected) state = "full";
+    else if (paid > 0) state = "part";
 
     const wrapper = el("div", "chart-bar-wrapper");
-    const bar = el("div", "chart-bar animated");
-    bar.style.cssText = `height:160px; --bar-height: ${Math.max(barHeight, 2)}%;`;
-    bar.title = `${month.month}: ${formatCurrency(paid)} / ${formatCurrency(expected)}`;
+
+    // Amount above the bar, abbreviated so six of them fit a phone width.
+    const value = el("span", "chart-value");
+    value.textContent = paid > 0 ? shortMoney(paid) : "—";
+
+    const track = el("div", "chart-track");
+    const target = el("div", "chart-target");
+    target.style.height = `${Math.max(targetHeight, 2)}%`;
+
+    const bar = el("div", `chart-bar animated is-${state}`);
+    bar.style.setProperty("--bar-height", `${Math.max(barHeight, paid > 0 ? 4 : 0)}%`);
+
+    track.append(target, bar);
 
     const label = el("span", "chart-label");
     label.textContent = month.month.slice(0, 3);
 
-    wrapper.append(bar, label);
+    // Screen readers and hover both get the full figures; sighted touch users
+    // already have the number printed above the bar.
+    const state_word = state === "full" ? "fully paid" : state === "part" ? "part paid" : "nothing paid";
+    wrapper.title = `${month.month}: ${formatCurrency(paid)} of ${formatCurrency(expected)} — ${state_word}`;
+    wrapper.setAttribute("aria-label", wrapper.title);
+
+    wrapper.append(value, track, label);
     container.appendChild(wrapper);
   });
 
@@ -449,6 +529,63 @@ function renderContributionTrendChart() {
 }
 
 // ── Loans / repayment history ───────────────────────────────────────────────
+
+/**
+ * Payment Breakdown — how this member's contributions split by type.
+ *
+ * WAS DEAD MARKUP. #paymentBreakdown existed in the page but no code ever
+ * wrote to it, so it sat on its "Select a group…" empty state forever, even
+ * with a group selected. Every figure here is a server string from
+ * payments.obligations (already fetched for this page) passed straight to
+ * formatCurrency — nothing is totalled in the browser.
+ * @param {Object|null} ob obligations response
+ */
+function renderPaymentBreakdown(ob) {
+  const host = document.getElementById("paymentBreakdown");
+  if (!host) return;
+
+  const b = ob && ob.contributionBreakdown;
+  const summary = (ob && ob.summary) || {};
+  if (!b) return; // leave the shipped empty state when there is genuinely nothing
+
+  host.replaceChildren();
+
+  const rows = [
+    {label: "Seed money", value: b.seedMoney, accent: "var(--bn-success-dark)"},
+    {label: "Monthly contributions", value: b.monthly, accent: "var(--bn-primary)"},
+    {label: "Service fee", value: b.serviceFee, accent: "var(--bn-gray)"},
+  ];
+
+  const list = document.createElement("div");
+  list.style.cssText = "display:flex; flex-direction:column; gap:var(--bn-space-2);";
+
+  for (const r of rows) {
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex; justify-content:space-between; align-items:baseline; gap:var(--bn-space-3); padding:var(--bn-space-2) 0; border-bottom:1px solid var(--bn-gray-lighter);";
+    const label = document.createElement("span");
+    label.style.cssText = "font-size:var(--bn-text-sm); color:var(--bn-gray-600);";
+    label.textContent = r.label;
+    const value = document.createElement("span");
+    value.style.cssText = "font-weight:700; white-space:nowrap; color:" + r.accent + ";";
+    value.textContent = formatCurrency(r.value != null ? r.value : "0.00");
+    row.append(label, value);
+    list.appendChild(row);
+  }
+
+  // Total comes from the server's own contributed figure, NOT from adding the
+  // three rows above — two independently derived totals are free to drift.
+  const total = document.createElement("div");
+  total.style.cssText = "display:flex; justify-content:space-between; align-items:baseline; gap:var(--bn-space-3); padding-top:var(--bn-space-3); font-weight:800;";
+  const tLabel = document.createElement("span");
+  tLabel.textContent = "Total contributed";
+  const tValue = document.createElement("span");
+  tValue.style.whiteSpace = "nowrap";
+  tValue.textContent = formatCurrency(summary.contributed != null ? summary.contributed : "0.00");
+  total.append(tLabel, tValue);
+  list.appendChild(total);
+
+  host.appendChild(list);
+}
 async function loadLoans() {
   if (!currentGroupId) return;
   showSpinner(true);
@@ -456,7 +593,24 @@ async function loadLoans() {
     const data = await apiGet("loans.list", {groupId: currentGroupId});
     // The server already restricts a plain member's rows to their own loans —
     // no client-side filtering by borrowerId is performed or needed here.
-    myLoans = Array.isArray(data && data.loans) ? data.loans : [];
+    /* SCOPED TO THE SIGNED-IN MEMBER. loans.list restricts itself to the
+       caller for a plain member but returns the WHOLE GROUP for an admin, so
+       "Active Loans" on this member-facing page read 4 for someone with one
+       loan. Same defect, same fix, as the user dashboard. Presentation only —
+       the server-side scoping is what actually protects a member's data. */
+    const myUid = currentUser && currentUser.uid;
+    myLoans = (Array.isArray(data && data.loans) ? data.loans : [])
+      .filter((l) => !myUid || String(l.borrowerId) === String(myUid));
+
+    // Per-member totals, computed server-side. Non-fatal if it fails: the
+    // summary fallback below is correct for a plain member either way.
+    try {
+      const tr = await apiGet("loans.transparency", {groupId: currentGroupId});
+      const rows = (tr && Array.isArray(tr.members)) ? tr.members : [];
+      myLendingRow = myUid ? rows.find((m) => String(m.uid) === String(myUid)) || null : null;
+    } catch (e) {
+      myLendingRow = null;
+    }
     myLoansSummary = data && data.summary && typeof data.summary === "object" ? data.summary : null;
 
     const repayData = await apiGet("repayments.mine", {groupId: currentGroupId});

@@ -524,83 +524,72 @@
     }
 
     /* Stats grid — premium financial dashboard cards */
-    /* TWELVE-column track, not three. The band holds 7 cards, and 7 does not
-       divide by 3 — the 7th was left stranded alone on a third row. A 12-col
-       track lets each breakpoint choose a span so the last row is either full
-       or deliberately centred, instead of orphaning a card.
-         span 4  = 3 per row (the previous behaviour, kept for any count != 7)
-         span 3  = 4 per row
-         span 6  = 2 per row
-       The exactly-7 rules below are guarded by :first-child:nth-last-child(7),
-       so adding or removing a card falls back to the plain 3-per-row grid
-       rather than silently producing a broken bespoke layout. */
+    /* ── HERO STATS ───────────────────────────────────────────────────────
+       ONE primary card + SIX uniform tiles.
+
+       The previous grid was a 12-column track carrying a chain of
+       `:first-child:nth-last-child(7)` rules whose only job was to centre an
+       orphaned 7th card at each breakpoint. That machinery existed because
+       SEVEN tiles never fill a row. Promoting the headline money figure to a
+       full-width primary leaves SIX, and six divides evenly by both 2 and 3 —
+       so every breakpoint fills its rows, the orphan rules are gone, and the
+       layout stops depending on how many children happen to be present.
+
+       Mobile-first: 2 columns, widening to 3. Deliberately NOT 6 across on a
+       wide screen — at 980px that is ~150px a tile, which is what forced
+       "MWK 117,900.00" onto three lines in the first place. */
     .hero-stats {
       display: grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap: var(--bn-space-4);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--bn-space-3);
       align-items: stretch;
       max-width: 980px;
       margin-inline: auto;
     }
 
-    .hero-stats > .hero-stat {
-      grid-column: span 4;
+    /* The headline figure spans the full width at every size. */
+    .hero-stats > .hero-stat-primary {
+      grid-column: 1 / -1;
     }
 
-    /* Exactly 7 cards, WIDE WIDTHS ONLY: 4 on the top row, 3 on the bottom.
-       Both rows span the full width (4x3 = 12, 3x4 = 12), so it reads as a
-       deliberate two-row band rather than a row with a hole in it.
+    /* A FLOOR, not a fixed height. Cards with no detail text were collapsing to
+       95px beside 174px neighbours, which is what made the band look ragged.
+       A floor evens the rhythm; content can still grow a card past it.
+       Kept modest — too tall and a card with only a label and a figure is
+       mostly empty space, which looks like a rendering fault rather than
+       breathing room. */
+    .hero-stats > .hero-stat:not(.hero-stat-primary) {
+      min-height: 108px;
+    }
 
-       THE min-width GUARD IS LOAD-BEARING, not tidiness. These rules carry
-       :first-child:nth-last-child(7) plus :nth-child(), i.e. specificity
-       (0,6,0). A media query adds NO specificity, so left unscoped they
-       outrank the (0,5,0) "all cards" rules inside the 768px and 480px
-       blocks below and leak into them. That is not cosmetic: at <=480px
-       cards 5 and 6 would keep `span 4` while 1-4 went to `span 6`, leaving
-       that row filling 8 of 12 columns, and the explicitly-placed 7th card
-       (columns 4-9) would then collide with them and be auto-pushed onto a
-       spurious extra row. Scope these to the width they were designed for
-       and each narrower block governs itself. */
-    @media (min-width: 769px) {
-      .hero-stats > .hero-stat:first-child:nth-last-child(7),
-      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat {
-        grid-column: span 3;
-      }
+    /* Bound the detail text so one verbose card cannot stretch its whole row.
+       Line-clamp keeps the ellipsis honest — the full text is always available
+       in the card's "i" panel. */
+    .hero-stat-details {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+      line-clamp: 3;
+      overflow: hidden;
+    }
 
-      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat:nth-child(n + 5) {
-        grid-column: span 4;
-      }
-
-      /* Four across is a narrower card than three across, and
-         .hero-stat-value is `white-space: nowrap` inside `overflow: hidden`
-         — so a long figure like MWK 100,000.00 would be clipped rather than
-         wrapped. Step the value down one size and tighten the horizontal
-         padding to buy the room back. Applied to all 7 so the row stays
-         uniform. */
-      .hero-stats > .hero-stat:first-child:nth-last-child(7),
-      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat {
-        padding: var(--bn-space-4) var(--bn-space-3);
-      }
-
-      .hero-stats > .hero-stat:first-child:nth-last-child(7) .hero-stat-value,
-      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat .hero-stat-value {
-        font-size: var(--bn-text-xl);
-        padding-left: var(--bn-space-3);
-      }
-
-      .hero-stats > .hero-stat:first-child:nth-last-child(7) .hero-stat-label,
-      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat .hero-stat-label {
-        padding-left: var(--bn-space-3);
+    @media (min-width: 600px) {
+      .hero-stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: var(--bn-space-4);
       }
     }
+
 
     .hero-stat {
       min-width: 0;
       background: var(--bn-white);
       border: 1px solid var(--bn-gray-lighter);
       border-radius: var(--bn-radius-lg);
-      padding: var(--bn-space-5) var(--bn-space-4);
-      transition: all 0.2s ease;
+      /* Generous top padding leaves the corner clear for the "i" toggle and
+         the "Due" badge, which used to collide with the value. */
+      padding: var(--bn-space-4);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
       display: flex;
       flex-direction: column;
       align-items: stretch;
@@ -608,32 +597,57 @@
       text-align: left;
       color: inherit;
       position: relative;
-      overflow: hidden;
+      /* NOT overflow:hidden — the shared "i" toggle sits half outside the
+         top-right corner and an overflow-hidden host clips it away entirely
+         (that is the documented cause of "I cannot see the i button"). */
     }
 
-    /* Subtle left accent stripe per semantic type */
-    .hero-stat::before {
+    /* ACCENT AS A TOP BAR, not a left stripe.
+       The stripe was 3px wide but cost 16px of padding-left on the value, the
+       label AND the status row — on a ~150px phone tile that is a third of the
+       usable width, and it is why money values wrapped mid-figure. A top bar
+       carries the same colour coding for free. */
+    .hero-stat::after {
       content: '';
       position: absolute;
-      left: 0;
-      top: 12px;
-      bottom: 12px;
-      width: 3px;
-      border-radius: 0 2px 2px 0;
-      background: var(--bn-gray-300);
+      left: -1px;
+      right: -1px;
+      top: -1px;
+      height: 3px;
+      border-radius: var(--bn-radius-lg) var(--bn-radius-lg) 0 0;
+      background: var(--bn-gray-light);
       transition: background 0.2s ease;
     }
 
-    /* Color-coded accents */
-    #nextPaymentStat::before { background: var(--bn-info); }
-    #activeLoansStat::before { background: var(--bn-warning); }
-    #pendingPaymentsStat::before { background: var(--bn-warning); }
-    #totalArrearsStat::before { background: var(--bn-danger); }
-    #membersStat::before { background: var(--bn-success); }
-    #totalContributedStat::before { background: var(--bn-success); }
-    /* The 7th card shipped without an accent stripe colour, so it fell back to
-       the neutral --bn-gray-300 default while its six neighbours were coded. */
-    #borrowingPowerStat::before { background: var(--bn-info); }
+    /* Colour-coded by meaning: red owes, amber pending, green good, blue info. */
+    #nextPaymentStat::after { background: var(--bn-info); }
+    #activeLoansStat::after { background: var(--bn-warning); }
+    #pendingPaymentsStat::after { background: var(--bn-warning); }
+    #totalArrearsStat::after { background: var(--bn-danger); }
+    #membersStat::after { background: var(--bn-success); }
+    #totalContributedStat::after { background: var(--bn-success); }
+    #borrowingPowerStat::after { background: var(--bn-info); }
+
+    /* ── THE PRIMARY CARD ────────────────────────────────────────────────
+       The headline "what you owe" figure. Everything else on the band is
+       context for this one number, so it gets the width, the weight and a
+       tinted surface rather than competing as an equal tile. */
+    .hero-stat-primary {
+      background: linear-gradient(135deg, var(--bn-white) 0%, rgba(239, 68, 68, 0.04) 100%);
+      border-color: rgba(239, 68, 68, 0.22);
+      padding: var(--bn-space-5);
+    }
+
+    .hero-stat-primary .hero-stat-value {
+      /* Fluid rather than stepped, so the figure shrinks smoothly with the
+         viewport instead of jumping at a breakpoint. */
+      font-size: clamp(1.75rem, 7vw, 2.5rem);
+      line-height: 1.1;
+    }
+
+    .hero-stat-primary .hero-stat-label {
+      font-size: var(--bn-text-xs);
+    }
 
     .hero-stat:hover {
       border-color: var(--bn-accent);
@@ -666,17 +680,50 @@
       outline-offset: 2px;
     }
 
+    /* LABEL ABOVE VALUE. Reading order now matches how the card is scanned —
+       "what is this?" then "how much?" — and it puts the small text next to the
+       accent bar rather than the large figure. */
+    .hero-stat-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--bn-gray);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      /* Reserve just enough corner for the "i" toggle, which now sits mostly
+         OUTSIDE the card — 20px here was over-reserving and squeezed
+         "CONTRIBUTED (AUG)" until it broke mid-word as "CONTRIBUT ED". */
+      padding-right: 14px;
+      margin-bottom: var(--bn-space-1);
+      /* Wrap between words only. break-word/anywhere will split a word in the
+         middle when the box is narrow, which is what produced "CONTRIBUT ED". */
+      overflow-wrap: normal;
+      word-break: normal;
+      hyphens: none;
+      order: -1;
+    }
+
     .hero-stat-value {
-      font-size: var(--bn-text-2xl);
+      /* Fluid, so a long figure shrinks rather than wrapping mid-number. */
+      /* Lower floor than the first pass: at 390px a tile is 105px of usable
+         width, and 4.2vw (16px) pushed "MWK 117,900.00" to ~110px, forcing a
+         wrap on a value that should fit. 3.5vw (~14px) lands it at ~92px. */
+      font-size: clamp(0.95rem, 3.5vw, 1.5rem);
       font-weight: 800;
       color: var(--bn-dark);
       font-feature-settings: 'tnum' 1;
-      margin-bottom: var(--bn-space-2);
-      white-space: nowrap;
+      line-height: 1.15;
+      margin-bottom: 0;
+      /* WRAPS, deliberately. This was `nowrap`, so "MWK 117,900.00" simply
+         overflowed its tile. Breaking after the currency is the honest
+         fallback when the figure genuinely will not fit. */
+      white-space: normal;
+      /* break-word, not anywhere: only break a word that genuinely cannot fit,
+         rather than letting the browser split figures opportunistically. */
+      overflow-wrap: break-word;
       display: flex;
+      flex-wrap: wrap;
       align-items: baseline;
-      gap: 6px;
-      padding-left: var(--bn-space-4);
+      gap: 0 5px;
     }
 
     .hero-stat-value .currency-prefix {
@@ -685,26 +732,26 @@
       color: var(--bn-gray);
     }
 
-    .hero-stat-label {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--bn-gray);
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      margin-top: 0;
-      overflow-wrap: break-word;
-      padding-left: var(--bn-space-4);
-    }
-
     .hero-stat-details {
-      margin-top: var(--bn-space-3);
-      padding: var(--bn-space-2) var(--bn-space-4) 0;
+      /* margin-top:auto pins the detail to the BOTTOM of the card, so cards of
+         differing content still align their footers — that ragged, uneven
+         bottom edge was the most visible flaw in the old band.
+         min-height is gone: it reserved 2.6em on every card whether or not
+         there was anything to say, which is what made the rows uneven in the
+         first place. */
+      margin-top: auto;
+      padding: var(--bn-space-2) 0 0;
       border-top: 1px solid var(--bn-gray-lighter);
       font-size: var(--bn-text-xs);
       color: var(--bn-gray-600);
-      line-height: 1.5;
+      line-height: 1.45;
       font-weight: 400;
-      min-height: 2.6em;
+    }
+
+    /* An empty detail div must not draw its border — an empty bordered strip
+       reads as a rendering fault. */
+    .hero-stat-details:empty {
+      display: none;
     }
 
     .hero-stat-status {
@@ -716,7 +763,6 @@
       display: flex;
       align-items: center;
       gap: 5px;
-      padding-left: var(--bn-space-4);
     }
     .hero-stat-status::before {
       content: '';
@@ -871,6 +917,15 @@
       justify-content: center;
       max-width: 900px;
       margin-inline: auto;
+    }
+
+    /* A quick action the member currently cannot use. Dimmed rather than
+       `disabled`: a disabled button is skipped by keyboard focus and announces
+       nothing, so the reason would be unreachable. This one still focuses and
+       still responds — it explains why instead of opening a dead form. */
+    .action-btn.is-unavailable {
+      opacity: 0.45;
+      cursor: not-allowed;
     }
 
     .action-btn {
@@ -1931,49 +1986,15 @@
         padding: var(--bn-space-6) var(--bn-space-4);
       }
 
-      .hero-stats {
-        display: grid;
-        /* THREE columns on a tablet/large phone, not two. Six tiles then
-           form two tidy rows instead of three, which is what stops the hero
-           pushing the rest of the dashboard below the fold. Drops back to
-           two below 480px (see next block).
-           Explicit grid (not auto-fit) and no overflow-x: a fixed column
-           count never needs horizontal scroll, and an overflow-x:auto here
-           would implicitly turn the paired overflow-y into "auto" and clip
-           .hero-stat-popover. */
-        grid-template-columns: repeat(12, 1fr);
-        gap: var(--bn-space-2);
-        overflow: visible;
-      }
-
-      /* Back to 3 per row here: 4 across is unreadable on a tablet/large
-         phone. That leaves a single 7th card, so it is CENTRED on its own row
-         (cols 5-8) rather than sitting hard left under the first column,
-         which reads as a layout mistake. */
-      .hero-stats > .hero-stat,
-      .hero-stats > .hero-stat:first-child:nth-last-child(7),
-      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat {
-        grid-column: span 4;
-      }
-
-      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat:nth-child(7) {
-        grid-column: 5 / span 4;
-      }
-
-      .hero-stat,
-      .hero-stats > .hero-stat:first-child:nth-last-child(7),
-      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat {
-        min-width: auto;
+      /* Column count now lives in the base rules (2 -> 3 at 600px), so the
+         12-column track and the whole :nth-last-child(7) orphan-centring
+         chain that used to live here are gone: six tiles always fill their
+         rows. Only spacing is tuned per breakpoint. */
+      .hero-stat {
         padding: var(--bn-space-3);
         width: 100%;
         max-width: 100%;
         box-sizing: border-box;
-      }
-
-      .hero-stat-value,
-      .hero-stats > .hero-stat:first-child:nth-last-child(7) .hero-stat-value,
-      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat .hero-stat-value {
-        font-size: var(--bn-text-base);
       }
 
       .content-grid {
@@ -2028,30 +2049,10 @@
         font-size: var(--bn-text-2xl);
       }
 
-      /* Two columns on a phone — three would squeeze a currency value like
-         "MWK 12,500" onto three lines. 7 cards therefore leave one over; it
-         is centred (cols 4-9) instead of orphaned in the left column. */
-      .hero-stats > .hero-stat,
-      .hero-stats > .hero-stat:first-child:nth-last-child(7),
-      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat {
-        grid-column: span 6;
-      }
-
-      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat:nth-child(7) {
-        grid-column: 4 / span 6;
-      }
-
-      .hero-stat,
-      .hero-stats > .hero-stat:first-child:nth-last-child(7),
-      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat {
-        padding: var(--bn-space-3) var(--bn-space-2);
+      /* Two columns here comes from the base rule. Tighter padding only. */
+      .hero-stat {
+        padding: var(--bn-space-3);
         min-width: 0;
-      }
-
-      .hero-stat-value,
-      .hero-stats > .hero-stat:first-child:nth-last-child(7) .hero-stat-value,
-      .hero-stats > .hero-stat:first-child:nth-last-child(7) ~ .hero-stat .hero-stat-value {
-        font-size: var(--bn-text-sm);
       }
 
       .hero-stat-label {
@@ -2118,31 +2119,13 @@
         padding: var(--bn-space-4);
       }
 
-      /* Figures were running outside their card here: "MWK 117,500.00" measured
-         149px inside a 139px card. Two causes, both fixed rather than just
-         shrinking the type until it fit:
-           - a 16px padding-left left only 91px of usable width, so the value was
-             being squeezed by its own indent;
-           - `white-space: nowrap` meant a long figure could only overflow, never
-             wrap.
-         Reclaiming the indent and allowing a wrap after the currency keeps the
-         figure at a readable size — it breaks to "MWK / 117,500.00" instead of
-         spilling past the card edge. */
-      .hero-stat-value {
-        font-size: var(--bn-text-lg) !important;
-        line-height: 1.2 !important;
-        padding-left: 0 !important;
-        white-space: normal !important;
-        flex-wrap: wrap !important;
-        gap: 0 4px !important;
-        overflow-wrap: anywhere;
-      }
-
-      .hero-stat-label {
-        font-size: var(--bn-text-xs) !important;
-        margin-top: var(--bn-space-1) !important;
-        line-height: 1.3 !important;
-      }
+      /* The value/label overrides that used to live here are GONE, not moved.
+         They were an earlier fix for figures overflowing their card (a 16px
+         indent plus white-space:nowrap), and every one of them is now handled
+         by the base rules: fluid clamp() sizing, no indent, wrapping enabled.
+         Left in place they did real harm — `font-size: var(--bn-text-lg)
+         !important` outranked the clamp, pinning the value at 18px on a 105px
+         tile and forcing "MWK 100.00" onto two lines. */
 
       .hero-stat-status {
         font-size: 10px !important;
@@ -2151,12 +2134,7 @@
       }
 
 
-      /* Members stat mobile styling */
-      #membersStat .hero-stat-value {
-        font-size: var(--bn-text-lg) !important;
-        flex-wrap: wrap !important;
-        gap: 4px !important;
-      }
+      /* #membersStat needs no size override either — same clamp as its peers. */
 
       #membersStat .badge {
         font-size: 9px !important;
@@ -2340,15 +2318,26 @@
       </div>
 
         <div class="hero-stats">
+        <!-- PRIMARY: the headline "what you owe". Placed first and spanning the
+             full width because every other tile on this band is context for it.
+             Same id, classes and popover source as before, so the dashboard JS
+             and the shared info-panel wiring are untouched. -->
+        <div class="hero-stat hero-stat-primary" id="totalArrearsStat" tabindex="0" aria-describedby="totalArrearsPopover" style="position: relative;">
+          <div class="hero-stat-value" id="totalArrears">MWK 0</div>
+          <div class="hero-stat-label">Total Arrears</div>
+          <div class="hero-stat-details" id="totalArrearsDetails"></div>
+          <div class="hero-stat-popover" id="totalArrearsPopover" role="status"></div>
+        </div>
         <div class="hero-stat" id="nextPaymentStat" tabindex="0" aria-describedby="nextPaymentPopover" style="position: relative;">
-          <div class="hero-stat-value" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
-            <span style="font-size: 14px; line-height: 1;" title="Monthly Payment">📅</span>
-            <span style="font-size: 10px; line-height: 1; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.05em;">Monthly</span>
-          </div>
+          <!-- The AMOUNT lives here, written by renderNextMonthlyPayment().
+               It previously showed a static "📅 Monthly" chip — a label in the
+               slot where every other card puts its figure, so the one number
+               this card exists to give was buried in the detail line. -->
+          <div class="hero-stat-value" id="nextPaymentValue">—</div>
           <div class="hero-stat-label">Next Payment</div>
           <div class="hero-stat-details" id="nextPaymentDetails"></div>
           <div class="hero-stat-popover" id="nextPaymentPopover" role="status"></div>
-          <button type="button" class="hero-stat-badge" id="nextPaymentBadge" aria-label="Dismiss payment due reminder" style="position: absolute; top: var(--bn-space-1); left: var(--bn-space-1); background: var(--bn-danger); color: var(--bn-white); font-size: 8px; padding: 2px 6px; border: none; font-family: inherit; border-radius: 10px; font-weight: 700; cursor: pointer; display: none; z-index: 10;" onclick="dismissNextPaymentBadge(event)">Due</button>
+          <button type="button" class="hero-stat-badge" id="nextPaymentBadge" aria-label="Dismiss payment due reminder" style="position: absolute; top: -9px; left: 10px; background: var(--bn-danger); color: var(--bn-white); font-size: 8px; padding: 2px 6px; border: none; font-family: inherit; border-radius: 10px; font-weight: 700; cursor: pointer; display: none; z-index: 10;" onclick="dismissNextPaymentBadge(event)">Due</button>
         </div>
         <!-- J13: no inline onclick. The card now opens the repayment modal, wired
              in user_dashboard_sql.js. It previously carried
@@ -2362,17 +2351,12 @@
           <div class="hero-stat-label">Loans</div>
           <div class="hero-stat-details" id="activeLoansDetails"></div>
           <div class="hero-stat-popover" id="activeLoansPopover" role="status">Loans issued to you that are approved or disbursed and not yet fully repaid.</div>
-          <button type="button" class="hero-stat-badge" id="activeLoansBadge" aria-label="Dismiss loan due reminder" style="position: absolute; top: var(--bn-space-1); left: var(--bn-space-1); background: var(--bn-danger); color: var(--bn-white); font-size: 8px; padding: 2px 6px; border: none; font-family: inherit; border-radius: 10px; font-weight: 700; cursor: pointer; display: none; z-index: 10;" onclick="dismissActiveLoansBadge(event)">Due</button>
+          <button type="button" class="hero-stat-badge" id="activeLoansBadge" aria-label="Dismiss loan due reminder" style="position: absolute; top: -9px; left: 10px; background: var(--bn-danger); color: var(--bn-white); font-size: 8px; padding: 2px 6px; border: none; font-family: inherit; border-radius: 10px; font-weight: 700; cursor: pointer; display: none; z-index: 10;" onclick="dismissActiveLoansBadge(event)">Due</button>
         </div>
         <div class="hero-stat" id="pendingPaymentsStat" tabindex="0" aria-describedby="pendingPaymentsPopover" style="position: relative;">
           <div class="hero-stat-value" id="pendingPayments">0</div>
-          <div class="hero-stat-label" id="pendingPaymentsLabel">Pending</div>
+          <div class="hero-stat-label" id="pendingPaymentsLabel">Awaiting Approval</div>
           <div class="hero-stat-popover" id="pendingPaymentsPopover" role="status"></div>
-        </div>
-        <div class="hero-stat" id="totalArrearsStat" tabindex="0" aria-describedby="totalArrearsPopover" style="position: relative;">
-          <div class="hero-stat-value" id="totalArrears">MWK 0</div>
-          <div class="hero-stat-label">Arrears</div>
-          <div class="hero-stat-popover" id="totalArrearsPopover" role="status"></div>
         </div>
         <a href="contacts.html" class="hero-stat" id="membersStat" aria-describedby="membersPopover" style="text-decoration: none; cursor: pointer; position: relative;">
           <div class="hero-stat-value" id="totalMembers" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
@@ -2483,6 +2467,23 @@
         <div class="empty-state">
           <div class="empty-state-icon">📋</div>
           <p class="empty-state-text">Loading what you owe...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Group Lending — visible to every member, by design. A savings club runs
+         on mutual accountability: the money lent is the members' own and every
+         member carries the risk of a default, so who owes what is group business.
+         Fed by loans.transparency (member-gated, scoped to this group). -->
+    <div class="content-card" style="margin-bottom: var(--bn-space-6);" id="groupLendingCard" hidden>
+      <div class="content-card-header">
+        <h2 class="content-card-title">Group Lending</h2>
+        <span class="badge badge-info" id="groupLendingMonth"></span>
+      </div>
+      <div class="content-card-body" id="groupLendingBody">
+        <div class="empty-state">
+          <div class="empty-state-icon">🤝</div>
+          <p class="empty-state-text">Loading the group's lending position...</p>
         </div>
       </div>
     </div>

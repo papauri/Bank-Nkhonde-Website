@@ -522,6 +522,32 @@ export function attachCardInfo(card, opts) {
     card.style.overflow = "visible";
   }
 
+  /* RESERVE THE OVERHANG IN THE CONTAINER — the other half of not clipping it.
+     Unclipping the host lets the button paint outside the card, but on the
+     card nearest a container's right edge that overhang lands outside the
+     CONTAINER too, and so outside the page: measured on admin_dashboard at
+     400px, the toggle's right edge sat at 408 and the document scrolled
+     sideways to 415. Hiding the toggles alone took the page back to exactly
+     400, which is what identified this as the cause rather than the wide
+     charts everyone suspected.
+     `.page-stats` already reserves 16px statically for exactly this reason.
+     Doing it here instead covers EVERY container on every page, including ones
+     added later, which is the same argument as the two fixes above.
+     Only grown, never shrunk, and marked so a container with several cards is
+     only measured once. */
+  const parent = card.parentElement;
+  if (parent && !parent.dataset.bnInfoGutter) {
+    parent.dataset.bnInfoGutter = "1";
+    const OVERHANG = 14; // 13px inset + the button's 1px border
+    const ps = getComputedStyle(parent);
+    if ((parseFloat(ps.paddingRight) || 0) < OVERHANG) {
+      parent.style.paddingRight = `${OVERHANG}px`;
+    }
+    if ((parseFloat(ps.paddingTop) || 0) < OVERHANG) {
+      parent.style.paddingTop = `${OVERHANG}px`;
+    }
+  }
+
   card.appendChild(toggle);
   return toggle;
 }

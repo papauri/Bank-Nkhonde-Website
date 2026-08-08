@@ -206,50 +206,130 @@
       padding: var(--bn-space-5);
     }
 
-    /* Chart styles */
+    /* ── CONTRIBUTION TREND ────────────────────────────────────────────────
+       Each month shows what was PAID against what was OWED, with the amount
+       printed above the bar.
+
+       Two things drove the rebuild. A `title` tooltip was the only way to read a
+       value — and a tooltip does not exist on a touch screen, which is where
+       this page is mostly used. And the bar was a single accent gradient, so
+       "paid in full" and "paid a little" looked identical apart from height.
+
+       Colour here is a STATUS encoding (settled / part / nothing), never a
+       category. --bn-success-dark against --bn-warning was chosen over the
+       lighter --bn-success because it separates at ΔE 11.0 under protanopia
+       rather than 7.9 — verified with the palette validator against this
+       page's surface. The printed value is the secondary encoding: status is
+       never carried by colour alone. */
     .chart-container {
-      height: 220px;
       display: flex;
       align-items: flex-end;
-      gap: var(--bn-space-3);
-      padding: var(--bn-space-2) 0;
+      /* A 2px surface gap between adjacent bars, per mark spec — the rest of
+         the spacing comes from the flex track itself. */
+      gap: var(--bn-space-2);
+      padding: var(--bn-space-2) 0 0;
     }
+
     .chart-bar-wrapper {
       flex: 1;
+      min-width: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: var(--bn-space-2);
+      gap: 6px;
     }
-    .chart-bar {
+
+    /* The amount, in ink — never the series colour. */
+    .chart-value {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--bn-dark);
+      font-feature-settings: 'tnum' 1;
+      white-space: nowrap;
+    }
+
+    .chart-track {
+      position: relative;
       width: 100%;
       max-width: 44px;
-      background: var(--bn-gray-100);
-      border-radius: var(--bn-radius-md) var(--bn-radius-md) 0 0;
-      position: relative;
-      overflow: hidden;
-      min-height: 8px;
+      height: 150px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
     }
-    .chart-bar::after {
-      content: '';
+
+    /* What was OWED that month — recessive, sits behind the paid bar so the
+       shortfall reads as the empty space above it. */
+    .chart-target {
       position: absolute;
       bottom: 0;
       left: 0;
       right: 0;
-      background: var(--bn-gradient-accent);
-      height: 0;
-      transition: height 0.8s var(--bn-ease-out);
-      border-radius: var(--bn-radius-md) var(--bn-radius-md) 0 0;
+      background: var(--bn-gray-100);
+      border-radius: 4px 4px 0 0;
     }
-    .chart-bar.animated::after { height: var(--bar-height, 0); }
+
+    /* What was PAID. Anchored to the baseline with a 4px rounded data-end. */
+    .chart-bar {
+      position: relative;
+      width: 100%;
+      height: 0;
+      border-radius: 4px 4px 0 0;
+      transition: height 0.8s var(--bn-ease-out);
+      background: var(--bn-gray-400);
+    }
+
+    .chart-bar.animated { height: var(--bar-height, 0); }
+    .chart-bar.is-full { background: var(--bn-success-dark); }
+    .chart-bar.is-part { background: var(--bn-warning); }
+    .chart-bar.is-none { background: transparent; }
+
     .chart-label {
       font-size: var(--bn-text-xs);
       color: var(--bn-gray);
-      font-weight: 500;
+      font-weight: 600;
     }
+
+    .chart-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--bn-space-2) var(--bn-space-4);
+      padding: 0 var(--bn-space-5) var(--bn-space-5);
+    }
+
+    .chart-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      /* Ink, not the series colour — the swatch carries identity. */
+      font-size: var(--bn-text-xs);
+      color: var(--bn-gray-600);
+    }
+
+    .chart-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .chart-swatch.is-full { background: var(--bn-success-dark); }
+    .chart-swatch.is-part { background: var(--bn-warning); }
+    .chart-swatch.is-none { background: var(--bn-gray-100); border: 1px dashed var(--bn-gray-400); }
+    .chart-swatch.is-target { background: var(--bn-gray-100); }
 
     /* Responsive */
     @media (max-width: 768px) {
+      /* THE STATEMENT'S "TYPE" CELL IS REDUNDANT ON A PHONE.
+         Each ledger row collapses to one card with a line per column, so five
+         columns is five lines — measured at ~200px per row over 14 rows. Type
+         ("monthly_contribution") says nothing Description ("Monthly contribution
+         (October 2025)") does not already say more clearly, so it is the one
+         line that can go without losing information. Desktop keeps the column. */
+      .table-responsive td[data-label="Type"] {
+        display: none;
+      }
+
       .hero-stats {
         grid-template-columns: repeat(3, 1fr);
         gap: var(--bn-space-2);
@@ -291,27 +371,27 @@
           <button class="hero-stat" id="heroContributed">
             <div class="hero-stat-value" id="totalContributed">MWK 0</div>
             <div class="hero-stat-label">Contributed</div>
-            <div class="hero-stat-details" id="contributedDetail">Select a group</div>
+            <div class="hero-stat-details" id="contributedDetail">Money you have paid in</div>
           </button>
           <button class="hero-stat" id="heroBorrowed">
             <div class="hero-stat-value" id="totalBorrowed">MWK 0</div>
             <div class="hero-stat-label">Borrowed</div>
-            <div class="hero-stat-details" id="borrowedDetail">Select a group</div>
+            <div class="hero-stat-details" id="borrowedDetail">Total ever lent to you</div>
           </button>
           <div class="hero-stat" id="heroOutstanding">
             <div class="hero-stat-value" id="outstanding">MWK 0</div>
-            <div class="hero-stat-label">Outstanding</div>
-            <div class="hero-stat-details" id="outstandingDetail">Select a group</div>
+            <div class="hero-stat-label">Loan Balance</div>
+            <div class="hero-stat-details" id="outstandingDetail">Still to repay on your loans</div>
           </div>
           <div class="hero-stat" id="heroArrears">
             <div class="hero-stat-value" id="totalArrears">MWK 0</div>
-            <div class="hero-stat-label">Arrears</div>
-            <div class="hero-stat-details" id="arrearsDetail">Select a group</div>
+            <div class="hero-stat-label">Contributions Owed</div>
+            <div class="hero-stat-details" id="arrearsDetail">Late or unpaid contributions</div>
           </div>
           <div class="hero-stat" id="heroActiveLoans">
             <div class="hero-stat-value" id="activeLoans">0</div>
             <div class="hero-stat-label">Active Loans</div>
-            <div class="hero-stat-details" id="activeLoansDetail">Select a group</div>
+            <div class="hero-stat-details" id="activeLoansDetail">Loans not yet fully repaid</div>
           </div>
           <div class="hero-stat" id="heroGroups">
             <div class="hero-stat-value" id="groupsCount">0</div>
@@ -341,6 +421,15 @@
           <div class="empty-state-icon">📊</div>
           <p class="empty-state-text">Select a group to view contribution trends</p>
         </div>
+      </div>
+      <!-- Legend. Status is encoded by colour AND by the amount printed on each
+           bar; this names the three states so colour is never the only cue.
+           Each swatch carries a text label beside it, per the status rule. -->
+      <div class="chart-legend" id="chartLegend" hidden>
+        <span class="chart-legend-item"><i class="chart-swatch is-full"></i>Paid in full</span>
+        <span class="chart-legend-item"><i class="chart-swatch is-part"></i>Part paid</span>
+        <span class="chart-legend-item"><i class="chart-swatch is-none"></i>Nothing paid</span>
+        <span class="chart-legend-item"><i class="chart-swatch is-target"></i>Amount owed</span>
       </div>
     </section>
 

@@ -77,6 +77,8 @@ const ROUTES = [
     'loans.reject'  => ['POST', 'reject_loan'],
     'loans.force'   => ['POST', 'force_loan'],
     'loans.eligibility' => ['GET', 'loan_eligibility_endpoint'],
+    // Group-wide lending transparency, readable by any member of the group.
+    'loans.transparency' => ['GET', 'group_loan_transparency'],
 
     'repayments.balance' => ['GET', 'loan_balance'],
     'repayments.record'  => ['POST', 'record_repayment'],
@@ -97,6 +99,7 @@ const ROUTES = [
     'payments.accountingSummary' => ['GET', 'group_accounting_summary'],
     'payments.groupStats'  => ['GET', 'member_group_stats'],
     'payments.compliance'  => ['GET', 'group_compliance_summary'],
+    'payments.collections' => ['GET', 'group_collections_breakdown'],
 
     'statement.get' => ['GET', 'get_statement'],
 

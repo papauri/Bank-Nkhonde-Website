@@ -87,9 +87,17 @@ function setupQuickActionsRelocation() {
   const place = () => {
     const block = document.querySelector(".hero-quick-actions");
     if (!block) return;
-    const target = mq.matches
-      ? document.getElementById("sidebarQuickActions")
-      : document.querySelector(".hero-container");
+    /* The DRAWER now builds its own canonical quick actions (nav_sql.js
+       USER_QUICK_ACTIONS) so every member page has them, not just this one.
+       Donating the hero block into the same slot as well would show two sets
+       stacked. On mobile the hero block is therefore HIDDEN rather than moved;
+       on desktop it returns to the hero where it has always lived. */
+    if (mq.matches) {
+      block.hidden = true;
+      return;
+    }
+    block.hidden = false;
+    const target = document.querySelector(".hero-container");
     if (target && block.parentElement !== target) target.appendChild(block);
   };
 
@@ -436,25 +444,40 @@ async function loadDashboard(groupId) {
   // Reset per-load so switching groups can surface a fresh warning too.
   fetchFailureWarned = false;
 
-  const [obligations, payments, loans, members] = await Promise.all([
+  const [obligations, payments, loans, members, transparency] = await Promise.all([
     safeGet("payments.obligations", { groupId }),
     safeGet("payments.list", { groupId }),
     safeGet("loans.list", { groupId }),
     safeGet("members.list", { groupId }),
+    // Group-wide lending position — every member sees the same figures.
+    safeGet("loans.transparency", { groupId }),
   ]);
 
   const obligationRows = obligations || emptyObligations();
-  const paymentRows = payments && Array.isArray(payments.payments)
+  /* THIS IS THE "MY" DASHBOARD — every row below is the signed-in member's.
+     payments.list and loans.list scope themselves to the caller for a plain
+     MEMBER, but return the WHOLE GROUP for an admin. An admin opening their own
+     dashboard therefore saw the group's four loans reported as their own
+     ("Loans 4" on a card whose owner has exactly one), and every member's
+     obligations mixed into their payment list.
+     Filtering here is presentation only — the server-side scoping is what
+     actually stops a member seeing anyone else's data. */
+  const myUid = currentUser && currentUser.uid;
+  const mine = (rows) => (myUid ? rows.filter((r) => String(r.uid) === String(myUid)) : rows);
+
+  const paymentRows = mine(payments && Array.isArray(payments.payments)
     ? payments.payments
-    : [];
+    : []);
   const paymentsSummary = (payments && payments.summary) || {};
-  const loanRows = loans && Array.isArray(loans.loans) ? loans.loans : [];
+  const loanRows = (loans && Array.isArray(loans.loans) ? loans.loans : [])
+    .filter((l) => !myUid || String(l.borrowerId) === String(myUid));
   const loansSummary = (loans && loans.summary) || {};
   const obligationsSummary = (obligations && obligations.summary) || {};
   const memberRows = members && Array.isArray(members.members)
     ? members.members
     : [];
 
+  renderGroupLending(transparency);
   renderFinancialOverview(obligationRows, paymentRows, loanRows, paymentsSummary);
   renderGroupMembers(memberRows);
   renderNextMonthlyPayment(obligationRows);
@@ -750,7 +773,12 @@ function applyDashboardMonthFilter() {
 
   const scopeLabel = scope === "all" ? String(currentYear) : scope.slice(0, 3);
   setText("totalContributedLabel", `Contributed (${scopeLabel})`);
-  setText("pendingPaymentsLabel", `Pending (${scopeLabel})`);
+  /* "Pending" READ AS "what I still owe". It does not mean that: it is money
+     the member has SUBMITTED that an admin has not yet approved. QA Admin paid
+     100 of a 10,000 contribution — the 100 was approved, so Pending was 0 while
+     9,900 was still owed, and the card looked broken. The 9,900 is ARREARS and
+     is shown on its own card. Naming the state plainly is the fix. */
+  setText("pendingPaymentsLabel", `Awaiting Approval (${scopeLabel})`);
 }
 
 /**
@@ -1152,6 +1180,170 @@ function renderMyStanding(ob, loans, loansSummary, obligationsSummary) {
  * 'inactive'/removed member has left and no longer occupies a slot). Updates
  * only the count span, preserving the "Members" badge beside it.
  */
+/**
+ * GROUP LENDING — the whole group's borrowing position, shown to every member.
+ *
+ * Deliberately not private: the money being lent is the members' own, every
+ * member carries the risk of a default, and rules like guarantor liability and
+ * forced loans only work if members can see who owes what. The server
+ * (loans.transparency) is what actually decides who may read this; this renders
+ * what it returns.
+ *
+ * Every figure is a server string passed straight to formatCurrency — nothing
+ * is summed, netted or re-derived here.
+ * @param {Object|null} data loans.transparency response
+ */
+function renderGroupLending(data) {
+  const card = document.getElementById("groupLendingCard");
+  const body = document.getElementById("groupLendingBody");
+  if (!card || !body) return;
+
+  const summary = (data && data.summary) || null;
+  const members = (data && Array.isArray(data.members)) ? data.members : [];
+  // Keep this member's own row for the Loans card (see renderActiveLoans).
+  const uid = currentUser && currentUser.uid;
+  myLendingRow = uid ? members.find((m) => String(m.uid) === String(uid)) || null : null;
+  if (!summary) {
+    // Endpoint unavailable — leave the card hidden rather than showing an
+    // empty shell that implies the group has no lending.
+    card.hidden = true;
+    return;
+  }
+  card.hidden = false;
+
+  const monthBadge = document.getElementById("groupLendingMonth");
+  if (monthBadge) monthBadge.textContent = summary.month || "";
+
+  body.replaceChildren();
+
+  // --- The pot, and what has been committed this month. -------------------
+  const tiles = [
+    {
+      label: "Available to lend",
+      value: formatCurrency(summary.availableToLend),
+      note: "Contributions + repayments − money already lent out",
+      accent: "var(--bn-success-dark)",
+    },
+    {
+      label: `Approved in ${summary.month || "this month"}`,
+      value: formatCurrency(summary.approvedThisMonth),
+      note: summary.approvedThisMonthCount === 1
+        ? "1 loan approved"
+        : `${summary.approvedThisMonthCount || 0} loans approved`,
+      accent: "var(--bn-dark)",
+    },
+    {
+      label: "Still owed to the group",
+      value: formatCurrency(summary.totalOutstanding),
+      note: `Across ${summary.memberCount || 0} member${summary.memberCount === 1 ? "" : "s"}`,
+      accent: "var(--bn-danger)",
+    },
+  ];
+
+  const grid = document.createElement("div");
+  grid.className = "card-grid";
+  grid.style.cssText = "display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:var(--bn-space-3); margin-bottom:var(--bn-space-4);";
+  for (const t of tiles) {
+    const tile = document.createElement("div");
+    tile.className = "info-card";
+    const label = document.createElement("div");
+    label.style.cssText = "font-size:var(--bn-text-xs); text-transform:uppercase; letter-spacing:0.04em; color:var(--bn-gray); font-weight:700;";
+    label.textContent = t.label;
+    const value = document.createElement("div");
+    value.style.cssText = `font-size:var(--bn-text-xl); font-weight:800; color:${t.accent}; margin:4px 0; overflow-wrap:anywhere;`;
+    value.textContent = t.value;
+    const note = document.createElement("div");
+    note.style.cssText = "font-size:var(--bn-text-xs); color:var(--bn-gray);";
+    note.textContent = t.note;
+    tile.append(label, value, note);
+    grid.appendChild(tile);
+  }
+  body.appendChild(grid);
+
+  // --- Who has borrowed what. ---------------------------------------------
+  const heading = document.createElement("div");
+  heading.style.cssText = "font-size:var(--bn-text-xs); font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--bn-gray); margin-bottom:var(--bn-space-2);";
+  heading.textContent = "Members' loans";
+  body.appendChild(heading);
+
+  if (members.length === 0) {
+    const empty = document.createElement("p");
+    empty.style.cssText = "color:var(--bn-gray); font-size:var(--bn-text-sm);";
+    empty.textContent = "No members to show.";
+    body.appendChild(empty);
+    return;
+  }
+
+  const wrap = document.createElement("div");
+  wrap.className = "table-container";
+  const table = document.createElement("table");
+  table.className = "table table-responsive";
+
+  const thead = document.createElement("thead");
+  const hr = document.createElement("tr");
+  for (const h of ["Member", "Borrowed", "Still owed", "Status"]) {
+    const th = document.createElement("th");
+    if (h === "Borrowed" || h === "Still owed") th.className = "cell-right";
+    th.textContent = h;
+    hr.appendChild(th);
+  }
+  thead.appendChild(hr);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  const myUid = currentUser && currentUser.uid;
+  for (const m of members) {
+    const tr = document.createElement("tr");
+
+    const nameTd = document.createElement("td");
+    nameTd.dataset.label = "Member";
+    nameTd.textContent = m.fullName || "Unknown";
+    // Mark the reader's own row so they can find themselves at a glance.
+    if (myUid && String(m.uid) === String(myUid)) {
+      const you = document.createElement("span");
+      you.className = "badge badge-info";
+      you.style.cssText = "margin-left:6px; font-size:0.65rem;";
+      you.textContent = "you";
+      nameTd.appendChild(you);
+    }
+    tr.appendChild(nameTd);
+
+    const borrowedTd = document.createElement("td");
+    borrowedTd.className = "cell-right";
+    borrowedTd.dataset.label = "Borrowed";
+    borrowedTd.textContent = formatCurrency(m.totalBorrowed);
+    tr.appendChild(borrowedTd);
+
+    const owedTd = document.createElement("td");
+    owedTd.className = "cell-right";
+    owedTd.dataset.label = "Still owed";
+    owedTd.textContent = formatCurrency(m.outstanding);
+    tr.appendChild(owedTd);
+
+    const statusTd = document.createElement("td");
+    statusTd.dataset.label = "Status";
+    const badge = document.createElement("span");
+    // Driven by the outstanding balance, not by a stored flag.
+    if (toMinor(m.outstanding) > 0) {
+      badge.className = "badge badge-warning";
+      badge.textContent = m.activeLoans === 1 ? "1 active loan" : `${m.activeLoans} active loans`;
+    } else if (toMinor(m.totalBorrowed) > 0) {
+      badge.className = "badge badge-success";
+      badge.textContent = "Repaid in full";
+    } else {
+      badge.className = "badge";
+      badge.textContent = "No loans yet";
+    }
+    statusTd.appendChild(badge);
+    tr.appendChild(statusTd);
+
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  body.appendChild(wrap);
+}
+
 function renderGroupMembers(members) {
   const el = document.getElementById("totalMembers");
   if (!el) return;
@@ -1172,12 +1364,18 @@ function renderGroupMembers(members) {
  */
 let nextPaymentAction = { kind: "none" };
 
+/* The signed-in member's own row from loans.transparency — server-computed
+   per-member lending totals, used so the Loans card's figures describe the
+   same person as its count. Null until the call returns. */
+let myLendingRow = null;
+
 /**
  * "Next monthly payment" card — earliest unpaid monthly obligation with a date.
  * @param {Object} ob
  */
 function renderNextMonthlyPayment(ob) {
   const detailsEl = document.getElementById("nextPaymentDetails");
+  const valueEl = document.getElementById("nextPaymentValue");
   const badgeEl = document.getElementById("nextPaymentBadge");
   const statEl = document.getElementById("nextPaymentStat");
   const popoverEl = document.getElementById("nextPaymentPopover");
@@ -1208,7 +1406,10 @@ function renderNextMonthlyPayment(ob) {
 
   // First row of details: either the next payment or a status note
   if (nextFuture) {
-    detailsEl.textContent = `${formatCurrency(nextFuture.amountStr)} on ${formatDate(nextFuture.due)}`;
+    /* The AMOUNT is the card's figure; the DATE is its detail. Both come from
+       the same branch, so the card cannot show one amount and pay another. */
+    if (valueEl) valueEl.textContent = formatCurrency(nextFuture.amountStr);
+    detailsEl.textContent = `Due ${formatDate(nextFuture.due)}`;
     /* Same branch that produced the text produces the action, so the card
        cannot say one amount and pay another. The amount is the server's own
        owed string for that month — nothing is recomputed here. */
@@ -1221,13 +1422,17 @@ function renderNextMonthlyPayment(ob) {
       },
     };
   } else if (hasOverdue) {
+    // No future obligation, but money IS late — say so in the figure slot
+    // rather than leaving a dash above an urgent message.
+    if (valueEl) valueEl.textContent = "Overdue";
     detailsEl.textContent = "Everything is overdue — pay now";
     // Nothing is due in future, but money IS late. The arrears modal is the
     // honest destination: it lists every late item with its own Pay button,
     // rather than guessing which one the member meant.
     nextPaymentAction = { kind: "overdue" };
   } else {
-    detailsEl.textContent = "All caught up — nothing due";
+    if (valueEl) valueEl.textContent = "All clear";
+    detailsEl.textContent = "Nothing due right now";
     nextPaymentAction = { kind: "none" };
   }
   detailsEl.style.display = "block";
@@ -1626,11 +1831,18 @@ function renderActiveLoans(loans, summary = {}) {
     return;
   }
 
-  // A2: both figures are SERVER totals over the same ['approved','disbursed']
-  // set this function filters on — activePrincipal is the principal actually
-  // handed over, activeBalance what is still owed on it. The client adds nothing.
-  const receivedStr = summary.activePrincipal;
-  const balanceStr = summary.activeBalance;
+  /* THESE FIGURES MUST DESCRIBE THE SAME PERSON AS THE COUNT ABOVE.
+     summary.activePrincipal/activeBalance come from loans.list, which is
+     GROUP-WIDE for an admin — so once the count was correctly scoped to the
+     signed-in member it read "1 loan · Received MWK 140,000.00", mixing one
+     member's count with the group's money. Both are wrong together or right
+     together; they are not allowed to disagree.
+     myLendingRow is this member's own row from loans.transparency, computed
+     SERVER-SIDE per member — so the figures stay authoritative without the
+     browser adding anything up. Falls back to the list summary only when the
+     transparency call failed, which for a plain member is already their own. */
+  const receivedStr = myLendingRow ? myLendingRow.totalBorrowed : summary.activePrincipal;
+  const balanceStr = myLendingRow ? myLendingRow.outstanding : summary.activeBalance;
 
   detailsEl.replaceChildren();
   if (receivedStr !== undefined && toMinor(receivedStr) > 0) {
@@ -1639,6 +1851,23 @@ function renderActiveLoans(loans, summary = {}) {
   if (balanceStr !== undefined && toMinor(balanceStr) > 0) {
     detailsEl.appendChild(makeLine(`Balance: ${formatCurrency(balanceStr)}`));
   }
+  /* A route to loans already REPAID. The card counts ACTIVE loans only (which
+     is what a member asks it), so without this their settled history had no
+     entry point from the dashboard at all. Deep-links to the member's own
+     loans page with its "repaid" filter pre-selected, where each loan already
+     opens a full payments-and-schedule breakdown — rather than cloning that
+     whole view into a second modal here. */
+  const settledCount = loans.length - active.length;
+  if (settledCount > 0) {
+    const link = document.createElement("a");
+    link.href = "loan_payments.html?status=repaid";
+    link.textContent = "View " + settledCount + " settled loan" + (settledCount === 1 ? "" : "s");
+    link.style.cssText = "display:inline-block; margin-top:4px; font-size:var(--bn-text-xs); color:var(--bn-primary); text-decoration:underline;";
+    // The card itself opens the repayment modal; this link must not trigger it.
+    link.addEventListener("click", (e) => e.stopPropagation());
+    detailsEl.appendChild(link);
+  }
+
   detailsEl.style.display = "block";
 
   if (badgeEl) {
@@ -1676,6 +1905,16 @@ async function renderBorrowingPower(groupId) {
 
   const eligible = data.eligible === true;
   const reasons = Array.isArray(data.reasons) ? data.reasons : [];
+
+  /* THE QUICK ACTION FOLLOWS THE SAME ANSWER.
+     The server already refuses an over-limit request (409 from
+     loan_eligibility_check, the same check that feeds this card), and the modal
+     disables its submit — but "Request Loan" still looked available, so a member
+     at their limit could open the form, fill it in, and only then be told no.
+     Reflecting the answer on the button closes that loop. Presentation only:
+     the server remains the gate, and this never ENABLES anything the server
+     would refuse. */
+  applyLoanRequestAffordance(eligible, reasons);
   // A group with no configured ceiling has NO limit — not a limit of zero.
   const hasCap = data.maxLoanAmount !== null && data.maxLoanAmount !== undefined;
 
@@ -2427,17 +2666,8 @@ function showAllPaymentsModal() {
      and the date it was PAID, newest activity first.
      Rows with nothing paid and nothing owed are still skipped: an obligation
      that never existed is noise, not history. */
-  /* THIS IS THE "MY" DASHBOARD, so it shows the SIGNED-IN PERSON's rows only.
-     `payments.list` scopes to the caller for a plain member, but returns the
-     whole group for an admin — so an admin opening their own dashboard saw
-     every member's obligations listed together, four identical "Monthly
-     Contribution — August" rows and no way to tell whose was whose.
-     Filtering by uid here makes the screen mean the same thing for everybody.
-     This is presentation, not protection: the server-side scoping above is what
-     actually stops a member seeing anyone else's payments. */
-  const myUid = currentUser && currentUser.uid;
+  // data.payments is already scoped to the signed-in member by loadDashboard().
   const settled = data.payments
-    .filter((row) => !myUid || String(row.uid) === String(myUid))
     .filter((row) => toMinor(row.amountPaid) > 0 || toMinor(row.arrears) > 0)
     .map((row) => {
       const status = String(row.approvalStatus);
@@ -2704,7 +2934,17 @@ function wireStaticHandlers() {
      in this file.) */
   document
     .getElementById("requestLoanBtn")
-    ?.addEventListener("click", () => openLoanModal());
+    ?.addEventListener("click", (e) => {
+      /* Say WHY instead of opening a form that cannot be submitted. The button
+         stays focusable and announceable (see applyLoanRequestAffordance) —
+         a member is owed the actual reason, not a dead control. */
+      const btn = e.currentTarget;
+      if (btn.getAttribute("aria-disabled") === "true") {
+        showToast(btn.title || "You cannot request a loan right now.", "warning");
+        return;
+      }
+      openLoanModal();
+    });
 
   /* Deep link: ?open=loan-request opens the request modal straight away.
      This is the entry point for the "Request a Loan" button on
@@ -2715,7 +2955,11 @@ function wireStaticHandlers() {
      bookmark does not reopen it. */
   try {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("open") === "loan-request") {
+    /* Deep-link targets for the drawer quick actions, which live on every
+       member page but whose modals live only here. Unknown values are ignored
+       rather than guessed at. */
+    const openTarget = params.get("open");
+    if (openTarget === "loan-request" || openTarget === "upload-payment") {
       params.delete("open");
       const qs = params.toString();
       window.history.replaceState(
@@ -2723,7 +2967,8 @@ function wireStaticHandlers() {
         "",
         window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash,
       );
-      openLoanModal();
+      if (openTarget === "loan-request") openLoanModal();
+      else openPaymentModal();
     }
   } catch (err) {
     // A malformed query string must never stop the dashboard wiring up.
@@ -3798,6 +4043,30 @@ async function loadLoanStanding() {
     note.textContent = "Couldn't load standing.";
     panel.appendChild(note);
   }
+}
+
+/**
+ * Reflect loan eligibility on the "Request Loan" quick action.
+ *
+ * UX ONLY. request_loan() re-checks eligibility server-side on every submit;
+ * this never grants access, it only stops offering a form that cannot succeed.
+ * @param {boolean} eligible
+ * @param {Array<string>} reasons
+ */
+function applyLoanRequestAffordance(eligible, reasons) {
+  const btn = document.getElementById("requestLoanBtn");
+  if (!btn) return;
+
+  const why = Array.isArray(reasons) && reasons.length
+    ? reasons.join(" ")
+    : "You cannot request a loan right now.";
+
+  btn.classList.toggle("is-unavailable", !eligible);
+  btn.setAttribute("aria-disabled", eligible ? "false" : "true");
+  // title, not the disabled attribute: a disabled button is not focusable and
+  // announces nothing, so a member using a keyboard or screen reader would get
+  // no explanation at all. The click handler explains instead.
+  btn.title = eligible ? "" : why;
 }
 
 /** Enable/disable the loan-request submit button. */

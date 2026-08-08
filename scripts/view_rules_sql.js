@@ -133,7 +133,73 @@ async function loadGroupRules() {
   }
 }
 
+
+/** "5" -> "5th". Small enough to inline, used by every date card below. */
+function ordinalDay(n) {
+  const d = Number(n);
+  if (!Number.isFinite(d) || d < 1) return null;
+  const rem100 = d % 100;
+  if (rem100 >= 11 && rem100 <= 13) return d + "th";
+  const suffix = d % 10 === 1 ? "st" : d % 10 === 2 ? "nd" : d % 10 === 3 ? "rd" : "th";
+  return d + suffix;
+}
+
+/** A server datetime as "5 Jan 2026", or null when absent/unparseable. */
+function ruleDate(value) {
+  if (!value) return null;
+  const dt = new Date(String(value).replace(" ", "T"));
+  if (Number.isNaN(dt.getTime())) return null;
+  return dt.toLocaleDateString("en-GB", {day: "numeric", month: "short", year: "numeric"});
+}
+
+const MONTH_NAMES = ["January","February","March","April","May","June",
+  "July","August","September","October","November","December"];
+
+/**
+ * IMPORTANT DATES — the deadlines a member is actually held to.
+ *
+ * These already existed in group_rules but appeared nowhere a member could
+ * read them: the page showed amounts and rates only, so "when is my seed money
+ * due" or "by when must I book a loan" had no answer short of asking an admin.
+ * Every value is the group's own configured rule; a slot with nothing set says
+ * "Not set" rather than inventing a default.
+ */
+function displayImportantDates(rules) {
+  const put = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text || "Not set";
+  };
+
+  put("ruleSeedDue", ruleDate(rules.seedMoneyDueDate));
+
+  const contribDay = ordinalDay(rules.monthlyContributionDayOfMonth);
+  put("ruleContributionDay", contribDay ? contribDay + " of each month" : "End of month");
+
+  const repayDay = ordinalDay(rules.loanRepaymentDayOfMonth);
+  // Null here is a real, meaningful state — not a missing value: each loan
+  // then runs to its own approval date rather than a shared group deadline.
+  put("ruleRepaymentDay", repayDay ? repayDay + " of each month" : "Each loan’s own date");
+
+  const bookDay = ordinalDay(rules.loanBookingDay);
+  put("ruleBookingDay", bookDay ? bookDay + " of the month before" : "No deadline");
+
+  const lastMonth = Number(rules.lastLoanMonth);
+  put("ruleLastLoanMonth",
+    Number.isFinite(lastMonth) && lastMonth >= 1 && lastMonth <= 12
+      ? MONTH_NAMES[lastMonth - 1]
+      : "No limit");
+
+  const start = ruleDate(rules.cycleDurationStartDate);
+  const end = ruleDate(rules.cycleDurationEndDate);
+  const months = Number(rules.cycleDurationMonths);
+  let window = null;
+  if (start && end) window = start + " → " + end;
+  else if (start && Number.isFinite(months)) window = "From " + start + " (" + months + " months)";
+  else if (start) window = "From " + start;
+  put("ruleCycleWindow", window);
+}
 function displayFinancialRules(rules) {
+  displayImportantDates(rules);
   if (ruleMonthlyContribution) {
     ruleMonthlyContribution.textContent = formatCurrency(rules.monthlyContributionAmount);
   }

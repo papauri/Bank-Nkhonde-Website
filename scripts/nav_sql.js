@@ -90,6 +90,25 @@ const ADMIN_NAV_ITEMS = [
 ];
 
 /** Nav items for the user-sidebar variant (dormant until pages opt in). */
+
+/* QUICK ACTIONS for the member side, defined ONCE here so every user page
+   carries the identical set. They used to exist only on user_dashboard, which
+   donated its own hero buttons into the drawer — so the actions simply did not
+   exist anywhere else, and a member on Contacts or Rules had no way back to
+   "Upload Payment" without navigating home first.
+   Every entry is a NAVIGATION, never a modal trigger: the modals live on the
+   dashboard, so an action that needs one deep-links to it (?open=...) and the
+   dashboard opens it on arrival. A button that silently does nothing off its
+   home page is worse than no button. */
+const USER_QUICK_ACTIONS = [
+  {label: "Request Loan", href: "user_dashboard.html?open=loan-request"},
+  {label: "Upload Payment", href: "user_dashboard.html?open=upload-payment"},
+  {label: "My Loans", href: "loan_payments.html"},
+  {label: "Analytics", href: "user_analytics.html"},
+  {label: "Members", href: "contacts.html"},
+  {label: "Rules", href: "view_rules.html"},
+];
+
 const USER_SIDEBAR_NAV_ITEMS = [
   {nav: "user_dashboard", label: "Dashboard", href: "user_dashboard.html", icon: ICONS.dashboard},
   {nav: "user_analytics", label: "Analytics", href: "user_analytics.html", icon: ICONS.analytics},
@@ -359,13 +378,33 @@ function renderSidebarNav(user, opts, config) {
     sidebarNav.appendChild(a);
   });
 
-  // Landing slot for page-owned actions on mobile. Stays empty (and CSS-
-  // hidden) unless a page moves its own controls in here — user_dashboard
-  // relocates its hero Quick Actions into it below 1025px, so the drawer
-  // becomes the action surface on a phone instead of the hero.
+  /* Quick actions in the drawer. On the MEMBER side these are now built here
+     from USER_QUICK_ACTIONS, so every user page shows the same six. The slot
+     also remains a landing area a page can append to (the admin side and any
+     page-owned controls still work exactly as before); it collapses to nothing
+     when empty. */
   const sidebarQuickActions = document.createElement("div");
   sidebarQuickActions.className = "sidebar-quick-actions";
   sidebarQuickActions.id = "sidebarQuickActions";
+
+  if (navItems === USER_SIDEBAR_NAV_ITEMS) {
+    const qaLabel = document.createElement("div");
+    qaLabel.className = "sidebar-quick-actions-label";
+    qaLabel.textContent = "Quick Actions";
+    sidebarQuickActions.appendChild(qaLabel);
+
+    const qaGrid = document.createElement("div");
+    qaGrid.className = "sidebar-quick-actions-grid";
+    for (const qa of USER_QUICK_ACTIONS) {
+      const a = document.createElement("a");
+      a.className = "sidebar-quick-action";
+      a.href = qa.href;
+      a.textContent = qa.label;
+      qaGrid.appendChild(a);
+    }
+    sidebarQuickActions.appendChild(qaGrid);
+  }
+
   sidebarNav.appendChild(sidebarQuickActions);
 
   sidebar.appendChild(sidebarNav);

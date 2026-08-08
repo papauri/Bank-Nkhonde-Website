@@ -1782,9 +1782,10 @@ async function renderGroupHealth(groupId) {
   const badge = document.getElementById("groupHealthBadge");
   if (!host) return;
 
-  const [compliance, accounting] = await Promise.all([
+  const [compliance, accounting, collections] = await Promise.all([
     apiGet("payments.compliance", { groupId }).catch(() => null),
     apiGet("payments.accountingSummary", { groupId }).catch(() => null),
+    apiGet("payments.collections", { groupId }).catch(() => null),
   ]);
 
   host.replaceChildren();
@@ -1796,59 +1797,70 @@ async function renderGroupHealth(groupId) {
     return;
   }
 
-  // ── Collection rate this month (server percentage) ────────────────────────
+  // ── This month's headline, on the card's badge ────────────────────────────
+  // The badge keeps the single monthly-contribution rate, because that is the
+  // one number that answers "are this month's contributions in". Everything
+  // below it is now split by stream.
   if (compliance && compliance.percentCollected != null) {
     const pct = Number(compliance.percentCollected);
+    const banked = Number(compliance.collectedThisMonth || 0) > 0;
     if (badge) {
       badge.style.display = "";
       badge.className =
         "badge " + (pct >= 80 ? "badge-success" : pct >= 50 ? "badge-warning" : "badge-danger");
-      badge.textContent = `${pct}% collected this month`;
+      // "0% collected" over a month that HAS banked money is false — MWK 100 of
+      // a 50,000 target really is 0.2%, and flooring it read as "nothing came
+      // in". Say "under 1%" instead, and keep a true 0% for a true zero.
+      badge.textContent = pct === 0 && banked
+        ? "under 1% collected this month"
+        : `${pct}% collected this month`;
     }
+  }
 
-    const label = document.createElement("div");
-    label.style.cssText =
-      "display:flex; justify-content:space-between; font-size:var(--bn-text-sm); margin-bottom:var(--bn-space-2);";
-    const l = document.createElement("span");
-    l.style.color = "var(--bn-gray)";
-    l.textContent = "Collected this month";
-    const v = document.createElement("span");
-    v.style.fontWeight = "700";
-    v.textContent = `${formatCurrency(compliance.collectedThisMonth || "0.00")} of ${formatCurrency(compliance.expectedThisMonth || "0.00")}`;
-    label.append(l, v);
-    host.appendChild(label);
+  // ── Collections by stream ─────────────────────────────────────────────────
+  if (collections && Array.isArray(collections.streams) && collections.streams.length) {
+    host.appendChild(healthSectionTitle("Collected by type", "Cycle to date, each against its own target"));
+    const grid = document.createElement("div");
+    grid.className = "health-stream-grid";
+    collections.streams.forEach((s) => grid.appendChild(streamTile(s)));
+    host.appendChild(grid);
+  }
 
-    const track = document.createElement("div");
-    track.style.cssText =
-      "height:10px; border-radius:999px; background:var(--bn-gray-100); overflow:hidden; margin-bottom:var(--bn-space-4);";
-    const fill = document.createElement("div");
-    // Clamp only for drawing — the printed number above is the server's.
-    const drawn = Math.max(0, Math.min(100, pct));
-    fill.style.cssText =
-      `height:100%; width:${drawn}%; border-radius:999px; background:var(--bn-success);`;
-    track.appendChild(fill);
-    host.appendChild(track);
+  // ── Month by month, per stream, against target ────────────────────────────
+  if (collections && Array.isArray(collections.months) && collections.months.length) {
+    host.appendChild(healthSectionTitle("Month by month", "Bar is collected, outline is the target"));
+    host.appendChild(collectionsChart(collections.months));
+  }
+
+  // ── Who owes what ─────────────────────────────────────────────────────────
+  // The point of the card. Previously this was one aggregate line ("Outstanding
+  // to date: 139,900") plus a link to another page — true, but useless to a
+  // treasurer, who needs the NAME, the ITEMS, the DUE DATES and a way to act.
+  if (compliance && Array.isArray(compliance.behind) && compliance.behind.length) {
+    const toDate = compliance.toDate || {};
+    host.appendChild(healthSectionTitle(
+      "Who owes what",
+      `${compliance.behind.length} ${compliance.behind.length === 1 ? "member" : "members"} owing ${formatCurrency(toDate.outstanding || "0.00")} in total`
+    ));
+    const list = document.createElement("div");
+    list.className = "health-debtors";
+    compliance.behind.forEach((m) => list.appendChild(debtorRow(m)));
+    host.appendChild(list);
+  } else if (compliance) {
+    host.appendChild(healthSectionTitle("Who owes what", "Everyone is up to date"));
   }
 
   // ── Figure rows ───────────────────────────────────────────────────────────
   const rows = [];
   if (compliance) {
     const behind = compliance.membersBehind;
-    const owing = compliance.membersOwing;
     const total = Array.isArray(groupData.members) ? groupData.members.length : null;
     if (behind != null && total != null) {
-      // "Behind" means LATE (the server's own definition), which is why it is
-      // not the same as "has a balance" — both are shown rather than merged.
       rows.push(["Members in good standing", `${Math.max(0, total - Number(behind))} of ${total}`]);
-      rows.push(["Members behind (late)", String(behind)]);
     }
-    if (owing != null) rows.push(["Members with a balance", String(owing)]);
     const toDate = compliance.toDate || {};
-    if (toDate.outstanding != null) {
-      rows.push(["Outstanding to date", formatCurrency(toDate.outstanding)]);
-    }
     if (toDate.notYetDue != null && Number(toDate.notYetDue) > 0) {
-      rows.push(["…of which not yet due", formatCurrency(toDate.notYetDue)]);
+      rows.push(["Owed but not yet due", formatCurrency(toDate.notYetDue)]);
     }
   }
   if (groupData.loansSummary && groupData.loansSummary.activeBalance != null) {
@@ -1866,15 +1878,17 @@ async function renderGroupHealth(groupId) {
     }
   }
 
+  if (rows.length) {
+    host.appendChild(healthSectionTitle("Position", ""));
+  }
   for (const [label, value] of rows) {
     const row = document.createElement("div");
-    row.style.cssText =
-      "display:flex; justify-content:space-between; gap:var(--bn-space-4); padding:var(--bn-space-2) 0; border-bottom:1px solid var(--bn-gray-100);";
+    row.className = "health-figure-row";
     const l = document.createElement("span");
-    l.style.cssText = "color:var(--bn-gray); font-size:var(--bn-text-sm);";
+    l.className = "health-figure-label";
     l.textContent = label;
     const v = document.createElement("span");
-    v.style.cssText = "font-weight:700; font-feature-settings:'tnum' 1;";
+    v.className = "health-figure-value";
     v.textContent = value;
     row.append(l, v);
     host.appendChild(row);
@@ -1892,9 +1906,309 @@ async function renderGroupHealth(groupId) {
     return a;
   };
   const gid = encodeURIComponent(groupId);
-  links.appendChild(mkLink("Who owes what", `manage_payments.html?groupId=${gid}&tab=arrears`));
+  links.appendChild(mkLink("All payments", `manage_payments.html?groupId=${gid}&tab=arrears`));
   links.appendChild(mkLink("Full accounting", `analytics.html?groupId=${gid}`));
   host.appendChild(links);
+}
+
+/* ── Group Health building blocks ────────────────────────────────────────────
+   Every figure below is rendered from a server-formatted string or a
+   server-computed percentage. Nothing here divides, sums or compares money —
+   the widths are drawn from percentages the API already worked out.
+
+   The three streams are a CATEGORICAL encoding (identity: which obligation),
+   assigned in fixed order and never cycled. Palette validated with the dataviz
+   validator against this surface: #2563EB / #047857 / #A68B1F pass the
+   lightness band, chroma floor, contrast, and CVD separation (worst adjacent
+   pair ΔE 12.6 protan, 19.1 normal). Tritan sits at 7.5 — the band that is
+   legal ONLY with secondary encoding, which is why every stream also carries a
+   text label and a legend, and the order never changes.
+──────────────────────────────────────────────────────────────────────────── */
+
+/** Fixed stream order and colour. Never cycled, never reassigned by rank. */
+const HEALTH_STREAM_COLORS = {
+  seed_money: "#2563EB",
+  monthly_contribution: "#047857",
+  loan_repayments: "#A68B1F",
+  service_fee: "#7C3AED",
+};
+
+/**
+ * A titled divider inside the health card.
+ * @param {string} title
+ * @param {string} note
+ * @return {HTMLElement}
+ */
+function healthSectionTitle(title, note) {
+  const wrap = document.createElement("div");
+  wrap.className = "health-section-title";
+  const h = document.createElement("h3");
+  h.textContent = title;
+  wrap.appendChild(h);
+  if (note) {
+    const p = document.createElement("p");
+    p.textContent = note;
+    wrap.appendChild(p);
+  }
+  return wrap;
+}
+
+/**
+ * One collection stream: collected of target, with its own progress bar.
+ * @param {Object} s a `streams[]` entry from payments.collections
+ * @return {HTMLElement}
+ */
+function streamTile(s) {
+  const pct = Number(s.percentCollected) || 0;
+  const color = HEALTH_STREAM_COLORS[s.key] || "var(--bn-gray)";
+
+  const tile = document.createElement("div");
+  tile.className = "health-stream";
+
+  const head = document.createElement("div");
+  head.className = "health-stream-head";
+  const dot = document.createElement("span");
+  dot.className = "health-stream-dot";
+  dot.style.background = color;
+  const name = document.createElement("span");
+  name.className = "health-stream-name";
+  name.textContent = s.label;
+  const pctEl = document.createElement("span");
+  pctEl.className = "health-stream-pct";
+  // Same rule as the badge: money that came in is never reported as 0%.
+  pctEl.textContent = pct === 0 && s.hasCollected ? "<1%" : `${pct}%`;
+  head.append(dot, name, pctEl);
+
+  const track = document.createElement("div");
+  track.className = "health-stream-track";
+  const fill = document.createElement("div");
+  fill.className = "health-stream-fill";
+  // Draw a hairline for a nonzero-but-tiny collection, so "something came in"
+  // is visible rather than an empty bar contradicting the figure beside it.
+  fill.style.width = `${s.hasCollected ? Math.max(2, Math.min(100, pct)) : 0}%`;
+  fill.style.background = color;
+  track.appendChild(fill);
+
+  const figures = document.createElement("div");
+  figures.className = "health-stream-figures";
+  const got = document.createElement("strong");
+  got.textContent = formatCurrency(s.collected);
+  const of = document.createElement("span");
+  of.textContent = ` of ${formatCurrency(s.target)}`;
+  figures.append(got, of);
+
+  tile.append(head, track, figures);
+
+  if (Number(s.outstanding) > 0) {
+    const short = document.createElement("div");
+    short.className = "health-stream-short";
+    short.textContent = `${formatCurrency(s.outstanding)} still to collect`;
+    tile.appendChild(short);
+  }
+  return tile;
+}
+
+/**
+ * Month-by-month collections, three bars per month, each against its target.
+ *
+ * The target is drawn as an outlined ghost BEHIND the collected bar, so a
+ * shortfall reads as shape rather than needing two numbers compared by eye.
+ * @param {Array<Object>} months `months[]` from payments.collections
+ * @return {HTMLElement}
+ */
+function collectionsChart(months) {
+  const streams = [
+    ["seed", "Seed", "seed_money"],
+    ["monthly", "Monthly", "monthly_contribution"],
+    ["loans", "Loans", "loan_repayments"],
+  ];
+
+  // Tallest value anywhere sets the scale, so the three streams stay comparable
+  // month to month. Reading heights only — no money arithmetic.
+  let max = 0;
+  months.forEach((m) => {
+    streams.forEach(([k]) => {
+      max = Math.max(max, Number(m[k].collected) || 0, Number(m[k].target) || 0);
+    });
+  });
+
+  const wrap = document.createElement("div");
+  wrap.className = "health-chart-wrap";
+
+  const legend = document.createElement("div");
+  legend.className = "health-chart-legend";
+  streams.forEach(([, label, key]) => {
+    const item = document.createElement("span");
+    item.className = "health-legend-item";
+    const dot = document.createElement("span");
+    dot.className = "health-legend-dot";
+    dot.style.background = HEALTH_STREAM_COLORS[key];
+    const txt = document.createElement("span");
+    txt.textContent = label;
+    item.append(dot, txt);
+    legend.appendChild(item);
+  });
+  const ghost = document.createElement("span");
+  ghost.className = "health-legend-item";
+  const ghostBox = document.createElement("span");
+  ghostBox.className = "health-legend-ghost";
+  const ghostTxt = document.createElement("span");
+  ghostTxt.textContent = "Target";
+  ghost.append(ghostBox, ghostTxt);
+  legend.appendChild(ghost);
+  wrap.appendChild(legend);
+
+  const scroll = document.createElement("div");
+  scroll.className = "health-chart-scroll";
+  const plot = document.createElement("div");
+  plot.className = "health-chart";
+
+  months.forEach((m) => {
+    const col = document.createElement("div");
+    col.className = "health-chart-month";
+
+    const bars = document.createElement("div");
+    bars.className = "health-chart-bars";
+    streams.forEach(([k, label, key]) => {
+      const got = Number(m[k].collected) || 0;
+      const target = Number(m[k].target) || 0;
+
+      const slot = document.createElement("div");
+      slot.className = "health-chart-slot";
+      // Full figures on hover AND to assistive tech; the month label plus the
+      // legend carry identity without needing colour vision.
+      slot.title = `${label} — ${m.month}: ${formatCurrency(m[k].collected)} collected of ${formatCurrency(m[k].target)} target`;
+      slot.setAttribute("aria-label", slot.title);
+
+      // No target that month (no loan instalment fell due, seed is not owed
+      // again) means NO ghost. A zero-height box still paints its dashed border
+      // as a 3px smudge on the baseline, which read as a stray mark under every
+      // month rather than as "nothing was due".
+      if (target > 0 && max > 0) {
+        const ghostBar = document.createElement("div");
+        ghostBar.className = "health-chart-ghost";
+        ghostBar.style.height = `${(target / max) * 100}%`;
+        slot.appendChild(ghostBar);
+      }
+
+      const bar = document.createElement("div");
+      bar.className = "health-chart-bar";
+      bar.style.height = max > 0 ? `${Math.max((got / max) * 100, got > 0 ? 3 : 0)}%` : "0%";
+      bar.style.background = HEALTH_STREAM_COLORS[key];
+
+      slot.appendChild(bar);
+      bars.appendChild(slot);
+    });
+
+    const lbl = document.createElement("div");
+    lbl.className = "health-chart-label";
+    lbl.textContent = m.label;
+
+    col.append(bars, lbl);
+    plot.appendChild(col);
+  });
+
+  scroll.appendChild(plot);
+  wrap.appendChild(scroll);
+  return wrap;
+}
+
+/**
+ * One member who owes money: what they owe, itemised, with due dates, how late
+ * each item is, and a button that records a payment against THAT obligation.
+ * @param {Object} m a `behind[]` entry from payments.compliance
+ * @return {HTMLElement}
+ */
+function debtorRow(m) {
+  const row = document.createElement("details");
+  row.className = "health-debtor";
+
+  const summary = document.createElement("summary");
+  summary.className = "health-debtor-summary";
+
+  const who = document.createElement("div");
+  who.className = "health-debtor-who";
+  const name = document.createElement("span");
+  name.className = "health-debtor-name";
+  name.textContent = m.name;
+  who.appendChild(name);
+
+  const items = Array.isArray(m.items) ? m.items : [];
+  const meta = document.createElement("span");
+  meta.className = "health-debtor-meta";
+  const late = items.filter((i) => i.isOverdue);
+  // Lateness stated in words as well as colour — a red pill alone is not a
+  // status encoding anyone can rely on.
+  const oldest = formatServerDate(m.oldestDueDate);
+  meta.textContent = late.length
+    ? `${late.length} overdue${oldest ? ` · oldest due ${oldest}` : ""}`
+    : `${items.length} outstanding${oldest ? ` · due ${oldest}` : ""}`;
+  who.appendChild(meta);
+
+  const amt = document.createElement("div");
+  amt.className = "health-debtor-amt";
+  const total = document.createElement("strong");
+  total.textContent = formatCurrency(m.owed);
+  amt.appendChild(total);
+  if (m.isOverdue) {
+    const pill = document.createElement("span");
+    pill.className = "health-pill health-pill-late";
+    pill.textContent = "Past due";
+    amt.appendChild(pill);
+  }
+
+  summary.append(who, amt);
+  row.appendChild(summary);
+
+  const body = document.createElement("div");
+  body.className = "health-debtor-body";
+
+  items.forEach((it) => {
+    const line = document.createElement("div");
+    line.className = "health-debt-item";
+
+    const what = document.createElement("div");
+    what.className = "health-debt-what";
+    const lbl = document.createElement("span");
+    lbl.textContent = it.label;
+    what.appendChild(lbl);
+    const when = document.createElement("span");
+    when.className = "health-debt-when";
+    const due = formatServerDate(it.dueDate);
+    when.textContent = due
+      ? (it.isOverdue
+        ? `Due ${due} · ${it.daysLate} ${it.daysLate === 1 ? "day" : "days"} late`
+        : `Due ${due}`)
+      : "No due date set";
+    if (it.isOverdue) when.classList.add("is-late");
+    what.appendChild(when);
+
+    const right = document.createElement("div");
+    right.className = "health-debt-right";
+    const money = document.createElement("span");
+    money.className = "health-debt-amt";
+    money.textContent = formatCurrency(it.amount);
+    right.appendChild(money);
+
+    const pay = document.createElement("button");
+    pay.type = "button";
+    pay.className = "btn btn-accent btn-sm health-debt-pay";
+    pay.textContent = "Record";
+    // Deep-links the modal straight to THIS obligation, so the admin does not
+    // re-pick the type and month they just read off the row.
+    pay.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openRecordPaymentModal(m.uid, m.name, { paymentType: it.type, month: it.month });
+    });
+    right.appendChild(pay);
+
+    line.append(what, right);
+    body.appendChild(line);
+  });
+
+  row.appendChild(body);
+  return row;
 }
 
 /* ── J13: record a payment without leaving the dashboard ─────────────────────

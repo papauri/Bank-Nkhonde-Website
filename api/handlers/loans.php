@@ -155,7 +155,12 @@ if (!function_exists('loan_fetch_group_rules')) {
             // default (loanTermBandEnabled = 0) so an unconfigured group's
             // behaviour is byte-identical to before this column existed.
             . 'loanTermBandEnabled, loanTermBandThreshold, '
-            . 'loanTermBandLowerMaxMonths, loanTermBandUpperMaxMonths '
+            . 'loanTermBandLowerMaxMonths, loanTermBandUpperMaxMonths, '
+            // The group's fixed repayment deadline (loan_schedule_due_date()).
+            // Must be selected or it reads as absent, the schedule silently
+            // falls back to approval-anchored dates, and the setting does
+            // nothing — the same failure mode already hit twice on this project.
+            . 'loanRepaymentDayOfMonth, monthlyContributionDayOfMonth '
             . 'FROM group_rules WHERE groupId = :groupId LIMIT 1'
         );
         $stmt->execute([':groupId' => $groupId]);
@@ -498,6 +503,274 @@ if (!function_exists('get_loan')) {
     }
 }
 
+if (!function_exists('group_loan_transparency')) {
+    /**
+     * GET loans.transparency — the group's lending position, visible to EVERY
+     * member of that group.
+     *
+     * WHY THIS IS DELIBERATELY NOT MEMBER-SCOPED, when list_loans() is.
+     * A savings club runs on mutual accountability: the money being lent is the
+     * members' own, every member carries the risk of a default, and several of
+     * this constitution's rules (guarantor liability, forced loans to those who
+     * have borrowed least, "list of people who have not paid their loans" in the
+     * treasurer's monthly report) only work if members can see who owes what.
+     * The owner asked for this explicitly. It REVERSES the narrower posture of
+     * member_group_stats() in payments.php, which was written to exclude exactly
+     * this — that endpoint is left as it is; this one is the wider view, so the
+     * two boundaries stay separately legible rather than one quietly widening.
+     *
+     * WHAT IT DOES NOT EXPOSE, deliberately: no contact details, no proof-of-
+     * payment documents, no collateral or guarantor records, no penalty figures,
+     * no per-instalment schedule. Only what a member needs to judge the group's
+     * lending: who borrowed, how much, and how much is still owed.
+     *
+     * Every figure is summed ROW-WISE in integer minor units — never SQL SUM()
+     * on a DECIMAL, never a float.
+     */
+    function group_loan_transparency(): void
+    {
+        $groupId = (string) ($_GET['groupId'] ?? '');
+        if ($groupId === '') {
+            json_error('groupId is required.', 422);
+        }
+
+        // Any member of THIS group. The gate still runs server-side and the
+        // groupId is still checked against the caller's membership — "public"
+        // here means public to the group, not to the internet.
+        require_role($groupId, ['member', 'admin', 'senior_admin', 'treasurer']);
+
+        $pdo = getDbConnection();
+
+        // --- Per-member lending standing. LEFT JOIN so a member who has never
+        // borrowed still appears: "borrowed nothing" is information the group
+        // needs (it is who the forced-loan rule targets), not a row to hide. ---
+        $stmt = $pdo->prepare(
+            'SELECT m.uid, COALESCE(m.fullName, u.fullName) AS fullName, '
+            . 'l.loanId, l.status, l.approvedAmount, l.principalAmount, '
+            . 'l.remainingBalance, l.approvedAt '
+            . 'FROM members m '
+            . 'LEFT JOIN users u ON u.uid = m.uid '
+            . 'LEFT JOIN loans l ON l.groupId = m.groupId AND l.borrowerId = m.uid '
+            . "  AND l.status IN ('approved', 'disbursed', 'completed') "
+            . "WHERE m.groupId = :groupId AND m.status = 'active' "
+            . 'ORDER BY m.joinedAt ASC'
+        );
+        $stmt->execute([':groupId' => $groupId]);
+
+        $byMember = [];
+        $monthStart = (new DateTimeImmutable('first day of this month'))->setTime(0, 0, 0);
+        $approvedThisMonthMinor = 0;
+        $approvedThisMonthCount = 0;
+
+        foreach ($stmt->fetchAll() as $row) {
+            $uid = (string) $row['uid'];
+            if (!isset($byMember[$uid])) {
+                $byMember[$uid] = [
+                    'uid' => $uid,
+                    'fullName' => $row['fullName'] ?? 'Unknown',
+                    'borrowedMinor' => 0,
+                    'outstandingMinor' => 0,
+                    'activeLoans' => 0,
+                ];
+            }
+            if ($row['loanId'] === null) {
+                continue; // member with no loans — the LEFT JOIN's empty side
+            }
+
+            $principal = $row['approvedAmount'] !== null && $row['approvedAmount'] !== ''
+                ? (string) $row['approvedAmount']
+                : (string) ($row['principalAmount'] ?? '0.00');
+            $principalMinor = money_to_minor(trim($principal));
+            $outstandingMinor = money_to_minor(trim((string) ($row['remainingBalance'] ?? '0.00')));
+
+            $byMember[$uid]['borrowedMinor'] += $principalMinor;
+            $byMember[$uid]['outstandingMinor'] += $outstandingMinor;
+            if ($outstandingMinor > 0) {
+                $byMember[$uid]['activeLoans']++;
+            }
+
+            // Approved THIS CALENDAR MONTH — what the group has committed since
+            // the month turned, which is the figure a member needs to judge
+            // whether there is room for their own request.
+            if (!empty($row['approvedAt'])) {
+                $approvedAt = new DateTimeImmutable((string) $row['approvedAt']);
+                if ($approvedAt >= $monthStart) {
+                    $approvedThisMonthMinor += $principalMinor;
+                    $approvedThisMonthCount++;
+                }
+            }
+        }
+
+        $members = [];
+        $totalBorrowedMinor = 0;
+        $totalOutstandingMinor = 0;
+        foreach ($byMember as $m) {
+            $totalBorrowedMinor += $m['borrowedMinor'];
+            $totalOutstandingMinor += $m['outstandingMinor'];
+            $members[] = [
+                'uid' => $m['uid'],
+                'fullName' => $m['fullName'],
+                'totalBorrowed' => money_from_minor($m['borrowedMinor']),
+                'outstanding' => money_from_minor($m['outstandingMinor']),
+                'activeLoans' => $m['activeLoans'],
+            ];
+        }
+
+        // Ranked by what is still owed — the group's own risk, largest first.
+        usort($members, static function (array $a, array $b): int {
+            return money_to_minor($b['outstanding']) <=> money_to_minor($a['outstanding']);
+        });
+
+        /* --- THE POT: what is actually available to lend right now. ---
+           money in  = settled contributions + loan repayments received
+           money out = principal disbursed
+           The difference is cash the group is holding. Penalties are excluded
+           on purpose: they are a charge, not capital the members subscribed,
+           and treating a fine as lendable money would overstate the pot. */
+        $stmt = $pdo->prepare(
+            'SELECT amountPaid FROM payments WHERE groupId = :groupId '
+            . "AND approvalStatus IN ('approved', 'completed')"
+        );
+        $stmt->execute([':groupId' => $groupId]);
+        $contributedMinor = 0;
+        foreach ($stmt->fetchAll() as $row) {
+            $contributedMinor += money_to_minor(trim((string) $row['amountPaid']));
+        }
+
+        $stmt = $pdo->prepare(
+            'SELECT lp.amount FROM loan_payments lp '
+            . "WHERE lp.groupId = :groupId AND lp.status = 'approved'"
+        );
+        $stmt->execute([':groupId' => $groupId]);
+        $repaidMinor = 0;
+        foreach ($stmt->fetchAll() as $row) {
+            $repaidMinor += money_to_minor(trim((string) $row['amount']));
+        }
+
+        $stmt = $pdo->prepare(
+            'SELECT approvedAmount, principalAmount FROM loans '
+            . "WHERE groupId = :groupId AND status IN ('approved', 'disbursed', 'completed')"
+        );
+        $stmt->execute([':groupId' => $groupId]);
+        $disbursedMinor = 0;
+        foreach ($stmt->fetchAll() as $row) {
+            $amt = $row['approvedAmount'] !== null && $row['approvedAmount'] !== ''
+                ? (string) $row['approvedAmount']
+                : (string) ($row['principalAmount'] ?? '0.00');
+            $disbursedMinor += money_to_minor(trim($amt));
+        }
+
+        // Can go negative only if the books are wrong; report it rather than
+        // clamping to zero, because a negative pot is a real signal.
+        $availableMinor = $contributedMinor + $repaidMinor - $disbursedMinor;
+
+        json_response([
+            'groupId' => $groupId,
+            'members' => $members,
+            'summary' => [
+                'memberCount' => count($members),
+                'totalBorrowed' => money_from_minor($totalBorrowedMinor),
+                'totalOutstanding' => money_from_minor($totalOutstandingMinor),
+                'approvedThisMonth' => money_from_minor($approvedThisMonthMinor),
+                'approvedThisMonthCount' => $approvedThisMonthCount,
+                'contributions' => money_from_minor($contributedMinor),
+                'repaymentsReceived' => money_from_minor($repaidMinor),
+                'disbursed' => money_from_minor($disbursedMinor),
+                'availableToLend' => money_from_minor($availableMinor),
+                'month' => (new DateTimeImmutable('now'))->format('F Y'),
+            ],
+        ]);
+    }
+}
+
+if (!function_exists('loan_repayment_day')) {
+    /**
+     * The day of the month loan instalments fall due for this group.
+     *
+     * FALLS BACK TO THE CONTRIBUTION DAY. A savings group collects on one
+     * payday: the Money Masters constitution puts contributions and loan
+     * repayments both on the 5th, and treating them as two unrelated settings
+     * meant an admin could configure contributions and still leave every loan
+     * running to its own approval date. An explicit loanRepaymentDayOfMonth
+     * still wins for a group that genuinely separates the two.
+     *
+     * @param array|null $rules group_rules row
+     * @return int|null day 1-31, or null for no shared deadline at all
+     */
+    function loan_repayment_day(?array $rules): ?int
+    {
+        $explicit = $rules['loanRepaymentDayOfMonth'] ?? null;
+        if ($explicit !== null && $explicit !== '') {
+            return (int) $explicit;
+        }
+        $contribution = $rules['monthlyContributionDayOfMonth'] ?? null;
+        if ($contribution !== null && $contribution !== '') {
+            return (int) $contribution;
+        }
+        return null;
+    }
+}
+
+if (!function_exists('loan_schedule_due_date')) {
+    /**
+     * When instalment $month falls due.
+     *
+     * TWO MODES, and which one a group is on decides whether its members share a
+     * deadline:
+     *
+     *   $repaymentDay === null  -> ANCHORED TO THE LOAN. Month N is due N months
+     *                              after approval. Every borrower has their own
+     *                              private set of dates. This is the behaviour
+     *                              every existing loan was written under, so it
+     *                              stays the default.
+     *
+     *   $repaymentDay = 5       -> A GROUP-WIDE DEADLINE. Month N is due on the
+     *                              5th of the Nth month after the approval month,
+     *                              so the whole group pays on the same day —
+     *                              which is what a constitution with a payments
+     *                              table (e.g. "loan repayments: 5 Feb, 5 Mar,
+     *                              5 Apr…") actually requires.
+     *
+     * This matters beyond tidiness: the daily late penalty is charged from the
+     * due date, so an instalment dated to the borrower's own approval day starts
+     * its penalty clock on the wrong day relative to the group's rules.
+     *
+     * SHORT MONTHS ARE CLAMPED, never rolled forward: day 31 in a 30-day month
+     * becomes the 30th. PHP's native '+1 month' would turn 31 Jan into 3 Mar,
+     * silently moving a deadline into the following month and giving the
+     * borrower two extra days of grace that the rules never granted.
+     *
+     * @param DateTimeImmutable $anchor      approval moment
+     * @param int               $month       1-based instalment number
+     * @param int|null          $repaymentDay group's fixed day of month, or null
+     */
+    function loan_schedule_due_date(
+        DateTimeImmutable $anchor,
+        int $month,
+        ?int $repaymentDay
+    ): DateTimeImmutable {
+        if ($repaymentDay === null) {
+            // Unchanged legacy behaviour, comment preserved from the original:
+            // PHP's '+N month' overflows a short month the same way JS
+            // setMonth() does, which keeps us bug-compatible with the live
+            // implementation for groups that have not set a deadline.
+            return $anchor->modify('+' . $month . ' month');
+        }
+
+        // Step from the FIRST of the anchor's month so the arithmetic can never
+        // overflow before the day is applied.
+        $target = $anchor->modify('first day of this month')->modify('+' . $month . ' month');
+        $daysInMonth = (int) $target->format('t');
+        $day = max(1, min($repaymentDay, $daysInMonth));
+
+        return $target->setDate(
+            (int) $target->format('Y'),
+            (int) $target->format('n'),
+            $day
+        )->setTime(0, 0, 0);
+    }
+}
+
 if (!function_exists('request_loan')) {
     function request_loan(): void
     {
@@ -644,7 +917,16 @@ if (!function_exists('loan_member_standing')) {
         $stmt = $pdo->prepare(
             'SELECT loanNumber, status, remainingBalance FROM loans '
             . 'WHERE groupId = :groupId AND borrowerId = :uid '
-            . "AND status IN ('" . implode("', '", LOAN_ACTIVE_STATUSES) . "') "
+            // A loan only counts against the allowance while money is still owed
+            // on it. Status alone over-counts: a balance can reach zero without
+            // approve_repayment() running its completion branch (direct
+            // settlement, correcting adjustment), and that settled loan then
+            // blocked the member from requesting a new one.
+            // 'pending' is exempt from the balance test — it has not been priced
+            // yet, so its remainingBalance is legitimately 0 while it still
+            // occupies the allowance.
+            . "AND (status = 'pending' "
+            . "     OR (status IN ('approved', 'disbursed') AND remainingBalance > 0)) "
             . 'ORDER BY requestedAt DESC'
         );
         $stmt->execute([':groupId' => $groupId, ':uid' => $uid]);
@@ -997,10 +1279,11 @@ if (!function_exists('approve_loan')) {
         }
 
         // Due dates run from approval; disbursement has not happened yet.
-        // PHP's '+N month' overflows a short month the same way JS setMonth()
-        // does (31 Jan + 1 month => 3 Mar), which keeps us bug-compatible with
-        // the live implementation.
+        // WHERE they land is decided by loan_schedule_due_date(): a group with
+        // loanRepaymentDayOfMonth set gets one shared deadline for every member,
+        // otherwise each loan keeps its own approval-anchored dates.
         $anchor = new DateTimeImmutable('now');
+        $repaymentDay = loan_repayment_day($rules);
 
         // The loan row and its schedule are one financial record. An approved
         // loan with no schedule is corrupt — both writes land, or neither does.
@@ -1038,7 +1321,7 @@ if (!function_exists('approve_loan')) {
             );
 
             foreach ($computed['schedule'] as $row) {
-                $dueDate = $anchor->modify('+' . (int) $row['month'] . ' month');
+                $dueDate = loan_schedule_due_date($anchor, (int) $row['month'], $repaymentDay);
                 $scheduleStmt->execute([
                     ':loanId' => $loanId,
                     ':month' => (int) $row['month'],
@@ -1235,8 +1518,10 @@ if (!function_exists('force_loan')) {
         $seqStmt->execute([':groupId' => $groupId]);
         $loanNumber = 'LN-' . str_pad((string) ((int) $seqStmt->fetch()['n'] + 1), 4, '0', STR_PAD_LEFT);
 
-        // Due dates run from origination, exactly as approve_loan() anchors them.
+        // Due dates run from origination, exactly as approve_loan() anchors them
+        // — including the group-wide repayment deadline, via the same helper.
         $anchor = new DateTimeImmutable('now');
+        $repaymentDay = loan_repayment_day($rules);
 
         // The loan row and its schedule are ONE financial record. A forced loan
         // with no schedule is a corrupt record: both land, or neither does.
@@ -1294,7 +1579,7 @@ if (!function_exists('force_loan')) {
             );
 
             foreach ($computed['schedule'] as $row) {
-                $dueDate = $anchor->modify('+' . (int) $row['month'] . ' month');
+                $dueDate = loan_schedule_due_date($anchor, (int) $row['month'], $repaymentDay);
                 $scheduleStmt->execute([
                     ':loanId' => $loanId,
                     ':month' => (int) $row['month'],

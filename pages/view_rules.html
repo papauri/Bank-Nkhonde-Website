@@ -163,15 +163,39 @@
       margin-bottom: var(--bn-space-6);
     }
 
+    /* Shown only on mobile, in place of the embed. */
+    .pdf-mobile-note {
+      display: none;
+      padding: var(--bn-space-4);
+      text-align: center;
+      color: var(--bn-gray);
+      font-size: var(--bn-text-sm);
+      background: var(--bn-gray-50);
+      border: 1px dashed var(--bn-gray-lighter);
+      border-radius: var(--bn-radius-md);
+    }
+
     @media (max-width: 768px) {
+      /* .rules-container carries min-height:600px to hold the PDF embed. With
+         the embed hidden below, that reserved 600px of blank card. */
+      .rules-container {
+        min-height: 0;
+      }
+
+      /* A 480px-tall inline PDF is not a reading experience on a phone — mobile
+         browsers hand the embed to a viewer that mostly renders as a black
+         rectangle, which is exactly what it did here. The Download button above
+         it is the real route on mobile, so the embed is hidden rather than left
+         as a broken-looking void, and a short line says where the document is. */
       .pdf-viewer {
-        /* Mobile adds the bottom app nav + extra dashboard-content bottom
-           padding (admin-layout.css), so more chrome to subtract here than
-           on desktop even though the topbar itself is unchanged. */
-        height: calc(100vh - var(--topbar-height) - 200px);
-        min-height: 480px;
+        display: none;
+      }
+
+      .pdf-mobile-note {
+        display: block;
       }
     }
+
 
     @media (max-width: 480px) {
       .rules-header {
@@ -237,6 +261,7 @@
         </a>
       </div>
       <iframe class="pdf-viewer" id="pdfViewer" src=""></iframe>
+      <p class="pdf-mobile-note">Tap <strong>Download PDF</strong> above to open the full rules document.</p>
     </div>
 
     <!-- No Rules State -->
@@ -251,6 +276,40 @@
 
     <!-- Group Info Summary -->
     <div class="rules-container">
+      <div class="rules-header">
+        <h2 class="rules-title">🗓️ Important Dates</h2>
+      </div>
+      <div class="rules-body">
+        <div class="rules-stat-grid">
+          <div class="rules-stat-card">
+            <div class="rules-stat-label">Seed Money Due</div>
+            <div class="rules-stat-value" id="ruleSeedDue">-</div>
+          </div>
+          <div class="rules-stat-card">
+            <div class="rules-stat-label">Contribution Due Day</div>
+            <div class="rules-stat-value" id="ruleContributionDay">-</div>
+          </div>
+          <div class="rules-stat-card">
+            <div class="rules-stat-label">Loan Repayment Day</div>
+            <div class="rules-stat-value" id="ruleRepaymentDay">-</div>
+          </div>
+          <div class="rules-stat-card">
+            <div class="rules-stat-label">Loan Booking By</div>
+            <div class="rules-stat-value" id="ruleBookingDay">-</div>
+          </div>
+          <div class="rules-stat-card">
+            <div class="rules-stat-label">Last Month For Loans</div>
+            <div class="rules-stat-value" id="ruleLastLoanMonth">-</div>
+          </div>
+          <div class="rules-stat-card">
+            <div class="rules-stat-label">Cycle Runs</div>
+            <div class="rules-stat-value" id="ruleCycleWindow">-</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rules-card">
       <div class="rules-header">
         <h2 class="rules-title">📊 Key Financial Rules</h2>
       </div>
